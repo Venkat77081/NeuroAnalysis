@@ -10,6 +10,7 @@ import type {
   PluginListenerHandle,
   PreviewTransform,
   RecordingResult,
+  StoredTake,
   UploadStatus,
 } from './definitions.ts';
 import type { CaptureFixture } from './fixture.ts';
@@ -57,6 +58,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private camera: OpenCameraOpts | null = null;
   private actualFps: 60 | 30 = 60;
   private takes = new Set<string>();
+  private results = new Map<string, RecordingResult>();
   private playing = new Set<string>();
   private frameIdx = 0;
   private seq = 0;
@@ -318,6 +320,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const dropped = Math.round(expected * this.droppedFrac);
     const result: RecordingResult = {
       takeId: rec.takeId,
+      createdAt: new Date(this.sched.now()).toISOString(),
       durationS,
       requestedDurationS: rec.durationS,
       durationErrorMs: (durationS - rec.durationS) * 1000,
@@ -334,6 +337,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
         firstRecordIndex: 2,
         maxAbsDiffMs: 0.1,
         p95AbsDiffMs: 0.05,
+        unmatchedSamples: 0,
         anchor: 'pattern',
       },
       sensorSamples: Math.round(durationS * 200),
@@ -347,6 +351,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
         sensors: `capturekit://takes/${rec.takeId}/sensors.bin.enc`,
       },
     };
+    this.results.set(rec.takeId, result);
     this.emit('recordingState', {
       takeId: rec.takeId,
       state: 'completed',
@@ -393,6 +398,28 @@ export class MockCaptureKit implements CaptureKitPlugin {
     return [...this.playing];
   }
 
+  async listTakes(): Promise<{ takes: StoredTake[] }> {
+    return {
+      takes: [...this.takes].reverse().map((takeId) => ({
+        takeId,
+        recovered: false,
+        sizeBytes: 0,
+        files: [
+          'capture.json.enc',
+          'datakey.enc',
+          'frames.bin.enc',
+          'sensors.bin.enc',
+          'video.mp4.enc',
+        ],
+        result: this.results.get(takeId) ?? null,
+      })),
+    };
+  }
+
+  async debugArmCrash(_opts: { afterS: number }): Promise<void> {
+    // No process to kill in the browser; accepted so the engineering screen works in mock mode.
+  }
+
   async getRecoveredTakes(): Promise<{ takeIds: string[] }> {
     return { takeIds: [] };
   }
@@ -410,6 +437,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
 
   async deleteTake(opts: { takeId: string; reason: string }): Promise<void> {
     this.takes.delete(opts.takeId);
+    this.results.delete(opts.takeId);
     this.playing.delete(opts.takeId);
     for (const k of [...this.evidence.keys()])
       if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);

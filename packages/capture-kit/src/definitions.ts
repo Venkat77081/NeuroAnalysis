@@ -82,11 +82,15 @@ export interface Mp4Alignment {
   firstRecordIndex: number;
   maxAbsDiffMs: number;
   p95AbsDiffMs: number;
+  /** MP4 samples with no logged frame within half a frame period (decision 009). */
+  unmatchedSamples: number;
   anchor: 'pattern' | 'earliest_candidate';
 }
 
 export interface RecordingResult {
   takeId: string;
+  /** ISO date-time when the take was finalized. */
+  createdAt: string;
   durationS: number;
   requestedDurationS: number;
   /** durationS − requestedDurationS, in ms (M2: within ±50 ms). */
@@ -111,6 +115,16 @@ export interface RecordingResult {
   /** The encrypted video file was checked and does not open as a video. */
   encryptedNotPlayable: boolean | null;
   files: { video: string; frames: string; landmarks: string; sensors: string };
+}
+
+export interface StoredTake {
+  takeId: string;
+  /** Found as plaintext after a crash and encrypted at the next start (RetainedForRecovery). */
+  recovered: boolean;
+  sizeBytes: number;
+  files: string[];
+  /** Saved capture result; null for takes interrupted before finalize. */
+  result: RecordingResult | null;
 }
 
 export type UploadState =
@@ -208,6 +222,10 @@ export interface CaptureKitPlugin {
   getRecoveredTakes(): Promise<{ takeIds: string[] }>;
   /** Median Laplacian-variance sharpness over durationS of a static target (device baseline, §9.2). */
   calibrateSharpness(opts: { durationS: number }): Promise<{ baseline: number; frames: number }>;
+  /** Stored takes on this device, newest first (survives app restarts). */
+  listTakes(): Promise<{ takes: StoredTake[] }>;
+  /** Engineering only (M2 crash test): the next take kills the app after afterS seconds. */
+  debugArmCrash(opts: { afterS: number }): Promise<void>;
   deleteTake(opts: { takeId: string; reason: string }): Promise<void>;
 
   enqueueUpload(opts: {

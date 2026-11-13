@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { QUALITY_CORE_VERSION } from '@neurocapture/quality-core';
 import { PLUGIN_VERSION } from '@neurocapture/capture-kit';
 import { loadConfig } from '../lib/config.ts';
-import { capture } from '../lib/capture.ts';
+import { camera, capture } from '../lib/capture.ts';
 import { logger } from '../lib/logger.ts';
 
 /** M0 placeholder home screen: proves the app runs, configs validate, and capture events flow (mock). */
@@ -16,30 +16,31 @@ export function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    let remove: (() => Promise<void>) | undefined;
-    (async () => {
-      try {
-        const h = await kit.addListener('analysisFrame', () => setFrames((n) => n + 1));
-        remove = h.remove;
-        await kit.openCamera({
-          facing: 'back',
-          resolution: '1080p',
-          targetFps: 60,
-          orientation: 'portrait',
-          trackers: ['hand'],
-          analysisFps: 30,
-        });
-        if (cancelled) await kit.closeCamera();
-      } catch (e) {
+    let handle: { remove: () => Promise<void> } | undefined;
+    void kit
+      .addListener('analysisFrame', () => setFrames((n) => n + 1))
+      .then((h) => {
+        if (cancelled) void h.remove();
+        else handle = h;
+      });
+    camera
+      .open({
+        facing: 'back',
+        resolution: '1080p',
+        targetFps: 60,
+        orientation: 'portrait',
+        trackers: ['hand'],
+        analysisFps: 30,
+      })
+      .catch((e: unknown) => {
         logger.warn('capture unavailable', { implementation, error: String(e) });
         if (!cancelled)
           setCaptureError(implementation === 'native' ? t('home.nativePending') : String(e));
-      }
-    })();
+      });
     return () => {
       cancelled = true;
-      void remove?.();
-      void kit.closeCamera().catch(() => undefined);
+      void handle?.remove();
+      void camera.close().catch(() => undefined);
     };
   }, [kit, implementation, t]);
 

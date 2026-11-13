@@ -9,6 +9,7 @@ export type { CaptureFixture } from './fixture.ts';
 export { MockCaptureKit, type MockOptions, type Scheduler } from './mock.ts';
 export { encodeFloat32, decodeFloat32 } from './codec.ts';
 export { PLUGIN_VERSION } from './version.ts';
+export * from './streams.ts';
 
 export const sampleFixtures = { 'ft-r-sample': ftRSample as CaptureFixture };
 

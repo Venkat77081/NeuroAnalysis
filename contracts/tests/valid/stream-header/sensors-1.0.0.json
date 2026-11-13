@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "stream": "sensors",
+  "takeId": "golden",
+  "clockSource": "REALTIME",
+  "timestampSemantics": "sensor_event_elapsed_realtime_ns",
+  "recordSize": 24,
+  "fields": [
+    { "name": "type", "type": "uint8" },
+    { "name": "_", "type": "pad3" },
+    { "name": "tsNs", "type": "int64" },
+    { "name": "x", "type": "float32" },
+    { "name": "y", "type": "float32" },
+    { "name": "z", "type": "float32" }
+  ],
+  "sensorTypes": { "1": "gyro", "2": "gravity" }
+}

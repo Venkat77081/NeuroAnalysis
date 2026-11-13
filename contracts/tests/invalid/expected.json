@@ -12,5 +12,6 @@
   "biomarker-registry/bad-id.json": "/biomarkers/0/id",
   "benchmark-report/unknown-hardware-level.json": "/camera/hardwareLevel",
   "benchmark-report/dropped-frac-over-1.json": "/recording/droppedFrac",
-  "device-tiers/tier-a-at-30fps.json": "/A/targetFps"
+  "device-tiers/tier-a-at-30fps.json": "/A/targetFps",
+  "stream-header/record-size-32.json": "/recordSize"
 }

@@ -10,7 +10,8 @@
   "scripts": {
     "fixture:gen": "tsx scripts/make-sample-fixture.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "golden:gen": "tsx scripts/make-golden-streams.ts"
   },
   "dependencies": {
     "@capacitor/core": "8.6.2",

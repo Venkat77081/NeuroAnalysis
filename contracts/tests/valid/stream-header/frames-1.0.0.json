@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "stream": "frames",
+  "takeId": "golden",
+  "clockSource": "REALTIME",
+  "timestampSemantics": "capture_session_frame_sensor_and_canonical_elapsed_realtime_ns",
+  "offsetNs": null,
+  "recordSize": 24,
+  "fields": [
+    { "name": "frameNumber", "type": "int64" },
+    { "name": "sensorTsNs", "type": "int64" },
+    { "name": "canonicalTsNs", "type": "int64" }
+  ],
+  "targetFps": 60,
+  "actualFps": 60,
+  "mp4": { "sampleCount": 3, "firstRecordIndex": 1, "maxAbsDiffMs": 0.2, "p95AbsDiffMs": 0.1 }
+}

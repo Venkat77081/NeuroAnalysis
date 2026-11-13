@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/stream-header.schema.json",
+  "title": "StreamHeader",
+  "description": "JSON header of frames.bin and sensors.bin (DEV_PLAN §5.6, §12.2). File layout: 4-byte magic ('NCFR' frames, 'NCSE' sensors), uint32 LE header length, UTF-8 JSON header, then fixed-size little-endian records. Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "stream",
+    "takeId",
+    "clockSource",
+    "timestampSemantics",
+    "recordSize",
+    "fields"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "stream": { "enum": ["frames", "sensors"] },
+    "takeId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+    "clockSource": { "enum": ["REALTIME", "UNKNOWN", "SIMULATED"] },
+    "timestampSemantics": {
+      "enum": [
+        "capture_session_frame_sensor_and_canonical_elapsed_realtime_ns",
+        "sensor_event_elapsed_realtime_ns"
+      ]
+    },
+    "offsetNs": {
+      "type": ["string", "null"],
+      "pattern": "^-?[0-9]+$",
+      "description": "canonical − sensor clock offset (frames, UNKNOWN source)."
+    },
+    "recordSize": { "enum": [24] },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "enum": ["int64", "uint8", "pad3", "float32"] }
+        }
+      }
+    },
+    "targetFps": { "enum": [60, 30] },
+    "actualFps": { "enum": [60, 30] },
+    "mp4": {
+      "description": "frames only: how MP4 samples map to records. MP4 sample j ↔ record j + firstRecordIndex.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sampleCount", "firstRecordIndex", "maxAbsDiffMs", "p95AbsDiffMs"],
+          "properties": {
+            "sampleCount": { "type": "integer", "minimum": 0 },
+            "firstRecordIndex": { "type": "integer" },
+            "maxAbsDiffMs": { "type": "number", "minimum": 0 },
+            "p95AbsDiffMs": { "type": "number", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "sensorTypes": {
+      "type": "object",
+      "additionalProperties": { "enum": ["gyro", "gravity"] },
+      "description": "sensors only: type code → name."
+    }
+  }
+}

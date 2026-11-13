@@ -60,6 +60,10 @@ export interface OpenCameraOpts {
   orientation: Orientation;
   trackers: TrackerName[];
   analysisFps: number;
+  /** Record at this rate when targetFps is unsupported (interim policy, decision 007). */
+  fallbackFps?: 30;
+  /** Engineering only: sleep this long in every analysis frame (M2 isolation test). */
+  debugAnalysisDelayMs?: number;
 }
 
 /** Maps normalized analysis coordinates to on-screen CSS pixels for overlay drawing. */
@@ -72,15 +76,40 @@ export interface PreviewTransform {
   mirrored: boolean;
 }
 
+export interface Mp4Alignment {
+  sampleCount: number;
+  /** MP4 sample j ↔ frames.bin record j + firstRecordIndex. */
+  firstRecordIndex: number;
+  maxAbsDiffMs: number;
+  p95AbsDiffMs: number;
+  anchor: 'pattern' | 'earliest_candidate';
+}
+
 export interface RecordingResult {
   takeId: string;
   durationS: number;
+  requestedDurationS: number;
+  /** durationS − requestedDurationS, in ms (M2: within ±50 ms). */
+  durationErrorMs: number;
   /** True when stopRecording() ended the take before durationS (decision 002). */
   stoppedEarly: boolean;
   frameCount: number;
   effectiveFps: number;
   droppedFrames: number;
   droppedFrac: number;
+  /** Frame rate the camera ran at (60, or 30 after fallback). */
+  actualFps: 60 | 30;
+  /** Capture-session frames written to frames.bin. */
+  framesLogged: number;
+  /** Logged frames inside the MP4's time span; M2 requires |framesInVideoSpan − mp4.sampleCount| ≤ 1. */
+  framesInVideoSpan: number | null;
+  mp4: Mp4Alignment | null;
+  sensorSamples: number;
+  sensorClockOffsetMs: number | null;
+  /** Video, frames and sensors are stored encrypted; plaintext deleted. */
+  encrypted: boolean;
+  /** The encrypted video file was checked and does not open as a video. */
+  encryptedNotPlayable: boolean | null;
   files: { video: string; frames: string; landmarks: string; sensors: string };
 }
 
@@ -172,7 +201,13 @@ export interface CaptureKitPlugin {
     name: 'quality.json' | 'meta.json';
     json: string;
   }): Promise<void>;
+  /** Decrypts into a temporary in-app file; always call closePlayback when the player closes. */
   playTake(opts: { takeId: string }): Promise<{ playerUrl: string }>;
+  closePlayback(opts: { takeId?: string }): Promise<void>;
+  /** Takes found as plaintext after a crash at the last start, now encrypted and marked RetainedForRecovery. */
+  getRecoveredTakes(): Promise<{ takeIds: string[] }>;
+  /** Median Laplacian-variance sharpness over durationS of a static target (device baseline, §9.2). */
+  calibrateSharpness(opts: { durationS: number }): Promise<{ baseline: number; frames: number }>;
   deleteTake(opts: { takeId: string; reason: string }): Promise<void>;
 
   enqueueUpload(opts: {

@@ -39,6 +39,8 @@ export interface MockOptions {
   droppedFrac?: number;
   /** Simulated benchmark minutes per real second (default 60: a 40-minute run takes 40 s). */
   benchmarkMinutesPerSecond?: number;
+  /** Highest fps the simulated camera supports (default 60); 30 exercises the fallback (decision 007). */
+  maxFps?: 60 | 30;
 }
 
 /**
@@ -53,6 +55,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private listeners = new Map<CaptureKitEventName, Set<(e: never) => void>>();
   private frameTimer: unknown = null;
   private camera: OpenCameraOpts | null = null;
+  private actualFps: 60 | 30 = 60;
+  private takes = new Set<string>();
+  private playing = new Set<string>();
   private frameIdx = 0;
   private seq = 0;
   private startNs = 0n;
@@ -66,6 +71,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private evidence = new Map<string, string>();
   private uploads = new Map<string, UploadStatus>();
   private readonly benchSpeed: number;
+  private readonly mockMaxFps: 60 | 30;
   private benchCancel: (() => void) | null = null;
   private benchRunning = false;
 
@@ -75,6 +81,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.effectiveFps = opts.effectiveFps ?? 59.8;
     this.droppedFrac = opts.droppedFrac ?? 0.004;
     this.benchSpeed = opts.benchmarkMinutesPerSecond ?? 60;
+    this.mockMaxFps = opts.maxFps ?? 60;
   }
 
   async getCapabilities(): Promise<DeviceCapabilities> {
@@ -220,6 +227,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
   ): Promise<{ previewTransform: PreviewTransform; actualFps: number }> {
     if (this.camera) throw new Error('camera already open');
     this.camera = opts;
+    this.actualFps =
+      opts.targetFps > this.mockMaxFps && opts.fallbackFps ? opts.fallbackFps : opts.targetFps;
     this.startNs = BigInt(this.sched.now()) * 1_000_000n;
     this.frameIdx = 0;
     const periodMs = 1000 / Math.min(opts.analysisFps, this.fixture.fps);
@@ -233,7 +242,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
         rotationDeg: 0,
         mirrored: opts.facing === 'front',
       },
-      actualFps: opts.targetFps,
+      actualFps: this.actualFps,
     };
   }
 
@@ -272,6 +281,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
     if (!this.camera) throw new Error('camera not open');
     if (this.recording) throw new Error('already recording');
     if (!(opts.durationS > 0)) throw new Error('durationS must be > 0');
+    if (this.takes.has(opts.takeId)) throw new Error('take already exists');
+    this.takes.add(opts.takeId);
     const startedMs = this.sched.now();
     // Mirrors the native contract: the plugin's own timer ends the take at durationS.
     const timer = this.sched.setTimeout(() => this.finish(false), opts.durationS * 1000);
@@ -302,21 +313,38 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const durationS = early
       ? Math.min((this.sched.now() - rec.startedMs) / 1000, rec.durationS)
       : rec.durationS;
-    const expected = Math.round(durationS * 60);
+    const fps = this.actualFps;
+    const expected = Math.round(durationS * fps);
     const dropped = Math.round(expected * this.droppedFrac);
     const result: RecordingResult = {
       takeId: rec.takeId,
       durationS,
+      requestedDurationS: rec.durationS,
+      durationErrorMs: (durationS - rec.durationS) * 1000,
       stoppedEarly: early,
       frameCount: expected - dropped,
-      effectiveFps: this.effectiveFps,
+      effectiveFps: Math.min(this.effectiveFps, fps),
       droppedFrames: dropped,
       droppedFrac: expected ? dropped / expected : 0,
+      actualFps: fps,
+      framesLogged: expected - dropped + 2,
+      framesInVideoSpan: expected - dropped,
+      mp4: {
+        sampleCount: expected - dropped,
+        firstRecordIndex: 2,
+        maxAbsDiffMs: 0.1,
+        p95AbsDiffMs: 0.05,
+        anchor: 'pattern',
+      },
+      sensorSamples: Math.round(durationS * 200),
+      sensorClockOffsetMs: 0,
+      encrypted: true,
+      encryptedNotPlayable: true,
       files: {
-        video: `mock://${rec.takeId}/video.mp4.enc`,
-        frames: `mock://${rec.takeId}/frames.bin.enc`,
-        landmarks: `mock://${rec.takeId}/landmarks.bin.enc`,
-        sensors: `mock://${rec.takeId}/sensors.bin.enc`,
+        video: `capturekit://takes/${rec.takeId}/video.mp4.enc`,
+        frames: `capturekit://takes/${rec.takeId}/frames.bin.enc`,
+        landmarks: `capturekit://takes/${rec.takeId}/landmarks.bin.enc`,
+        sensors: `capturekit://takes/${rec.takeId}/sensors.bin.enc`,
       },
     };
     this.emit('recordingState', {
@@ -350,10 +378,39 @@ export class MockCaptureKit implements CaptureKitPlugin {
   }
 
   async playTake(opts: { takeId: string }): Promise<{ playerUrl: string }> {
+    if (!this.takes.has(opts.takeId)) throw new Error('unknown take');
+    this.playing.add(opts.takeId);
     return { playerUrl: `mock://${opts.takeId}/player` };
   }
 
+  async closePlayback(opts: { takeId?: string }): Promise<void> {
+    if (opts.takeId) this.playing.delete(opts.takeId);
+    else this.playing.clear();
+  }
+
+  /** Test helper: takes with an open (decrypted) playback copy. */
+  openPlaybacks(): string[] {
+    return [...this.playing];
+  }
+
+  async getRecoveredTakes(): Promise<{ takeIds: string[] }> {
+    return { takeIds: [] };
+  }
+
+  async calibrateSharpness(opts: {
+    durationS: number;
+  }): Promise<{ baseline: number; frames: number }> {
+    if (!this.camera) throw new Error('camera not open');
+    const values = this.fixture.frames.map((f) => f.stats.sharpness).sort((a, b) => a - b);
+    return {
+      baseline: values[Math.floor(values.length / 2)] ?? 0,
+      frames: Math.round(opts.durationS * this.fixture.fps),
+    };
+  }
+
   async deleteTake(opts: { takeId: string; reason: string }): Promise<void> {
+    this.takes.delete(opts.takeId);
+    this.playing.delete(opts.takeId);
     for (const k of [...this.evidence.keys()])
       if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);
     this.uploads.delete(opts.takeId);

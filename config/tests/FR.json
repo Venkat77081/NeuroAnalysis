@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FR@1.0.0",
+  "configVersion": "FR@1.1.0",
   "code": "FR",
   "name": "Forearm Roll",
   "biomarkers": [
@@ -24,11 +24,18 @@
     "facing": "back",
     "resolution": "1080p",
     "targetFps": 60,
-    "minEffectiveFps": 58,
+    "fallbackFps": 30,
+    "minEffectiveFps": 29.5,
     "orientation": "landscape",
-    "lock": { "ae": true, "af": true, "awb": true }
+    "lock": {
+      "ae": true,
+      "af": true,
+      "awb": true
+    }
   },
-  "analysis": { "fps": 30 },
+  "analysis": {
+    "fps": 30
+  },
   "setup": {
     "view": "front_centred",
     "distanceM": [1.0, 1.5],
@@ -42,15 +49,27 @@
       "hand": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     },
     "safeZoneMargin": 0.05,
-    "subjectSize": { "metric": "upper_body_height", "min": 0.4, "max": 0.8 },
+    "subjectSize": {
+      "metric": "upper_body_height",
+      "min": 0.4,
+      "max": 0.8
+    },
     "handednessMustMatchSide": true
   },
-  "task": { "detector": "rotation_counter", "durationS": 15, "noMotionTimeoutS": 3 },
+  "task": {
+    "detector": "rotation_counter",
+    "durationS": 15,
+    "noMotionTimeoutS": 3
+  },
   "verdict": {
     "minLandmarkVisibleFrac": 0.95,
     "durationToleranceS": 0.1,
+    "maxDroppedFrac": null,
     "maxCriticalEvents": 0,
     "sharpness": "DEVICE_CALIBRATED"
   },
-  "instructions": { "demoVideo": "TBD", "stepKeys": ["fr.step1", "fr.step2", "fr.step3"] }
+  "instructions": {
+    "demoVideo": "TBD",
+    "stepKeys": ["fr.step1", "fr.step2", "fr.step3"]
+  }
 }

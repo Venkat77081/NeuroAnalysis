@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SAW@1.0.0",
+  "configVersion": "SAW@1.1.0",
   "code": "SAW",
   "name": "Stand and Walk",
   "biomarkers": [
@@ -27,11 +27,17 @@
     "facing": "back",
     "resolution": "1080p",
     "targetFps": 30,
-    "minEffectiveFps": 29,
+    "minEffectiveFps": 29.5,
     "orientation": "landscape",
-    "lock": { "ae": true, "af": true, "awb": true }
+    "lock": {
+      "ae": true,
+      "af": true,
+      "awb": true
+    }
   },
-  "analysis": { "fps": 30 },
+  "analysis": {
+    "fps": 30
+  },
   "setup": {
     "view": "side_90deg",
     "distanceM": [3.0, 4.0],
@@ -54,15 +60,26 @@
       ]
     },
     "safeZoneMargin": 0.05,
-    "subjectSize": { "metric": "body_height", "min": 0.3, "max": 0.9 },
+    "subjectSize": {
+      "metric": "body_height",
+      "min": 0.3,
+      "max": 0.9
+    },
     "singlePerson": true,
     "sideViewMaxShoulderRatio": 0.25
   },
-  "task": { "detector": "saw_phases", "durationS": 30, "noMotionTimeoutS": 5 },
+  "task": {
+    "detector": "saw_phases",
+    "durationS": 30,
+    "noMotionTimeoutS": 5
+  },
   "verdict": {
     "minLandmarkVisibleFrac": 0.9,
-    "visibilityLandmarks": { "pose": [27, 28, 29, 30] },
+    "visibilityLandmarks": {
+      "pose": [27, 28, 29, 30]
+    },
     "durationToleranceS": 0.1,
+    "maxDroppedFrac": null,
     "maxCriticalEvents": 0,
     "sharpness": "DEVICE_CALIBRATED",
     "requireAllPhases": true

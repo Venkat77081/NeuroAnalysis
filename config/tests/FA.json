@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FA@1.0.0",
+  "configVersion": "FA@1.1.0",
   "code": "FA",
   "name": "Facial Activation",
   "biomarkers": "TBD",
@@ -11,11 +11,17 @@
     "facing": "back",
     "resolution": "1080p",
     "targetFps": 30,
-    "minEffectiveFps": 29,
+    "minEffectiveFps": 29.5,
     "orientation": "portrait",
-    "lock": { "ae": true, "af": true, "awb": true }
+    "lock": {
+      "ae": true,
+      "af": true,
+      "awb": true
+    }
   },
-  "analysis": { "fps": 30 },
+  "analysis": {
+    "fps": 30
+  },
   "setup": {
     "view": "frontal_face",
     "distanceM": [0.4, 0.6],
@@ -24,11 +30,20 @@
   },
   "framing": {
     "overlay": "face_oval",
-    "requiredLandmarks": { "face": "ALL" },
+    "requiredLandmarks": {
+      "face": "ALL"
+    },
     "safeZoneMargin": 0.05,
-    "subjectSize": { "metric": "face_height", "min": 0.35, "max": 0.65 },
+    "subjectSize": {
+      "metric": "face_height",
+      "min": 0.35,
+      "max": 0.65
+    },
     "singlePerson": true,
-    "maxFaceAngleDeg": { "yaw": 10, "pitch": 10 }
+    "maxFaceAngleDeg": {
+      "yaw": 10,
+      "pitch": 10
+    }
   },
   "task": {
     "detector": "expression_sequence",
@@ -39,8 +54,12 @@
   "verdict": {
     "minLandmarkVisibleFrac": 0.98,
     "durationToleranceS": 0.1,
+    "maxDroppedFrac": null,
     "maxCriticalEvents": 0,
     "sharpness": "DEVICE_CALIBRATED"
   },
-  "instructions": { "demoVideo": "TBD", "stepKeys": ["fa.step1", "fa.step2"] }
+  "instructions": {
+    "demoVideo": "TBD",
+    "stepKeys": ["fa.step1", "fa.step2"]
+  }
 }

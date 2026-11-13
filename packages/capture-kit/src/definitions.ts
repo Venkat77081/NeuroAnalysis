@@ -154,6 +154,8 @@ export interface CaptureKitPlugin {
   /** Raw measurements; the tier is assigned in TypeScript (quality-core assignTier). */
   runQualificationBenchmark(opts: BenchmarkOpts): Promise<BenchmarkReport>;
   cancelBenchmark(): Promise<void>;
+  /** Writes a report to app-specific external storage (adb pull …/files/qualification/). Returns the file name. */
+  saveQualificationReport(opts: { fileName: string; json: string }): Promise<{ fileName: string }>;
 
   openCamera(
     opts: OpenCameraOpts,

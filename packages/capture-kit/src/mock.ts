@@ -127,10 +127,13 @@ export class MockCaptureKit implements CaptureKitPlugin {
       });
 
     await new Promise<void>((resolve, reject) => {
-      const tick = this.sched.setInterval(() => {
-        const elapsedS = Math.min(totalS, ((this.sched.now() - started) / realMs) * totalS || 0);
-        progress(elapsedS < opts.recordMinutes * 60 ? 'recording' : 'thermal', elapsedS);
-      }, Math.max(10, Math.min(250, realMs / 40)));
+      const tick = this.sched.setInterval(
+        () => {
+          const elapsedS = Math.min(totalS, ((this.sched.now() - started) / realMs) * totalS || 0);
+          progress(elapsedS < opts.recordMinutes * 60 ? 'recording' : 'thermal', elapsedS);
+        },
+        Math.max(10, Math.min(250, realMs / 40)),
+      );
       const done = this.sched.setTimeout(() => {
         cleanup();
         resolve();
@@ -194,6 +197,18 @@ export class MockCaptureKit implements CaptureKitPlugin {
       storage: { freeBytesBefore: null },
       errors: [],
     };
+  }
+
+  private savedReports = new Map<string, string>();
+
+  async saveQualificationReport(opts: {
+    fileName: string;
+    json: string;
+  }): Promise<{ fileName: string }> {
+    if (!/^[A-Za-z0-9._-]{1,120}\.json$/.test(opts.fileName)) throw new Error('invalid fileName');
+    JSON.parse(opts.json);
+    this.savedReports.set(opts.fileName, opts.json);
+    return { fileName: opts.fileName };
   }
 
   async cancelBenchmark(): Promise<void> {

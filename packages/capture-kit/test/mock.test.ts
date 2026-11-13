@@ -91,6 +91,16 @@ describe('MockCaptureKit', () => {
     expect(phases.at(-1)).toBe('done');
   });
 
+  it('saves qualification reports with safe file names only', async () => {
+    await expect(
+      kit.saveQualificationReport({ fileName: 'x1-60fps.json', json: '{}' }),
+    ).resolves.toEqual({ fileName: 'x1-60fps.json' });
+    await expect(
+      kit.saveQualificationReport({ fileName: '../evil.json', json: '{}' }),
+    ).rejects.toThrow(/fileName/);
+    await expect(kit.saveQualificationReport({ fileName: 'a.json', json: '{' })).rejects.toThrow();
+  });
+
   it('can cancel a running benchmark', async () => {
     const phases: string[] = [];
     await kit.addListener('benchmarkProgress', (p) => phases.push(p.phase));

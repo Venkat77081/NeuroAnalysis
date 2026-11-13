@@ -5,11 +5,16 @@ export interface TakeChecks {
   duration: boolean; // |error| ≤ 50 ms
   fps: boolean; // effective fps ≥ config minEffectiveFps
   frameCount: boolean; // |frames in video span − MP4 samples| ≤ 1
-  timestamps: boolean; // mapped MP4 times within 2 ms of canonical
+  timestamps: boolean; // matched MP4 times within 2 ms of canonical, ≤ 1 unmatched sample
   encrypted: boolean; // stored encrypted, plaintext gone, encrypted file does not play
 }
 
-export const M2_LIMITS = { durationErrorMs: 50, frameCountDiff: 1, timestampMs: 2 } as const;
+export const M2_LIMITS = {
+  durationErrorMs: 50,
+  frameCountDiff: 1,
+  timestampMs: 2,
+  unmatchedSamples: 1,
+} as const;
 
 export function checkTake(r: RecordingResult, minEffectiveFps: number): TakeChecks {
   return {
@@ -19,7 +24,10 @@ export function checkTake(r: RecordingResult, minEffectiveFps: number): TakeChec
       r.mp4 !== null &&
       r.framesInVideoSpan !== null &&
       Math.abs(r.framesInVideoSpan - r.mp4.sampleCount) <= M2_LIMITS.frameCountDiff,
-    timestamps: r.mp4 !== null && r.mp4.maxAbsDiffMs <= M2_LIMITS.timestampMs,
+    timestamps:
+      r.mp4 !== null &&
+      r.mp4.maxAbsDiffMs <= M2_LIMITS.timestampMs &&
+      r.mp4.unmatchedSamples <= M2_LIMITS.unmatchedSamples,
     encrypted: r.encrypted && r.encryptedNotPlayable === true,
   };
 }

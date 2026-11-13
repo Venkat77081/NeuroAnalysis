@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { RecordingResult, RecordingStateEvent } from '@neurocapture/capture-kit';
+import type { RecordingResult, RecordingStateEvent, StoredTake } from '@neurocapture/capture-kit';
 import { camera, capture } from '../lib/capture.ts';
 import { loadConfig } from '../lib/config.ts';
 import { allPass, checkTake, summarize, M2_LIMITS } from '../lib/m2-acceptance.ts';
@@ -49,7 +49,11 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
   const [freeze, setFreeze] = useState(false);
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState('');
-  const [results, setResults] = useState<RecordingResult[]>([]);
+  const [stored, setStored] = useState<StoredTake[]>([]);
+  const [crash, setCrash] = useState(false);
+  const engineering = stored.filter((s) => s.takeId.startsWith('m2-'));
+  const results = engineering.flatMap((s) => (s.result ? [s.result] : []));
+  const interrupted = engineering.filter((s) => !s.result);
   const [player, setPlayer] = useState<{ takeId: string; url: string } | null>(null);
   const [recovered, setRecovered] = useState<string[]>([]);
   const [baseline, setBaseline] = useState<number | null>(null);
@@ -87,10 +91,22 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
+  async function refresh() {
+    try {
+      setStored((await capture.kit.listTakes()).takes);
+    } catch (e) {
+      logger.warn('listTakes failed', { error: String(e) });
+    }
+  }
+
   useEffect(() => {
     capture.kit.getRecoveredTakes().then(
       (r) => setRecovered(r.takeIds),
       () => undefined,
+    );
+    capture.kit.listTakes().then(
+      (r) => setStored(r.takes),
+      (e: unknown) => logger.warn('listTakes failed', { error: String(e) }),
     );
   }, []);
 
@@ -127,11 +143,12 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
           durationS: cfg.task.durationS,
         });
         const done = waitForTake(takeId, (cfg.task.durationS + 30) * 1000);
+        if (crash && i === 0) await capture.kit.debugArmCrash({ afterS: 5 });
         await capture.kit.startRecording({ takeId, durationS: cfg.task.durationS });
         if (freeze) freezeJs(cfg.task.durationS * 1000 + 500);
         const r = await done;
         batch.push(r);
-        setResults((prev) => [r, ...prev]);
+        await refresh();
       }
       const s = summarize(batch, minFps);
       setStatus(t('captureTest.done', { passed: s.passed, takes: s.takes }));
@@ -178,9 +195,10 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
   }
 
   async function deleteAll() {
-    for (const r of results)
-      await capture.kit.deleteTake({ takeId: r.takeId, reason: 'engineering_test' });
-    setResults([]);
+    for (const s of engineering)
+      await capture.kit.deleteTake({ takeId: s.takeId, reason: 'engineering_test' });
+    setRecovered([]);
+    await refresh();
   }
 
   const summary = summarize(results, minFps);
@@ -329,6 +347,17 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
         <label className="flex min-h-11 items-center gap-3 text-sm">
           <input
             type="checkbox"
+            checked={crash}
+            onChange={(e) => setCrash(e.target.checked)}
+            disabled={running}
+            className="size-5 accent-brand"
+            data-testid="crash-toggle"
+          />
+          {t('captureTest.crash')}
+        </label>
+        <label className="flex min-h-11 items-center gap-3 text-sm">
+          <input
+            type="checkbox"
             checked={freeze}
             onChange={(e) => setFreeze(e.target.checked)}
             disabled={running}
@@ -367,7 +396,25 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
         )}
       </section>
 
-      {results.length > 0 && (
+      {interrupted.length > 0 && (
+        <section
+          className="rounded-2xl border border-line bg-white p-4"
+          data-testid="interrupted-takes"
+        >
+          <h2 className="m-0 text-sm font-semibold">{t('captureTest.interrupted')}</h2>
+          <ul className="mt-2 mb-0 flex list-none flex-col gap-1 p-0 text-xs text-muted">
+            {interrupted.map((s) => (
+              <li key={s.takeId}>
+                {s.takeId} ·{' '}
+                {s.recovered ? t('captureTest.recoveredTag') : t('captureTest.noResult')} ·{' '}
+                {s.files.join(', ')}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(results.length > 0 || interrupted.length > 0) && (
         <section
           className="rounded-2xl border border-line bg-white p-4"
           data-testid="capture-results"
@@ -420,6 +467,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
                     {mark(c.encrypted)} {t('captureTest.encrypted')}
                   </div>
                   <div className="text-muted">
+                    {r.mp4 ? `${t('captureTest.unmatched', { n: r.mp4.unmatchedSamples })} · ` : ''}
                     {t('captureTest.sensors', {
                       n: r.sensorSamples,
                       offset: r.sensorClockOffsetMs?.toFixed(2) ?? '—',

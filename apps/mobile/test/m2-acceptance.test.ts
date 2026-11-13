@@ -4,6 +4,7 @@ import { allPass, checkTake, summarize } from '../src/lib/m2-acceptance.ts';
 
 const good: RecordingResult = {
   takeId: 't',
+  createdAt: '2026-11-13T10:00:00Z',
   durationS: 15.02,
   requestedDurationS: 15,
   durationErrorMs: 20,
@@ -20,6 +21,7 @@ const good: RecordingResult = {
     firstRecordIndex: 3,
     maxAbsDiffMs: 0.4,
     p95AbsDiffMs: 0.2,
+    unmatchedSamples: 0,
     anchor: 'pattern',
   },
   sensorSamples: 3000,
@@ -41,12 +43,19 @@ describe('M2 acceptance', () => {
     ['frameCount', { framesInVideoSpan: 902 }],
     ['frameCount', { mp4: null }],
     ['timestamps', { mp4: { ...good.mp4!, maxAbsDiffMs: 2.5 } }],
+    ['timestamps', { mp4: { ...good.mp4!, unmatchedSamples: 2 } }],
     ['encrypted', { encryptedNotPlayable: null }],
     ['encrypted', { encrypted: false }],
   ] as const)('fails %s', (key, patch) => {
     const c = checkTake({ ...good, ...patch } as RecordingResult, 29.5);
     expect(c[key]).toBe(false);
     expect(allPass(c)).toBe(false);
+  });
+
+  it('tolerates one unmatched sample (a frame missing from the log)', () => {
+    expect(
+      checkTake({ ...good, mp4: { ...good.mp4!, unmatchedSamples: 1 } }, 29.5).timestamps,
+    ).toBe(true);
   });
 
   it('summarizes a batch', () => {

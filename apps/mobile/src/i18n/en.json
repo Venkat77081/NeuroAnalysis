@@ -127,6 +127,11 @@
     "calibrateTitle": "Sharpness calibration",
     "take": "Take {{n}} of {{of}}",
     "liveHint": "Recording… the take stops by itself.",
-    "frozenHint": "JavaScript is frozen on purpose: the timer may not move, recording continues."
+    "frozenHint": "JavaScript is frozen on purpose: the timer may not move, recording continues.",
+    "crash": "Kill the app 5 s into the next take (crash test)",
+    "interrupted": "Interrupted takes",
+    "recoveredTag": "recovered after crash · encrypted",
+    "noResult": "no result",
+    "unmatched": "{{n}} unmatched"
   }
 }

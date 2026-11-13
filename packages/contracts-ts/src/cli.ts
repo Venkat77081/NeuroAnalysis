@@ -64,6 +64,9 @@ function runAll(): void {
   if (!sIssues.length)
     sIssues.push(...checkSessionConfig(readJson(sessionFile) as SessionConfig, tests));
   report(sessionFile, sIssues);
+  // 2b. Device tier thresholds
+  const tiersFile = join(repoRoot, 'config/device-tiers.json');
+  report(tiersFile, validateFile('device-tiers', tiersFile));
 
   // 3. Compatibility samples: valid must pass
   const samples = join(repoRoot, 'contracts/tests');

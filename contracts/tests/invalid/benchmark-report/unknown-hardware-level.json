@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "1.0.0",
+  "implementation": "native",
+  "pluginVersion": "0.2.0",
+  "ranAt": "2026-11-14T09:00:00Z",
+  "device": {
+    "manufacturer": "ExampleCo",
+    "model": "Example X1",
+    "osName": "android",
+    "osVersion": "15",
+    "sdkInt": 35
+  },
+  "settings": {
+    "facing": "back",
+    "resolution": "1080p",
+    "targetFps": 60,
+    "recordMinutes": 10,
+    "thermalMinutes": 30
+  },
+  "camera": {
+    "hardwareLevel": "SUPER",
+    "timestampSource": "REALTIME",
+    "aeFpsRanges": [
+      [15, 30],
+      [30, 30],
+      [60, 60]
+    ],
+    "maxFps1080p": 60,
+    "maxFps720p": 60,
+    "lockSupported": {
+      "ae": true,
+      "af": true,
+      "awb": true
+    }
+  },
+  "timestamp": {
+    "samples": 60,
+    "offsetNsMedian": "21500000",
+    "offsetSpreadMs": 0.8
+  },
+  "recording": {
+    "durationS": 600,
+    "frameCount": 35940,
+    "effectiveFps": 59.9,
+    "droppedFrames": 60,
+    "droppedFrac": 0.0017,
+    "windowFpsMin": 58
+  },
+  "analysis": {
+    "fps": 29.6,
+    "p95ProcessingMs": 4.1,
+    "frames": 17760
+  },
+  "thermal": {
+    "durationS": 1800,
+    "statusStart": "none",
+    "statusMax": "light",
+    "windowFpsMin": 57,
+    "windowFpsMedian": 60
+  },
+  "storage": {
+    "freeBytesBefore": 52000000000
+  },
+  "errors": [],
+  "assessment": {
+    "tier": "A",
+    "provisional": false,
+    "reasons": [],
+    "tiersConfigVersion": "TIERS@1.0.0"
+  }
+}

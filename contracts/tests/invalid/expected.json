@@ -9,5 +9,8 @@
   "meta/missing-tier.json": "/tier",
   "meta/patient-name-not-allowed.json": "/patientName",
   "landmarks-header/hand-22-points.json": "/trackers/0/pointsPerFrame",
-  "biomarker-registry/bad-id.json": "/biomarkers/0/id"
+  "biomarker-registry/bad-id.json": "/biomarkers/0/id",
+  "benchmark-report/unknown-hardware-level.json": "/camera/hardwareLevel",
+  "benchmark-report/dropped-frac-over-1.json": "/recording/droppedFrac",
+  "device-tiers/tier-a-at-30fps.json": "/A/targetFps"
 }

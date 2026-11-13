@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/device-tiers.schema.json",
+  "title": "DeviceTiersConfig",
+  "description": "Thresholds for assigning device tiers from benchmark reports (DEV_PLAN §7). Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "configVersion", "A", "B"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "configVersion": { "type": "string", "pattern": "^TIERS@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "A": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolutions",
+        "targetFps",
+        "minEffectiveFps",
+        "maxDroppedFrac",
+        "minAnalysisFps",
+        "maxOffsetSpreadMsIfUnknownSource",
+        "minThermalWindowFps",
+        "requireLock",
+        "minRecordMinutes",
+        "minThermalMinutes"
+      ],
+      "properties": {
+        "resolutions": { "$ref": "#/$defs/Resolutions" },
+        "targetFps": { "const": 60 },
+        "minEffectiveFps": { "type": "number", "exclusiveMinimum": 0 },
+        "maxDroppedFrac": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minAnalysisFps": { "type": "number", "exclusiveMinimum": 0 },
+        "maxOffsetSpreadMsIfUnknownSource": { "type": "number", "minimum": 0 },
+        "minThermalWindowFps": { "type": "number", "exclusiveMinimum": 0 },
+        "requireLock": { "type": "boolean" },
+        "minRecordMinutes": { "type": "number", "minimum": 0 },
+        "minThermalMinutes": { "type": "number", "minimum": 0 }
+      }
+    },
+    "B": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resolutions",
+        "targetFps",
+        "minEffectiveFps",
+        "maxDroppedFrac",
+        "minAnalysisFps",
+        "minRecordMinutes"
+      ],
+      "properties": {
+        "resolutions": { "$ref": "#/$defs/Resolutions" },
+        "targetFps": { "const": 30 },
+        "minEffectiveFps": { "type": "number", "exclusiveMinimum": 0 },
+        "maxDroppedFrac": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minAnalysisFps": { "type": "number", "exclusiveMinimum": 0 },
+        "minRecordMinutes": { "type": "number", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "Resolutions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["1080p", "720p"] }
+    }
+  }
+}

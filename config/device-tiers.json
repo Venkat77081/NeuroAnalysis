@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "configVersion": "TIERS@1.0.0",
+  "A": {
+    "resolutions": ["1080p"],
+    "targetFps": 60,
+    "minEffectiveFps": 58,
+    "maxDroppedFrac": 0.01,
+    "minAnalysisFps": 20,
+    "maxOffsetSpreadMsIfUnknownSource": 5,
+    "minThermalWindowFps": 55,
+    "requireLock": true,
+    "minRecordMinutes": 10,
+    "minThermalMinutes": 30
+  },
+  "B": {
+    "resolutions": ["1080p", "720p"],
+    "targetFps": 30,
+    "minEffectiveFps": 29,
+    "maxDroppedFrac": 0.01,
+    "minAnalysisFps": 15,
+    "minRecordMinutes": 10
+  }
+}

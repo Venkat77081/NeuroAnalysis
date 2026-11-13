@@ -60,7 +60,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest ships the Android SDK (ANDROID_HOME); Gradle fetches any missing platform.
+      - name: Show Android SDK
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:web
       - run: pnpm --filter @neurocapture/mobile exec cap sync android

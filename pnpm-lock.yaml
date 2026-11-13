@@ -96,6 +96,9 @@ importers:
       '@capacitor/core':
         specifier: 8.6.2
         version: 8.6.2
+      '@neurocapture/contracts-ts':
+        specifier: workspace:*
+        version: link:../contracts-ts
     devDependencies:
       tsx:
         specifier: 4.23.15

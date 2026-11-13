@@ -1,3 +1,4 @@
+import { validate } from '@neurocapture/contracts-ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MockCaptureKit,
@@ -55,18 +56,57 @@ describe('MockCaptureKit', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it('reports mock implementation and tier W (never clinical)', async () => {
+  it('reports the mock implementation (assigned tier W downstream)', async () => {
     expect((await kit.getCapabilities()).implementation).toBe('mock');
-    expect(
-      (
-        await kit.runQualificationBenchmark({
-          resolution: '1080p',
-          targetFps: 60,
-          recordMinutes: 10,
-          thermalMinutes: 30,
-        })
-      ).tier,
-    ).toBe('W');
+  });
+
+  it('simulates a qualification benchmark with progress, producing a schema-valid report', async () => {
+    const phases: string[] = [];
+    await kit.addListener('benchmarkProgress', (p) => phases.push(p.phase));
+    const pending = kit.runQualificationBenchmark({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      recordMinutes: 10,
+      thermalMinutes: 30,
+    });
+    await expect(
+      kit.runQualificationBenchmark({
+        facing: 'back',
+        resolution: '1080p',
+        targetFps: 60,
+        recordMinutes: 1,
+        thermalMinutes: 0,
+      }),
+    ).rejects.toThrow(/already running/);
+    await vi.advanceTimersByTimeAsync(41_000);
+    const report = await pending;
+    expect(report.implementation).toBe('mock');
+    expect(report.recording.durationS).toBe(600);
+    expect(report.thermal.durationS).toBe(1800);
+    expect(validate('benchmark-report', report).issues).toEqual([]);
+    expect(phases[0]).toBe('calibrating');
+    expect(phases).toContain('recording');
+    expect(phases).toContain('thermal');
+    expect(phases.at(-1)).toBe('done');
+  });
+
+  it('can cancel a running benchmark', async () => {
+    const phases: string[] = [];
+    await kit.addListener('benchmarkProgress', (p) => phases.push(p.phase));
+    const pending = kit.runQualificationBenchmark({
+      facing: 'back',
+      resolution: '720p',
+      targetFps: 30,
+      recordMinutes: 10,
+      thermalMinutes: 0,
+    });
+    const settled = expect(pending).rejects.toThrow(/cancelled/);
+    await vi.advanceTimersByTimeAsync(50); // the whole simulated run takes ~167 ms
+    await kit.cancelBenchmark();
+    await settled;
+    expect(phases.at(-1)).toBe('cancelled');
+    await kit.cancelBenchmark(); // no-op when idle
   });
 
   it('replays analysis frames with increasing canonical timestamps and loops the fixture', async () => {

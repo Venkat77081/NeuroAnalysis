@@ -6,3 +6,5 @@ export type * from './quality.ts';
 export type * from './meta.ts';
 export type * from './landmarks-header.ts';
 export type * from './biomarker-registry.ts';
+export type * from './benchmark-report.ts';
+export type * from './device-tiers.ts';

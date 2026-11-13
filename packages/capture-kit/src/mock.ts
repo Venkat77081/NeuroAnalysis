@@ -1,5 +1,6 @@
 import type {
   BenchmarkOpts,
+  BenchmarkProgressEvent,
   BenchmarkReport,
   CaptureKitEventName,
   CaptureKitEvents,
@@ -36,6 +37,8 @@ export interface MockOptions {
   /** Simulated recording frame rate quality. */
   effectiveFps?: number;
   droppedFrac?: number;
+  /** Simulated benchmark minutes per real second (default 60: a 40-minute run takes 40 s). */
+  benchmarkMinutesPerSecond?: number;
 }
 
 /**
@@ -62,12 +65,16 @@ export class MockCaptureKit implements CaptureKitPlugin {
   } | null = null;
   private evidence = new Map<string, string>();
   private uploads = new Map<string, UploadStatus>();
+  private readonly benchSpeed: number;
+  private benchCancel: (() => void) | null = null;
+  private benchRunning = false;
 
   constructor(opts: MockOptions) {
     this.fixture = opts.fixture;
     this.sched = opts.scheduler ?? realScheduler;
     this.effectiveFps = opts.effectiveFps ?? 59.8;
     this.droppedFrac = opts.droppedFrac ?? 0.004;
+    this.benchSpeed = opts.benchmarkMinutesPerSecond ?? 60;
   }
 
   async getCapabilities(): Promise<DeviceCapabilities> {
@@ -93,20 +100,119 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
-  async runQualificationBenchmark(_opts: BenchmarkOpts): Promise<BenchmarkReport> {
+  async runQualificationBenchmark(opts: BenchmarkOpts): Promise<BenchmarkReport> {
+    if (this.benchRunning) throw new Error('benchmark already running');
+    this.benchRunning = true;
+    try {
+      return await this.simulateBenchmark(opts);
+    } finally {
+      this.benchRunning = false;
+    }
+  }
+
+  private async simulateBenchmark(opts: BenchmarkOpts): Promise<BenchmarkReport> {
     const caps = await this.getCapabilities();
+    const ranAt = new Date(this.sched.now()).toISOString();
+    const totalS = (opts.recordMinutes + opts.thermalMinutes) * 60;
+    const realMs = (totalS / 60 / this.benchSpeed) * 1000;
+    const started = this.sched.now();
+    const fps = Math.min(opts.targetFps, this.effectiveFps);
+    const progress = (phase: BenchmarkProgressEvent['phase'], elapsedS: number) =>
+      this.emit('benchmarkProgress', {
+        phase,
+        elapsedS,
+        totalS,
+        liveFps: phase === 'done' ? undefined : fps,
+        thermalStatus: 'none',
+      });
+
+    await new Promise<void>((resolve, reject) => {
+      const tick = this.sched.setInterval(
+        () => {
+          const elapsedS = Math.min(totalS, ((this.sched.now() - started) / realMs) * totalS || 0);
+          progress(elapsedS < opts.recordMinutes * 60 ? 'recording' : 'thermal', elapsedS);
+        },
+        Math.max(10, Math.min(250, realMs / 40)),
+      );
+      const done = this.sched.setTimeout(() => {
+        cleanup();
+        resolve();
+      }, realMs);
+      const cleanup = () => {
+        this.sched.clearInterval(tick);
+        this.sched.clearTimeout(done);
+        this.benchCancel = null;
+      };
+      this.benchCancel = () => {
+        cleanup();
+        progress('cancelled', ((this.sched.now() - started) / Math.max(realMs, 1)) * totalS);
+        reject(new Error('benchmark cancelled'));
+      };
+      progress('calibrating', 0);
+    });
+    progress('done', totalS);
+
+    const recordS = opts.recordMinutes * 60;
+    const frames = Math.round(recordS * fps);
+    const dropped = Math.round(frames * this.droppedFrac);
     return {
-      device: caps.device,
-      ranAt: new Date(this.sched.now()).toISOString(),
-      effectiveFps: this.effectiveFps,
-      droppedFrac: this.droppedFrac,
-      analysisFps: this.fixture.fps,
-      timestampSource: 'SIMULATED',
-      offsetSpreadMs: null,
-      thermalFpsDrop: false,
-      lockSupported: true,
-      tier: 'W',
+      schemaVersion: '1.0.0',
+      implementation: 'mock',
+      pluginVersion: PLUGIN_VERSION,
+      ranAt,
+      device: { ...caps.device, sdkInt: null },
+      settings: { ...opts },
+      camera: {
+        hardwareLevel: 'UNKNOWN',
+        timestampSource: 'SIMULATED',
+        aeFpsRanges: [
+          [30, 30],
+          [60, 60],
+        ],
+        maxFps1080p: 60,
+        maxFps720p: 60,
+        lockSupported: { ae: true, af: true, awb: true },
+      },
+      timestamp: { samples: 60, offsetNsMedian: '0', offsetSpreadMs: 0 },
+      recording: {
+        durationS: recordS,
+        frameCount: frames - dropped,
+        effectiveFps: fps,
+        droppedFrames: dropped,
+        droppedFrac: frames ? dropped / frames : 0,
+        windowFpsMin: recordS ? Math.floor(fps) - 1 : null,
+      },
+      analysis: {
+        fps: this.fixture.fps,
+        p95ProcessingMs: 3,
+        frames: Math.round(recordS * this.fixture.fps),
+      },
+      thermal: {
+        durationS: opts.thermalMinutes * 60,
+        statusStart: 'none',
+        statusMax: 'none',
+        windowFpsMin: opts.thermalMinutes ? Math.floor(fps) - 1 : null,
+        windowFpsMedian: opts.thermalMinutes ? Math.round(fps) : null,
+      },
+      storage: { freeBytesBefore: null },
+      errors: [],
     };
+  }
+
+  private savedReports = new Map<string, string>();
+
+  async saveQualificationReport(opts: {
+    fileName: string;
+    json: string;
+  }): Promise<{ fileName: string }> {
+    if (!/^[A-Za-z0-9._-]{1,120}\.json$/.test(opts.fileName)) throw new Error('invalid fileName');
+    JSON.parse(opts.json);
+    this.savedReports.set(opts.fileName, opts.json);
+    return { fileName: opts.fileName };
+  }
+
+  async cancelBenchmark(): Promise<void> {
+    this.benchCancel?.();
   }
 
   async openCamera(

@@ -1,8 +1,10 @@
 {
-  "app": { "name": "NeuroCapture" },
+  "app": {
+    "name": "NeuroCapture"
+  },
   "home": {
     "title": "फ़ाउंडेशन बिल्ड",
-    "subtitle": "माइलस्टोन M0 — अस्थायी होम स्क्रीन",
+    "subtitle": "माइलस्टोन M1 — डिवाइस योग्यता",
     "mode": {
       "mock": "मॉक मोड · क्लिनिकल डेटा के लिए नहीं",
       "webcam": "वेबकैम डेमो · क्लिनिकल डेटा के लिए नहीं",
@@ -15,8 +17,9 @@
     "tracking": "कैप्चर स्ट्रीम",
     "frames": "{{count}} विश्लेषण फ़्रेम मिले",
     "waiting": "कैप्चर इवेंट की प्रतीक्षा…",
-    "nativePending": "नेटिव CaptureKit M1 में आएगा",
-    "seconds": "{{count}} सेकंड"
+    "seconds": "{{count}} सेकंड",
+    "deviceCheck": "डिवाइस जाँच",
+    "nativeHint": "यहाँ कैमरा बंद है। कैमरा जाँचने के लिए डिवाइस जाँच खोलें।"
   },
   "tests": {
     "FT": "फ़िंगर टैपिंग",
@@ -25,5 +28,76 @@
     "SAW": "खड़े होकर चलना",
     "FA": "चेहरे की गतिविधि"
   },
-  "side": { "R": "दायाँ", "L": "बायाँ", "none": "—" }
+  "side": {
+    "R": "दायाँ",
+    "L": "बायाँ",
+    "none": "—"
+  },
+  "common": {
+    "back": "वापस",
+    "close": "बंद करें",
+    "cancel": "रद्द करें"
+  },
+  "deviceCheck": {
+    "title": "डिवाइस जाँच",
+    "device": "यह डिवाइस",
+    "loading": "कैमरा क्षमताएँ पढ़ी जा रही हैं…",
+    "model": "मॉडल",
+    "os": "OS",
+    "maxFps": "अधिकतम fps (पीछे)",
+    "timestamps": "टाइमस्टैम्प",
+    "lock": "AE/AF/AWB लॉक",
+    "implementation": "कैप्चर",
+    "cameraTest": "कैमरा प्रीव्यू जाँच",
+    "cameraStats": "विश्लेषण {{fps}} fps · ल्यूमा {{luma}}",
+    "cameraHint": "हरे कोने और ग्रिड वेब ऐप लाइव कैमरा प्रीव्यू के ऊपर बनाता है।",
+    "benchmark": "योग्यता बेंचमार्क",
+    "preset": "बेंचमार्क अवधि",
+    "presets": {
+      "quick": {
+        "title": "त्वरित जाँच · लगभग 3 मिनट",
+        "detail": "1 मिनट रिकॉर्डिंग + 2 मिनट थर्मल। अस्थायी टियर देता है।"
+      },
+      "full": {
+        "title": "पूर्ण योग्यता · लगभग 40 मिनट",
+        "detail": "10 मिनट रिकॉर्डिंग + 30 मिनट थर्मल। फ़ोन स्टैंड पर, चार्जर से जुड़ा, कमरे के तापमान पर रखें।"
+      }
+    },
+    "run": "बेंचमार्क चलाएँ",
+    "phase": {
+      "calibrating": "घड़ी कैलिब्रेशन",
+      "recording": "रिकॉर्डिंग",
+      "thermal": "थर्मल रन",
+      "done": "पूर्ण",
+      "cancelled": "रद्द",
+      "error": "त्रुटि"
+    },
+    "result": "परिणाम",
+    "provisional": "अस्थायी: रन पूर्ण योग्यता से छोटा था।",
+    "tier": {
+      "A": "टियर A · पूर्ण",
+      "B": "टियर B · सीमित",
+      "C": "टियर C · असमर्थित",
+      "W": "टियर W · केवल डेमो"
+    },
+    "allowed": "अनुमत टेस्ट",
+    "noneAllowed": "कोई नहीं (क्लिनिकल कैप्चर बंद)",
+    "dropped": "छूटे",
+    "analysis": "विश्लेषण",
+    "saved": "सहेजा गया: {{files}}",
+    "reason": {
+      "not_native": "मॉक या वेबकैम कैप्चर कभी क्लिनिकल नहीं होता",
+      "resolution_not_allowed": "रिज़ॉल्यूशन {{value}} अनुमत नहीं ({{limit}} चाहिए)",
+      "effective_fps_low": "रिकॉर्डिंग {{value}} fps, ≥ {{limit}} चाहिए",
+      "dropped_frames_high": "{{value}} फ़्रेम छूटे, < {{limit}} चाहिए",
+      "analysis_fps_low": "विश्लेषण {{value}} fps, ≥ {{limit}} चाहिए",
+      "timestamp_spread_high": "घड़ी ऑफ़सेट फैलाव {{value}} ms, ≤ {{limit}} ms चाहिए",
+      "thermal_fps_drop": "थर्मल रन में fps {{value}} तक गिरा (≥ {{limit}} चाहिए)",
+      "lock_unsupported": "{{value}} लॉक नहीं हो सकता",
+      "benchmark_errors": "बेंचमार्क में {{value}} त्रुटि",
+      "no_run_at_target_fps": "{{limit}} fps पर कोई रन नहीं",
+      "record_too_short": "रिकॉर्डिंग {{value}} s चली, {{limit}} s चाहिए",
+      "thermal_too_short": "थर्मल रन {{value}} s चला, {{limit}} s चाहिए"
+    }
+  }
 }

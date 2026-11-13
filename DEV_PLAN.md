@@ -10,6 +10,8 @@
 | Platform | Web app (React + TypeScript) in a Capacitor wrapper, with a native capture plugin (Android first, iOS later) |
 | Mockups | https://claude.ai/artifact/QYZxafDLLUSV47nhC5a9VH (see `docs/mockups.md`) |
 
+**Later change (13 Nov 2026):** device-model approval (tier gating, §7) is **deferred** until the client asks for it; per-take fps/drop checks remain the safety net. See `docs/decisions/006-defer-device-model-approval.md`.
+
 **Changes from v3** (agreed in the mockup review, 13 Nov 2026)
 - **Fixed-duration takes.** Every take records for a fixed time instead of stopping after a number of reps: **15 s** for FT, FR, FTF and FA, **30 s** for SAW. Task detectors no longer decide when recording stops; they mark movement, events and phases.
 - **Biomarker readiness is not shown to operators.** Readiness problems that a retake can fix become plain RETAKE reasons in the capture verdict. Everything else is saved in `quality.json` for the server and reviewers.
@@ -730,8 +732,8 @@ Timings assume 1–2 developers with Claude Code. Every milestone also follows t
 - [ ] Benchmark at least 3 target phone models; save reports in `tools/device_qualification/reports/`
 
 **Accept:**
-- Each tested phone has a saved report and a tier.
-- On a Tier A phone, a 10-min recording has effective fps ≥ 58 and drops < 1%.
+- Each tested phone has a saved report and a tier. *(Reduced by decision 006: one phone — OnePlus CPH2649 — benchmarked; ≥ 3 phones deferred with model approval.)*
+- On a Tier A phone, a 10-min recording has effective fps ≥ 58 and drops < 1%. *(Deferred with model approval; per-take fps checks in M7 cover data quality.)*
 - The WebView overlay draws on top of the live preview.
 
 ### M2 — Capture engine (≈ 2 weeks)

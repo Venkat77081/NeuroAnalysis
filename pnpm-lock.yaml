@@ -96,6 +96,9 @@ importers:
       '@capacitor/core':
         specifier: 8.6.2
         version: 8.6.2
+      '@neurocapture/contracts-ts':
+        specifier: workspace:*
+        version: link:../contracts-ts
     devDependencies:
       tsx:
         specifier: 4.23.15
@@ -124,10 +127,30 @@ importers:
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/quality-core:
+    dependencies:
+      '@neurocapture/contracts-ts':
+        specifier: workspace:*
+        version: link:../contracts-ts
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 5.1.0
         version: 5.1.0(vitest@5.1.0)
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  tools/device_qualification:
+    dependencies:
+      '@neurocapture/contracts-ts':
+        specifier: workspace:*
+        version: link:../../packages/contracts-ts
+      '@neurocapture/quality-core':
+        specifier: workspace:*
+        version: link:../../packages/quality-core
+    devDependencies:
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
       vitest:
         specifier: 5.1.0
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))

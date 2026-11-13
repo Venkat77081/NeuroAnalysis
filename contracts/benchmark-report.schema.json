@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/benchmark-report.schema.json",
+  "title": "BenchmarkReport",
+  "description": "Raw device-qualification measurements from runQualificationBenchmark (DEV_PLAN §7, M1). The tier is assigned in TypeScript from config/device-tiers.json and stored in `assessment`. Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "implementation",
+    "pluginVersion",
+    "ranAt",
+    "device",
+    "settings",
+    "camera",
+    "timestamp",
+    "recording",
+    "analysis",
+    "thermal",
+    "storage",
+    "errors"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "implementation": { "enum": ["native", "mock", "webcam"] },
+    "pluginVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "ranAt": { "type": "string", "format": "date-time" },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manufacturer", "model", "osName", "osVersion", "sdkInt"],
+      "properties": {
+        "manufacturer": { "type": "string" },
+        "model": { "type": "string" },
+        "osName": { "enum": ["android", "ios", "web"] },
+        "osVersion": { "type": "string" },
+        "sdkInt": { "type": ["integer", "null"] }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facing", "resolution", "targetFps", "recordMinutes", "thermalMinutes"],
+      "properties": {
+        "facing": { "enum": ["back", "front"] },
+        "resolution": { "enum": ["1080p", "720p"] },
+        "targetFps": { "enum": [60, 30] },
+        "recordMinutes": { "type": "number", "minimum": 0 },
+        "thermalMinutes": { "type": "number", "minimum": 0 }
+      }
+    },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hardwareLevel",
+        "timestampSource",
+        "aeFpsRanges",
+        "maxFps1080p",
+        "maxFps720p",
+        "lockSupported"
+      ],
+      "properties": {
+        "hardwareLevel": {
+          "enum": ["LEGACY", "LIMITED", "FULL", "LEVEL_3", "EXTERNAL", "UNKNOWN"]
+        },
+        "timestampSource": { "enum": ["REALTIME", "UNKNOWN", "SIMULATED"] },
+        "aeFpsRanges": { "type": "array", "items": { "$ref": "#/$defs/IntRange" } },
+        "maxFps1080p": { "type": ["number", "null"], "minimum": 0 },
+        "maxFps720p": { "type": ["number", "null"], "minimum": 0 },
+        "lockSupported": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ae", "af", "awb"],
+          "properties": {
+            "ae": { "type": "boolean" },
+            "af": { "type": "boolean" },
+            "awb": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "timestamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["samples", "offsetNsMedian", "offsetSpreadMs"],
+      "properties": {
+        "samples": { "type": "integer", "minimum": 0 },
+        "offsetNsMedian": { "type": ["string", "null"], "pattern": "^-?[0-9]+$" },
+        "offsetSpreadMs": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "recording": { "$ref": "#/$defs/RecordingStats" },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fps", "p95ProcessingMs", "frames"],
+      "properties": {
+        "fps": { "type": "number", "minimum": 0 },
+        "p95ProcessingMs": { "type": ["number", "null"], "minimum": 0 },
+        "frames": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "thermal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["durationS", "statusStart", "statusMax", "windowFpsMin", "windowFpsMedian"],
+      "properties": {
+        "durationS": { "type": "number", "minimum": 0 },
+        "statusStart": { "$ref": "#/$defs/ThermalStatus" },
+        "statusMax": { "$ref": "#/$defs/ThermalStatus" },
+        "windowFpsMin": { "type": ["number", "null"], "minimum": 0 },
+        "windowFpsMedian": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["freeBytesBefore"],
+      "properties": { "freeBytesBefore": { "type": ["integer", "null"], "minimum": 0 } }
+    },
+    "errors": { "type": "array", "items": { "type": "string" } },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "provisional", "reasons", "tiersConfigVersion"],
+      "properties": {
+        "tier": { "enum": ["A", "B", "C", "W"] },
+        "provisional": { "type": "boolean" },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "tiersConfigVersion": { "type": "string", "pattern": "^TIERS@[0-9]+\\.[0-9]+\\.[0-9]+$" }
+      }
+    }
+  },
+  "$defs": {
+    "IntRange": {
+      "tsType": "[number, number]",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [{ "type": "integer" }, { "type": "integer" }]
+    },
+    "ThermalStatus": {
+      "enum": [
+        "none",
+        "light",
+        "moderate",
+        "severe",
+        "critical",
+        "emergency",
+        "shutdown",
+        "unsupported"
+      ]
+    },
+    "RecordingStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "durationS",
+        "frameCount",
+        "effectiveFps",
+        "droppedFrames",
+        "droppedFrac",
+        "windowFpsMin"
+      ],
+      "properties": {
+        "durationS": { "type": "number", "minimum": 0 },
+        "frameCount": { "type": "integer", "minimum": 0 },
+        "effectiveFps": { "type": "number", "minimum": 0 },
+        "droppedFrames": { "type": "integer", "minimum": 0 },
+        "droppedFrac": { "type": "number", "minimum": 0, "maximum": 1 },
+        "windowFpsMin": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

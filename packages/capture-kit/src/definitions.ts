@@ -3,8 +3,9 @@
  * MockCaptureKit (browser/Node) and WebcamCaptureKit (browser demo, M4).
  */
 import type { PluginListenerHandle } from '@capacitor/core';
+import type { BenchmarkReport } from '@neurocapture/contracts-ts/types';
 
-export type { PluginListenerHandle };
+export type { PluginListenerHandle, BenchmarkReport };
 
 export type Facing = 'back' | 'front';
 export type Resolution = '1080p' | '720p';
@@ -33,23 +34,23 @@ export interface DeviceCapabilities {
 }
 
 export interface BenchmarkOpts {
+  facing: Facing;
   resolution: Resolution;
   targetFps: 60 | 30;
-  recordMinutes: number; // 10 in M1
-  thermalMinutes: number; // 30 in M1
+  /** Continuous recording phase (10 min for a real qualification). */
+  recordMinutes: number;
+  /** Thermal phase: keep recording in segments while watching fps and thermal status (30 min). */
+  thermalMinutes: number;
 }
 
-export interface BenchmarkReport {
-  device: DeviceCapabilities['device'];
-  ranAt: string; // ISO date-time
-  effectiveFps: number;
-  droppedFrac: number;
-  analysisFps: number;
-  timestampSource: TimestampSource;
-  offsetSpreadMs: number | null;
-  thermalFpsDrop: boolean;
-  lockSupported: boolean;
-  tier: Tier;
+export interface BenchmarkProgressEvent {
+  phase: 'calibrating' | 'recording' | 'thermal' | 'done' | 'cancelled' | 'error';
+  elapsedS: number;
+  totalS: number;
+  /** Frames per second over the last second of recording, when recording. */
+  liveFps?: number;
+  thermalStatus?: string;
+  message?: string;
 }
 
 export interface OpenCameraOpts {
@@ -143,13 +144,18 @@ export interface CaptureKitEvents {
   recordingState: RecordingStateEvent;
   thermal: ThermalEvent;
   uploadProgress: UploadProgressEvent;
+  benchmarkProgress: BenchmarkProgressEvent;
 }
 
 export type CaptureKitEventName = keyof CaptureKitEvents;
 
 export interface CaptureKitPlugin {
   getCapabilities(): Promise<DeviceCapabilities>;
+  /** Raw measurements; the tier is assigned in TypeScript (quality-core assignTier). */
   runQualificationBenchmark(opts: BenchmarkOpts): Promise<BenchmarkReport>;
+  cancelBenchmark(): Promise<void>;
+  /** Writes a report to app-specific external storage (adb pull …/files/qualification/). Returns the file name. */
+  saveQualificationReport(opts: { fileName: string; json: string }): Promise<{ fileName: string }>;
 
   openCamera(
     opts: OpenCameraOpts,

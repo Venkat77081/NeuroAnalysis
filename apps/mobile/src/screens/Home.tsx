@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { QUALITY_CORE_VERSION } from '@neurocapture/quality-core';
 import { PLUGIN_VERSION } from '@neurocapture/capture-kit';
 import { loadConfig } from '../lib/config.ts';
-import { capture } from '../lib/capture.ts';
+import { camera, capture } from '../lib/capture.ts';
 import { logger } from '../lib/logger.ts';
 
 /** M0 placeholder home screen: proves the app runs, configs validate, and capture events flow (mock). */
-export function Home() {
+export function Home({ onDeviceCheck }: { onDeviceCheck?: () => void }) {
   const { t } = useTranslation();
   const config = useMemo(() => loadConfig(), []);
   const [frames, setFrames] = useState(0);
@@ -15,31 +15,33 @@ export function Home() {
   const { kit, implementation } = capture;
 
   useEffect(() => {
+    // On a device the camera is opened only by Device check / capture screens, never on Home.
+    if (implementation === 'native') return;
     let cancelled = false;
-    let remove: (() => Promise<void>) | undefined;
-    (async () => {
-      try {
-        const h = await kit.addListener('analysisFrame', () => setFrames((n) => n + 1));
-        remove = h.remove;
-        await kit.openCamera({
-          facing: 'back',
-          resolution: '1080p',
-          targetFps: 60,
-          orientation: 'portrait',
-          trackers: ['hand'],
-          analysisFps: 30,
-        });
-        if (cancelled) await kit.closeCamera();
-      } catch (e) {
+    let handle: { remove: () => Promise<void> } | undefined;
+    void kit
+      .addListener('analysisFrame', () => setFrames((n) => n + 1))
+      .then((h) => {
+        if (cancelled) void h.remove();
+        else handle = h;
+      });
+    camera
+      .open({
+        facing: 'back',
+        resolution: '1080p',
+        targetFps: 60,
+        orientation: 'portrait',
+        trackers: ['hand'],
+        analysisFps: 30,
+      })
+      .catch((e: unknown) => {
         logger.warn('capture unavailable', { implementation, error: String(e) });
-        if (!cancelled)
-          setCaptureError(implementation === 'native' ? t('home.nativePending') : String(e));
-      }
-    })();
+        if (!cancelled) setCaptureError(String(e));
+      });
     return () => {
       cancelled = true;
-      void remove?.();
-      void kit.closeCamera().catch(() => undefined);
+      void handle?.remove();
+      void camera.close().catch(() => undefined);
     };
   }, [kit, implementation, t]);
 
@@ -138,12 +140,26 @@ export function Home() {
           {t('home.tracking')}
         </h2>
         <p data-testid="frame-count" className="mt-1 mb-0 text-sm" aria-live="polite">
-          {captureError ?? (frames > 0 ? t('home.frames', { count: frames }) : t('home.waiting'))}
+          {implementation === 'native'
+            ? t('home.nativeHint')
+            : (captureError ??
+              (frames > 0 ? t('home.frames', { count: frames }) : t('home.waiting')))}
         </p>
       </section>
 
+      {onDeviceCheck && (
+        <button
+          type="button"
+          onClick={onDeviceCheck}
+          className="h-14 rounded-2xl bg-brand text-[17px] font-semibold text-white"
+          data-testid="open-device-check"
+        >
+          {t('home.deviceCheck')}
+        </button>
+      )}
+
       <footer className="mt-auto text-[11px] text-muted">
-        app 0.1.0 · capture-kit {PLUGIN_VERSION} · quality-core {QUALITY_CORE_VERSION}
+        app 0.2.0 · capture-kit {PLUGIN_VERSION} · quality-core {QUALITY_CORE_VERSION}
       </footer>
     </div>
   );

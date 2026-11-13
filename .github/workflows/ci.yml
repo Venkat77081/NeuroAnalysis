@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Lint, types, tests, contracts, web build, e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generated contract types are up to date
+        run: pnpm contracts:check
+      - name: Validate configs and contract samples
+        run: pnpm validate
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build:web
+      - name: Install Playwright browser
+        run: pnpm --filter @neurocapture/mobile exec playwright install --with-deps chromium
+      - name: E2E (mock mode)
+        run: pnpm e2e
+        env:
+          CI: 'true'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-dist-and-e2e
+          path: |
+            apps/mobile/dist
+            apps/mobile/test-results
+          if-no-files-found: ignore
+
+  android:
+    name: Android debug APK
+    runs-on: ubuntu-latest
+    needs: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+      - run: pnpm --filter @neurocapture/mobile exec cap sync android
+      - name: Assemble debug APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+  backend:
+    name: Backend (ruff, pytest, migrations)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: neurocapture
+          POSTGRES_USER: neurocapture
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U neurocapture" --health-interval 3s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest -q
+      - name: Alembic upgrade against Postgres
+        run: alembic upgrade head
+        env:
+          NC_DATABASE_URL: postgresql+psycopg://neurocapture:ci-only-password@localhost:5432/neurocapture
+
+  compose:
+    name: docker compose up → /health
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --build --wait
+      - run: curl -fsS http://localhost:8000/health
+      - if: always()
+        run: docker compose logs

@@ -1,0 +1,24 @@
+{
+  "name": "@neurocapture/contracts-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "bin": { "nc-validate": "./src/cli.ts" },
+  "scripts": {
+    "gen": "tsx scripts/gen.ts",
+    "check-generated": "tsx scripts/gen.ts --check",
+    "validate:all": "tsx src/cli.ts --all",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "16.0.0",
+    "tsx": "4.23.15",
+    "vitest": "5.1.0"
+  }
+}

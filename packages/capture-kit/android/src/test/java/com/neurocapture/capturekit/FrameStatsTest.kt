@@ -10,9 +10,11 @@ import java.nio.ByteOrder
 
 class FrameStatsTest {
     private fun steady(fps: Int, seconds: Int, dropEvery: Int = 0): LongArray {
-        val step = FrameStats.NS_PER_S / fps
+        // Exact frame times (rounded per frame), so frame `fps` lands at exactly +1 s.
         val out = ArrayList<Long>()
-        for (i in 0 until fps * seconds) if (dropEvery == 0 || i % dropEvery != dropEvery - 1) out.add(1_000L + i * step)
+        for (i in 0 until fps * seconds) {
+            if (dropEvery == 0 || i % dropEvery != dropEvery - 1) out.add(1_000L + Math.round(i * 1e9 / fps))
+        }
         return out.toLongArray()
     }
 

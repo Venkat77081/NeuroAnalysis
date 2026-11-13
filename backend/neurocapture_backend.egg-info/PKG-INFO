@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: neurocapture-backend
+Version: 0.1.0
+Summary: NeuroCapture API: sessions, takes, uploads (DEV_PLAN §13).
+Requires-Python: >=3.12
+Requires-Dist: fastapi==0.162.6
+Requires-Dist: uvicorn[standard]==0.54.0
+Requires-Dist: sqlalchemy==2.1.8
+Requires-Dist: psycopg[binary]==3.3.9
+Requires-Dist: alembic==1.20.1
+Requires-Dist: pydantic-settings==2.16.3
+Requires-Dist: boto3==1.44.2
+Provides-Extra: dev
+Requires-Dist: pytest==9.2.0; extra == "dev"
+Requires-Dist: httpx==0.28.1; extra == "dev"
+Requires-Dist: ruff==0.17.5; extra == "dev"

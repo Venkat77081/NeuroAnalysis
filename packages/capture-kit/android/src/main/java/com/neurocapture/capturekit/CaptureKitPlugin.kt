@@ -28,6 +28,7 @@ class CaptureKitPlugin : Plugin() {
     private var benchmark: Benchmark? = null
     private var pendingStop: PluginCall? = null
     private lateinit var vault: TakeVault
+    private lateinit var store: SecureStore
     private val io = Executors.newSingleThreadExecutor { Thread(it, "nc-vault") }
     @Volatile private var recovered: List<String> = emptyList()
 
@@ -35,6 +36,7 @@ class CaptureKitPlugin : Plugin() {
         session = CameraSession(activity, bridge.webView) { event, data -> notifyListeners(event, data) }
         val master = AndroidKeystoreKmsClient.getOrGenerateNewAeadKey(MASTER_KEY_URI)
         vault = TakeVault(takesDir(), master)
+        store = SecureStore(File(context.noBackupFilesDir, "store"), master)
         io.execute {
             playbackDir().deleteRecursively() // decrypted playback copies never survive a restart
             recovered = try { vault.recover() } catch (_: Exception) { emptyList() }
@@ -321,6 +323,54 @@ class CaptureKitPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun secureGet(call: PluginCall) {
+        val key = call.getString("key") ?: return call.reject("key required")
+        io.execute {
+            try {
+                call.resolve(JSObject().apply { put("json", store.get(key) ?: org.json.JSONObject.NULL) })
+            } catch (e: Exception) {
+                call.reject("secureGet failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun securePut(call: PluginCall) {
+        val key = call.getString("key") ?: return call.reject("key required")
+        val json = call.getString("json") ?: return call.reject("json required")
+        io.execute {
+            try {
+                org.json.JSONTokener(json).nextValue()
+                store.put(key, json)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("securePut failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun secureDelete(call: PluginCall) {
+        val key = call.getString("key") ?: return call.reject("key required")
+        io.execute {
+            try {
+                store.delete(key)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("secureDelete failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun secureKeys(call: PluginCall) {
+        val prefix = call.getString("prefix") ?: ""
+        io.execute {
+            call.resolve(JSObject().apply { put("keys", com.getcapacitor.JSArray().apply { store.keys(prefix).forEach { put(it) } }) })
+        }
+    }
+
+    @PluginMethod
     fun calibrateSharpness(call: PluginCall) {
         if (!session.isOpen) return call.reject("camera not open")
         val durationS = (call.getDouble("durationS") ?: 3.0).coerceIn(1.0, 10.0)
@@ -346,7 +396,7 @@ class CaptureKitPlugin : Plugin() {
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.4.0"
+        const val PLUGIN_VERSION = "0.5.0"
         private const val MASTER_KEY_URI = "android-keystore://neurocapture_master_v1"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")

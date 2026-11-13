@@ -417,6 +417,32 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
+  private secure = new Map<string, string>();
+
+  private checkKey(key: string): void {
+    if (!/^[a-z0-9][a-z0-9._-]{0,99}$/.test(key)) throw new Error('invalid key');
+  }
+
+  async secureGet(opts: { key: string }): Promise<{ json: string | null }> {
+    this.checkKey(opts.key);
+    return { json: this.secure.get(opts.key) ?? null };
+  }
+
+  async securePut(opts: { key: string; json: string }): Promise<void> {
+    this.checkKey(opts.key);
+    JSON.parse(opts.json);
+    this.secure.set(opts.key, opts.json);
+  }
+
+  async secureDelete(opts: { key: string }): Promise<void> {
+    this.checkKey(opts.key);
+    this.secure.delete(opts.key);
+  }
+
+  async secureKeys(opts: { prefix: string }): Promise<{ keys: string[] }> {
+    return { keys: [...this.secure.keys()].filter((k) => k.startsWith(opts.prefix)).sort() };
+  }
+
   async debugArmCrash(_opts: { afterS: number }): Promise<void> {
     // No process to kill in the browser; accepted so the engineering screen works in mock mode.
   }

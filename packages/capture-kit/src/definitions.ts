@@ -226,6 +226,11 @@ export interface CaptureKitPlugin {
   calibrateSharpness(opts: { durationS: number }): Promise<{ baseline: number; frames: number }>;
   /** Stored takes on this device, newest first (survives app restarts). */
   listTakes(): Promise<{ takes: StoredTake[] }>;
+  /** Encrypted key–value store for app data (keys: [a-z0-9][a-z0-9._-]*, values: JSON text). Decision 011. */
+  secureGet(opts: { key: string }): Promise<{ json: string | null }>;
+  securePut(opts: { key: string; json: string }): Promise<void>;
+  secureDelete(opts: { key: string }): Promise<void>;
+  secureKeys(opts: { prefix: string }): Promise<{ keys: string[] }>;
   /** Engineering only (M2 crash test): the next take kills the app after afterS seconds. */
   debugArmCrash(opts: { afterS: number }): Promise<void>;
   deleteTake(opts: { takeId: string; reason: string }): Promise<void>;

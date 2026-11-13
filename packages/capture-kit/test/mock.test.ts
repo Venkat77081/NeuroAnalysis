@@ -206,6 +206,18 @@ describe('MockCaptureKit', () => {
     await expect(kit.calibrateSharpness({ durationS: 3 })).rejects.toThrow(/not open/);
   });
 
+  it('stores app data by key with a safe key format', async () => {
+    expect(await kit.secureGet({ key: 'patient.p1' })).toEqual({ json: null });
+    await kit.securePut({ key: 'patient.p1', json: '{"ref":"A1"}' });
+    await kit.securePut({ key: 'session.current', json: '{}' });
+    expect(await kit.secureGet({ key: 'patient.p1' })).toEqual({ json: '{"ref":"A1"}' });
+    expect(await kit.secureKeys({ prefix: 'patient.' })).toEqual({ keys: ['patient.p1'] });
+    await kit.secureDelete({ key: 'patient.p1' });
+    expect(await kit.secureKeys({ prefix: '' })).toEqual({ keys: ['session.current'] });
+    await expect(kit.securePut({ key: '../x', json: '{}' })).rejects.toThrow(/invalid key/);
+    await expect(kit.securePut({ key: 'x', json: '{' })).rejects.toThrow();
+  });
+
   it('marks an operator stop as stoppedEarly', async () => {
     await kit.openCamera(openOpts);
     await kit.startRecording({ takeId: 't2', durationS: 30 });

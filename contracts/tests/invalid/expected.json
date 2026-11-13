@@ -1,0 +1,13 @@
+{
+  "_comment": "Each invalid sample must fail, and the error message must name this field (JSON pointer).",
+  "test-config/target-fps-59.json": "/camera/targetFps",
+  "test-config/misspelled-duration.json": "/task/durationSec",
+  "test-config/duration-too-short.json": "/task/durationS",
+  "session-config/override-reasons-missing-other.json": "/overrideReasons",
+  "quality/unknown-verdict.json": "/captureVerdict",
+  "quality/missing-flagged-for-review.json": "/flaggedForReview",
+  "meta/missing-tier.json": "/tier",
+  "meta/patient-name-not-allowed.json": "/patientName",
+  "landmarks-header/hand-22-points.json": "/trackers/0/pointsPerFrame",
+  "biomarker-registry/bad-id.json": "/biomarkers/0/id"
+}

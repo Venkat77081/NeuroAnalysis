@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/meta.schema.json",
+  "title": "TakeMeta",
+  "description": "Device, versions and context saved with every take (DEV_PLAN §12.2). Schema version 1.0.0. No patient names or external refs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "takeId", "sessionId", "testCode", "side", "take", "configVersion", "appVersion", "pluginVersion", "qualityCoreVersion", "implementation", "device", "tier", "capabilities", "timestamp", "camera", "medState", "operatorId", "createdAt"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "takeId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "testCode": { "enum": ["FT", "FTF", "FR", "SAW", "FA"] },
+    "side": { "enum": ["R", "L", null] },
+    "take": { "type": "integer", "minimum": 1 },
+    "configVersion": { "type": "string", "pattern": "^(FT|FTF|FR|SAW|FA)@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "sessionConfigVersion": { "type": "string", "pattern": "^SESSION@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "appVersion": { "$ref": "#/$defs/SemVer" },
+    "pluginVersion": { "$ref": "#/$defs/SemVer" },
+    "qualityCoreVersion": { "$ref": "#/$defs/SemVer" },
+    "implementation": { "enum": ["native", "mock", "webcam"] },
+    "device": {
+      "type": "object", "additionalProperties": false, "required": ["manufacturer", "model", "osName", "osVersion"],
+      "properties": {
+        "manufacturer": { "type": "string" },
+        "model": { "type": "string" },
+        "osName": { "enum": ["android", "ios", "web"] },
+        "osVersion": { "type": "string" }
+      }
+    },
+    "tier": { "enum": ["A", "B", "C", "W"] },
+    "capabilities": { "type": "object", "description": "Snapshot of getCapabilities() at capture time." },
+    "timestamp": {
+      "type": "object", "additionalProperties": false, "required": ["source", "offsetNs", "offsetSpreadMs"],
+      "properties": {
+        "source": { "enum": ["REALTIME", "UNKNOWN", "SIMULATED"] },
+        "offsetNs": { "type": ["string", "null"], "pattern": "^-?[0-9]+$" },
+        "offsetSpreadMs": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "camera": {
+      "type": "object", "additionalProperties": false, "required": ["facing", "resolution", "targetFps", "orientation"],
+      "properties": {
+        "facing": { "enum": ["back", "front"] },
+        "resolution": { "enum": ["1080p", "720p"] },
+        "targetFps": { "enum": [60, 30] },
+        "orientation": { "enum": ["portrait", "landscape"] }
+      }
+    },
+    "medState": { "enum": ["ON", "OFF", "NA"] },
+    "operatorId": { "type": "string", "minLength": 1 },
+    "createdAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": { "SemVer": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.]+)?$" } }
+}

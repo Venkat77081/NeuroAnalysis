@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "coordinateSystem": "normalized_upright_analysis_frame",
+  "orientation": "portrait",
+  "mirrored": false,
+  "timestampSemantics": "camera_frame_canonical_elapsed_realtime_ns",
+  "clockSource": "REALTIME",
+  "record": {
+    "endianness": "little",
+    "dtype": "float32"
+  },
+  "trackers": [
+    {
+      "name": "hand",
+      "modelVersion": "hand_landmarker@float16/1",
+      "pointsPerFrame": 22,
+      "valuesPerPoint": 4
+    }
+  ]
+}

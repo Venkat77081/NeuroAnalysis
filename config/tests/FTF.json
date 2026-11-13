@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0.0",
+  "configVersion": "FTF@1.0.0",
+  "code": "FTF",
+  "name": "Finger-to-Finger",
+  "biomarkers": ["FTF1", "FTF2", "FTF3", "FTF4", "FTF5", "FTF6", "FTF7", "FTF8", "FTF9", "FTF10", "FTF11", "FTF12", "FTF13", "FTF14", "FTF15", "FTF16", "FTF17", "FTF18"],
+  "sides": [],
+  "minTier": "A",
+  "trackers": ["pose", "hand"],
+  "camera": { "facing": "back", "resolution": "1080p", "targetFps": 60, "minEffectiveFps": 58, "orientation": "landscape", "lock": { "ae": true, "af": true, "awb": true } },
+  "analysis": { "fps": 30 },
+  "setup": {
+    "view": "front_centred",
+    "distanceM": [1.5, 2.0],
+    "heightRef": "chest",
+    "checklist": ["phone_on_stand", "light_in_front", "seated_no_armrest", "space_to_extend_arms"]
+  },
+  "framing": {
+    "overlay": "upper_body",
+    "requiredLandmarks": {
+      "pose": [0, 11, 12, 13, 14, 15, 16],
+      "hand": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    },
+    "safeZoneMargin": 0.05,
+    "subjectSize": { "metric": "upper_body_height", "min": 0.45, "max": 0.85 },
+    "bothHandsRequired": true,
+    "singlePerson": true
+  },
+  "task": { "detector": "ftf_cycle_counter", "durationS": 15, "noMotionTimeoutS": 3, "detectorParams": "TBD" },
+  "verdict": {
+    "minLandmarkVisibleFrac": 0.95,
+    "visibilityLandmarks": { "pose": [15, 16] },
+    "durationToleranceS": 0.1,
+    "maxCriticalEvents": 0,
+    "sharpness": "DEVICE_CALIBRATED"
+  },
+  "instructions": { "demoVideo": "TBD", "stepKeys": ["ftf.step1", "ftf.step2", "ftf.step3"] }
+}

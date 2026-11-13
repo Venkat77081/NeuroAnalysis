@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0.0",
+  "takeId": "tk_01",
+  "sessionId": "ss_01",
+  "testCode": "FT",
+  "side": "R",
+  "take": 1,
+  "configVersion": "FT@1.0.0",
+  "sessionConfigVersion": "SESSION@1.0.0",
+  "appVersion": "0.1.0",
+  "pluginVersion": "0.1.0",
+  "qualityCoreVersion": "0.1.0",
+  "implementation": "mock",
+  "device": {
+    "manufacturer": "mock",
+    "model": "MockCaptureKit",
+    "osName": "web",
+    "osVersion": "n/a"
+  },
+  "tier": "W",
+  "capabilities": {},
+  "timestamp": {
+    "source": "SIMULATED",
+    "offsetNs": null,
+    "offsetSpreadMs": null
+  },
+  "camera": {
+    "facing": "back",
+    "resolution": "1080p",
+    "targetFps": 60,
+    "orientation": "portrait"
+  },
+  "medState": "ON",
+  "operatorId": "OP-07",
+  "createdAt": "2026-11-13T10:30:00Z",
+  "patientName": "X"
+}

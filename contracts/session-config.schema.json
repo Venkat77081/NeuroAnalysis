@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/session-config.schema.json",
+  "title": "SessionConfig",
+  "description": "Test order and session rules (DEV_PLAN §8.3). Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "configVersion", "order", "maxRetakes", "skipReasons", "overrideReasons", "medStates"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "configVersion": { "type": "string", "pattern": "^SESSION@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "order": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "tsType": "[('FT' | 'FTF' | 'FR' | 'SAW' | 'FA'), ('R' | 'L' | null)]",
+        "type": "array", "minItems": 2, "maxItems": 2,
+        "prefixItems": [
+          { "enum": ["FT", "FTF", "FR", "SAW", "FA"] },
+          { "enum": ["R", "L", null] }
+        ]
+      }
+    },
+    "maxRetakes": { "type": "integer", "minimum": 0, "maximum": 10 },
+    "skipReasons": { "$ref": "#/$defs/ReasonList" },
+    "overrideReasons": { "$ref": "#/$defs/ReasonList" },
+    "medStates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["ON", "OFF", "NA"] } }
+  },
+  "$defs": {
+    "ReasonList": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z_]+$" },
+      "contains": { "const": "other" }
+    }
+  }
+}

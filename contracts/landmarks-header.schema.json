@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/landmarks-header.schema.json",
+  "title": "LandmarksHeader",
+  "description": "JSON header at the start of landmarks.bin (DEV_PLAN §12.2). Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "coordinateSystem", "orientation", "mirrored", "timestampSemantics", "clockSource", "record", "trackers"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "coordinateSystem": { "const": "normalized_upright_analysis_frame" },
+    "orientation": { "enum": ["portrait", "landscape"] },
+    "mirrored": { "type": "boolean" },
+    "timestampSemantics": { "const": "camera_frame_canonical_elapsed_realtime_ns" },
+    "clockSource": { "enum": ["REALTIME", "UNKNOWN", "SIMULATED"] },
+    "record": {
+      "type": "object", "additionalProperties": false, "required": ["endianness", "dtype"],
+      "properties": { "endianness": { "const": "little" }, "dtype": { "const": "float32" } }
+    },
+    "trackers": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["name", "modelVersion", "pointsPerFrame", "valuesPerPoint"],
+        "properties": {
+          "name": { "enum": ["hand", "pose", "face"] },
+          "modelVersion": { "type": "string", "minLength": 1 },
+          "pointsPerFrame": { "enum": [21, 33, 478] },
+          "valuesPerPoint": { "enum": [3, 4] }
+        }
+      }
+    }
+  }
+}

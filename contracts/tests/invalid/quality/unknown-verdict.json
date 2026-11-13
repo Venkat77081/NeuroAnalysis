@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0.0",
+  "configVersion": "FT@1.0.0",
+  "qualityCoreVersion": "0.1.0",
+  "testCode": "FT",
+  "side": "R",
+  "take": 1,
+  "tier": "A",
+  "durationTargetS": 15,
+  "durationS": 15,
+  "stoppedEarly": false,
+  "fpsTarget": 60,
+  "fpsEffective": 59.8,
+  "droppedFrames": 5,
+  "droppedFrac": 0.006,
+  "eventsDetected": 52,
+  "landmarkVisibleFrac": 0.975,
+  "sharpnessMedian": 182.4,
+  "sharpnessBaseline": 240.1,
+  "brightnessMedian": 131,
+  "movementWindow": {
+    "tStartS": 0.8,
+    "tEndS": 15
+  },
+  "events": [
+    {
+      "tStartS": 6.2,
+      "tEndS": 7.1,
+      "ruleId": "in_safe_zone@1.0.0",
+      "severity": "WARN"
+    }
+  ],
+  "unknownWindows": [],
+  "captureVerdict": "FAIL",
+  "captureReasons": [],
+  "override": null,
+  "flaggedForReview": false,
+  "biomarkerReadinessHint": {
+    "registryVersion": "REG@0.1.0",
+    "FT1": {
+      "status": "COMPUTABLE"
+    }
+  }
+}

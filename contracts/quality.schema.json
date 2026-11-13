@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/quality.schema.json",
+  "title": "QualityReport",
+  "description": "Per-take capture verdict, events, metrics and readiness hint (DEV_PLAN §12.3). Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "configVersion", "qualityCoreVersion", "testCode", "side", "take", "tier", "durationTargetS", "durationS", "stoppedEarly", "fpsTarget", "fpsEffective", "droppedFrames", "droppedFrac", "eventsDetected", "landmarkVisibleFrac", "sharpnessMedian", "sharpnessBaseline", "brightnessMedian", "movementWindow", "events", "unknownWindows", "captureVerdict", "captureReasons", "override", "flaggedForReview", "biomarkerReadinessHint"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "configVersion": { "type": "string", "pattern": "^(FT|FTF|FR|SAW|FA)@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "qualityCoreVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "testCode": { "enum": ["FT", "FTF", "FR", "SAW", "FA"] },
+    "side": { "enum": ["R", "L", null] },
+    "take": { "type": "integer", "minimum": 1 },
+    "tier": { "enum": ["A", "B", "C", "W"] },
+    "durationTargetS": { "type": "number", "exclusiveMinimum": 0 },
+    "durationS": { "type": "number", "minimum": 0 },
+    "stoppedEarly": { "type": "boolean" },
+    "fpsTarget": { "enum": [60, 30] },
+    "fpsEffective": { "type": "number", "minimum": 0 },
+    "droppedFrames": { "type": "integer", "minimum": 0 },
+    "droppedFrac": { "type": "number", "minimum": 0, "maximum": 1 },
+    "eventsDetected": { "type": "integer", "minimum": 0 },
+    "phasesDetected": { "type": "array", "items": { "enum": ["seated", "standing", "walk_out", "turn", "walk_back", "seated_end"] } },
+    "landmarkVisibleFrac": { "type": "number", "minimum": 0, "maximum": 1 },
+    "sharpnessMedian": { "type": ["number", "null"], "minimum": 0 },
+    "sharpnessBaseline": { "type": ["number", "null"], "minimum": 0 },
+    "brightnessMedian": { "type": ["number", "null"], "minimum": 0, "maximum": 255 },
+    "movementWindow": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Window" }] },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["tStartS", "tEndS", "ruleId", "severity"],
+        "properties": {
+          "tStartS": { "type": "number", "minimum": 0 },
+          "tEndS": { "type": "number", "minimum": 0 },
+          "ruleId": { "$ref": "#/$defs/RuleId" },
+          "severity": { "enum": ["INFO", "WARN", "CRITICAL"] }
+        }
+      }
+    },
+    "unknownWindows": { "type": "array", "items": { "$ref": "#/$defs/Window" } },
+    "captureVerdict": { "enum": ["PASS", "RETAKE", "OVERRIDE"] },
+    "captureReasons": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["code", "messageKey"],
+        "properties": {
+          "code": { "type": "string", "pattern": "^[a-z_]+$" },
+          "messageKey": { "type": "string" },
+          "params": { "type": "object", "additionalProperties": { "type": ["string", "number"] } },
+          "ruleId": { "$ref": "#/$defs/RuleId" }
+        }
+      }
+    },
+    "override": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false, "required": ["reason", "operatorId", "at"],
+          "properties": {
+            "reason": { "type": "string", "pattern": "^[a-z_]+$" },
+            "note": { "type": "string", "maxLength": 500 },
+            "operatorId": { "type": "string", "minLength": 1 },
+            "at": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    },
+    "flaggedForReview": { "type": "boolean" },
+    "biomarkerReadinessHint": {
+      "type": "object",
+      "required": ["registryVersion"],
+      "properties": { "registryVersion": { "type": "string", "pattern": "^REG@[0-9]+\\.[0-9]+\\.[0-9]+$" } },
+      "patternProperties": {
+        "^(FT|FTF|FR|SAW|FA)[0-9]+$": {
+          "type": "object", "additionalProperties": false, "required": ["status"],
+          "properties": {
+            "status": { "enum": ["COMPUTABLE", "PARTIAL", "NOT_COMPUTABLE"] },
+            "reason": { "type": "string" },
+            "retakeFixable": { "type": "boolean" }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "RuleId": { "type": "string", "pattern": "^[a-z_]+@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "Window": {
+      "type": "object", "additionalProperties": false, "required": ["tStartS", "tEndS"],
+      "properties": { "tStartS": { "type": "number", "minimum": 0 }, "tEndS": { "type": "number", "minimum": 0 } }
+    }
+  }
+}

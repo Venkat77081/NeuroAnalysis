@@ -131,6 +131,24 @@ class CameraSession(
     private var recordStartElapsed = 0L
     private var onRecordingDone: ((Outcome) -> Unit)? = null
     private val stopRunnable = Runnable { stopRecording(early = false) }
+    private val prefs = activity.getSharedPreferences("neurocapture.capture", android.content.Context.MODE_PRIVATE)
+
+    /**
+     * How early to call stop() before the target duration: the encoder keeps writing the frames
+     * already in its pipeline (≈ 100 ms on the first device). Learned per device from each take's
+     * measured duration error and persisted (decision 010).
+     */
+    var stopLeadNs: Long = prefs.getLong(PREF_STOP_LEAD, DEFAULT_STOP_LEAD_NS)
+        private set
+
+    /** Update the stop lead from a completed take: positive error (too long) → stop earlier. */
+    fun learnStopLead(durationErrorMs: Double) {
+        if (durationErrorMs.isNaN() || kotlin.math.abs(durationErrorMs) > 1000) return
+        val next = (stopLeadNs + (durationErrorMs * 0.7 * 1e6).toLong()).coerceIn(0L, MAX_STOP_LEAD_NS)
+        stopLeadNs = next
+        prefs.edit().putLong(PREF_STOP_LEAD, next).apply()
+    }
+
     /** Engineering only (M2 crash test): kill the process this many seconds into the next take. */
     @Volatile var crashAfterS: Double = 0.0
     private val tickRunnable = object : Runnable {
@@ -437,11 +455,10 @@ class CameraSession(
             onRecordingDone = onDone
             recordingTakeId = takeId
             recordingFile = file
-            // Stop when the video itself reaches durationS (recorded media time), aiming half a frame
-            // early because the encoder adds about one more frame after stop(). A native safety timer
-            // still ends the take at durationS + 1 s. Neither depends on JavaScript (decision 009).
-            val frameNs = 1_000_000_000L / fps
-            val targetNs = (durationS * 1e9).toLong() - frameNs / 2
+            // Stop when the video itself reaches durationS − stopLeadNs (recorded media time): the
+            // encoder still writes the frames in its pipeline after stop(). A native safety timer ends
+            // the take at durationS + 1 s. Neither depends on JavaScript (decisions 009, 010).
+            val targetNs = ((durationS * 1e9).toLong() - stopLeadNs).coerceAtLeast(0L)
             val stopIssued = java.util.concurrent.atomic.AtomicBoolean(false)
             // Video only: no .withAudioEnabled().
             recording = vc.output.prepareRecording(activity, FileOutputOptions.Builder(file).build())
@@ -536,5 +553,8 @@ class CameraSession(
 
     companion object {
         const val CALIBRATION_FRAMES = 60
+        private const val PREF_STOP_LEAD = "stopLeadNs"
+        const val DEFAULT_STOP_LEAD_NS = 110_000_000L
+        const val MAX_STOP_LEAD_NS = 400_000_000L
     }
 }

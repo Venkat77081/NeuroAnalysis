@@ -113,7 +113,10 @@ class CaptureKitPlugin : Plugin() {
             // Recording thread: no JS involved (DEV_PLAN §3).
             val result = try {
                 val (offset, _) = session.calibrationResult()
-                TakeFinalizer.finalize(vault, outcome, cfg.targetFps, session.isTimestampRealtime(), offset, session.sensors.clockOffsetMs())
+                TakeFinalizer.finalize(
+                    vault, outcome, cfg.targetFps, session.isTimestampRealtime(), offset, session.sensors.clockOffsetMs(),
+                    stopLeadMs = session.stopLeadNs / 1e6,
+                )
             } catch (e: Exception) {
                 null.also { notifyListeners("recordingState", JSObject().apply {
                     put("takeId", takeId); put("state", "error"); put("elapsedS", 0)
@@ -122,6 +125,8 @@ class CaptureKitPlugin : Plugin() {
             }
             if (result != null) {
                 val error = outcome.error
+                // Learn the stop lead from this take's measured duration error (decision 010).
+                if (error == null && !outcome.stoppedEarly) session.learnStopLead(result.getDouble("durationErrorMs"))
                 notifyListeners("recordingState", JSObject().apply {
                     put("takeId", takeId)
                     put("state", if (error != null) "error" else "completed")

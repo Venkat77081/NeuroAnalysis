@@ -87,6 +87,7 @@ object TakeFinalizer {
         timestampRealtime: Boolean,
         offsetNs: Long?,
         sensorClockOffsetMs: Double?,
+        stopLeadMs: Double? = null,
     ): JSObject {
         val takeId = o.takeId
         val canonical = o.log.canonicalSnapshot()
@@ -138,6 +139,7 @@ object TakeFinalizer {
             })
             put("sensorSamples", o.sensorLog.size)
             put("sensorClockOffsetMs", sensorClockOffsetMs ?: JSONObject.NULL)
+            put("stopLeadMs", stopLeadMs ?: JSONObject.NULL)
             put("encrypted", encrypted)
             put("encryptedNotPlayable", notPlayable ?: JSONObject.NULL)
             put("files", JSObject().apply {

@@ -342,6 +342,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
       },
       sensorSamples: Math.round(durationS * 200),
       sensorClockOffsetMs: 0,
+      stopLeadMs: 110,
       encrypted: true,
       encryptedNotPlayable: true,
       files: {

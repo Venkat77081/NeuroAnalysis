@@ -110,6 +110,8 @@ export interface RecordingResult {
   mp4: Mp4Alignment | null;
   sensorSamples: number;
   sensorClockOffsetMs: number | null;
+  /** How early stop() was called before durationS for this take (learned per device, decision 010). */
+  stopLeadMs?: number | null;
   /** Video, frames and sensors are stored encrypted; plaintext deleted. */
   encrypted: boolean;
   /** The encrypted video file was checked and does not open as a video. */

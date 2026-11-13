@@ -111,8 +111,13 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
     }
   }
 
-  const reasonText = (r: TierReason) =>
-    `${r.tier}: ${t(`deviceCheck.reason.${r.code}`, { value: typeof r.value === 'number' ? +r.value.toFixed(3) : r.value, limit: r.limit })}`;
+  const reasonText = (r: TierReason) => {
+    // Fractions (dropped frames) read as percentages; other numbers keep up to 3 decimals.
+    const pct = r.code === 'dropped_frames_high';
+    const fmt = (v: number | string | undefined) =>
+      typeof v === 'number' ? (pct ? `${+(v * 100).toFixed(2)}%` : +v.toFixed(3)) : v;
+    return `${r.tier}: ${t(`deviceCheck.reason.${r.code}`, { value: fmt(r.value), limit: fmt(r.limit) })}`;
+  };
 
   if (cameraTest) return <CameraTest onClose={() => setCameraTest(false)} />;
 

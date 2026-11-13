@@ -18,6 +18,7 @@ import {
 } from '../lib/device-tier.ts';
 import { logger } from '../lib/logger.ts';
 import { CameraTest } from './CameraTest.tsx';
+import { CaptureTest } from './CaptureTest.tsx';
 
 type Preset = 'full' | 'quick';
 const PRESETS: Record<Preset, { recordMinutes: number; thermalMinutes: number }> = {
@@ -44,6 +45,7 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string[]>([]);
   const [cameraTest, setCameraTest] = useState(false);
+  const [captureTest, setCaptureTest] = useState(false);
 
   useEffect(() => {
     kit.getCapabilities().then(setCaps, (e: unknown) => setError(String(e)));
@@ -120,6 +122,7 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
   };
 
   if (cameraTest) return <CameraTest onClose={() => setCameraTest(false)} />;
+  if (captureTest) return <CaptureTest onClose={() => setCaptureTest(false)} />;
 
   const a = result?.assessment;
   const allowed = a ? allowedTests(a.tier, [...config.tests.values()]) : [];
@@ -202,6 +205,15 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
           className="mt-3 h-12 w-full rounded-xl border border-[#C9CFD8] bg-white text-[15px] font-semibold disabled:opacity-50"
         >
           {t('deviceCheck.cameraTest')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setCaptureTest(true)}
+          disabled={running}
+          className="mt-2 h-12 w-full rounded-xl border border-[#C9CFD8] bg-white text-[15px] font-semibold disabled:opacity-50"
+          data-testid="open-capture-test"
+        >
+          {t('deviceCheck.captureTest')}
         </button>
       </section>
 

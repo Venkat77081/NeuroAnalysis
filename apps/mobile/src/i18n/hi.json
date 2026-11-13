@@ -132,6 +132,7 @@
     "interrupted": "बाधित टेक",
     "recoveredTag": "क्रैश के बाद बचाया · एन्क्रिप्टेड",
     "noResult": "कोई परिणाम नहीं",
-    "unmatched": "{{n}} बेमेल"
+    "unmatched": "{{n}} बेमेल",
+    "stopLead": "स्टॉप लीड {{ms}} ms"
   }
 }

@@ -472,6 +472,9 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
                       n: r.sensorSamples,
                       offset: r.sensorClockOffsetMs?.toFixed(2) ?? '—',
                     })}
+                    {r.stopLeadMs != null
+                      ? ` · ${t('captureTest.stopLead', { ms: r.stopLeadMs.toFixed(0) })}`
+                      : ''}
                   </div>
                 </li>
               );

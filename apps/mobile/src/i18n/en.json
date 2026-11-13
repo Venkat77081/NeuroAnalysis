@@ -132,6 +132,7 @@
     "interrupted": "Interrupted takes",
     "recoveredTag": "recovered after crash · encrypted",
     "noResult": "no result",
-    "unmatched": "{{n}} unmatched"
+    "unmatched": "{{n}} unmatched",
+    "stopLead": "stop lead {{ms}} ms"
   }
 }

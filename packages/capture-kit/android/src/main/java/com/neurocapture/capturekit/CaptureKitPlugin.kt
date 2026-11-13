@@ -9,12 +9,15 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
+import com.google.crypto.tink.integration.android.AndroidKeystoreKmsClient
 import java.io.File
+import java.util.concurrent.Executors
 
 /**
- * CaptureKit Capacitor plugin (DEV_PLAN §5.3). M1 implements capabilities, camera + preview,
- * fixed-duration MP4 recording with per-frame timestamps, and the qualification benchmark.
- * Encryption, evidence, playback (M2) and upload (M7) are not implemented yet.
+ * CaptureKit Capacitor plugin (DEV_PLAN §5.3). Capabilities, camera + preview, fixed-duration
+ * recording with per-frame timestamps and sensors, encrypted takes (Tink, Keystore-wrapped keys),
+ * evidence, playback, crash recovery, sharpness calibration and the qualification benchmark.
+ * Upload arrives in M7.
  */
 @CapacitorPlugin(
     name = "CaptureKit",
@@ -24,12 +27,22 @@ class CaptureKitPlugin : Plugin() {
     private lateinit var session: CameraSession
     private var benchmark: Benchmark? = null
     private var pendingStop: PluginCall? = null
+    private lateinit var vault: TakeVault
+    private val io = Executors.newSingleThreadExecutor { Thread(it, "nc-vault") }
+    @Volatile private var recovered: List<String> = emptyList()
 
     override fun load() {
         session = CameraSession(activity, bridge.webView) { event, data -> notifyListeners(event, data) }
+        val master = AndroidKeystoreKmsClient.getOrGenerateNewAeadKey(MASTER_KEY_URI)
+        vault = TakeVault(takesDir(), master)
+        io.execute {
+            playbackDir().deleteRecursively() // decrypted playback copies never survive a restart
+            recovered = try { vault.recover() } catch (_: Exception) { emptyList() }
+        }
     }
 
     private fun takesDir() = File(context.noBackupFilesDir, "takes")
+    private fun playbackDir() = File(context.cacheDir, "playback")
 
     private fun withCamera(call: PluginCall, then: () -> Unit) {
         if (getPermissionState("camera") == PermissionState.GRANTED) then()
@@ -72,6 +85,8 @@ class CaptureKitPlugin : Plugin() {
             targetFps = fps,
             orientation = call.getString("orientation", "portrait")!!,
             analysisFps = (call.getInt("analysisFps", 30)!!).coerceIn(1, 60),
+            fallbackFps = call.getInt("fallbackFps")?.takeIf { it == 30 },
+            debugAnalysisDelayMs = (call.getInt("debugAnalysisDelayMs", 0)!!).coerceIn(0, 200),
         )
         session.open(cfg) { result, err -> if (err != null) call.reject(err) else call.resolve(result) }
     }
@@ -91,37 +106,33 @@ class CaptureKitPlugin : Plugin() {
         if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
         val durationS = call.getDouble("durationS") ?: return call.reject("durationS required")
         if (durationS <= 0 || durationS > 600) return call.reject("durationS out of range")
-        val targetFps = session.config?.targetFps ?: return call.reject("camera not open")
-        val dir = File(takesDir(), takeId)
-        val video = File(dir, "video.mp4")
+        val cfg = session.config ?: return call.reject("camera not open")
+        if (vault.takeDir(takeId).exists()) return call.reject("take already exists")
+        val video = File(vault.takeDir(takeId), "video.mp4") // plaintext only while recording; encrypted at stop
         session.startRecording(takeId, video, durationS, onDone = { outcome ->
-            outcome.log.writeTo(File(dir, "frames.bin"))
-            val sensor = outcome.log.sensorSnapshot()
-            val stats = FrameStats.recording(sensor, sensor.size, targetFps, outcome.mp4Frames, outcome.mp4DurationS)
-            val result = JSObject().apply {
-                put("takeId", takeId)
-                put("durationS", stats.durationS)
-                put("stoppedEarly", outcome.stoppedEarly)
-                put("frameCount", stats.frameCount)
-                put("effectiveFps", stats.effectiveFps)
-                put("droppedFrames", stats.droppedFrames)
-                put("droppedFrac", stats.droppedFrac)
-                put("files", JSObject().apply {
-                    // Opaque references, never absolute paths (PII-safe logging, §14).
-                    put("video", "capturekit://takes/$takeId/video.mp4")
-                    put("frames", "capturekit://takes/$takeId/frames.bin")
-                    put("landmarks", "capturekit://takes/$takeId/landmarks.bin")
-                    put("sensors", "capturekit://takes/$takeId/sensors.bin")
-                })
+            // Recording thread: no JS involved (DEV_PLAN §3).
+            val result = try {
+                val (offset, _) = session.calibrationResult()
+                TakeFinalizer.finalize(vault, outcome, cfg.targetFps, session.isTimestampRealtime(), offset, session.sensors.clockOffsetMs())
+            } catch (e: Exception) {
+                null.also { notifyListeners("recordingState", JSObject().apply {
+                    put("takeId", takeId); put("state", "error"); put("elapsedS", 0)
+                    put("reason", "finalize failed: ${e.javaClass.simpleName}")
+                }) }
             }
-            notifyListeners("recordingState", JSObject().apply {
-                put("takeId", takeId)
-                put("state", if (outcome.error != null) "error" else "completed")
-                put("elapsedS", stats.durationS)
-                put("result", result)
-                outcome.error?.let { put("reason", it) }
-            })
-            pendingStop?.let { if (outcome.error != null) it.reject(outcome.error) else it.resolve(result) }
+            if (result != null) {
+                val error = outcome.error
+                notifyListeners("recordingState", JSObject().apply {
+                    put("takeId", takeId)
+                    put("state", if (error != null) "error" else "completed")
+                    put("elapsedS", result.getDouble("durationS"))
+                    put("result", result)
+                    error?.let { put("reason", it) }
+                })
+                pendingStop?.let { if (error != null) it.reject(error) else it.resolve(result) }
+            } else {
+                pendingStop?.reject("finalize failed")
+            }
             pendingStop = null
         }, started = { err ->
             if (err != null) {
@@ -219,13 +230,14 @@ class CaptureKitPlugin : Plugin() {
         val name = call.getString("name") ?: return call.reject("name required")
         val json = call.getString("json") ?: return call.reject("json required")
         if (!TAKE_ID.matches(takeId) || name !in setOf("quality.json", "meta.json")) return call.reject("invalid takeId or name")
-        try {
-            org.json.JSONObject(json)
-            // M1: plaintext in app-private no-backup storage. M2 encrypts (Tink StreamingAead).
-            File(File(takesDir(), takeId).apply { mkdirs() }, name).writeText(json)
-            call.resolve()
-        } catch (e: Exception) {
-            call.reject("writeEvidence failed: ${e.message}")
+        io.execute {
+            try {
+                org.json.JSONObject(json)
+                vault.writeText(takeId, name, json) // encrypted directly, never plaintext on disk
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("writeEvidence failed: ${e.javaClass.simpleName}")
+            }
         }
     }
 
@@ -233,12 +245,54 @@ class CaptureKitPlugin : Plugin() {
     fun deleteTake(call: PluginCall) {
         val takeId = call.getString("takeId") ?: return call.reject("takeId required")
         if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
-        File(takesDir(), takeId).deleteRecursively()
-        call.resolve()
+        io.execute {
+            File(playbackDir(), "$takeId.mp4").delete()
+            vault.delete(takeId) // removes the wrapped data key too
+            call.resolve()
+        }
+    }
+
+    /** Decrypts the video into the app cache and returns a WebView URL. Call closePlayback when done. */
+    @PluginMethod
+    fun playTake(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
+        io.execute {
+            try {
+                val out = File(playbackDir(), "$takeId.mp4")
+                vault.decryptTo(takeId, "video.mp4", out)
+                call.resolve(JSObject().apply { put("playerUrl", bridge.localUrl + "/_capacitor_file_" + out.absolutePath) })
+            } catch (e: Exception) {
+                call.reject("playTake failed: ${e.javaClass.simpleName}")
+            }
+        }
     }
 
     @PluginMethod
-    fun playTake(call: PluginCall) = call.unimplemented("playTake arrives in M2")
+    fun closePlayback(call: PluginCall) {
+        val takeId = call.getString("takeId")
+        io.execute {
+            if (takeId != null && TAKE_ID.matches(takeId)) File(playbackDir(), "$takeId.mp4").delete()
+            else playbackDir().deleteRecursively()
+            call.resolve()
+        }
+    }
+
+    /** Takes recovered (encrypted, marked RetainedForRecovery) after a crash at the last start. */
+    @PluginMethod
+    fun getRecoveredTakes(call: PluginCall) {
+        io.execute { call.resolve(JSObject().apply { put("takeIds", com.getcapacitor.JSArray(recovered)) }) }
+    }
+
+    @PluginMethod
+    fun calibrateSharpness(call: PluginCall) {
+        if (!session.isOpen) return call.reject("camera not open")
+        val durationS = (call.getDouble("durationS") ?: 3.0).coerceIn(1.0, 10.0)
+        session.calibrateSharpness(durationS) { baseline, frames ->
+            if (baseline == null) call.reject("no analysis frames during calibration")
+            else call.resolve(JSObject().apply { put("baseline", baseline); put("frames", frames) })
+        }
+    }
 
     @PluginMethod
     fun enqueueUpload(call: PluginCall) = call.unimplemented("upload arrives in M7")
@@ -248,12 +302,16 @@ class CaptureKitPlugin : Plugin() {
 
     override fun handleOnDestroy() {
         benchmark?.cancel()
-        if (::session.isInitialized) session.close()
+        if (::session.isInitialized) {
+            session.close()
+            session.sensors.stop()
+        }
         super.handleOnDestroy()
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.2.0"
+        const val PLUGIN_VERSION = "0.3.0"
+        private const val MASTER_KEY_URI = "android-keystore://neurocapture_master_v1"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")
     }

@@ -52,5 +52,6 @@ dependencies {
     implementation "androidx.camera:camera-lifecycle:$cameraxVersion"
     implementation "androidx.camera:camera-video:$cameraxVersion"
     implementation "androidx.camera:camera-view:$cameraxVersion"
+    implementation 'com.google.crypto.tink:tink-android:1.24.0'
     testImplementation 'junit:junit:4.13.2'
 }

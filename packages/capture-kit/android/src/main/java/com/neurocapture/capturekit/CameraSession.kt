@@ -68,12 +68,17 @@ class CameraSession(
         val targetFps: Int,
         val orientation: String,
         val analysisFps: Int,
+        val fallbackFps: Int? = null,
+        val debugAnalysisDelayMs: Int = 0,
     )
 
     data class Outcome(
         val takeId: String,
         val file: File,
         val log: TimestampLog,
+        val sensorLog: SensorLog,
+        val requestedDurationS: Double,
+        val actualFps: Int,
         val mp4Frames: Int?,
         val mp4DurationS: Double?,
         val stoppedEarly: Boolean,
@@ -90,6 +95,10 @@ class CameraSession(
 
     var config: Config? = null
         private set
+    /** Frame rate actually requested from the camera (targetFps, or fallbackFps when unsupported). */
+    var actualFps: Int = 0
+        private set
+    val sensors = SensorCapture(activity, emit)
     var camera: Camera? = null
         private set
     private var provider: ProcessCameraProvider? = null
@@ -111,6 +120,7 @@ class CameraSession(
     private var lastAnalysisTs = 0L
     private var analysisSeq = 0
     @Volatile var emitAnalysisEvents = true
+    private var sharpnessSamples: ArrayList<Double>? = null
 
     // Recording state.
     @Volatile private var recordingLog: TimestampLog? = null
@@ -163,7 +173,8 @@ class CameraSession(
                 activity.requestedOrientation =
                     if (cfg.orientation == "landscape") ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 val rotation = if (cfg.orientation == "landscape") Surface.ROTATION_90 else Surface.ROTATION_0
-                val fpsRange = Range(cfg.targetFps, cfg.targetFps)
+                actualFps = chooseFps(cfg)
+                val fpsRange = Range(actualFps, actualFps)
                 val aspect = ResolutionSelector.Builder()
                     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                     .build()
@@ -226,12 +237,13 @@ class CameraSession(
                         provider = p
                         camera = cam
                         videoCapture = video
+                        sensors.start()
                         val info = Camera2CameraInfo.from(cam.cameraInfo)
                         timestampSourceRealtime = info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE) ==
                             CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME
                         done(JSObject().apply {
                             put("previewTransform", previewTransform(pv, cfg))
-                            put("actualFps", cfg.targetFps)
+                            put("actualFps", actualFps)
                         }, null)
                     } catch (e: Exception) {
                         teardownViews()
@@ -242,6 +254,21 @@ class CameraSession(
                 teardownViews()
                 done(null, "camera open failed: ${e.javaClass.simpleName}: ${e.message}")
             }
+        }
+    }
+
+    /** targetFps if the default camera for this facing supports it at the resolution, else fallbackFps (decision 007). */
+    private fun chooseFps(cfg: Config): Int {
+        val fallback = cfg.fallbackFps ?: return cfg.targetFps
+        return try {
+            val mgr = activity.getSystemService(android.content.Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
+            val wanted = if (cfg.facing == "front") CameraCharacteristics.LENS_FACING_FRONT else CameraCharacteristics.LENS_FACING_BACK
+            val id = mgr.cameraIdList.first { mgr.getCameraCharacteristics(it).get(CameraCharacteristics.LENS_FACING) == wanted }
+            val size = if (cfg.resolution == "720p") android.util.Size(1280, 720) else android.util.Size(1920, 1080)
+            val max = DeviceInfo.maxFps(mgr.getCameraCharacteristics(id), size) ?: 0.0
+            if (max + 0.5 >= cfg.targetFps) cfg.targetFps else fallback
+        } catch (_: Exception) {
+            fallback
         }
     }
 
@@ -291,6 +318,9 @@ class CameraSession(
                 }
                 y += 8
             }
+            val sharp = laplacianVariance(buf, rowStride, image.width, image.height)
+            sharpnessSamples?.let { synchronized(it) { it.add(sharp) } }
+            if (cfg.debugAnalysisDelayMs > 0) Thread.sleep(cfg.debugAnalysisDelayMs.toLong()) // M2 isolation test only
             val ms = (System.nanoTime() - t0) / 1e6
             analysisFrames.incrementAndGet()
             synchronized(processingMs) { if (processingMs.size < 200_000) processingMs.add(ms) }
@@ -304,7 +334,7 @@ class CameraSession(
                 put("stats", JSObject().apply {
                     put("lumaMean", if (n > 0) sum.toDouble() / n else 0.0)
                     put("clippedFrac", if (n > 0) clipped.toDouble() / n else 0.0)
-                    put("sharpness", 0)
+                    put("sharpness", sharp)
                 })
                 put("trackerStatus", JSObject().apply {
                     put("hand", "off"); put("pose", "off"); put("face", "off")
@@ -313,6 +343,37 @@ class CameraSession(
         } finally {
             image.close()
         }
+    }
+
+    /** Variance of the 4-neighbour Laplacian over the central 50 % of the Y plane (step 2). */
+    private fun laplacianVariance(buf: java.nio.ByteBuffer, stride: Int, w: Int, h: Int): Double {
+        val x0 = w / 4; val x1 = w * 3 / 4; val y0 = h / 4; val y1 = h * 3 / 4
+        var sum = 0.0; var sumSq = 0.0; var n = 0
+        fun px(x: Int, y: Int) = (buf.get(y * stride + x).toInt() and 0xFF)
+        var y = maxOf(y0, 1)
+        while (y < minOf(y1, h - 1)) {
+            var x = maxOf(x0, 1)
+            while (x < minOf(x1, w - 1)) {
+                val l = (px(x - 1, y) + px(x + 1, y) + px(x, y - 1) + px(x, y + 1) - 4 * px(x, y)).toDouble()
+                sum += l; sumSq += l * l; n++
+                x += 2
+            }
+            y += 2
+        }
+        if (n == 0) return 0.0
+        val mean = sum / n
+        return sumSq / n - mean * mean
+    }
+
+    /** Collects per-frame sharpness for [durationS] and returns the median (device baseline, §9.2). */
+    fun calibrateSharpness(durationS: Double, done: (Double?, Int) -> Unit) {
+        val samples = ArrayList<Double>()
+        sharpnessSamples = samples
+        recHandler.postDelayed({
+            sharpnessSamples = null
+            val arr = synchronized(samples) { samples.toDoubleArray() }
+            done(FrameStats.percentile(arr, 50.0), arr.size)
+        }, (durationS * 1000).toLong())
     }
 
     /** Frames delivered by the camera since the last call (≈ live fps when polled every second). */
@@ -365,6 +426,11 @@ class CameraSession(
             if (recording != null) return@execute started("already recording")
             file.parentFile?.mkdirs()
             val log = TimestampLog()
+            val sLog = SensorLog()
+            // Log from the request on, so the first encoded frame is always in the log (k ≥ 0).
+            recordingLog = log
+            sensors.recordingLog = sLog
+            val fps = actualFps
             stoppedEarly = false
             onRecordingDone = onDone
             recordingTakeId = takeId
@@ -375,12 +441,11 @@ class CameraSession(
                     when (event) {
                         is VideoRecordEvent.Start -> {
                             recordStartElapsed = SystemClock.elapsedRealtimeNanos()
-                            recordingLog = log
                             recHandler.postDelayed(stopRunnable, (durationS * 1000).toLong())
                             recHandler.post(tickRunnable)
                             started(null)
                         }
-                        is VideoRecordEvent.Finalize -> finalizeRecording(event, takeId, file, log)
+                        is VideoRecordEvent.Finalize -> finalizeRecording(event, takeId, file, log, sLog, durationS, fps)
                         else -> Unit
                     }
                 }
@@ -393,8 +458,11 @@ class CameraSession(
         recording?.stop()
     }
 
-    private fun finalizeRecording(event: VideoRecordEvent.Finalize, takeId: String, file: File, log: TimestampLog) {
+    private fun finalizeRecording(
+        event: VideoRecordEvent.Finalize, takeId: String, file: File, log: TimestampLog, sLog: SensorLog, requestedS: Double, fps: Int,
+    ) {
         recordingLog = null
+        sensors.recordingLog = null
         recHandler.removeCallbacks(stopRunnable)
         recHandler.removeCallbacks(tickRunnable)
         val error = if (event.hasError() && event.error != VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED) {
@@ -415,7 +483,7 @@ class CameraSession(
                 mmr.release()
             }
         }
-        val outcome = Outcome(takeId, file, log, frames, durationS, stoppedEarly, error)
+        val outcome = Outcome(takeId, file, log, sLog, requestedS, fps, frames, durationS, stoppedEarly, error)
         recording = null
         recordingTakeId = null
         recordingFile = null
@@ -431,6 +499,7 @@ class CameraSession(
                 provider?.unbindAll()
             } catch (_: Exception) {
             }
+            sensors.stop()
             camera = null
             videoCapture = null
             provider = null

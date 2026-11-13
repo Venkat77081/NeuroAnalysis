@@ -4,9 +4,6 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 class FrameStatsTest {
     private fun steady(fps: Int, seconds: Int, dropEvery: Int = 0): LongArray {
@@ -61,16 +58,12 @@ class FrameStatsTest {
         assertEquals(0.0, empty.effectiveFps, 0.0)
     }
 
-    @Test fun timestampLogGrowsAndWritesLittleEndianRecords() {
+    @Test fun timestampLogGrowsAndSnapshots() {
         val log = TimestampLog(initial = 2)
         for (i in 0 until 5) log.add(i.toLong(), 100L + i, 200L + i)
         assertEquals(5, log.size)
         assertArrayEquals(longArrayOf(100, 101, 102, 103, 104), log.sensorSnapshot())
-        val f = File.createTempFile("frames", ".bin")
-        log.writeTo(f)
-        val buf = ByteBuffer.wrap(f.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
-        assertEquals(5 * 24, f.length().toInt())
-        assertEquals(0L, buf.long); assertEquals(100L, buf.long); assertEquals(200L, buf.long)
-        f.delete()
+        assertArrayEquals(longArrayOf(200, 201, 202, 203, 204), log.canonicalSnapshot())
+        assertArrayEquals(longArrayOf(0, 1, 2, 3, 4), log.frameNumberSnapshot())
     }
 }

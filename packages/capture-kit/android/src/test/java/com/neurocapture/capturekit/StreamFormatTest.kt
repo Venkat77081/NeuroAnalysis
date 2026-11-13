@@ -47,6 +47,7 @@ class StreamFormatTest {
         assertEquals("2", StreamFormat.num(2.0))
         assertEquals("0.2", StreamFormat.num(0.2))
         assertEquals("1.235", StreamFormat.num(1.23456))
-        assertEquals("{\"schemaVersion\":\"1.0.0\"", StreamFormat.framesHeader("t", "UNKNOWN", -5, 60, 30, null).substring(0, 25))
+        assertEquals("{\"schemaVersion\":\"1.0.0\"", StreamFormat.framesHeader("t", "UNKNOWN", -5, 60, 30, null).substring(0, 24))
+        assertEquals(true, StreamFormat.framesHeader("t", "UNKNOWN", -5, 60, 30, null).contains("\"offsetNs\":\"-5\""))
     }
 }

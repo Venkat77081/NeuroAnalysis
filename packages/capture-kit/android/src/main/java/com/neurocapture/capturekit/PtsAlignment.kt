@@ -10,13 +10,14 @@ import kotlin.math.min
  * when several k fit equally well (evenly spaced frames) the earliest is chosen and flagged (decision 008).
  */
 object PtsAlignment {
-    private const val TIE_MS = 0.5
+    /** Offsets whose worst residual is within this of the best are equally good (a 1-frame shift is ≥ 16 ms off at a gap). */
+    private const val TIE_MS = 1.0
 
     fun align(ptsUs: LongArray, canonicalNs: LongArray, maxShift: Int = 40): StreamFormat.Mp4Alignment? {
         if (ptsUs.isEmpty() || canonicalNs.isEmpty()) return null
         val pts = ptsUs.sortedArray()
         val p0 = pts[0]
-        data class Cand(val k: Int, val mean: Double, val diffs: DoubleArray)
+        data class Cand(val k: Int, val max: Double, val diffs: DoubleArray)
         val cands = ArrayList<Cand>()
         val minOverlap = min(pts.size, canonicalNs.size).coerceAtMost(30).coerceAtLeast(1)
         for (k in -maxShift..maxShift) {
@@ -30,11 +31,11 @@ object PtsAlignment {
                 val j = j0 + i
                 abs(canonicalNs[j + k] / 1e6 - base - (pts[j] - p0) / 1e3)
             }
-            cands.add(Cand(k, diffs.average(), diffs))
+            cands.add(Cand(k, diffs.maxOrNull() ?: 0.0, diffs))
         }
         if (cands.isEmpty()) return null
-        val bestMean = cands.minOf { it.mean }
-        val ties = cands.filter { it.mean <= bestMean + TIE_MS }
+        val bestMax = cands.minOf { it.max }
+        val ties = cands.filter { it.max <= bestMax + TIE_MS }
         // Prefer the largest overlap among ties (covers all samples), then the earliest k ≥ its minimum.
         val chosen = ties.sortedWith(compareByDescending<Cand> { it.diffs.size }.thenBy { it.k }).first()
         val anchor = if (ties.count { it.diffs.size == chosen.diffs.size } == 1) "pattern" else "earliest_candidate"

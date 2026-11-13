@@ -34,7 +34,7 @@ pnpm validate             # validate config/ and contracts/tests samples
 pnpm lint && pnpm typecheck && pnpm test
 pnpm --filter @neurocapture/mobile dev      # web app in mock mode
 pnpm e2e                  # Playwright smoke test (mock mode)
-docker compose up -d      # api + postgres + minio; GET http://localhost:8000/health
+docker compose up -d      # api + postgres (storage profile: see docs/decisions/004); GET http://localhost:8000/health
 cd backend && pytest && ruff check .
 ```
 

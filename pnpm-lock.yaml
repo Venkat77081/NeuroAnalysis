@@ -139,6 +139,22 @@ importers:
         specifier: 5.1.0
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  tools/device_qualification:
+    dependencies:
+      '@neurocapture/contracts-ts':
+        specifier: workspace:*
+        version: link:../../packages/contracts-ts
+      '@neurocapture/quality-core':
+        specifier: workspace:*
+        version: link:../../packages/quality-core
+    devDependencies:
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
 packages:
 
   '@apidevtools/json-schema-ref-parser@11.9.3':

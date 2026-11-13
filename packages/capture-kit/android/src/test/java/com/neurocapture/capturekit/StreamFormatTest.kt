@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 
-/** The Kotlin writer must reproduce contracts/tests/golden/*.bin (written by the TS codec) byte for byte. */
+/** The Kotlin writer must reproduce the golden files in contracts/tests/golden (written by the TS codec) byte for byte. */
 class StreamFormatTest {
     private fun headerOf(bytes: ByteArray): String {
         val len = (bytes[4].toInt() and 0xFF) or ((bytes[5].toInt() and 0xFF) shl 8) or

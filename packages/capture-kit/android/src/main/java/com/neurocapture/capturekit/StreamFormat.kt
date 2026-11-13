@@ -8,7 +8,7 @@ import java.util.Locale
 /**
  * Writer for frames.bin / sensors.bin (contracts/stream-header.schema.json). Byte-for-byte compatible
  * with the TypeScript codec (packages/capture-kit/src/streams.ts); verified against
- * contracts/tests/golden/*.bin in StreamFormatTest. Header JSON is built by hand (fixed key order) so the
+ * the golden files in contracts/tests/golden in StreamFormatTest. Header JSON is built by hand (fixed key order) so the
  * bytes do not depend on a JSON library.
  */
 object StreamFormat {

@@ -15,6 +15,8 @@ export function Home({ onDeviceCheck }: { onDeviceCheck?: () => void }) {
   const { kit, implementation } = capture;
 
   useEffect(() => {
+    // On a device the camera is opened only by Device check / capture screens, never on Home.
+    if (implementation === 'native') return;
     let cancelled = false;
     let handle: { remove: () => Promise<void> } | undefined;
     void kit
@@ -34,8 +36,7 @@ export function Home({ onDeviceCheck }: { onDeviceCheck?: () => void }) {
       })
       .catch((e: unknown) => {
         logger.warn('capture unavailable', { implementation, error: String(e) });
-        if (!cancelled)
-          setCaptureError(implementation === 'native' ? t('home.nativePending') : String(e));
+        if (!cancelled) setCaptureError(String(e));
       });
     return () => {
       cancelled = true;
@@ -139,7 +140,10 @@ export function Home({ onDeviceCheck }: { onDeviceCheck?: () => void }) {
           {t('home.tracking')}
         </h2>
         <p data-testid="frame-count" className="mt-1 mb-0 text-sm" aria-live="polite">
-          {captureError ?? (frames > 0 ? t('home.frames', { count: frames }) : t('home.waiting'))}
+          {implementation === 'native'
+            ? t('home.nativeHint')
+            : (captureError ??
+              (frames > 0 ? t('home.frames', { count: frames }) : t('home.waiting')))}
         </p>
       </section>
 

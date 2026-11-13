@@ -17,9 +17,9 @@
     "tracking": "Capture stream",
     "frames": "{{count}} analysis frames received",
     "waiting": "Waiting for capture events…",
-    "nativePending": "Native CaptureKit arrives in M1",
     "seconds": "{{count}} s",
-    "deviceCheck": "Device check"
+    "deviceCheck": "Device check",
+    "nativeHint": "Camera is off here. Use Device check to test the camera."
   },
   "tests": {
     "FT": "Finger Tapping",

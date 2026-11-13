@@ -15,10 +15,19 @@
     "fields"
   ],
   "properties": {
-    "schemaVersion": { "const": "1.0.0" },
-    "stream": { "enum": ["frames", "sensors"] },
-    "takeId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
-    "clockSource": { "enum": ["REALTIME", "UNKNOWN", "SIMULATED"] },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "stream": {
+      "enum": ["frames", "sensors"]
+    },
+    "takeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "clockSource": {
+      "enum": ["REALTIME", "UNKNOWN", "SIMULATED"]
+    },
     "timestampSemantics": {
       "enum": [
         "capture_session_frame_sensor_and_canonical_elapsed_realtime_ns",
@@ -30,7 +39,9 @@
       "pattern": "^-?[0-9]+$",
       "description": "canonical − sensor clock offset (frames, UNKNOWN source)."
     },
-    "recordSize": { "enum": [24] },
+    "recordSize": {
+      "enum": [24]
+    },
     "fields": {
       "type": "array",
       "items": {
@@ -38,33 +49,60 @@
         "additionalProperties": false,
         "required": ["name", "type"],
         "properties": {
-          "name": { "type": "string" },
-          "type": { "enum": ["int64", "uint8", "pad3", "float32"] }
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "enum": ["int64", "uint8", "pad3", "float32"]
+          }
         }
       }
     },
-    "targetFps": { "enum": [60, 30] },
-    "actualFps": { "enum": [60, 30] },
+    "targetFps": {
+      "enum": [60, 30]
+    },
+    "actualFps": {
+      "enum": [60, 30]
+    },
     "mp4": {
       "description": "frames only: how MP4 samples map to records. MP4 sample j ↔ record j + firstRecordIndex.",
       "oneOf": [
-        { "type": "null" },
+        {
+          "type": "null"
+        },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["sampleCount", "firstRecordIndex", "maxAbsDiffMs", "p95AbsDiffMs"],
+          "required": ["sampleCount", "firstRecordIndex", "maxAbsDiffMs", "p95AbsDiffMs", "anchor"],
           "properties": {
-            "sampleCount": { "type": "integer", "minimum": 0 },
-            "firstRecordIndex": { "type": "integer" },
-            "maxAbsDiffMs": { "type": "number", "minimum": 0 },
-            "p95AbsDiffMs": { "type": "number", "minimum": 0 }
+            "sampleCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "firstRecordIndex": {
+              "type": "integer"
+            },
+            "maxAbsDiffMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "p95AbsDiffMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "anchor": {
+              "description": "'pattern': the interval pattern fixes the first encoded frame uniquely. 'earliest_candidate': several offsets fit equally (evenly spaced frames); the earliest was chosen, so absolute alignment is ±1–2 frames while relative timing is exact (decision 008).",
+              "enum": ["pattern", "earliest_candidate"]
+            }
           }
         }
       ]
     },
     "sensorTypes": {
       "type": "object",
-      "additionalProperties": { "enum": ["gyro", "gravity"] },
+      "additionalProperties": {
+        "enum": ["gyro", "gravity"]
+      },
       "description": "sensors only: type code → name."
     }
   }

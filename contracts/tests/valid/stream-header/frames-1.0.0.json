@@ -7,11 +7,26 @@
   "offsetNs": null,
   "recordSize": 24,
   "fields": [
-    { "name": "frameNumber", "type": "int64" },
-    { "name": "sensorTsNs", "type": "int64" },
-    { "name": "canonicalTsNs", "type": "int64" }
+    {
+      "name": "frameNumber",
+      "type": "int64"
+    },
+    {
+      "name": "sensorTsNs",
+      "type": "int64"
+    },
+    {
+      "name": "canonicalTsNs",
+      "type": "int64"
+    }
   ],
   "targetFps": 60,
   "actualFps": 60,
-  "mp4": { "sampleCount": 3, "firstRecordIndex": 1, "maxAbsDiffMs": 0.2, "p95AbsDiffMs": 0.1 }
+  "mp4": {
+    "sampleCount": 3,
+    "firstRecordIndex": 1,
+    "maxAbsDiffMs": 0.2,
+    "p95AbsDiffMs": 0.1,
+    "anchor": "pattern"
+  }
 }

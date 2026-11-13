@@ -31,6 +31,10 @@ export interface StreamHeader {
     firstRecordIndex: number;
     maxAbsDiffMs: number;
     p95AbsDiffMs: number;
+    /**
+     * 'pattern': the interval pattern fixes the first encoded frame uniquely. 'earliest_candidate': several offsets fit equally (evenly spaced frames); the earliest was chosen, so absolute alignment is ±1–2 frames while relative timing is exact (decision 008).
+     */
+    anchor: 'pattern' | 'earliest_candidate';
   };
   /**
    * sensors only: type code → name.

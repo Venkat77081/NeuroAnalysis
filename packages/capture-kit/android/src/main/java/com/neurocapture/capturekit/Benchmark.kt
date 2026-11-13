@@ -67,7 +67,9 @@ class Benchmark(
         }
     }
 
+    /** Must be called on the main thread. */
     fun start() {
+        check(Looper.myLooper() == Looper.getMainLooper()) { "Benchmark.start() must run on the main thread" }
         startedMs = System.currentTimeMillis()
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         dir.mkdirs()

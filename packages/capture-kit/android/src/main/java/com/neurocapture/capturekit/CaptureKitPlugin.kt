@@ -178,7 +178,16 @@ class CaptureKitPlugin : Plugin() {
                 }
             })
         benchmark = b
-        b.start()
+        // Plugin methods run on Capacitor's background thread; the benchmark touches the window
+        // (keep-screen-on) and the camera, so it must start on the main thread.
+        activity.runOnUiThread {
+            try {
+                b.start()
+            } catch (e: Exception) {
+                benchmark = null
+                call.reject("benchmark failed to start: ${e.javaClass.simpleName}: ${e.message}")
+            }
+        }
     }
 
     @PluginMethod

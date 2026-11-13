@@ -46,6 +46,7 @@ repositories {
 
 dependencies {
     implementation project(':capacitor-android')
+    implementation "androidx.appcompat:appcompat:${project.hasProperty('androidxAppCompatVersion') ? rootProject.ext.androidxAppCompatVersion : '1.7.1'}"
     implementation "androidx.camera:camera-core:$cameraxVersion"
     implementation "androidx.camera:camera-camera2:$cameraxVersion"
     implementation "androidx.camera:camera-lifecycle:$cameraxVersion"

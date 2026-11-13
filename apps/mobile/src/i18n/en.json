@@ -123,6 +123,10 @@
     "duration": "duration",
     "encrypted": "encrypted",
     "sensors": "{{n}} sensor samples · sensor clock offset {{offset}} ms",
-    "deleteAll": "Delete these test takes"
+    "deleteAll": "Delete these test takes",
+    "calibrateTitle": "Sharpness calibration",
+    "take": "Take {{n}} of {{of}}",
+    "liveHint": "Recording… the take stops by itself.",
+    "frozenHint": "JavaScript is frozen on purpose: the timer may not move, recording continues."
   }
 }

@@ -53,8 +53,39 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
   const [player, setPlayer] = useState<{ takeId: string; url: string } | null>(null);
   const [recovered, setRecovered] = useState<string[]>([]);
   const [baseline, setBaseline] = useState<number | null>(null);
+  /** Live view while the camera is open: native preview behind a transparent page + HUD. */
+  const [live, setLive] = useState<{
+    mode: 'record' | 'calibrate';
+    take: number;
+    of: number;
+    elapsedS: number;
+    durationS: number;
+  } | null>(null);
   const cfg = config.tests.get(code);
   const minFps = cfg?.camera.minEffectiveFps ?? 29.5;
+
+  // Make the page transparent while the camera is live so the native preview shows through.
+  useEffect(() => {
+    if (!live) return;
+    document.documentElement.classList.add('camera-active');
+    return () => document.documentElement.classList.remove('camera-active');
+  }, [live]);
+
+  // Native emits recordingState every 500 ms while recording; use it for the timer.
+  useEffect(() => {
+    let handle: { remove: () => Promise<void> } | undefined;
+    let cancelled = false;
+    void capture.kit
+      .addListener('recordingState', (s: RecordingStateEvent) => {
+        if (s.state === 'recording')
+          setLive((l) => (l && l.mode === 'record' ? { ...l, elapsedS: s.elapsedS } : l));
+      })
+      .then((h) => (cancelled ? void h.remove() : (handle = h)));
+    return () => {
+      cancelled = true;
+      void handle?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     capture.kit.getRecoveredTakes().then(
@@ -88,6 +119,13 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
       for (let i = 0; i < repeats; i++) {
         const takeId = newTakeId(code, i);
         setStatus(t('captureTest.recording', { n: i + 1, of: repeats }));
+        setLive({
+          mode: 'record',
+          take: i + 1,
+          of: repeats,
+          elapsedS: 0,
+          durationS: cfg.task.durationS,
+        });
         const done = waitForTake(takeId, (cfg.task.durationS + 30) * 1000);
         await capture.kit.startRecording({ takeId, durationS: cfg.task.durationS });
         if (freeze) freezeJs(cfg.task.durationS * 1000 + 500);
@@ -102,6 +140,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
       setStatus(String(e));
     } finally {
       await camera.close().catch(() => undefined);
+      setLive(null);
       setRunning(false);
     }
   }
@@ -111,6 +150,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
     try {
       await openFor();
       setStatus(t('captureTest.calibrating'));
+      setLive({ mode: 'calibrate', take: 1, of: 1, elapsedS: 0, durationS: 3 });
       const r = await capture.kit.calibrateSharpness({ durationS: 3 });
       setBaseline(r.baseline);
       setStatus(t('captureTest.calibrated', { baseline: r.baseline.toFixed(1), frames: r.frames }));
@@ -118,6 +158,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
       setStatus(String(e));
     } finally {
       await camera.close().catch(() => undefined);
+      setLive(null);
       setRunning(false);
     }
   }
@@ -144,6 +185,54 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
 
   const summary = summarize(results, minFps);
   const mark = (ok: boolean) => (ok ? '✓' : '✗');
+
+  if (live) {
+    const pct = Math.min(100, (live.elapsedS / live.durationS) * 100);
+    return (
+      <div className="fixed inset-0" data-testid="live-view">
+        <div className="absolute inset-x-4 top-4 flex items-center justify-between gap-2">
+          {live.mode === 'record' ? (
+            <span className="flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold text-white tabular-nums">
+              <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
+              REC {live.elapsedS.toFixed(1)} / {live.durationS} s
+            </span>
+          ) : (
+            <span className="rounded-full bg-[#0E1116] px-3 py-2 text-sm font-semibold text-white">
+              {t('captureTest.calibrateTitle')}
+            </span>
+          )}
+          {live.mode === 'record' && (
+            <span
+              className="rounded-xl bg-[#0E1116] px-3 py-2 text-sm font-semibold text-white"
+              data-testid="live-take"
+            >
+              {t('captureTest.take', { n: live.take, of: live.of })}
+            </span>
+          )}
+        </div>
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-t-3xl bg-[#0E1116] p-5 text-white">
+          <span className="text-sm">
+            {live.mode === 'record'
+              ? freeze
+                ? t('captureTest.frozenHint')
+                : t('captureTest.liveHint')
+              : t('captureTest.calibrating')}
+          </span>
+          {live.mode === 'record' && (
+            <div
+              className="h-2 rounded bg-[#2E3540]"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={live.durationS}
+              aria-valuenow={Math.round(live.elapsedS)}
+            >
+              <div className="h-2 rounded bg-[#5BE3A0]" style={{ width: `${pct}%` }} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (player) {
     return (

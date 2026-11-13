@@ -12,6 +12,9 @@ test('M2 capture test records a mock take and checks it against the acceptance c
   await expect(page.getByRole('heading', { name: 'Capture test (M2)' })).toBeVisible();
   await page.getByTestId('test-select').selectOption('FA'); // 15 s, 30 fps
   await page.getByTestId('run-capture-test').click();
+  await expect(page.getByTestId('live-view')).toBeVisible();
+  await expect(page.getByTestId('live-take')).toHaveText('Take 1 of 1');
+  await expect(page.locator('html')).toHaveClass(/camera-active/);
   await expect(page.getByTestId('capture-status')).toHaveText('1 of 1 takes passed', {
     timeout: 30_000,
   });

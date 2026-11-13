@@ -17,7 +17,12 @@ export type TimestampSource = 'REALTIME' | 'UNKNOWN' | 'SIMULATED';
 export interface DeviceCapabilities {
   implementation: Implementation;
   pluginVersion: string;
-  device: { manufacturer: string; model: string; osName: 'android' | 'ios' | 'web'; osVersion: string };
+  device: {
+    manufacturer: string;
+    model: string;
+    osName: 'android' | 'ios' | 'web';
+    osVersion: string;
+  };
   cameras: {
     facing: Facing;
     maxFps: Partial<Record<Resolution, number>>;
@@ -78,7 +83,8 @@ export interface RecordingResult {
   files: { video: string; frames: string; landmarks: string; sensors: string };
 }
 
-export type UploadState = 'queued' | 'uploading' | 'paused' | 'failed_retryable' | 'failed_permanent' | 'completed';
+export type UploadState =
+  'queued' | 'uploading' | 'paused' | 'failed_retryable' | 'failed_permanent' | 'completed';
 
 export interface UploadStatus {
   takeId: string;
@@ -145,7 +151,9 @@ export interface CaptureKitPlugin {
   getCapabilities(): Promise<DeviceCapabilities>;
   runQualificationBenchmark(opts: BenchmarkOpts): Promise<BenchmarkReport>;
 
-  openCamera(opts: OpenCameraOpts): Promise<{ previewTransform: PreviewTransform; actualFps: number }>;
+  openCamera(
+    opts: OpenCameraOpts,
+  ): Promise<{ previewTransform: PreviewTransform; actualFps: number }>;
   lockCameraSettings(opts: { ae: boolean; af: boolean; awb: boolean }): Promise<void>;
   /** The native side stops recording at durationS on its own timer, independent of JS (decision 002). */
   startRecording(opts: { takeId: string; durationS: number }): Promise<{ startedAtNs: string }>;
@@ -153,11 +161,20 @@ export interface CaptureKitPlugin {
   stopRecording(): Promise<RecordingResult>;
   closeCamera(): Promise<void>;
 
-  writeEvidence(opts: { takeId: string; name: 'quality.json' | 'meta.json'; json: string }): Promise<void>;
+  writeEvidence(opts: {
+    takeId: string;
+    name: 'quality.json' | 'meta.json';
+    json: string;
+  }): Promise<void>;
   playTake(opts: { takeId: string }): Promise<{ playerUrl: string }>;
   deleteTake(opts: { takeId: string; reason: string }): Promise<void>;
 
-  enqueueUpload(opts: { takeId: string; sessionId: string; endpoint: string; token: string }): Promise<void>;
+  enqueueUpload(opts: {
+    takeId: string;
+    sessionId: string;
+    endpoint: string;
+    token: string;
+  }): Promise<void>;
   getUploadStatus(opts: { takeId: string }): Promise<UploadStatus>;
 
   addListener<E extends CaptureKitEventName>(

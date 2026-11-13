@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { QUALITY_CORE_VERSION, makeRuleId, parseRuleId, parseNs, secondsBetween, meetsDuration } from '../src/index.ts';
+import {
+  QUALITY_CORE_VERSION,
+  makeRuleId,
+  parseRuleId,
+  parseNs,
+  secondsBetween,
+  meetsDuration,
+} from '../src/index.ts';
 
 describe('version', () => {
   it('is semver', () => expect(QUALITY_CORE_VERSION).toMatch(/^\d+\.\d+\.\d+$/));

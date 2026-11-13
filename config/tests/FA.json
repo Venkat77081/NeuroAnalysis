@@ -7,7 +7,14 @@
   "sides": [],
   "minTier": "B",
   "trackers": ["face"],
-  "camera": { "facing": "back", "resolution": "1080p", "targetFps": 30, "minEffectiveFps": 29, "orientation": "portrait", "lock": { "ae": true, "af": true, "awb": true } },
+  "camera": {
+    "facing": "back",
+    "resolution": "1080p",
+    "targetFps": 30,
+    "minEffectiveFps": 29,
+    "orientation": "portrait",
+    "lock": { "ae": true, "af": true, "awb": true }
+  },
   "analysis": { "fps": 30 },
   "setup": {
     "view": "frontal_face",
@@ -23,7 +30,17 @@
     "singlePerson": true,
     "maxFaceAngleDeg": { "yaw": 10, "pitch": 10 }
   },
-  "task": { "detector": "expression_sequence", "durationS": 15, "noMotionTimeoutS": 5, "detectorParams": "TBD" },
-  "verdict": { "minLandmarkVisibleFrac": 0.98, "durationToleranceS": 0.1, "maxCriticalEvents": 0, "sharpness": "DEVICE_CALIBRATED" },
+  "task": {
+    "detector": "expression_sequence",
+    "durationS": 15,
+    "noMotionTimeoutS": 5,
+    "detectorParams": "TBD"
+  },
+  "verdict": {
+    "minLandmarkVisibleFrac": 0.98,
+    "durationToleranceS": 0.1,
+    "maxCriticalEvents": 0,
+    "sharpness": "DEVICE_CALIBRATED"
+  },
   "instructions": { "demoVideo": "TBD", "stepKeys": ["fa.step1", "fa.step2"] }
 }

@@ -14,7 +14,12 @@ export interface LoadedConfig {
 }
 
 /** Load and validate the bundled configs. The app refuses clinical capture if errors is non-empty. */
-export function loadConfig(raw: { session: unknown; tests: Record<string, unknown> } = { session, tests: { FT, FTF, FR, SAW, FA } }): LoadedConfig {
+export function loadConfig(
+  raw: { session: unknown; tests: Record<string, unknown> } = {
+    session,
+    tests: { FT, FTF, FR, SAW, FA },
+  },
+): LoadedConfig {
   const errors: string[] = [];
   const tests = new Map<string, TestConfig>();
   for (const [code, cfg] of Object.entries(raw.tests)) {
@@ -22,14 +27,20 @@ export function loadConfig(raw: { session: unknown; tests: Record<string, unknow
     errors.push(...res.issues.map((i) => `tests/${code}.json ${i.path || '/'} ${i.message}`));
     if (res.valid) {
       const tc = cfg as TestConfig;
-      errors.push(...checkTestConfig(tc, code).map((i) => `tests/${code}.json ${i.path} ${i.message}`));
+      errors.push(
+        ...checkTestConfig(tc, code).map((i) => `tests/${code}.json ${i.path} ${i.message}`),
+      );
       tests.set(code, tc);
     }
   }
   const sres = validate('session-config', raw.session);
   errors.push(...sres.issues.map((i) => `session.json ${i.path || '/'} ${i.message}`));
   if (sres.valid) {
-    errors.push(...checkSessionConfig(raw.session as SessionConfig, tests).map((i) => `session.json ${i.path} ${i.message}`));
+    errors.push(
+      ...checkSessionConfig(raw.session as SessionConfig, tests).map(
+        (i) => `session.json ${i.path} ${i.message}`,
+      ),
+    );
   }
   return { session: raw.session as SessionConfig, tests, errors };
 }

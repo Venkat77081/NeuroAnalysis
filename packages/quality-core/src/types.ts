@@ -25,7 +25,13 @@ export interface LandmarkFrame {
   /** Side already corrected for mirroring. */
   hands: { side: Side; score: number; pts: Landmark[] }[];
   pose?: Landmark[];
-  face?: { pts: Landmark[]; yaw: number; pitch: number; roll: number; blend?: Record<string, number> };
+  face?: {
+    pts: Landmark[];
+    yaw: number;
+    pitch: number;
+    roll: number;
+    blend?: Record<string, number>;
+  };
   stats: FrameStats;
   trackerStatus: Record<TrackerName, TrackerStatus>;
 }

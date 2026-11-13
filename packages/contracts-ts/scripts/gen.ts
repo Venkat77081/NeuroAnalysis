@@ -12,7 +12,8 @@ import { schemas } from '../src/schemas.ts';
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(here, '../src/generated');
 const check = process.argv.includes('--check');
-const banner = '/* eslint-disable */\n/** GENERATED from /contracts by scripts/gen.ts — do not edit. Run `pnpm contracts:gen`. */\n';
+const banner =
+  '/* eslint-disable */\n/** GENERATED from /contracts by scripts/gen.ts — do not edit. Run `pnpm contracts:gen`. */\n';
 
 mkdirSync(outDir, { recursive: true });
 const files: Record<string, string> = {};
@@ -26,7 +27,11 @@ for (const [name, schema] of Object.entries(schemas)) {
   files[`${name}.ts`] = ts;
 }
 files['index.ts'] =
-  banner + Object.keys(schemas).map((n) => `export type * from './${n}.ts';`).join('\n') + '\n';
+  banner +
+  Object.keys(schemas)
+    .map((n) => `export type * from './${n}.ts';`)
+    .join('\n') +
+  '\n';
 
 let stale = 0;
 for (const [f, content] of Object.entries(files)) {

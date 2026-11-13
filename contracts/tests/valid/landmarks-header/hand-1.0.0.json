@@ -6,5 +6,12 @@
   "timestampSemantics": "camera_frame_canonical_elapsed_realtime_ns",
   "clockSource": "REALTIME",
   "record": { "endianness": "little", "dtype": "float32" },
-  "trackers": [{ "name": "hand", "modelVersion": "hand_landmarker@float16/1", "pointsPerFrame": 21, "valuesPerPoint": 4 }]
+  "trackers": [
+    {
+      "name": "hand",
+      "modelVersion": "hand_landmarker@float16/1",
+      "pointsPerFrame": 21,
+      "valuesPerPoint": 4
+    }
+  ]
 }

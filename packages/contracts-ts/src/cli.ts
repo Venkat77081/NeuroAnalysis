@@ -46,7 +46,9 @@ function runAll(): void {
   // 1. Test configs (schema + semantic rules)
   const testsDir = join(repoRoot, 'config/tests');
   const tests = new Map<string, TestConfig>();
-  for (const f of readdirSync(testsDir).filter((n) => n.endsWith('.json')).sort()) {
+  for (const f of readdirSync(testsDir)
+    .filter((n) => n.endsWith('.json'))
+    .sort()) {
     const file = join(testsDir, f);
     const issues = validateFile('test-config', file);
     if (!issues.length) {
@@ -59,7 +61,8 @@ function runAll(): void {
   // 2. Session config
   const sessionFile = join(repoRoot, 'config/session.json');
   const sIssues = validateFile('session-config', sessionFile);
-  if (!sIssues.length) sIssues.push(...checkSessionConfig(readJson(sessionFile) as SessionConfig, tests));
+  if (!sIssues.length)
+    sIssues.push(...checkSessionConfig(readJson(sessionFile) as SessionConfig, tests));
   report(sessionFile, sIssues);
 
   // 3. Compatibility samples: valid must pass
@@ -67,7 +70,9 @@ function runAll(): void {
   for (const schema of schemaNames) {
     const dir = join(samples, 'valid', schema);
     if (!existsSync(dir)) continue;
-    for (const f of readdirSync(dir).filter((n) => n.endsWith('.json')).sort()) {
+    for (const f of readdirSync(dir)
+      .filter((n) => n.endsWith('.json'))
+      .sort()) {
       report(join(dir, f), validateFile(schema, join(dir, f)));
     }
   }
@@ -85,9 +90,19 @@ function runAll(): void {
     if (!issues.length) {
       report(file, [{ path: '', message: 'should be INVALID but passed validation' }]);
     } else if (!issues.some((i) => i.path === field)) {
-      report(file, [{ path: '', message: `failed, but no error names ${field}; got ${issues.map((i) => i.path).join(', ')}` }]);
+      report(file, [
+        {
+          path: '',
+          message: `failed, but no error names ${field}; got ${issues.map((i) => i.path).join(', ')}`,
+        },
+      ]);
     } else {
-      console.log(`ok   ${rel(file)} (rejected: ${formatIssues('', issues.filter((i) => i.path === field)).slice(2)})`);
+      console.log(
+        `ok   ${rel(file)} (rejected: ${formatIssues(
+          '',
+          issues.filter((i) => i.path === field),
+        ).slice(2)})`,
+      );
     }
   }
 }
@@ -99,7 +114,9 @@ function main(argv: string[]): void {
     const schema = argv[0];
     for (const f of argv.slice(1)) report(resolve(f), validateFile(schema, resolve(f)));
   } else {
-    console.error(`usage: nc-validate <${schemaNames.join('|')}> <file...>\n       nc-validate --all`);
+    console.error(
+      `usage: nc-validate <${schemaNames.join('|')}> <file...>\n       nc-validate --all`,
+    );
     process.exit(2);
   }
   if (failures) {

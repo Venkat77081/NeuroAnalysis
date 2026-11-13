@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "CaptureKit Capacitor plugin: TS contract, MockCaptureKit, (later) native Android/iOS.",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "fixture:gen": "tsx scripts/make-sample-fixture.ts",
     "typecheck": "tsc -p tsconfig.json",

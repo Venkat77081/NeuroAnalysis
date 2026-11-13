@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { validate, formatIssues, checkTestConfig, checkSessionConfig, schemaNames, isSchemaName } from '../src/index.ts';
+import {
+  validate,
+  formatIssues,
+  checkTestConfig,
+  checkSessionConfig,
+  schemaNames,
+  isSchemaName,
+} from '../src/index.ts';
 import type { TestConfig, SessionConfig } from '../src/index.ts';
 
 const root = resolve(import.meta.dirname, '../../..');
@@ -70,7 +77,13 @@ describe('semantic checks', () => {
     bad.biomarkers = ['FT1', 'FR2'];
     const paths = checkTestConfig(bad).map((i) => i.path);
     expect(paths).toEqual(
-      expect.arrayContaining(['/configVersion', '/setup/distanceM', '/framing/subjectSize', '/camera/minEffectiveFps', '/biomarkers']),
+      expect.arrayContaining([
+        '/configVersion',
+        '/setup/distanceM',
+        '/framing/subjectSize',
+        '/camera/minEffectiveFps',
+        '/biomarkers',
+      ]),
     );
   });
 
@@ -84,10 +97,21 @@ describe('semantic checks', () => {
   });
 
   it('flags unknown tests and wrong sides in the session order', () => {
-    const tests = new Map([['FT', ft], ['SAW', read<TestConfig>('config/tests/SAW.json')]]);
+    const tests = new Map([
+      ['FT', ft],
+      ['SAW', read<TestConfig>('config/tests/SAW.json')],
+    ]);
     const session = read<SessionConfig>('config/session.json');
-    session.order = [['FT', null], ['SAW', 'R'], ['FA', null]];
-    expect(checkSessionConfig(session, tests).map((i) => i.path)).toEqual(['/order/0/1', '/order/1/1', '/order/2/0']);
+    session.order = [
+      ['FT', null],
+      ['SAW', 'R'],
+      ['FA', null],
+    ];
+    expect(checkSessionConfig(session, tests).map((i) => i.path)).toEqual([
+      '/order/0/1',
+      '/order/1/1',
+      '/order/2/0',
+    ]);
   });
 });
 

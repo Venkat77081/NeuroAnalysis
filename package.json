@@ -1,9 +1,12 @@
 {
   "name": "neurocapture",
   "private": true,
+  "type": "module",
   "version": "0.1.0",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "contracts:gen": "pnpm --filter @neurocapture/contracts-ts gen",
     "contracts:check": "pnpm --filter @neurocapture/contracts-ts check-generated",

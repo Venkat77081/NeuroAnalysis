@@ -1,8 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MockCaptureKit, sampleFixtures, decodeFloat32, encodeFloat32, createCaptureKit } from '../src/index.ts';
-import type { AnalysisFrameEvent, OpenCameraOpts, RecordingStateEvent, SensorBatchEvent } from '../src/index.ts';
+import {
+  MockCaptureKit,
+  sampleFixtures,
+  decodeFloat32,
+  encodeFloat32,
+  createCaptureKit,
+} from '../src/index.ts';
+import type {
+  AnalysisFrameEvent,
+  OpenCameraOpts,
+  RecordingStateEvent,
+  SensorBatchEvent,
+} from '../src/index.ts';
 
-const openOpts: OpenCameraOpts = { facing: 'back', resolution: '1080p', targetFps: 60, orientation: 'portrait', trackers: ['hand'], analysisFps: 30 };
+const openOpts: OpenCameraOpts = {
+  facing: 'back',
+  resolution: '1080p',
+  targetFps: 60,
+  orientation: 'portrait',
+  trackers: ['hand'],
+  analysisFps: 30,
+};
 
 describe('codec', () => {
   it('round-trips Float32 landmarks through base64', () => {
@@ -39,7 +57,16 @@ describe('MockCaptureKit', () => {
 
   it('reports mock implementation and tier W (never clinical)', async () => {
     expect((await kit.getCapabilities()).implementation).toBe('mock');
-    expect((await kit.runQualificationBenchmark({ resolution: '1080p', targetFps: 60, recordMinutes: 10, thermalMinutes: 30 })).tier).toBe('W');
+    expect(
+      (
+        await kit.runQualificationBenchmark({
+          resolution: '1080p',
+          targetFps: 60,
+          recordMinutes: 10,
+          thermalMinutes: 30,
+        })
+      ).tier,
+    ).toBe('W');
   });
 
   it('replays analysis frames with increasing canonical timestamps and loops the fixture', async () => {
@@ -88,20 +115,28 @@ describe('MockCaptureKit', () => {
   });
 
   it('enforces call order', async () => {
-    await expect(kit.startRecording({ takeId: 'x', durationS: 15 })).rejects.toThrow(/camera not open/);
-    await expect(kit.lockCameraSettings({ ae: true, af: true, awb: true })).rejects.toThrow(/camera not open/);
+    await expect(kit.startRecording({ takeId: 'x', durationS: 15 })).rejects.toThrow(
+      /camera not open/,
+    );
+    await expect(kit.lockCameraSettings({ ae: true, af: true, awb: true })).rejects.toThrow(
+      /camera not open/,
+    );
     await kit.openCamera(openOpts);
     await expect(kit.openCamera(openOpts)).rejects.toThrow(/already open/);
     await expect(kit.startRecording({ takeId: 'x', durationS: 0 })).rejects.toThrow(/durationS/);
     await kit.startRecording({ takeId: 'x', durationS: 15 });
-    await expect(kit.startRecording({ takeId: 'y', durationS: 15 })).rejects.toThrow(/already recording/);
+    await expect(kit.startRecording({ takeId: 'y', durationS: 15 })).rejects.toThrow(
+      /already recording/,
+    );
     await kit.closeCamera(); // closing mid-take ends it early
   });
 
   it('stores evidence, rejects malformed JSON, and deletes takes', async () => {
     await kit.writeEvidence({ takeId: 't', name: 'quality.json', json: '{"a":1}' });
     expect(kit.readEvidence('t', 'quality.json')).toBe('{"a":1}');
-    await expect(kit.writeEvidence({ takeId: 't', name: 'meta.json', json: '{' })).rejects.toThrow();
+    await expect(
+      kit.writeEvidence({ takeId: 't', name: 'meta.json', json: '{' }),
+    ).rejects.toThrow();
     expect((await kit.playTake({ takeId: 't' })).playerUrl).toContain('t');
     await kit.deleteTake({ takeId: 't', reason: 'test' });
     expect(kit.readEvidence('t', 'quality.json')).toBeUndefined();

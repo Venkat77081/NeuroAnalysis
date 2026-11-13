@@ -19,8 +19,14 @@ export const NativeCaptureKit = registerPlugin<CaptureKitPlugin>('CaptureKit');
  * Choose the implementation (DEV_PLAN §5.3). Native on a device; mock in the browser.
  * The webcam implementation (Tier W) is added in M4.
  */
-export function createCaptureKit(preferred?: Implementation): { kit: CaptureKitPlugin; implementation: Implementation } {
+export function createCaptureKit(preferred?: Implementation): {
+  kit: CaptureKitPlugin;
+  implementation: Implementation;
+} {
   const wantNative = preferred ? preferred === 'native' : Capacitor.isNativePlatform();
   if (wantNative) return { kit: NativeCaptureKit, implementation: 'native' };
-  return { kit: new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] }), implementation: 'mock' };
+  return {
+    kit: new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] }),
+    implementation: 'mock',
+  };
 }

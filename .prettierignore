@@ -9,3 +9,4 @@ DEV_PLAN.md
 packages/contracts-ts/src/generated
 playwright-report
 test-results
+packages/capture-kit/fixtures

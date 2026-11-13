@@ -1,9 +1,23 @@
 {
   "schemaVersion": "1.0.0",
   "configVersion": "SESSION@1.0.0",
-  "order": [["FT", "R"], ["FT", "L"], ["FR", "R"], ["FR", "L"], ["FTF", null], ["FA", null], ["SAW", null]],
+  "order": [
+    ["FT", "R"],
+    ["FT", "L"],
+    ["FR", "R"],
+    ["FR", "L"],
+    ["FTF", null],
+    ["FA", null],
+    ["SAW", null]
+  ],
   "maxRetakes": 3,
-  "skipReasons": ["patient_unable", "patient_declined", "time_constraint", "equipment_issue", "other"],
+  "skipReasons": [
+    "patient_unable",
+    "patient_declined",
+    "time_constraint",
+    "equipment_issue",
+    "other"
+  ],
   "overrideReasons": ["clinically_adequate", "patient_fatigue", "max_retakes_reached", "other"],
   "medStates": ["ON", "OFF", "NA"]
 }

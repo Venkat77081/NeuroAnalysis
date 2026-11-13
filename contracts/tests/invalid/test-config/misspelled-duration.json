@@ -17,14 +17,9 @@
     "FT11",
     "FT12"
   ],
-  "sides": [
-    "R",
-    "L"
-  ],
+  "sides": ["R", "L"],
   "minTier": "A",
-  "trackers": [
-    "hand"
-  ],
+  "trackers": ["hand"],
   "camera": {
     "facing": "back",
     "resolution": "1080p",
@@ -42,44 +37,14 @@
   },
   "setup": {
     "view": "front_offset_30deg",
-    "distanceM": [
-      0.6,
-      1
-    ],
+    "distanceM": [0.6, 1],
     "heightRef": "hand",
-    "checklist": [
-      "sleeve_rolled",
-      "phone_on_stand",
-      "light_in_front",
-      "seated_no_armrest"
-    ]
+    "checklist": ["sleeve_rolled", "phone_on_stand", "light_in_front", "seated_no_armrest"]
   },
   "framing": {
     "overlay": "hand_outline",
     "requiredLandmarks": {
-      "hand": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18,
-        19,
-        20
-      ]
+      "hand": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     },
     "safeZoneMargin": 0.05,
     "subjectSize": {
@@ -102,10 +67,6 @@
   },
   "instructions": {
     "demoVideo": "assets/demo/ft.mp4",
-    "stepKeys": [
-      "ft.step1",
-      "ft.step2",
-      "ft.step3"
-    ]
+    "stepKeys": ["ft.step1", "ft.step2", "ft.step3"]
   }
 }

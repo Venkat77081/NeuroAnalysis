@@ -12,7 +12,9 @@
     "biomarkers": {
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false, "required": ["id", "testCode", "family", "formula", "formulaVersion", "inputs"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "testCode", "family", "formula", "formulaVersion", "inputs"],
         "properties": {
           "id": { "type": "string", "pattern": "^(FT|FTF|FR|SAW|FA)[0-9]+$" },
           "testCode": { "enum": ["FT", "FTF", "FR", "SAW", "FA"] },
@@ -20,12 +22,19 @@
           "formula": { "type": ["string", "null"] },
           "formulaVersion": { "type": ["string", "null"] },
           "inputs": {
-            "type": "object", "additionalProperties": false,
+            "type": "object",
+            "additionalProperties": false,
             "properties": {
               "minEffectiveFps": { "type": "number", "exclusiveMinimum": 0 },
               "minDurationS": { "type": "number", "exclusiveMinimum": 0 },
               "trackers": { "type": "array", "items": { "enum": ["hand", "pose", "face"] } },
-              "landmarks": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "integer", "minimum": 0 } } },
+              "landmarks": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": { "type": "integer", "minimum": 0 }
+                }
+              },
               "minLandmarkVisibleFrac": { "type": "number", "minimum": 0, "maximum": 1 },
               "requiresSensors": { "type": "boolean" },
               "requiresPhases": { "type": "array", "items": { "type": "string" } }

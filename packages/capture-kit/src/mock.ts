@@ -53,7 +53,13 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private frameIdx = 0;
   private seq = 0;
   private startNs = 0n;
-  private recording: { takeId: string; durationS: number; startedMs: number; timer: unknown; tick: unknown } | null = null;
+  private recording: {
+    takeId: string;
+    durationS: number;
+    startedMs: number;
+    timer: unknown;
+    tick: unknown;
+  } | null = null;
   private evidence = new Map<string, string>();
   private uploads = new Map<string, UploadStatus>();
 
@@ -70,8 +76,18 @@ export class MockCaptureKit implements CaptureKitPlugin {
       pluginVersion: PLUGIN_VERSION,
       device: { manufacturer: 'mock', model: 'MockCaptureKit', osName: 'web', osVersion: 'n/a' },
       cameras: [
-        { facing: 'back', maxFps: { '1080p': 60, '720p': 60 }, timestampSource: 'SIMULATED', supportsLock: { ae: true, af: true, awb: true } },
-        { facing: 'front', maxFps: { '1080p': 30, '720p': 30 }, timestampSource: 'SIMULATED', supportsLock: { ae: true, af: true, awb: true } },
+        {
+          facing: 'back',
+          maxFps: { '1080p': 60, '720p': 60 },
+          timestampSource: 'SIMULATED',
+          supportsLock: { ae: true, af: true, awb: true },
+        },
+        {
+          facing: 'front',
+          maxFps: { '1080p': 30, '720p': 30 },
+          timestampSource: 'SIMULATED',
+          supportsLock: { ae: true, af: true, awb: true },
+        },
       ],
       gpuDelegate: false,
     };
@@ -93,7 +109,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
-  async openCamera(opts: OpenCameraOpts): Promise<{ previewTransform: PreviewTransform; actualFps: number }> {
+  async openCamera(
+    opts: OpenCameraOpts,
+  ): Promise<{ previewTransform: PreviewTransform; actualFps: number }> {
     if (this.camera) throw new Error('camera already open');
     this.camera = opts;
     this.startNs = BigInt(this.sched.now()) * 1_000_000n;
@@ -101,7 +119,14 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const periodMs = 1000 / Math.min(opts.analysisFps, this.fixture.fps);
     this.frameTimer = this.sched.setInterval(() => this.emitNextFrame(), periodMs);
     return {
-      previewTransform: { scaleX: 1, scaleY: 1, offsetX: 0, offsetY: 0, rotationDeg: 0, mirrored: opts.facing === 'front' },
+      previewTransform: {
+        scaleX: 1,
+        scaleY: 1,
+        offsetX: 0,
+        offsetY: 0,
+        rotationDeg: 0,
+        mirrored: opts.facing === 'front',
+      },
       actualFps: opts.targetFps,
     };
   }
@@ -113,12 +138,19 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const loop = BigInt(Math.floor(this.frameIdx / frames.length));
     const loopNs = BigInt(Math.round(this.fixture.durationS * 1e9)) * loop;
     this.frameIdx++;
-    this.emit('analysisFrame', { ...src, seq: this.seq++, tsNs: (this.startNs + loopNs + BigInt(src.tsNs)).toString() });
+    this.emit('analysisFrame', {
+      ...src,
+      seq: this.seq++,
+      tsNs: (this.startNs + loopNs + BigInt(src.tsNs)).toString(),
+    });
     // Emit the sensor batch(es) belonging to this frame's time slot.
     const slot = this.fixture.sensorBatches.filter((b) => b.tsNs === src.tsNs);
     for (const b of slot) {
       this.emit('sensorBatch', {
-        samples: b.samples.map((s) => ({ ...s, tsNs: (this.startNs + loopNs + BigInt(s.tsNs)).toString() })),
+        samples: b.samples.map((s) => ({
+          ...s,
+          tsNs: (this.startNs + loopNs + BigInt(s.tsNs)).toString(),
+        })),
       });
     }
   }
@@ -127,7 +159,10 @@ export class MockCaptureKit implements CaptureKitPlugin {
     if (!this.camera) throw new Error('camera not open');
   }
 
-  async startRecording(opts: { takeId: string; durationS: number }): Promise<{ startedAtNs: string }> {
+  async startRecording(opts: {
+    takeId: string;
+    durationS: number;
+  }): Promise<{ startedAtNs: string }> {
     if (!this.camera) throw new Error('camera not open');
     if (this.recording) throw new Error('already recording');
     if (!(opts.durationS > 0)) throw new Error('durationS must be > 0');
@@ -136,7 +171,11 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const timer = this.sched.setTimeout(() => this.finish(false), opts.durationS * 1000);
     const tick = this.sched.setInterval(() => {
       if (this.recording) {
-        this.emit('recordingState', { takeId: opts.takeId, state: 'recording', elapsedS: (this.sched.now() - startedMs) / 1000 });
+        this.emit('recordingState', {
+          takeId: opts.takeId,
+          state: 'recording',
+          elapsedS: (this.sched.now() - startedMs) / 1000,
+        });
       }
     }, 100);
     this.recording = { takeId: opts.takeId, durationS: opts.durationS, startedMs, timer, tick };
@@ -154,7 +193,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.sched.clearTimeout(rec.timer);
     this.sched.clearInterval(rec.tick);
     this.recording = null;
-    const durationS = early ? Math.min((this.sched.now() - rec.startedMs) / 1000, rec.durationS) : rec.durationS;
+    const durationS = early
+      ? Math.min((this.sched.now() - rec.startedMs) / 1000, rec.durationS)
+      : rec.durationS;
     const expected = Math.round(durationS * 60);
     const dropped = Math.round(expected * this.droppedFrac);
     const result: RecordingResult = {
@@ -172,7 +213,12 @@ export class MockCaptureKit implements CaptureKitPlugin {
         sensors: `mock://${rec.takeId}/sensors.bin.enc`,
       },
     };
-    this.emit('recordingState', { takeId: rec.takeId, state: 'completed', elapsedS: durationS, result });
+    this.emit('recordingState', {
+      takeId: rec.takeId,
+      state: 'completed',
+      elapsedS: durationS,
+      result,
+    });
     return result;
   }
 
@@ -183,7 +229,11 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.camera = null;
   }
 
-  async writeEvidence(opts: { takeId: string; name: 'quality.json' | 'meta.json'; json: string }): Promise<void> {
+  async writeEvidence(opts: {
+    takeId: string;
+    name: 'quality.json' | 'meta.json';
+    json: string;
+  }): Promise<void> {
     JSON.parse(opts.json); // reject malformed evidence early, like the native side will
     this.evidence.set(`${opts.takeId}/${opts.name}`, opts.json);
   }
@@ -198,18 +248,37 @@ export class MockCaptureKit implements CaptureKitPlugin {
   }
 
   async deleteTake(opts: { takeId: string; reason: string }): Promise<void> {
-    for (const k of [...this.evidence.keys()]) if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);
+    for (const k of [...this.evidence.keys()])
+      if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);
     this.uploads.delete(opts.takeId);
   }
 
-  async enqueueUpload(opts: { takeId: string; sessionId: string; endpoint: string; token: string }): Promise<void> {
-    const status: UploadStatus = { takeId: opts.takeId, state: 'queued', bytesSent: 0, bytesTotal: 1 };
+  async enqueueUpload(opts: {
+    takeId: string;
+    sessionId: string;
+    endpoint: string;
+    token: string;
+  }): Promise<void> {
+    const status: UploadStatus = {
+      takeId: opts.takeId,
+      state: 'queued',
+      bytesSent: 0,
+      bytesTotal: 1,
+    };
     this.uploads.set(opts.takeId, status);
     this.emit('uploadProgress', status);
   }
 
   async getUploadStatus(opts: { takeId: string }): Promise<UploadStatus> {
-    return this.uploads.get(opts.takeId) ?? { takeId: opts.takeId, state: 'failed_permanent', bytesSent: 0, bytesTotal: 0, reason: 'unknown take' };
+    return (
+      this.uploads.get(opts.takeId) ?? {
+        takeId: opts.takeId,
+        state: 'failed_permanent',
+        bytesSent: 0,
+        bytesTotal: 0,
+        reason: 'unknown take',
+      }
+    );
   }
 
   async addListener<E extends CaptureKitEventName>(
@@ -228,6 +297,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
   }
 
   private emit<E extends CaptureKitEventName>(eventName: E, event: CaptureKitEvents[E]): void {
-    for (const fn of this.listeners.get(eventName) ?? []) (fn as (e: CaptureKitEvents[E]) => void)(event);
+    for (const fn of this.listeners.get(eventName) ?? [])
+      (fn as (e: CaptureKitEvents[E]) => void)(event);
   }
 }

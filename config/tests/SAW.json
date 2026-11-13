@@ -3,22 +3,56 @@
   "configVersion": "SAW@1.0.0",
   "code": "SAW",
   "name": "Stand and Walk",
-  "biomarkers": ["SAW1", "SAW2", "SAW3", "SAW4", "SAW5", "SAW6", "SAW7", "SAW8", "SAW9", "SAW10", "SAW11", "SAW12", "SAW13", "SAW14", "SAW15"],
+  "biomarkers": [
+    "SAW1",
+    "SAW2",
+    "SAW3",
+    "SAW4",
+    "SAW5",
+    "SAW6",
+    "SAW7",
+    "SAW8",
+    "SAW9",
+    "SAW10",
+    "SAW11",
+    "SAW12",
+    "SAW13",
+    "SAW14",
+    "SAW15"
+  ],
   "sides": [],
   "minTier": "B",
   "trackers": ["pose"],
-  "camera": { "facing": "back", "resolution": "1080p", "targetFps": 30, "minEffectiveFps": 29, "orientation": "landscape", "lock": { "ae": true, "af": true, "awb": true } },
+  "camera": {
+    "facing": "back",
+    "resolution": "1080p",
+    "targetFps": 30,
+    "minEffectiveFps": 29,
+    "orientation": "landscape",
+    "lock": { "ae": true, "af": true, "awb": true }
+  },
   "analysis": { "fps": 30 },
   "setup": {
     "view": "side_90deg",
     "distanceM": [3.0, 4.0],
     "heightRef": "hip",
     "walkwayM": 5,
-    "checklist": ["floor_tape_start", "floor_tape_5m", "chair_no_armrest", "phone_on_stand", "clear_walkway"]
+    "checklist": [
+      "floor_tape_start",
+      "floor_tape_5m",
+      "chair_no_armrest",
+      "phone_on_stand",
+      "clear_walkway"
+    ]
   },
   "framing": {
     "overlay": "full_body",
-    "requiredLandmarks": { "pose": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32] },
+    "requiredLandmarks": {
+      "pose": [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32
+      ]
+    },
     "safeZoneMargin": 0.05,
     "subjectSize": { "metric": "body_height", "min": 0.3, "max": 0.9 },
     "singlePerson": true,
@@ -33,5 +67,8 @@
     "sharpness": "DEVICE_CALIBRATED",
     "requireAllPhases": true
   },
-  "instructions": { "demoVideo": "TBD", "stepKeys": ["saw.step1", "saw.step2", "saw.step3", "saw.step4"] }
+  "instructions": {
+    "demoVideo": "TBD",
+    "stepKeys": ["saw.step1", "saw.step2", "saw.step3", "saw.step4"]
+  }
 }

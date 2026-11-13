@@ -11,14 +11,9 @@
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 15,
-        "trackers": [
-          "hand"
-        ],
+        "trackers": ["hand"],
         "landmarks": {
-          "hand": [
-            4,
-            8
-          ]
+          "hand": [4, 8]
         },
         "minLandmarkVisibleFrac": 0.95
       }

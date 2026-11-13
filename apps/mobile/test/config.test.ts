@@ -9,7 +9,10 @@ describe('loadConfig', () => {
     expect(c.session.order).toHaveLength(7);
   });
   it('reports the field of an invalid config', () => {
-    const c = loadConfig({ session: { schemaVersion: '1.0.0' }, tests: { FT: { schemaVersion: '1.0.0' } } });
+    const c = loadConfig({
+      session: { schemaVersion: '1.0.0' },
+      tests: { FT: { schemaVersion: '1.0.0' } },
+    });
     expect(c.errors.some((e) => e.startsWith('tests/FT.json /configVersion'))).toBe(true);
     expect(c.errors.some((e) => e.startsWith('session.json /order'))).toBe(true);
   });

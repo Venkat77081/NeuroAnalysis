@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
-  "bin": { "nc-validate": "./src/cli.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "nc-validate": "./src/cli.ts"
+  },
   "scripts": {
     "gen": "tsx scripts/gen.ts",
     "check-generated": "tsx scripts/gen.ts --check",

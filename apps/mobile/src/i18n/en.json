@@ -3,7 +3,11 @@
   "home": {
     "title": "Foundation build",
     "subtitle": "Milestone M0 — placeholder home screen",
-    "mode": { "mock": "Mock mode · not for clinical data", "webcam": "Webcam demo · not for clinical data", "native": "Device mode" },
+    "mode": {
+      "mock": "Mock mode · not for clinical data",
+      "webcam": "Webcam demo · not for clinical data",
+      "native": "Device mode"
+    },
     "config": "Session configuration",
     "configValid": "All configs valid",
     "configInvalid": "Config errors",

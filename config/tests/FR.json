@@ -3,11 +3,31 @@
   "configVersion": "FR@1.0.0",
   "code": "FR",
   "name": "Forearm Roll",
-  "biomarkers": ["FR1", "FR2", "FR3", "FR4", "FR5", "FR6", "FR7", "FR8", "FR9", "FR10", "FR11", "FR12"],
+  "biomarkers": [
+    "FR1",
+    "FR2",
+    "FR3",
+    "FR4",
+    "FR5",
+    "FR6",
+    "FR7",
+    "FR8",
+    "FR9",
+    "FR10",
+    "FR11",
+    "FR12"
+  ],
   "sides": ["R", "L"],
   "minTier": "A",
   "trackers": ["hand", "pose"],
-  "camera": { "facing": "back", "resolution": "1080p", "targetFps": 60, "minEffectiveFps": 58, "orientation": "landscape", "lock": { "ae": true, "af": true, "awb": true } },
+  "camera": {
+    "facing": "back",
+    "resolution": "1080p",
+    "targetFps": 60,
+    "minEffectiveFps": 58,
+    "orientation": "landscape",
+    "lock": { "ae": true, "af": true, "awb": true }
+  },
   "analysis": { "fps": 30 },
   "setup": {
     "view": "front_centred",
@@ -26,6 +46,11 @@
     "handednessMustMatchSide": true
   },
   "task": { "detector": "rotation_counter", "durationS": 15, "noMotionTimeoutS": 3 },
-  "verdict": { "minLandmarkVisibleFrac": 0.95, "durationToleranceS": 0.1, "maxCriticalEvents": 0, "sharpness": "DEVICE_CALIBRATED" },
+  "verdict": {
+    "minLandmarkVisibleFrac": 0.95,
+    "durationToleranceS": 0.1,
+    "maxCriticalEvents": 0,
+    "sharpness": "DEVICE_CALIBRATED"
+  },
   "instructions": { "demoVideo": "TBD", "stepKeys": ["fr.step1", "fr.step2", "fr.step3"] }
 }

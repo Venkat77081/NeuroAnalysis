@@ -2,19 +2,45 @@
   "schemaVersion": "1.0.0",
   "configVersion": "FR@1.0.0",
   "qualityCoreVersion": "0.1.0",
-  "testCode": "FR", "side": "L", "take": 4, "tier": "A",
-  "durationTargetS": 15, "durationS": 15.0, "stoppedEarly": false,
-  "fpsTarget": 60, "fpsEffective": 59.6, "droppedFrames": 9, "droppedFrac": 0.01,
-  "eventsDetected": 14, "landmarkVisibleFrac": 0.881,
-  "sharpnessMedian": 170.0, "sharpnessBaseline": 240.1, "brightnessMedian": 120,
+  "testCode": "FR",
+  "side": "L",
+  "take": 4,
+  "tier": "A",
+  "durationTargetS": 15,
+  "durationS": 15.0,
+  "stoppedEarly": false,
+  "fpsTarget": 60,
+  "fpsEffective": 59.6,
+  "droppedFrames": 9,
+  "droppedFrac": 0.01,
+  "eventsDetected": 14,
+  "landmarkVisibleFrac": 0.881,
+  "sharpnessMedian": 170.0,
+  "sharpnessBaseline": 240.1,
+  "brightnessMedian": 120,
   "movementWindow": { "tStartS": 0.6, "tEndS": 15.0 },
-  "events": [{ "tStartS": 8.1, "tEndS": 10.5, "ruleId": "required_landmarks_visible@1.0.0", "severity": "CRITICAL" }],
+  "events": [
+    {
+      "tStartS": 8.1,
+      "tEndS": 10.5,
+      "ruleId": "required_landmarks_visible@1.0.0",
+      "severity": "CRITICAL"
+    }
+  ],
   "unknownWindows": [],
   "captureVerdict": "OVERRIDE",
   "captureReasons": [
-    { "code": "subject_left_frame", "messageKey": "verdict.subjectLeftFrame", "params": { "durationS": 2.4, "fromS": 8.1, "toS": 10.5 }, "ruleId": "required_landmarks_visible@1.0.0" }
+    {
+      "code": "subject_left_frame",
+      "messageKey": "verdict.subjectLeftFrame",
+      "params": { "durationS": 2.4, "fromS": 8.1, "toS": 10.5 },
+      "ruleId": "required_landmarks_visible@1.0.0"
+    }
   ],
   "override": { "reason": "patient_fatigue", "operatorId": "OP-07", "at": "2026-11-13T10:42:00Z" },
   "flaggedForReview": true,
-  "biomarkerReadinessHint": { "registryVersion": "REG@0.1.0", "FR1": { "status": "PARTIAL", "reason": "hand visible 88.1% < 95%", "retakeFixable": true } }
+  "biomarkerReadinessHint": {
+    "registryVersion": "REG@0.1.0",
+    "FR1": { "status": "PARTIAL", "reason": "hand visible 88.1% < 95%", "retakeFixable": true }
+  }
 }

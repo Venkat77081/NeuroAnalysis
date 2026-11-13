@@ -10,7 +10,8 @@ export function encodeFloat32(values: ArrayLike<number>): string {
 
 export function decodeFloat32(b64: string): Float32Array {
   const bin = atob(b64);
-  if (bin.length % 4 !== 0) throw new Error(`landmark payload length ${bin.length} is not a multiple of 4`);
+  if (bin.length % 4 !== 0)
+    throw new Error(`landmark payload length ${bin.length} is not a multiple of 4`);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Float32Array(bytes.buffer);

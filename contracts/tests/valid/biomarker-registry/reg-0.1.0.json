@@ -2,7 +2,19 @@
   "schemaVersion": "1.0.0",
   "registryVersion": "REG@0.1.0",
   "biomarkers": [
-    { "id": "FT1", "testCode": "FT", "family": "temporal", "formula": null, "formulaVersion": null,
-      "inputs": { "minEffectiveFps": 58, "minDurationS": 15, "trackers": ["hand"], "landmarks": { "hand": [4, 8] }, "minLandmarkVisibleFrac": 0.95 } }
+    {
+      "id": "FT1",
+      "testCode": "FT",
+      "family": "temporal",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 15,
+        "trackers": ["hand"],
+        "landmarks": { "hand": [4, 8] },
+        "minLandmarkVisibleFrac": 0.95
+      }
+    }
   ]
 }

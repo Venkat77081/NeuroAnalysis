@@ -54,7 +54,9 @@ export function toIssue(err: ErrorObject): ValidationIssue {
 function simplify(errors: ErrorObject[]): ValidationIssue[] {
   const seen = new Set<string>();
   const out: ValidationIssue[] = [];
-  const specific = errors.filter((e) => e.keyword !== 'oneOf' && e.keyword !== 'anyOf' && e.keyword !== 'if');
+  const specific = errors.filter(
+    (e) => e.keyword !== 'oneOf' && e.keyword !== 'anyOf' && e.keyword !== 'if',
+  );
   for (const e of specific.length ? specific : errors) {
     const issue = toIssue(e);
     const key = `${issue.path}|${issue.message}`;

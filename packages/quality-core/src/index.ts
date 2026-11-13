@@ -11,3 +11,11 @@ export {
   type TierReason,
   type TierReasonCode,
 } from './device/tier.ts';
+export {
+  captureVerdict,
+  type CaptureVerdict,
+  type TakeFacts,
+  type VerdictConfig,
+  type VerdictReason,
+  type VerdictReasonCode,
+} from './verdict/capture.ts';

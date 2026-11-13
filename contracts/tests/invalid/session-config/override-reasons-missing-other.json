@@ -19,5 +19,6 @@
     "other"
   ],
   "overrideReasons": ["clinically_adequate", "patient_fatigue"],
-  "medStates": ["ON", "OFF", "NA"]
+  "medStates": ["ON", "OFF", "NA"],
+  "countdownS": 3
 }

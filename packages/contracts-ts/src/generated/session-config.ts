@@ -26,4 +26,8 @@ export interface SessionConfig {
    * @minItems 1
    */
   medStates: ['ON' | 'OFF' | 'NA', ...('ON' | 'OFF' | 'NA')[]];
+  /**
+   * Countdown before each recording starts (beep at each second).
+   */
+  countdownS: number;
 }

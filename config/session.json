@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@1.0.0",
+  "configVersion": "SESSION@1.1.0",
   "order": [
     ["FT", "R"],
     ["FT", "L"],
@@ -19,5 +19,6 @@
     "other"
   ],
   "overrideReasons": ["clinically_adequate", "patient_fatigue", "max_retakes_reached", "other"],
-  "medStates": ["ON", "OFF", "NA"]
+  "medStates": ["ON", "OFF", "NA"],
+  "countdownS": 3
 }

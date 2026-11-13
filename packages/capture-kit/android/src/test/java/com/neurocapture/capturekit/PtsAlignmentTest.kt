@@ -46,8 +46,20 @@ class PtsAlignmentTest {
         val a = PtsAlignment.align(pts, canon)!!
         assertEquals(0, a.firstRecordIndex)
         assertEquals(3.0, a.maxAbsDiffMs, 0.01)
+        assertEquals(0, a.unmatchedSamples)
         assertNull(PtsAlignment.align(LongArray(0), canon))
         assertNull(PtsAlignment.align(pts, LongArray(0)))
+    }
+
+    @Test fun aFrameMissingFromTheLogCostsOneSampleNotTheRestOfTheTake() {
+        val full = frameTimes(200, 60, gapsAt = setOf(40, 90))
+        val log = full.filterIndexed { i, _ -> i != 100 }.toLongArray() // log lost record 100, MP4 has it
+        val pts = LongArray(180) { (full[it + 5] - full[5]) / 1000 }
+        val a = PtsAlignment.align(pts, log)!!
+        assertEquals(5, a.firstRecordIndex)
+        assertEquals(1, a.unmatchedSamples)
+        assertEquals("pattern", a.anchor)
+        assertTrue("max diff ${a.maxAbsDiffMs}", a.maxAbsDiffMs < 0.01)
     }
 
     @Test fun countsLoggedFramesInsideTheVideoSpan() {

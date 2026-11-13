@@ -109,7 +109,7 @@ class TakeVault(private val root: File, private val master: Aead) {
 
     companion object {
         val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
-        val PLAINTEXT_NAMES = setOf("video.mp4", "frames.bin", "sensors.bin", "landmarks.bin", "quality.json", "meta.json")
+        val PLAINTEXT_NAMES = setOf("video.mp4", "frames.bin", "sensors.bin", "landmarks.bin", "quality.json", "meta.json", "capture.json")
         const val RECOVERY_MARKER = "RECOVERED"
     }
 }

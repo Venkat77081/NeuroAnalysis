@@ -58,6 +58,28 @@ object TakeFinalizer {
         }
     }
 
+    class Analysis(
+        val pts: LongArray?,
+        val alignment: StreamFormat.Mp4Alignment?,
+        val framesInVideoSpan: Int?,
+        val stats: FrameStats.Recording,
+    )
+
+    /** Aligns the MP4 to the frame log and computes stats over the frames inside the video's span. */
+    fun analyze(o: CameraSession.Outcome): Analysis {
+        val canonical = o.log.canonicalSnapshot()
+        val sensor = o.log.sensorSnapshot()
+        val pts = if (o.file.exists()) mp4SampleTimesUs(o.file) else null
+        val alignment = pts?.let { PtsAlignment.align(it, canonical) }
+        val inSpan = if (alignment != null && pts != null) framesInSpan(canonical, alignment.firstRecordIndex, pts, o.actualFps) else null
+        val window = if (alignment != null && inSpan != null) {
+            val from = alignment.firstRecordIndex.coerceIn(0, sensor.size)
+            sensor.copyOfRange(from, (from + inSpan).coerceAtMost(sensor.size))
+        } else sensor
+        val stats = FrameStats.recording(window, window.size, o.actualFps, o.mp4Frames ?: pts?.size, o.mp4DurationS)
+        return Analysis(pts, alignment, inSpan, stats)
+    }
+
     fun finalize(
         vault: TakeVault,
         o: CameraSession.Outcome,
@@ -69,13 +91,10 @@ object TakeFinalizer {
         val takeId = o.takeId
         val canonical = o.log.canonicalSnapshot()
         val sensor = o.log.sensorSnapshot()
-        val pts = if (o.file.exists()) mp4SampleTimesUs(o.file) else null
-        val alignment = pts?.let { PtsAlignment.align(it, canonical) }
-        // Count only frames from the first encoded one, so pre-start frames do not skew the stats.
-        val from = (alignment?.firstRecordIndex ?: 0).coerceIn(0, sensor.size)
-        val window = sensor.copyOfRange(from, sensor.size)
-        val stats = FrameStats.recording(window, window.size, o.actualFps, o.mp4Frames ?: pts?.size, o.mp4DurationS)
-        val inSpan = if (alignment != null && pts != null) framesInSpan(canonical, alignment.firstRecordIndex, pts, o.actualFps) else null
+        val an = analyze(o)
+        val alignment = an.alignment
+        val inSpan = an.framesInVideoSpan
+        val stats = an.stats
 
         val clock = if (timestampRealtime) "REALTIME" else "UNKNOWN"
         vault.openEncrypting(takeId, "frames.bin").use { out ->
@@ -95,8 +114,9 @@ object TakeFinalizer {
             encrypted = !o.file.exists() && enc.exists()
             notPlayable = !isPlayable(enc)
         }
-        return JSObject().apply {
+        val result = JSObject().apply {
             put("takeId", takeId)
+            put("createdAt", java.time.Instant.now().toString())
             put("durationS", stats.durationS)
             put("requestedDurationS", o.requestedDurationS)
             put("durationErrorMs", (stats.durationS - o.requestedDurationS) * 1000)
@@ -113,6 +133,7 @@ object TakeFinalizer {
                 put("firstRecordIndex", alignment.firstRecordIndex)
                 put("maxAbsDiffMs", alignment.maxAbsDiffMs)
                 put("p95AbsDiffMs", alignment.p95AbsDiffMs)
+                put("unmatchedSamples", alignment.unmatchedSamples)
                 put("anchor", alignment.anchor)
             })
             put("sensorSamples", o.sensorLog.size)
@@ -127,5 +148,8 @@ object TakeFinalizer {
                 put("sensors", "capturekit://takes/$takeId/sensors.bin.enc")
             })
         }
+        // The take's result travels with it (encrypted), so lists survive an app restart.
+        vault.writeText(takeId, "capture.json", result.toString())
+        return result
     }
 }

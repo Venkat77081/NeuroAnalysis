@@ -45,42 +45,52 @@ object FrameStats {
         return out
     }
 
-    /** Frames missing between consecutive timestamps (gaps longer than 1.5 frame intervals). */
-    fun droppedFromIntervals(ts: LongArray, count: Int, targetFps: Int): Int {
-        val expected = NS_PER_S.toDouble() / targetFps
-        var dropped = 0
-        for (i in 1 until count) {
-            val dt = (ts[i] - ts[i - 1]).toDouble()
-            if (dt > 1.5 * expected) dropped += (dt / expected).roundToInt() - 1
-        }
-        return dropped
-    }
-
     data class Recording(
         val durationS: Double,
         val frameCount: Int,
         val effectiveFps: Double,
+        /** Frames actually lost: gaps in the capture timeline + captured frames missing from the MP4. */
         val droppedFrames: Int,
         val droppedFrac: Double,
         val windowFpsMin: Int?,
     )
 
+    /** Median frame interval in ns (the camera's real frame period, e.g. 16.875 ms at "60" fps). */
+    fun medianIntervalNs(ts: LongArray, count: Int): Long? {
+        if (count < 2) return null
+        return median(LongArray(count - 1) { ts[it + 1] - ts[it] })
+    }
+
+    /** Frames missing from the capture timeline: gaps longer than 1.5 × the median interval. */
+    fun gapDrops(ts: LongArray, count: Int): Int {
+        val m = medianIntervalNs(ts, count)?.toDouble() ?: return 0
+        if (m <= 0) return 0
+        var dropped = 0
+        for (i in 1 until count) {
+            val dt = (ts[i] - ts[i - 1]).toDouble()
+            if (dt > 1.5 * m) dropped += (dt / m).roundToInt() - 1
+        }
+        return dropped
+    }
+
     /**
-     * Recording statistics. Prefer the encoded MP4 frame count and duration when known (what was
-     * actually recorded); otherwise fall back to the sensor timestamps of the capture session.
+     * Recording statistics over the frames inside the video's span. Duration and frame count come from
+     * the MP4 when known. Dropped frames are real losses (decision 009), not the gap between the
+     * nominal rate (60) and the camera's actual rate (e.g. 59.26).
      */
-    fun recording(sensorTs: LongArray, count: Int, targetFps: Int, mp4Frames: Int?, mp4DurationS: Double?): Recording {
-        val windows = windowFps(sensorTs, count)
-        val windowMin = windows.minOrNull()
+    fun recording(sensorTs: LongArray, count: Int, nominalFps: Int, mp4Frames: Int?, mp4DurationS: Double?): Recording {
+        val windowMin = windowFps(sensorTs, count).minOrNull()
+        val gaps = gapDrops(sensorTs, count)
         if (mp4Frames != null && mp4DurationS != null && mp4DurationS > 0) {
-            val expected = (mp4DurationS * targetFps).roundToInt()
-            val dropped = (expected - mp4Frames).coerceAtLeast(0)
-            return Recording(mp4DurationS, mp4Frames, mp4Frames / mp4DurationS, dropped, if (expected > 0) dropped.toDouble() / expected else 0.0, windowMin)
+            val encoderLost = (count - mp4Frames).coerceAtLeast(0)
+            val dropped = gaps + encoderLost
+            return Recording(mp4DurationS, mp4Frames, mp4Frames / mp4DurationS, dropped, frac(dropped, mp4Frames + dropped), windowMin)
         }
         if (count < 2) return Recording(0.0, count, 0.0, 0, 0.0, windowMin)
-        val spanS = (sensorTs[count - 1] - sensorTs[0]).toDouble() / NS_PER_S
-        val durationS = spanS + 1.0 / targetFps
-        val dropped = droppedFromIntervals(sensorTs, count, targetFps)
-        return Recording(durationS, count, count / durationS, dropped, dropped.toDouble() / (count + dropped), windowMin)
+        val period = medianIntervalNs(sensorTs, count)!!.toDouble()
+        val durationS = ((sensorTs[count - 1] - sensorTs[0]) + period) / NS_PER_S
+        return Recording(durationS, count, count / durationS, gaps, frac(gaps, count + gaps), windowMin)
     }
+
+    private fun frac(a: Int, b: Int) = if (b > 0) a.toDouble() / b else 0.0
 }

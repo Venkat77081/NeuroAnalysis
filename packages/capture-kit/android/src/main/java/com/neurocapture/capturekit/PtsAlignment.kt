@@ -1,45 +1,50 @@
 package com.neurocapture.capturekit
 
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Maps MP4 sample times (µs, relative to the first sample) to recorded camera frames (canonical ns),
- * DEV_PLAN §5.6. MP4 sample j ↔ frame record j + k. k is chosen by matching the interval pattern;
- * when several k fit equally well (evenly spaced frames) the earliest is chosen and flagged (decision 008).
+ * DEV_PLAN §5.6. The first MP4 sample is anchored at frame record k; every sample is then matched to
+ * the nearest logged frame in time, so one frame missing from either side affects one sample only.
+ * k is chosen by fewest unmatched samples, then smallest worst residual; when several k fit equally
+ * well (evenly spaced frames) the earliest is chosen and flagged (decisions 008, 009).
  */
 object PtsAlignment {
     /** Offsets whose worst residual is within this of the best are equally good (a 1-frame shift is ≥ 16 ms off at a gap). */
     private const val TIE_MS = 1.0
 
+    private class Fit(val k: Int, val unmatched: Int, val residuals: DoubleArray) {
+        val max = residuals.maxOrNull() ?: 0.0
+    }
+
     fun align(ptsUs: LongArray, canonicalNs: LongArray, maxShift: Int = 40): StreamFormat.Mp4Alignment? {
         if (ptsUs.isEmpty() || canonicalNs.isEmpty()) return null
         val pts = ptsUs.sortedArray()
         val p0 = pts[0]
-        data class Cand(val k: Int, val max: Double, val diffs: DoubleArray)
-        val cands = ArrayList<Cand>()
-        val minOverlap = min(pts.size, canonicalNs.size).coerceAtMost(30).coerceAtLeast(1)
-        for (k in -maxShift..maxShift) {
-            val j0 = max(0, -k)
-            val j1 = min(pts.size, canonicalNs.size - k)
-            if (j1 - j0 < minOverlap || j0 + k < 0) continue
-            // Absolute model: sample j is at p0 + (pts[j] − p0) and frame j+k at c[j+k]; fit the single
-            // constant offset c[k+j0] − p0 using sample j0, then measure every residual.
-            val base = canonicalNs[j0 + k] / 1e6 - (pts[j0] - p0) / 1e3
-            val diffs = DoubleArray(j1 - j0) { i ->
-                val j = j0 + i
-                abs(canonicalNs[j + k] / 1e6 - base - (pts[j] - p0) / 1e3)
+        val c = DoubleArray(canonicalNs.size) { canonicalNs[it] / 1e6 } // ms
+        val periodMs = (FrameStats.medianIntervalNs(canonicalNs, canonicalNs.size) ?: 16_666_667L) / 1e6
+        val half = periodMs / 2
+        val fits = ArrayList<Fit>()
+        for (k in 0..minOf(maxShift, c.size - 1)) {
+            val base = c[k]
+            var i = k
+            var unmatched = 0
+            val res = ArrayList<Double>(pts.size)
+            for (p in pts) {
+                val t = base + (p - p0) / 1e3
+                while (i + 1 < c.size && abs(c[i + 1] - t) <= abs(c[i] - t)) i++
+                val r = abs(c[i] - t)
+                if (r > half) unmatched++ else res.add(r)
             }
-            cands.add(Cand(k, diffs.maxOrNull() ?: 0.0, diffs))
+            fits.add(Fit(k, unmatched, res.toDoubleArray()))
         }
-        if (cands.isEmpty()) return null
-        val bestMax = cands.minOf { it.max }
-        val ties = cands.filter { it.max <= bestMax + TIE_MS }
-        // Prefer the largest overlap among ties (covers all samples), then the earliest k ≥ its minimum.
-        val chosen = ties.sortedWith(compareByDescending<Cand> { it.diffs.size }.thenBy { it.k }).first()
-        val anchor = if (ties.count { it.diffs.size == chosen.diffs.size } == 1) "pattern" else "earliest_candidate"
-        val p95 = FrameStats.percentile(chosen.diffs, 95.0) ?: 0.0
-        return StreamFormat.Mp4Alignment(pts.size, chosen.k, chosen.diffs.maxOrNull() ?: 0.0, p95, anchor)
+        val fewest = fits.minOf { it.unmatched }
+        val candidates = fits.filter { it.unmatched == fewest }
+        val bestMax = candidates.minOf { it.max }
+        val ties = candidates.filter { it.max <= bestMax + TIE_MS }
+        val chosen = ties.minBy { it.k }
+        val anchor = if (ties.size == 1) "pattern" else "earliest_candidate"
+        val p95 = FrameStats.percentile(chosen.residuals, 95.0) ?: 0.0
+        return StreamFormat.Mp4Alignment(pts.size, chosen.k, chosen.max, p95, chosen.unmatched, anchor)
     }
 }

@@ -131,6 +131,8 @@ class CameraSession(
     private var recordStartElapsed = 0L
     private var onRecordingDone: ((Outcome) -> Unit)? = null
     private val stopRunnable = Runnable { stopRecording(early = false) }
+    /** Engineering only (M2 crash test): kill the process this many seconds into the next take. */
+    @Volatile var crashAfterS: Double = 0.0
     private val tickRunnable = object : Runnable {
         override fun run() {
             val id = recordingTakeId ?: return
@@ -435,15 +437,31 @@ class CameraSession(
             onRecordingDone = onDone
             recordingTakeId = takeId
             recordingFile = file
+            // Stop when the video itself reaches durationS (recorded media time), aiming half a frame
+            // early because the encoder adds about one more frame after stop(). A native safety timer
+            // still ends the take at durationS + 1 s. Neither depends on JavaScript (decision 009).
+            val frameNs = 1_000_000_000L / fps
+            val targetNs = (durationS * 1e9).toLong() - frameNs / 2
+            val stopIssued = java.util.concurrent.atomic.AtomicBoolean(false)
             // Video only: no .withAudioEnabled().
             recording = vc.output.prepareRecording(activity, FileOutputOptions.Builder(file).build())
                 .start(recExecutor) { event ->
                     when (event) {
                         is VideoRecordEvent.Start -> {
                             recordStartElapsed = SystemClock.elapsedRealtimeNanos()
-                            recHandler.postDelayed(stopRunnable, (durationS * 1000).toLong())
+                            recHandler.postDelayed(stopRunnable, (durationS * 1000).toLong() + 1000)
                             recHandler.post(tickRunnable)
+                            val crash = crashAfterS
+                            if (crash > 0) {
+                                crashAfterS = 0.0
+                                recHandler.postDelayed({ android.os.Process.killProcess(android.os.Process.myPid()) }, (crash * 1000).toLong())
+                            }
                             started(null)
+                        }
+                        is VideoRecordEvent.Status -> {
+                            if (event.recordingStats.recordedDurationNanos >= targetNs && stopIssued.compareAndSet(false, true)) {
+                                stopRecording(early = false)
+                            }
                         }
                         is VideoRecordEvent.Finalize -> finalizeRecording(event, takeId, file, log, sLog, durationS, fps)
                         else -> Unit

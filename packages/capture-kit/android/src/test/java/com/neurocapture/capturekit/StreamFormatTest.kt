@@ -17,7 +17,7 @@ class StreamFormatTest {
         val golden = RepoFiles.find("contracts/tests/golden/frames-1.0.0.bin").readBytes()
         val header = StreamFormat.framesHeader(
             "golden", "REALTIME", null, 60, 60,
-            StreamFormat.Mp4Alignment(3, 1, 0.2, 0.1, "pattern"),
+            StreamFormat.Mp4Alignment(3, 1, 0.2, 0.1, 0, "pattern"),
         )
         assertEquals(headerOf(golden), header)
         val out = ByteArrayOutputStream()

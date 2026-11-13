@@ -19,6 +19,8 @@ object StreamFormat {
         val firstRecordIndex: Int,
         val maxAbsDiffMs: Double,
         val p95AbsDiffMs: Double,
+        /** MP4 samples with no logged frame within half a frame period. */
+        val unmatchedSamples: Int,
         val anchor: String, // "pattern" | "earliest_candidate"
     )
 
@@ -33,7 +35,8 @@ object StreamFormat {
 
     fun framesHeader(takeId: String, clockSource: String, offsetNs: Long?, targetFps: Int, actualFps: Int, mp4: Mp4Alignment?): String {
         val m = if (mp4 == null) "null" else "{\"sampleCount\":${mp4.sampleCount},\"firstRecordIndex\":${mp4.firstRecordIndex}," +
-            "\"maxAbsDiffMs\":${num(mp4.maxAbsDiffMs)},\"p95AbsDiffMs\":${num(mp4.p95AbsDiffMs)},\"anchor\":${str(mp4.anchor)}}"
+            "\"maxAbsDiffMs\":${num(mp4.maxAbsDiffMs)},\"p95AbsDiffMs\":${num(mp4.p95AbsDiffMs)}," +
+            "\"unmatchedSamples\":${mp4.unmatchedSamples},\"anchor\":${str(mp4.anchor)}}"
         return "{\"schemaVersion\":\"1.0.0\",\"stream\":\"frames\",\"takeId\":${str(takeId)},\"clockSource\":${str(clockSource)}," +
             "\"timestampSemantics\":\"capture_session_frame_sensor_and_canonical_elapsed_realtime_ns\"," +
             "\"offsetNs\":${if (offsetNs == null) "null" else str(offsetNs.toString())},\"recordSize\":24," +

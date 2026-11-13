@@ -281,7 +281,38 @@ class CaptureKitPlugin : Plugin() {
     /** Takes recovered (encrypted, marked RetainedForRecovery) after a crash at the last start. */
     @PluginMethod
     fun getRecoveredTakes(call: PluginCall) {
-        io.execute { call.resolve(JSObject().apply { put("takeIds", com.getcapacitor.JSArray(recovered)) }) }
+        io.execute { call.resolve(JSObject().apply { put("takeIds", com.getcapacitor.JSArray().apply { recovered.forEach { put(it) } }) }) }
+    }
+
+    /** Stored takes (newest first) with their saved capture result; survives app restarts. */
+    @PluginMethod
+    fun listTakes(call: PluginCall) {
+        io.execute {
+            val arr = com.getcapacitor.JSArray()
+            takesDir().listFiles()
+                ?.filter { it.isDirectory && TAKE_ID.matches(it.name) }
+                ?.sortedByDescending { it.lastModified() }
+                ?.forEach { dir ->
+                    val result = if (File(dir, "capture.json.enc").exists()) {
+                        try { JSObject(vault.readText(dir.name, "capture.json")) } catch (_: Exception) { null }
+                    } else null
+                    arr.put(JSObject().apply {
+                        put("takeId", dir.name)
+                        put("recovered", File(dir, TakeVault.RECOVERY_MARKER).exists())
+                        put("sizeBytes", dir.listFiles()?.sumOf { it.length() } ?: 0L)
+                        put("files", com.getcapacitor.JSArray().apply { dir.listFiles()?.map { it.name }?.sorted()?.forEach { put(it) } })
+                        put("result", result ?: org.json.JSONObject.NULL)
+                    })
+                }
+            call.resolve(JSObject().apply { put("takes", arr) })
+        }
+    }
+
+    /** Engineering only (M2 crash test): the next take kills the app after afterS seconds. */
+    @PluginMethod
+    fun debugArmCrash(call: PluginCall) {
+        session.crashAfterS = (call.getDouble("afterS") ?: 0.0).coerceIn(0.0, 60.0)
+        call.resolve()
     }
 
     @PluginMethod
@@ -310,7 +341,7 @@ class CaptureKitPlugin : Plugin() {
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.3.0"
+        const val PLUGIN_VERSION = "0.4.0"
         private const val MASTER_KEY_URI = "android-keystore://neurocapture_master_v1"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")

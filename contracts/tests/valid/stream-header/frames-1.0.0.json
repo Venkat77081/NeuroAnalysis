@@ -27,6 +27,7 @@
     "firstRecordIndex": 1,
     "maxAbsDiffMs": 0.2,
     "p95AbsDiffMs": 0.1,
+    "unmatchedSamples": 0,
     "anchor": "pattern"
   }
 }

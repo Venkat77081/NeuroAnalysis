@@ -29,8 +29,15 @@ export interface StreamHeader {
   mp4?: null | {
     sampleCount: number;
     firstRecordIndex: number;
+    /**
+     * Worst residual over matched samples.
+     */
     maxAbsDiffMs: number;
     p95AbsDiffMs: number;
+    /**
+     * MP4 samples with no logged frame within half a frame period (decision 009).
+     */
+    unmatchedSamples: number;
     /**
      * 'pattern': the interval pattern fixes the first encoded frame uniquely. 'earliest_candidate': several offsets fit equally (evenly spaced frames); the earliest was chosen, so absolute alignment is ±1–2 frames while relative timing is exact (decision 008).
      */

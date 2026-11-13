@@ -73,7 +73,14 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["sampleCount", "firstRecordIndex", "maxAbsDiffMs", "p95AbsDiffMs", "anchor"],
+          "required": [
+            "sampleCount",
+            "firstRecordIndex",
+            "maxAbsDiffMs",
+            "p95AbsDiffMs",
+            "unmatchedSamples",
+            "anchor"
+          ],
           "properties": {
             "sampleCount": {
               "type": "integer",
@@ -84,10 +91,16 @@
             },
             "maxAbsDiffMs": {
               "type": "number",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Worst residual over matched samples."
             },
             "p95AbsDiffMs": {
               "type": "number",
+              "minimum": 0
+            },
+            "unmatchedSamples": {
+              "description": "MP4 samples with no logged frame within half a frame period (decision 009).",
+              "type": "integer",
               "minimum": 0
             },
             "anchor": {

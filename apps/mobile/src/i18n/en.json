@@ -1,0 +1,25 @@
+{
+  "app": { "name": "NeuroCapture" },
+  "home": {
+    "title": "Foundation build",
+    "subtitle": "Milestone M0 — placeholder home screen",
+    "mode": { "mock": "Mock mode · not for clinical data", "webcam": "Webcam demo · not for clinical data", "native": "Device mode" },
+    "config": "Session configuration",
+    "configValid": "All configs valid",
+    "configInvalid": "Config errors",
+    "takes": "{{count}} takes",
+    "tracking": "Capture stream",
+    "frames": "{{count}} analysis frames received",
+    "waiting": "Waiting for capture events…",
+    "nativePending": "Native CaptureKit arrives in M1",
+    "seconds": "{{count}} s"
+  },
+  "tests": {
+    "FT": "Finger Tapping",
+    "FTF": "Finger-to-Finger",
+    "FR": "Forearm Roll",
+    "SAW": "Stand and Walk",
+    "FA": "Facial Activation"
+  },
+  "side": { "R": "Right", "L": "Left", "none": "—" }
+}

@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+**/android
+**/ios
+backend
+DEV_PLAN.md
+packages/contracts-ts/src/generated
+playwright-report
+test-results

@@ -1,0 +1,29 @@
+{
+  "name": "neurocapture",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "contracts:gen": "pnpm --filter @neurocapture/contracts-ts gen",
+    "contracts:check": "pnpm --filter @neurocapture/contracts-ts check-generated",
+    "validate": "pnpm --filter @neurocapture/contracts-ts validate:all",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build:web": "pnpm --filter @neurocapture/mobile build",
+    "e2e": "pnpm --filter @neurocapture/mobile e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2"
+  }
+}

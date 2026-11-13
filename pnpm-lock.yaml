@@ -124,6 +124,10 @@ importers:
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
   packages/quality-core:
+    dependencies:
+      '@neurocapture/contracts-ts':
+        specifier: workspace:*
+        version: link:../contracts-ts
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 5.1.0

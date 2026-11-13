@@ -1,5 +1,6 @@
 import { validate, checkTestConfig, checkSessionConfig } from '@neurocapture/contracts-ts';
-import type { SessionConfig, TestConfig } from '@neurocapture/contracts-ts';
+import type { DeviceTiersConfig, SessionConfig, TestConfig } from '@neurocapture/contracts-ts';
+import deviceTiers from '../../../../config/device-tiers.json' with { type: 'json' };
 import session from '../../../../config/session.json' with { type: 'json' };
 import FT from '../../../../config/tests/FT.json' with { type: 'json' };
 import FTF from '../../../../config/tests/FTF.json' with { type: 'json' };
@@ -9,15 +10,17 @@ import FA from '../../../../config/tests/FA.json' with { type: 'json' };
 
 export interface LoadedConfig {
   session: SessionConfig;
+  tiers: DeviceTiersConfig;
   tests: Map<string, TestConfig>;
   errors: string[];
 }
 
 /** Load and validate the bundled configs. The app refuses clinical capture if errors is non-empty. */
 export function loadConfig(
-  raw: { session: unknown; tests: Record<string, unknown> } = {
+  raw: { session: unknown; tests: Record<string, unknown>; tiers?: unknown } = {
     session,
     tests: { FT, FTF, FR, SAW, FA },
+    tiers: deviceTiers,
   },
 ): LoadedConfig {
   const errors: string[] = [];
@@ -42,5 +45,16 @@ export function loadConfig(
       ),
     );
   }
-  return { session: raw.session as SessionConfig, tests, errors };
+  const tiers = raw.tiers ?? deviceTiers;
+  errors.push(
+    ...validate('device-tiers', tiers).issues.map(
+      (i) => `device-tiers.json ${i.path || '/'} ${i.message}`,
+    ),
+  );
+  return {
+    session: raw.session as SessionConfig,
+    tests,
+    tiers: tiers as DeviceTiersConfig,
+    errors,
+  };
 }

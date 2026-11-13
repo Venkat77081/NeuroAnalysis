@@ -1,8 +1,10 @@
 {
-  "app": { "name": "NeuroCapture" },
+  "app": {
+    "name": "NeuroCapture"
+  },
   "home": {
     "title": "Foundation build",
-    "subtitle": "Milestone M0 — placeholder home screen",
+    "subtitle": "Milestone M1 — device qualification",
     "mode": {
       "mock": "Mock mode · not for clinical data",
       "webcam": "Webcam demo · not for clinical data",
@@ -16,7 +18,8 @@
     "frames": "{{count}} analysis frames received",
     "waiting": "Waiting for capture events…",
     "nativePending": "Native CaptureKit arrives in M1",
-    "seconds": "{{count}} s"
+    "seconds": "{{count}} s",
+    "deviceCheck": "Device check"
   },
   "tests": {
     "FT": "Finger Tapping",
@@ -25,5 +28,76 @@
     "SAW": "Stand and Walk",
     "FA": "Facial Activation"
   },
-  "side": { "R": "Right", "L": "Left", "none": "—" }
+  "side": {
+    "R": "Right",
+    "L": "Left",
+    "none": "—"
+  },
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "cancel": "Cancel"
+  },
+  "deviceCheck": {
+    "title": "Device check",
+    "device": "This device",
+    "loading": "Reading camera capabilities…",
+    "model": "Model",
+    "os": "OS",
+    "maxFps": "Max fps (back)",
+    "timestamps": "Timestamps",
+    "lock": "AE/AF/AWB lock",
+    "implementation": "Capture",
+    "cameraTest": "Camera preview test",
+    "cameraStats": "Analysis {{fps}} fps · luma {{luma}}",
+    "cameraHint": "The green brackets and grid are drawn by the web app on top of the live camera preview.",
+    "benchmark": "Qualification benchmark",
+    "preset": "Benchmark length",
+    "presets": {
+      "quick": {
+        "title": "Quick check · about 3 min",
+        "detail": "1 min recording + 2 min thermal. Gives a provisional tier."
+      },
+      "full": {
+        "title": "Full qualification · about 40 min",
+        "detail": "10 min recording + 30 min thermal (DEV_PLAN §7). Keep the phone on a stand, plugged in, at room temperature."
+      }
+    },
+    "run": "Run benchmark",
+    "phase": {
+      "calibrating": "Calibrating clock",
+      "recording": "Recording",
+      "thermal": "Thermal run",
+      "done": "Done",
+      "cancelled": "Cancelled",
+      "error": "Error"
+    },
+    "result": "Result",
+    "provisional": "Provisional: the run was shorter than a full qualification.",
+    "tier": {
+      "A": "Tier A · full",
+      "B": "Tier B · limited",
+      "C": "Tier C · unsupported",
+      "W": "Tier W · demo only"
+    },
+    "allowed": "Allowed tests",
+    "noneAllowed": "none (clinical capture blocked)",
+    "dropped": "dropped",
+    "analysis": "analysis",
+    "saved": "Saved: {{files}}",
+    "reason": {
+      "not_native": "mock or webcam capture is never clinical",
+      "resolution_not_allowed": "resolution {{value}} not allowed (needs {{limit}})",
+      "effective_fps_low": "recording {{value}} fps, needs ≥ {{limit}}",
+      "dropped_frames_high": "dropped {{value}} of frames, needs < {{limit}}",
+      "analysis_fps_low": "analysis {{value}} fps, needs ≥ {{limit}}",
+      "timestamp_spread_high": "clock offset spread {{value}} ms, needs ≤ {{limit}} ms",
+      "thermal_fps_drop": "fps fell to {{value}} during the thermal run (needs ≥ {{limit}})",
+      "lock_unsupported": "cannot lock {{value}}",
+      "benchmark_errors": "{{value}} error(s) during the benchmark",
+      "no_run_at_target_fps": "no run at {{limit}} fps",
+      "record_too_short": "recording ran {{value}} s of {{limit}} s",
+      "thermal_too_short": "thermal run ran {{value}} s of {{limit}} s"
+    }
+  }
 }

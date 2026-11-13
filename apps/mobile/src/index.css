@@ -27,3 +27,10 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
 }
+
+/* Native camera preview is drawn behind the WebView (DEV_PLAN §5.1). */
+html.camera-active,
+html.camera-active body,
+html.camera-active #root {
+  background: transparent;
+}

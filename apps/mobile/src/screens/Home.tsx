@@ -7,7 +7,7 @@ import { camera, capture } from '../lib/capture.ts';
 import { logger } from '../lib/logger.ts';
 
 /** M0 placeholder home screen: proves the app runs, configs validate, and capture events flow (mock). */
-export function Home() {
+export function Home({ onDeviceCheck }: { onDeviceCheck?: () => void }) {
   const { t } = useTranslation();
   const config = useMemo(() => loadConfig(), []);
   const [frames, setFrames] = useState(0);
@@ -143,8 +143,19 @@ export function Home() {
         </p>
       </section>
 
+      {onDeviceCheck && (
+        <button
+          type="button"
+          onClick={onDeviceCheck}
+          className="h-14 rounded-2xl bg-brand text-[17px] font-semibold text-white"
+          data-testid="open-device-check"
+        >
+          {t('home.deviceCheck')}
+        </button>
+      )}
+
       <footer className="mt-auto text-[11px] text-muted">
-        app 0.1.0 · capture-kit {PLUGIN_VERSION} · quality-core {QUALITY_CORE_VERSION}
+        app 0.2.0 · capture-kit {PLUGIN_VERSION} · quality-core {QUALITY_CORE_VERSION}
       </footer>
     </div>
   );

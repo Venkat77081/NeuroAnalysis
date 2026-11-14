@@ -223,6 +223,8 @@ class CameraSession(
                 val analysisBuilder = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    // Upright frames: MediaPipe returns landmarks in its input image's frame, so feed it upright.
+                    .setOutputImageRotationEnabled(true)
                     .setResolutionSelector(
                         ResolutionSelector.Builder()
                             .setAspectRatioStrategy(AspectRatioStrategy(AspectRatio.RATIO_16_9, AspectRatioStrategy.FALLBACK_RULE_AUTO))
@@ -365,19 +367,7 @@ class CameraSession(
             }
             val tr = tracking ?: Tracking(activity, enabled, ::onTracked) { msg -> emit("trackingError", JSObject().apply { put("message", msg) }) }
                 .also { tracking = it }
-            // Small grid for face light balance, sampled before the buffer is released.
-            val gw = 80
-            val gh = maxOf(1, h * gw / maxOf(w, 1))
-            val grid = java.nio.ByteBuffer.allocate(gw * gh * 4)
-            for (gy in 0 until gh) for (gx in 0 until gw) {
-                val i = (gy * h / gh) * rowStride + (gx * w / gw) * 4
-                grid.put(buf.get(i)).put(buf.get(i + 1)).put(buf.get(i + 2)).put(255.toByte())
-            }
-            // MediaPipe live stream needs strictly increasing millisecond timestamps.
-            val frameMs = maxOf(canonical / 1_000_000L, lastFrameMs + 1).also { lastFrameMs = it }
-            pendingFrames[frameMs] = FrameInfo(seq, canonical, if (rotated) h else w, if (rotated) w else h, stats, grid, if (rotated) gh else gw, if (rotated) gw else gh, t0)
-            if (pendingFrames.size > 16) pendingFrames.keys.sorted().take(pendingFrames.size - 16).forEach { pendingFrames.remove(it) }
-            val bmp = nextBitmap(w, h)
+            var bmp = nextBitmap(w, h)
             buf.rewind()
             if (rowStride == w * 4) {
                 bmp.copyPixelsFromBuffer(buf)
@@ -391,7 +381,26 @@ class CameraSession(
                 packed.rewind()
                 bmp.copyPixelsFromBuffer(packed)
             }
-            tr.submit(bmp, rotation, frameMs)
+            // Normally 0 (rotation done by CameraX); rotate here if a device ignores that setting.
+            if (rotation != 0) {
+                val m = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                bmp = android.graphics.Bitmap.createBitmap(bmp, 0, 0, w, h, m, false)
+            }
+            val uw = bmp.width
+            val uh = bmp.height
+            // Small upright grid (≈ 80 px wide) for the face light-balance ratio.
+            val gw = 80
+            val gh = maxOf(1, uh * gw / maxOf(uw, 1))
+            val grid = java.nio.ByteBuffer.allocate(gw * gh * 4)
+            for (gy in 0 until gh) for (gx in 0 until gw) {
+                val c = bmp.getPixel(gx * uw / gw, gy * uh / gh)
+                grid.put((c shr 16 and 0xFF).toByte()).put((c shr 8 and 0xFF).toByte()).put((c and 0xFF).toByte()).put(255.toByte())
+            }
+            // MediaPipe live stream needs strictly increasing millisecond timestamps.
+            val frameMs = maxOf(canonical / 1_000_000L, lastFrameMs + 1).also { lastFrameMs = it }
+            pendingFrames[frameMs] = FrameInfo(seq, canonical, uw, uh, stats, grid, gw, gh, t0)
+            if (pendingFrames.size > 16) pendingFrames.keys.sorted().take(pendingFrames.size - 16).forEach { pendingFrames.remove(it) }
+            tr.submit(bmp, 0, frameMs)
         } catch (e: Exception) {
             emit("trackingError", JSObject().apply { put("message", "analysis: ${e.javaClass.simpleName}") })
         } finally {

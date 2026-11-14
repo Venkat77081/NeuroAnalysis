@@ -67,14 +67,19 @@ export function LandmarkOverlay({ transform }: { transform: PreviewTransform | n
           g.fill();
         }
       };
-      for (const hand of f.hands) {
+      for (const [i, hand] of f.hands.entries()) {
         const pts = hand.pts.map(map);
         const color = hand.side === 'L' ? '#4FC3F7' : '#FFB74D';
         lines(pts, HAND_EDGES, color);
         dots(pts, color, 3);
         if (pts[0]) {
-          g.font = '600 14px system-ui';
-          g.fillText(hand.side, pts[0].x + 6, pts[0].y + 16);
+          g.font = '700 18px system-ui';
+          // Debug: our side + MediaPipe's raw label, to verify the handedness rule (decision 012).
+          g.fillText(
+            `${hand.side} (raw ${e.hands?.[i]?.handedness ?? '?'})`,
+            pts[0].x + 6,
+            pts[0].y + 16,
+          );
         }
       }
       if (f.pose) {

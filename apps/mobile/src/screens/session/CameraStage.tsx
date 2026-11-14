@@ -139,6 +139,8 @@ export function CameraStage() {
   }, [phase, ctx.currentTakeId, cfg, send]);
 
   const overlay = cfg.framing.overlay as OverlayKind;
+  const landscape = cfg.camera.orientation === 'landscape';
+  const L = landscape ? LANDSCAPE : PORTRAIT;
 
   return (
     <div className="fixed inset-0 text-white" data-testid={`stage-${phase}`}>
@@ -147,10 +149,12 @@ export function CameraStage() {
         <div className="absolute inset-0 bg-[#20262F]" aria-hidden="true" />
       )}
       {/* White = a fixed guide only. Green is reserved for "positioning checks passed" (M5); nothing checks the image yet. */}
-      <Outline kind={overlay} color="#FFFFFF" dashed={phase === 'framing'} />
+      <div className={L.guide}>
+        <Outline kind={overlay} color="#FFFFFF" dashed={phase === 'framing'} />
+      </div>
       {debugLandmarks && <LandmarkOverlay transform={transform} />}
 
-      <header className="absolute inset-x-0 top-[var(--sat)] flex items-center justify-between gap-2 p-3">
+      <header className={L.header}>
         {phase === 'recording' ? (
           <span />
         ) : (
@@ -161,7 +165,7 @@ export function CameraStage() {
             />
           </span>
         )}
-        <div className="flex flex-col items-end rounded-xl bg-[#0E1116] px-3 py-1.5">
+        <div className={L.title}>
           <span className="text-sm font-semibold">{stepTitle(t, step.code, step.side)}</span>
           <span className="text-[11px] text-[#B8C0CC]">
             {t('session.framing.mode', {
@@ -174,7 +178,7 @@ export function CameraStage() {
       </header>
 
       {phase === 'framing' && (
-        <div className="absolute inset-x-4 top-[calc(5rem+var(--sat))] flex flex-col gap-2">
+        <div className={L.hints}>
           {ctx.notice === 'take_interrupted' && (
             <p
               className="m-0 rounded-2xl bg-[#F2A23A] px-4 py-3 text-[15px] font-semibold text-[#1A1206]"
@@ -184,9 +188,7 @@ export function CameraStage() {
               {t('session.framing.interrupted')}
             </p>
           )}
-          <p className="m-0 rounded-2xl bg-[#0E1116] px-4 py-3 text-[15px]">
-            {t(`session.framing.hint.${overlay}`)}
-          </p>
+          <p className={L.hint}>{t(`session.framing.hint.${overlay}`)}</p>
           {cameraError && (
             <p className="m-0 rounded-2xl bg-[#E5484D] px-4 py-3 text-sm" role="alert">
               {cameraError}
@@ -209,9 +211,10 @@ export function CameraStage() {
           key={ctx.currentTakeId}
           takeId={ctx.currentTakeId}
           durationS={cfg.task.durationS}
+          landscape={landscape}
         />
       ) : (
-        <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-[calc(1.5rem+var(--sab))]">
+        <section className={L.panel} data-testid="controls">
           <span className="text-center text-xs text-[#8C96A5]">{t('session.framing.later')}</span>
           <div className="flex justify-center">
             <button
@@ -272,7 +275,16 @@ function Countdown({
 }
 
 /** REC badge, time left and Stop early for one take (elapsed comes from native events). */
-function RecordingPanel({ takeId, durationS }: { takeId: string; durationS: number }) {
+function RecordingPanel({
+  takeId,
+  durationS,
+  landscape,
+}: {
+  takeId: string;
+  durationS: number;
+  landscape: boolean;
+}) {
+  const L = landscape ? LANDSCAPE : PORTRAIT;
   const { t } = useTranslation();
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -293,21 +305,19 @@ function RecordingPanel({ takeId, durationS }: { takeId: string; durationS: numb
   return (
     <>
       <span
-        className="absolute top-[calc(0.75rem+var(--sat))] left-3 flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold tabular-nums"
+        className={`${L.rec} flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold tabular-nums`}
         data-testid="rec-badge"
       >
         <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
         REC {elapsed.toFixed(1)} s
       </span>
-      <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-[calc(1.5rem+var(--sab))]">
-        <div className="flex items-end justify-between">
-          <span className="text-[44px] leading-none font-bold tabular-nums">{left.toFixed(1)}</span>
-          <span className="text-right text-[13px] text-[#B8C0CC]">
-            {t('session.recording.auto', { total: durationS })}
-          </span>
+      <section className={L.panel}>
+        <div className={L.timeRow}>
+          <span className={L.timeLeft}>{left.toFixed(1)}</span>
+          <span className={L.auto}>{t('session.recording.auto', { total: durationS })}</span>
         </div>
         <div
-          className="h-2 rounded bg-[#2E3540]"
+          className="h-2 w-full rounded bg-[#2E3540]"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={durationS}
@@ -318,7 +328,7 @@ function RecordingPanel({ takeId, durationS }: { takeId: string; durationS: numb
         <button
           type="button"
           onClick={() => void capture.kit.stopRecording().catch(() => undefined)}
-          className="h-12 rounded-2xl border border-[#4A525E] text-[15px] font-semibold"
+          className="h-12 w-full rounded-2xl border border-[#4A525E] px-2 text-[15px] font-semibold"
           data-testid="stop-early"
         >
           {t('session.recording.stopEarly')}
@@ -327,3 +337,38 @@ function RecordingPanel({ takeId, durationS }: { takeId: string; durationS: numb
     </>
   );
 }
+
+/**
+ * Layout per test orientation. Landscape phones are short (~400 px), so controls move to a right
+ * rail and the hint becomes a compact pill; the guide fills the area left of the rail.
+ */
+const PORTRAIT = {
+  guide: 'pointer-events-none absolute inset-0',
+  header: 'absolute inset-x-0 top-[var(--sat)] flex items-center justify-between gap-2 p-3',
+  title: 'flex flex-col items-end rounded-xl bg-[#0E1116] px-3 py-1.5',
+  hints: 'absolute inset-x-4 top-[calc(5rem+var(--sat))] flex flex-col gap-2',
+  hint: 'm-0 rounded-2xl bg-[#0E1116] px-4 py-3 text-[15px]',
+  panel:
+    'absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-[calc(1.5rem+var(--sab))]',
+  rec: 'absolute top-[calc(0.75rem+var(--sat))] left-3',
+  timeRow: 'flex items-end justify-between',
+  timeLeft: 'text-[44px] leading-none font-bold tabular-nums',
+  auto: 'text-right text-[13px] text-[#B8C0CC]',
+};
+
+const RAIL = 'w-[calc(8.5rem+var(--sar))]';
+const LEFT = 'left-[calc(0.75rem+var(--sal))]';
+const RIGHT_OF_RAIL = 'right-[calc(9.25rem+var(--sar))]';
+
+const LANDSCAPE = {
+  guide: `pointer-events-none absolute top-[var(--sat)] bottom-[var(--sab)] left-[var(--sal)] right-[calc(8.5rem+var(--sar))]`,
+  header: `absolute top-[calc(0.5rem+var(--sat))] ${LEFT} ${RIGHT_OF_RAIL} flex items-center justify-between gap-2`,
+  title: 'flex flex-col items-end rounded-xl bg-[#0E1116]/85 px-3 py-1',
+  hints: `absolute bottom-[calc(0.75rem+var(--sab))] ${LEFT} ${RIGHT_OF_RAIL} flex flex-col items-start gap-2`,
+  hint: 'm-0 max-w-[32rem] rounded-xl bg-[#0E1116]/85 px-3 py-2 text-sm',
+  panel: `absolute inset-y-0 right-0 ${RAIL} flex flex-col items-center justify-center gap-3 bg-[#0E1116] pt-[var(--sat)] pr-[calc(0.75rem+var(--sar))] pb-[var(--sab)] pl-3 text-center`,
+  rec: `absolute top-[calc(0.5rem+var(--sat))] ${LEFT}`,
+  timeRow: 'flex w-full flex-col items-center gap-1',
+  timeLeft: 'text-[36px] leading-none font-bold tabular-nums',
+  auto: 'text-[11px] text-[#B8C0CC]',
+};

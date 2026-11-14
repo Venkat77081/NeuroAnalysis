@@ -17,7 +17,14 @@ import type {
 import type { CaptureFixture } from './fixture.ts';
 import { PLUGIN_VERSION } from './version.ts';
 import type { TestConfig } from '@neurocapture/contracts-ts';
-import { syntheticFrame, type ScenarioName, type Side } from '@neurocapture/quality-core';
+import {
+  syntheticFrame,
+  syntheticTake,
+  type LandmarkFrame,
+  type ScenarioName,
+  type Side,
+  type TakeVariant,
+} from '@neurocapture/quality-core';
 import {
   encodeAnalysisFrame,
   encodeLandmarks,
@@ -100,7 +107,16 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private benchCancel: (() => void) | null = null;
   private benchRunning = false;
   /** Synthetic positioning scenario (M5); null = replay the fixture. */
-  private scenario: { test: TestConfig; name: ScenarioName; side: Side | null } | null = null;
+  private scenario: {
+    test: TestConfig;
+    name: ScenarioName;
+    side: Side | null;
+    take: TakeVariant;
+  } | null = null;
+  /** While recording with a scenario: synthetic take frames (movement) and their start time. */
+  private takeFrames: LandmarkFrame[] | null = null;
+  private takeStartNs = 0n;
+  private lastSyntheticNs = 0n;
   /** landmarks.bin records per take, captured while recording (replay overlay). */
   private landmarkRecords = new Map<string, LandmarkRecord[]>();
   private firstSampleNs = new Map<string, bigint>();
@@ -313,8 +329,10 @@ export class MockCaptureKit implements CaptureKitPlugin {
    * Mock only: generate synthetic frames for a test and positioning scenario (good, too_far,
    * dark, ...) instead of replaying the fixture, so the guidance UI can be exercised in a browser.
    */
-  setScenario(s: { test: TestConfig; name: ScenarioName; side?: Side | null } | null): void {
-    this.scenario = s ? { ...s, side: s.side ?? null } : null;
+  setScenario(
+    s: { test: TestConfig; name: ScenarioName; side?: Side | null; take?: TakeVariant } | null,
+  ): void {
+    this.scenario = s ? { ...s, side: s.side ?? null, take: s.take ?? 'normal' } : null;
   }
 
   private emitSyntheticFrame(sc: {
@@ -324,14 +342,26 @@ export class MockCaptureKit implements CaptureKitPlugin {
   }): void {
     const cam = this.camera!;
     const periodNs = BigInt(Math.round(1e9 / cam.analysisFps));
-    const tNs = this.startNs + BigInt(this.frameIdx) * periodNs;
+    // Frame time from the (possibly sped-up) mock clock, so a take covers its full duration even
+    // when the browser delivers fewer timer ticks than requested.
+    const nowNs = BigInt(Math.round(this.sched.now() * 1e6));
+    const tNs = nowNs > this.lastSyntheticNs ? nowNs : this.lastSyntheticNs + 1n;
+    this.lastSyntheticNs = tNs;
     this.frameIdx++;
-    const { frame, sensors } = syntheticFrame(sc.test, sc.name, {
-      seq: this.seq++,
+    const seq = this.seq++;
+    const { frame: still, sensors } = syntheticFrame(sc.test, sc.name, {
+      seq,
       tNs,
       orientation: cam.orientation,
       side: sc.side,
     });
+    // While recording, the patient performs the task (synthetic take with movement).
+    let frame = still;
+    if (this.recording && this.takeFrames) {
+      const k = Number((tNs - this.takeStartNs) / periodNs);
+      const moving = this.takeFrames[k];
+      if (moving) frame = { ...moving, seq, tNs };
+    }
     this.emitAnalysis({
       ...encodeAnalysisFrame(frame),
       emitNs: (tNs + 5_000_000n).toString(),
@@ -425,6 +455,14 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.recording = { takeId: opts.takeId, durationS: opts.durationS, startedMs, timer, tick };
     this.landmarkRecords.set(opts.takeId, []);
     this.firstSampleNs.set(opts.takeId, BigInt(Math.round(startedMs)) * 1_000_000n);
+    if (this.scenario && this.camera) {
+      this.takeStartNs = BigInt(Math.round(this.sched.now() * 1e6));
+      this.firstSampleNs.set(opts.takeId, this.takeStartNs);
+      this.takeFrames = syntheticTake(this.scenario.test, this.scenario.take, {
+        fps: this.camera.analysisFps,
+        orientation: this.camera.orientation,
+      }).frames;
+    }
     this.emit('recordingState', { takeId: opts.takeId, state: 'recording', elapsedS: 0 });
     return { startedAtNs: (BigInt(startedMs) * 1_000_000n).toString() };
   }
@@ -439,6 +477,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.sched.clearTimeout(rec.timer);
     this.sched.clearInterval(rec.tick);
     this.recording = null;
+    this.takeFrames = null;
     const durationS = early
       ? Math.min((this.sched.now() - rec.startedMs) / 1000, rec.durationS)
       : rec.durationS;

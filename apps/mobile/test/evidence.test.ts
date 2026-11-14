@@ -74,3 +74,90 @@ describe('buildMeta', () => {
     expect(validate('meta', meta).issues).toEqual([]);
   });
 });
+
+describe('buildQuality (M6)', () => {
+  it('builds a schema-valid quality.json from a synthetic take', async () => {
+    const { syntheticTake } = await import('@neurocapture/quality-core');
+    const { TakeCollector, finishTake } = await import('../src/lib/take-analysis.ts');
+    const { buildQuality } = await import('../src/lib/evidence.ts');
+    const config = loadConfig();
+    for (const code of ['FT', 'SAW'] as const) {
+      const cfg = config.tests.get(code)!;
+      const tk = syntheticTake(cfg, 'normal');
+      const collector = new TakeCollector(config.quality.ruleVersion);
+      for (const f of tk.frames) collector.push(f, [], false);
+      const result = {
+        takeId: 'tk-q',
+        durationS: tk.durationS,
+        requestedDurationS: tk.durationS,
+        stoppedEarly: false,
+        effectiveFps: 59.9,
+        droppedFrames: 2,
+        droppedFrac: 0.002,
+        actualFps: 60,
+        mp4: { firstSampleNs: tk.t0Ns.toString() },
+      } as unknown as RecordingResult;
+      const take = finishTake({
+        collector,
+        result,
+        test: cfg,
+        quality: config.quality,
+        minEffectiveFps: 59,
+        sharpnessBaseline: null,
+      });
+      expect(take.verdict.verdict, code).toBe('PASS');
+      const ctx = { plan: [{ code, side: null }], index: 0 } as unknown as SessionContext;
+      const q = buildQuality({
+        ctx,
+        cfg,
+        result,
+        takeNo: 1,
+        implementation: 'mock',
+        tier: null,
+        take,
+        sharpnessBaseline: null,
+      });
+      expect(validate('quality', q).issues).toEqual([]);
+      expect(q.eventsDetected).toBeGreaterThan(5);
+      if (code === 'SAW')
+        expect(q.phasesDetected).toEqual(['seated', 'standing', 'walk_out', 'turn', 'walk_back']);
+    }
+  });
+
+  it('gives plain RETAKE reasons for an interrupted take', async () => {
+    const { syntheticTake } = await import('@neurocapture/quality-core');
+    const { TakeCollector, finishTake } = await import('../src/lib/take-analysis.ts');
+    const config = loadConfig();
+    const cfg = config.tests.get('FT')!;
+    const tk = syntheticTake(cfg, 'interrupted');
+    const collector = new TakeCollector(config.quality.ruleVersion);
+    for (const f of tk.frames) collector.push(f, [{ rule: 'shake', severity: 'CRITICAL' }], false);
+    const result = {
+      durationS: 15,
+      requestedDurationS: 15,
+      stoppedEarly: false,
+      effectiveFps: 60,
+      droppedFrac: 0,
+      mp4: null,
+    } as unknown as RecordingResult;
+    const take = finishTake({
+      collector,
+      result,
+      test: cfg,
+      quality: config.quality,
+      minEffectiveFps: 59,
+      sharpnessBaseline: 100,
+    });
+    expect(take.verdict.reasons.map((r) => r.code)).toEqual(['no_motion', 'critical_events']);
+    expect(take.events[0]).toMatchObject({ ruleId: 'shake@1.0.0', severity: 'CRITICAL' });
+    const empty = finishTake({
+      collector: null,
+      result,
+      test: cfg,
+      quality: config.quality,
+      minEffectiveFps: 59,
+      sharpnessBaseline: null,
+    });
+    expect(empty.verdict.reasons.map((r) => r.code)).toContain('protocol_incomplete');
+  });
+});

@@ -161,6 +161,9 @@ export function encodeAnalysisFrame(f: LandmarkFrame): AnalysisFrameEvent {
       ? {
           face: {
             lm: encodeFloat32(f.face.pts.flatMap((p) => [p.x, p.y, p.z])),
+            ...(f.face.blend
+              ? { blendshapes: encodeFloat32(BLENDSHAPE_NAMES.map((n) => f.face!.blend![n] ?? 0)) }
+              : {}),
             yawDeg: f.face.yaw,
             pitchDeg: f.face.pitch,
             rollDeg: f.face.roll,

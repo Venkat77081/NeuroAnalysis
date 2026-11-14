@@ -143,4 +143,19 @@ describe('encodeAnalysisFrame', () => {
     expect(back.image).toEqual({ w: 854, h: 480 });
     expect(back.counts).toEqual(frame.counts);
   });
+
+  it('keeps blendshapes', async () => {
+    const { syntheticFrame } = await import('@neurocapture/quality-core');
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const test = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, '../../../config/tests/FA.json'), 'utf8'),
+    );
+    const { frame } = syntheticFrame(test, 'good', { seq: 0, tNs: 1n, orientation: 'portrait' });
+    frame.face!.blend = { browInnerUp: 0.75, mouthSmileLeft: 0.5 };
+    const back = decodeAnalysisFrame(encodeAnalysisFrame(frame));
+    expect(back.face?.blend?.browInnerUp).toBe(0.75);
+    expect(back.face?.blend?.mouthSmileLeft).toBe(0.5);
+    expect(back.face?.blend?.jawOpen).toBe(0);
+  });
 });

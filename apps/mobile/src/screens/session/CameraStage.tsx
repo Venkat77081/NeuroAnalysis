@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { captureVerdict } from '@neurocapture/quality-core';
 import type { RecordingStateEvent } from '@neurocapture/capture-kit';
 import { useApp } from '../../app/AppContext.tsx';
 import { beep, speak } from '../../guidance/audio.ts';
 import { useGuidance } from '../../guidance/useGuidance.ts';
 import { applyMockScenario, camera, capture, clockSpeed } from '../../lib/capture.ts';
-import { buildMeta } from '../../lib/evidence.ts';
+import { buildMeta, buildQuality } from '../../lib/evidence.ts';
+import { TakeCollector, finishTake } from '../../lib/take-analysis.ts';
 import { loadQualification } from '../../lib/device-tier.ts';
 import { logger } from '../../lib/logger.ts';
 import { newId } from '../../data/repo.ts';
@@ -68,6 +68,8 @@ export function CameraStage() {
   const [advisory] = useState(gateAdvisory);
   const [baseline] = useState(sharpnessBaseline);
   const [locked, setLocked] = useState(false);
+  // Frames + alerts of the take being recorded (M6); created when recording starts.
+  const collector = useRef<TakeCollector | null>(null);
   const phaseRef = useRef(phase);
   useEffect(() => {
     phaseRef.current = phase;
@@ -81,9 +83,11 @@ export function CameraStage() {
     sharpnessBaseline: baseline,
     sensors: capture.implementation !== 'webcam',
     onSpeak: (key) => {
-      if (phaseRef.current === 'framing')
+      if (phaseRef.current !== 'countdown')
         void speak(t(`session.guidance.prompt.${key}`), i18n.language);
     },
+    collector,
+    onCritical: () => globalThis.navigator?.vibrate?.([120, 60, 120]),
     onGateOpen: () => {
       // AE/AF/AWB are locked when the gate passes (DEV_PLAN §16 M5).
       void capture.kit.lockCameraSettings(cfg.camera.lock).then(
@@ -135,14 +139,37 @@ export function CameraStage() {
       const { ctx: c, cfg: tc, app: a, send: s, orientation: o } = live.current;
       // Doctor's frame-rate limit from settings overrides the test default (decision 015).
       const minFps = a.settings.minFps ?? tc.camera.minEffectiveFps;
-      const v = captureVerdict(
-        { ...result, error: null },
-        {
-          durationToleranceS: tc.verdict.durationToleranceS,
-          minEffectiveFps: minFps,
-          maxDroppedFrac: tc.verdict.maxDroppedFrac ?? null,
-        },
-      );
+      const baselineNow = sharpnessBaseline();
+      const take = finishTake({
+        collector: collector.current,
+        result,
+        test: tc,
+        quality: a.config.quality,
+        minEffectiveFps: minFps,
+        sharpnessBaseline: baselineNow,
+      });
+      collector.current = null;
+      const v = take.verdict;
+      const tier = loadQualification()?.assessment.tier ?? null;
+      try {
+        const q = buildQuality({
+          ctx: c,
+          cfg: tc,
+          result,
+          takeNo: stepTakes(c).length + 1,
+          implementation: capture.implementation,
+          tier,
+          take,
+          sharpnessBaseline: baselineNow,
+        });
+        await capture.kit.writeEvidence({
+          takeId: result.takeId,
+          name: 'quality.json',
+          json: JSON.stringify(q),
+        });
+      } catch (e) {
+        logger.error('quality.json write failed', { error: String(e) });
+      }
       try {
         const meta = buildMeta({
           ctx: c,
@@ -152,7 +179,7 @@ export function CameraStage() {
           takeNo: stepTakes(c).length + 1,
           caps: a.caps,
           implementation: capture.implementation,
-          tier: loadQualification()?.assessment.tier ?? null,
+          tier,
           createdAt: new Date().toISOString(),
           orientation: o,
           minEffectiveFps: minFps,
@@ -165,7 +192,25 @@ export function CameraStage() {
       } catch (e) {
         logger.error('meta.json write failed', { error: String(e) });
       }
-      s({ type: 'TAKE_FINISHED', result, verdict: v.verdict, reasons: v.reasons });
+      s({
+        type: 'TAKE_FINISHED',
+        result,
+        verdict: v.verdict,
+        reasons: v.reasons,
+        timeline: {
+          durationS: result.durationS,
+          movementWindow: take.analysis.movementWindow,
+          alerts: take.events
+            .filter((e) => e.severity !== 'INFO')
+            .map((e) => ({
+              tStartS: e.tStartS,
+              tEndS: e.tEndS,
+              severity: e.severity as 'WARN' | 'CRITICAL',
+            })),
+          marks: take.detector.events.map((e) => Math.round(e.tS * 100) / 100),
+          counts: take.detector.counts,
+        },
+      });
     }
     let handle: { remove: () => Promise<void> } | undefined;
     let cancelled = false;
@@ -188,13 +233,14 @@ export function CameraStage() {
     const id = ctx.currentTakeId;
     if (phase !== 'recording' || !id || started.has(id)) return;
     started.add(id);
+    collector.current = new TakeCollector(config.quality.ruleVersion);
     capture.kit
       .startRecording({ takeId: id, durationS: cfg.task.durationS })
       .catch((e: unknown) => {
         logger.error('startRecording failed', { error: String(e) });
         send({ type: 'TAKE_FAILED' });
       });
-  }, [phase, ctx.currentTakeId, cfg, send]);
+  }, [phase, ctx.currentTakeId, cfg, send, config.quality.ruleVersion]);
 
   const overlay = cfg.framing.overlay as OverlayKind;
   const landscape = orientation === 'landscape';
@@ -302,6 +348,18 @@ export function CameraStage() {
           lock={locked ? null : cfg.camera.lock}
           onDone={() => send({ type: 'COUNTDOWN_DONE' })}
         />
+      )}
+
+      {phase === 'recording' && (guidance?.critical || guidance?.prompt) && (
+        <div className={L.hints}>
+          <p
+            className={`${L.hint} font-semibold ${guidance.critical ? '!bg-[#E5484D] !text-white' : '!bg-[#F2A23A] !text-[#1A1206]'}`}
+            role="alert"
+            data-testid={guidance.critical ? 'critical-banner' : 'warn-banner'}
+          >
+            {t(`session.guidance.prompt.${guidance.critical ?? guidance.prompt!.key}`)}
+          </p>
+        </div>
       )}
 
       {phase === 'recording' && ctx.currentTakeId ? (

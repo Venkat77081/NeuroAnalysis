@@ -297,7 +297,13 @@
       "stopped_early": "Stopped early at {{durationS}} s (needs {{targetS}} s).",
       "duration_short": "Recording was {{durationS}} s (needs {{targetS}} s).",
       "fps_low": "Frame rate {{fps}} fps (needs at least {{min}}).",
-      "dropped_high": "{{pct}} % of frames dropped (max {{maxPct}} %)."
+      "dropped_high": "{{pct}} % of frames dropped (max {{maxPct}} %).",
+      "no_motion": "Movement stopped for {{s}} s ({{from}}–{{to}} s).",
+      "protocol_incomplete": "The task was not carried out as instructed.",
+      "landmarks_low": "Body or hands were out of view too often ({{pct}} % visible, needs {{minPct}} %).",
+      "critical_events": "A serious problem happened during recording ({{n}}).",
+      "tracking_lost": "Tracking was lost for {{s}} s ({{from}}–{{to}} s).",
+      "sharpness_low": "The video was blurry."
     },
     "keep": {
       "title": "Why keep this take?",
@@ -412,7 +418,20 @@
       "diag": "analysis {{fps}} fps · {{ms}} ms",
       "levelAria": "Phone tilt: roll {{roll}}°, pitch {{pitch}}°"
     },
-    "landmarks": "Landmarks"
+    "landmarks": "Landmarks",
+    "timeline": {
+      "count": "{{what}} {{n}}",
+      "noEvents": "No movement events",
+      "kind": {
+        "R": "R",
+        "L": "L",
+        "all": "events",
+        "turns": "turns",
+        "stand_up": "stand-ups",
+        "brow": "brow raises",
+        "smile": "smiles"
+      }
+    }
   },
   "trackingTest": {
     "title": "Tracking test (M4)",

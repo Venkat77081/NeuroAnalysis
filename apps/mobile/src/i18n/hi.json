@@ -297,7 +297,13 @@
       "stopped_early": "{{durationS}} s पर पहले रोका गया ({{targetS}} s चाहिए)।",
       "duration_short": "रिकॉर्डिंग {{durationS}} s थी ({{targetS}} s चाहिए)।",
       "fps_low": "फ़्रेम दर {{fps}} fps (कम से कम {{min}} चाहिए)।",
-      "dropped_high": "{{pct}} % फ़्रेम छूटे (अधिकतम {{maxPct}} %)।"
+      "dropped_high": "{{pct}} % फ़्रेम छूटे (अधिकतम {{maxPct}} %)।",
+      "no_motion": "{{s}} सेकंड तक हलचल रुकी रही ({{from}}–{{to}} सेकंड)।",
+      "protocol_incomplete": "कार्य निर्देश के अनुसार नहीं किया गया।",
+      "landmarks_low": "शरीर या हाथ अक्सर दिखाई नहीं दिए ({{pct}} % दिखे, {{minPct}} % चाहिए)।",
+      "critical_events": "रिकॉर्डिंग के दौरान गंभीर समस्या हुई ({{n}})।",
+      "tracking_lost": "{{s}} सेकंड तक ट्रैकिंग खो गई ({{from}}–{{to}} सेकंड)।",
+      "sharpness_low": "वीडियो धुंधला था।"
     },
     "keep": {
       "title": "यह टेक क्यों रखें?",
@@ -412,7 +418,20 @@
       "diag": "विश्लेषण {{fps}} fps · {{ms}} ms",
       "levelAria": "फ़ोन का झुकाव: रोल {{roll}}°, पिच {{pitch}}°"
     },
-    "landmarks": "लैंडमार्क"
+    "landmarks": "लैंडमार्क",
+    "timeline": {
+      "count": "{{what}} {{n}}",
+      "noEvents": "कोई हलचल नहीं",
+      "kind": {
+        "R": "R",
+        "L": "L",
+        "all": "घटनाएँ",
+        "turns": "मुड़ना",
+        "stand_up": "खड़े होना",
+        "brow": "भौंहें",
+        "smile": "मुस्कान"
+      }
+    }
   },
   "trackingTest": {
     "title": "Tracking test (M4)",

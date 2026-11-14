@@ -1,6 +1,6 @@
 import { createCaptureKit, MockCaptureKit, type Implementation } from '@neurocapture/capture-kit';
 import type { TestConfig } from '@neurocapture/contracts-ts';
-import type { ScenarioName, Side } from '@neurocapture/quality-core';
+import type { ScenarioName, Side, TakeVariant } from '@neurocapture/quality-core';
 import { createCameraOwner } from './camera-owner.ts';
 
 const params = new URLSearchParams(globalThis.location?.search ?? '');
@@ -24,5 +24,7 @@ export const camera = createCameraOwner(capture.kit);
 export function applyMockScenario(test: TestConfig, side: Side | null): void {
   if (!(capture.kit instanceof MockCaptureKit)) return;
   const name = (params.get('scenario') ?? 'good') as ScenarioName;
-  capture.kit.setScenario({ test, name, side });
+  // ?take=interrupted|wrong|slow|fast: how the mock patient performs while recording.
+  const take = (params.get('take') ?? 'normal') as TakeVariant;
+  capture.kit.setScenario({ test, name, side, take });
 }

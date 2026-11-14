@@ -146,3 +146,48 @@ describe('performance', () => {
     expect(times[Math.ceil(0.95 * times.length) - 1]).toBeLessThanOrEqual(5);
   });
 });
+
+describe('M6: every CRITICAL condition is triggered by its fixture', () => {
+  const cases: [string, ScenarioName, string, boolean][] = [
+    ['subject missing > 2 s', 'no_subject', 'subject_present', false],
+    ['second person > 1 s', 'second_person', 'single_person', false],
+    ['shake > 1 s', 'shaken', 'shake', false],
+    ['wrong hand', 'wrong_hand', 'handedness_match', true],
+  ];
+  for (const [label, scenario, rule, sided] of cases) {
+    it(label, () => {
+      const test = read<TestConfig>('config/tests/FT.json');
+      if (sided) {
+        test.sides = ['R', 'L'];
+        test.framing.handednessMustMatchSide = true;
+        test.framing.bothHandsRequired = false;
+      }
+      const ctx: CheckContext = {
+        test,
+        quality,
+        side: sided ? 'R' : null,
+        orientation: 'landscape',
+        sharpnessBaseline: null,
+        sensors: true,
+      };
+      const engine = new GuidanceEngine(gateRules(ctx), quality);
+      const sensors = new SensorBuffer();
+      let critical = false;
+      for (let i = 0; i < 90; i++) {
+        const tNs = BigInt(Math.round((i * 1e9) / 30));
+        const { frame, sensors: s } = syntheticFrame(test, scenario, {
+          seq: i,
+          tNs,
+          orientation: 'landscape',
+          side: ctx.side,
+        });
+        sensors.push(s);
+        engine.push(evaluateFrame(frame, sensors, ctx));
+        engine.update(tNs);
+        if (engine.severities(tNs).some((x) => x.rule === rule && x.severity === 'CRITICAL'))
+          critical = true;
+      }
+      expect(critical).toBe(true);
+    });
+  }
+});

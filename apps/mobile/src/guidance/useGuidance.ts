@@ -10,6 +10,7 @@ import {
   GuidanceEngine,
   SensorBuffer,
   evaluateFrame,
+  fallbackKey,
   gateRules,
   tiltAngles,
   type CheckContext,
@@ -18,6 +19,7 @@ import {
   type Side,
 } from '@neurocapture/quality-core';
 import { capture } from '../lib/capture.ts';
+import type { TakeCollector } from '../lib/take-analysis.ts';
 
 export interface GuidanceOptions {
   test: TestConfig;
@@ -30,6 +32,10 @@ export interface GuidanceOptions {
   onSpeak?: (key: PromptKey) => void;
   /** Called once each time the gate opens (lock AE/AF/AWB, haptic). */
   onGateOpen?: () => void;
+  /** While set (recording), frames and severities are collected into it (M6). */
+  collector?: { current: TakeCollector | null };
+  /** Called when a CRITICAL condition starts (red banner + haptic). */
+  onCritical?: (key: PromptKey) => void;
 }
 
 const STALE_MS = 1000;
@@ -45,13 +51,15 @@ export type GuidanceView = GuidanceState & {
   analysisLatencyMs: number;
   /** Phone tilt for the on-screen level (degrees), null without a gravity sensor. */
   tilt: { rollDeg: number; pitchDeg: number } | null;
+  /** A CRITICAL condition is active (during recording). */
+  critical: PromptKey | null;
 };
 
 export function useGuidance(o: GuidanceOptions): GuidanceView | null {
   const [state, setState] = useState<GuidanceView | null>(null);
-  const cb = useRef({ onSpeak: o.onSpeak, onGateOpen: o.onGateOpen });
+  const cb = useRef(o);
   useEffect(() => {
-    cb.current = { onSpeak: o.onSpeak, onGateOpen: o.onGateOpen };
+    cb.current = o;
   });
   const { test, quality, side, orientation, sharpnessBaseline, sensors: hasSensors } = o;
 
@@ -70,7 +78,16 @@ export function useGuidance(o: GuidanceOptions): GuidanceView | null {
     let lastT = 0n;
     let lastWall = 0;
     let lastPushed = '';
+    let critical: PromptKey | null = null;
     const publish = (st: GuidanceState, nowNs: bigint) => {
+      const crit = cb.current.collector?.current
+        ? engine.severities(nowNs).find((x) => x.severity === 'CRITICAL')
+        : undefined;
+      const critKey = crit
+        ? (st.rules.find((r) => r.rule === crit.rule)?.hint ?? fallbackKey(crit.rule))
+        : null;
+      if (critKey && critKey !== critical) cb.current.onCritical?.(critKey);
+      critical = critKey;
       if (st.gateJustOpened) cb.current.onGateOpen?.();
       const spoken = engine.speech(st, nowNs);
       if (spoken) cb.current.onSpeak?.(spoken);
@@ -78,7 +95,7 @@ export function useGuidance(o: GuidanceOptions): GuidanceView | null {
       const lat = health.latencyP95();
       const g = sensors.latestGravity(nowNs);
       const tilt = g ? tiltAngles(g, orientation) : null;
-      const sig = `${st.gateOpen}|${st.prompt?.key}|${st.tracking}|${st.gateProgress.toFixed(1)}|${st.rules.map((r) => r.state).join()}|${Math.round(fps)}|${Math.round(lat / 10)}|${tilt ? `${Math.round(tilt.rollDeg)},${Math.round(tilt.pitchDeg)}` : ''}`;
+      const sig = `${st.gateOpen}|${st.prompt?.key}|${st.tracking}|${st.gateProgress.toFixed(1)}|${st.rules.map((r) => r.state).join()}|${Math.round(fps)}|${Math.round(lat / 10)}|${tilt ? `${Math.round(tilt.rollDeg)},${Math.round(tilt.pitchDeg)}` : ''}|${critical}`;
       if (sig !== lastPushed) {
         lastPushed = sig;
         setState({
@@ -86,6 +103,7 @@ export function useGuidance(o: GuidanceOptions): GuidanceView | null {
           analysisFps: Number.isFinite(fps) ? fps : 0,
           analysisLatencyMs: lat,
           tilt,
+          critical,
         });
       }
     };
@@ -103,7 +121,9 @@ export function useGuidance(o: GuidanceOptions): GuidanceView | null {
         engine.push(evaluateFrame(frame, sensors, ctx, health));
         lastT = frame.tNs;
         lastWall = performance.now();
-        publish(engine.update(frame.tNs), frame.tNs);
+        const st = engine.update(frame.tNs);
+        cb.current.collector?.current?.push(frame, engine.severities(frame.tNs), st.tracking);
+        publish(st, frame.tNs);
       })
       .then(keep);
     void capture.kit

@@ -25,12 +25,23 @@ export interface Patient {
   sex: 'M' | 'F' | 'O' | null;
 }
 
+/** What the Review timeline shows for a take (M6): seconds from video start. */
+export interface TakeTimeline {
+  durationS: number;
+  movementWindow: { tStartS: number; tEndS: number } | null;
+  alerts: { tStartS: number; tEndS: number; severity: 'WARN' | 'CRITICAL' }[];
+  /** Detected movement events (taps, rolls, touches, phases, expressions). */
+  marks: number[];
+  counts: Record<string, number>;
+}
+
 export interface TakeRecord {
   takeId: string;
   takeNo: number;
   verdict: 'PASS' | 'RETAKE' | 'INTERRUPTED';
   reasons: VerdictReason[];
   result: RecordingResult | null;
+  timeline?: TakeTimeline;
 }
 
 export type StepOutcome =
@@ -88,6 +99,7 @@ export type SessionEvent =
       result: RecordingResult;
       verdict: 'PASS' | 'RETAKE';
       reasons: VerdictReason[];
+      timeline?: TakeTimeline;
     }
   | { type: 'TAKE_FAILED' }
   | { type: 'ACCEPT' }
@@ -299,6 +311,7 @@ export const sessionMachine = setup({
                     verdict: event.verdict,
                     reasons: event.reasons,
                     result: event.result,
+                    ...(event.timeline ? { timeline: event.timeline } : {}),
                   }),
                 currentTakeId: null,
               }),

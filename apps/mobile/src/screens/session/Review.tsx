@@ -10,6 +10,7 @@ import { useSession } from '../../session/useSession.ts';
 import { Button, Card, Radio, Sheet } from '../../ui/kit.tsx';
 import { SkipSheet } from './SkipSheet.tsx';
 import { stepTitle } from './TestIntro.tsx';
+import { Timeline } from './Timeline.tsx';
 
 export function ReasonList({ reasons }: { reasons: VerdictReason[] }) {
   const { t } = useTranslation();
@@ -111,6 +112,8 @@ export function Review() {
             </svg>
           </span>
         </button>
+
+        {take.timeline && <Timeline timeline={take.timeline} />}
 
         <section
           className={`flex flex-col gap-2 rounded-2xl border p-4 ${pass ? 'border-[#9ED4B5] bg-ok-soft' : 'border-[#F3B4AE] bg-[#FDECEA]'}`}

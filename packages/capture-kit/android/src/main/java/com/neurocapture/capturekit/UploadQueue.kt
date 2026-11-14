@@ -169,6 +169,13 @@ class UploadQueue(
                 continue
             }
             var r = r0.copy(state = UploadRecord.UPLOADING, reason = null, bytesTotal = takeFiles.kinds.sumOf { takeFiles.size(it) })
+            if (r.job.serverSessionId == null) {
+                // Another take of the same session already created it on the server.
+                val known = records().firstNotNullOfOrNull { o ->
+                    o.job.serverSessionId.takeIf { o.job.clientSessionId == r.job.clientSessionId }
+                }
+                if (known != null) r = r.copy(job = r.job.copy(serverSessionId = known))
+            }
             if (r.job.wrappedDataKey.isEmpty() || r.job.keyId != cfg.serverKeyId) {
                 // Wrapped at upload time with the current server key (key rotation, §14).
                 val wrapped = try { wrapKey(r.job.takeId, cfg.serverPublicKeyPem) } catch (_: Exception) { null }

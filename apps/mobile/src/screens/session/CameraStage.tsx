@@ -368,7 +368,17 @@ export function CameraStage() {
           </button>
         )}
         <div className={L.title}>
-          <span className="text-sm font-semibold">{stepTitle(t, step.code, step.side)}</span>
+          <span className="text-sm font-semibold">
+            {ctx.training && (
+              <span
+                className="mr-1.5 rounded-md bg-[#F2A23A] px-1.5 py-0.5 text-[11px] font-bold text-[#1A1206]"
+                data-testid="practice-badge"
+              >
+                {t('session.practice.badge')}
+              </span>
+            )}
+            {stepTitle(t, step.code, step.side)}
+          </span>
           <span className="text-[11px] text-[#B8C0CC]">
             {t('session.framing.mode', {
               res: cfg.camera.resolution,

@@ -80,6 +80,8 @@ export interface SessionContext extends SessionInput {
   outcomes: StepOutcome[];
   currentTakeId: string | null;
   notice: 'take_interrupted' | null;
+  /** M9 practice session: no patient, nothing uploaded, takes deleted when it ends. */
+  training: boolean;
   /** Set when the operator ended the session early; remaining tests stay "Not done". */
   aborted: { reason: string; note: string | null; at: string } | null;
 }
@@ -88,6 +90,7 @@ export type SessionEvent =
   | { type: 'SET_PATIENT'; patient: Patient }
   | { type: 'SET_MED_STATE'; medState: MedState }
   | { type: 'SET_CONSENT'; given: boolean; at: string }
+  | { type: 'SET_TRAINING'; on: boolean }
   | { type: 'START'; at: string }
   | { type: 'CONTINUE' }
   | { type: 'BACK' }
@@ -174,7 +177,8 @@ export const sessionMachine = setup({
     input: {} as SessionInput,
   },
   guards: {
-    readyToStart: ({ context }) => !!context.patient && !!context.medState && !!context.consent,
+    readyToStart: ({ context }) =>
+      context.training || (!!context.patient && !!context.medState && !!context.consent),
     lastVerdictPass: ({ context }) => lastTake(context)?.verdict === 'PASS',
     lastVerdictRetake: ({ context }) => lastTake(context)?.verdict === 'RETAKE',
     canRetake: ({ context }) => retakesLeft(context) > 0,
@@ -208,6 +212,7 @@ export const sessionMachine = setup({
     patient: null,
     medState: null,
     consent: null,
+    training: false,
     startedAt: null,
     endedAt: null,
     index: 0,
@@ -222,6 +227,7 @@ export const sessionMachine = setup({
     setup: {
       on: {
         SET_PATIENT: { actions: assign({ patient: ({ event }) => event.patient }) },
+        SET_TRAINING: { actions: assign({ training: ({ event }) => event.on }) },
         SET_MED_STATE: { actions: assign({ medState: ({ event }) => event.medState }) },
         SET_CONSENT: {
           actions: assign({

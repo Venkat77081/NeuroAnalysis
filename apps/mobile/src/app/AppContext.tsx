@@ -128,13 +128,20 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
       async newSession() {
         const ctx = actor.getSnapshot().context;
         await saving.current;
-        await r.archiveSession(ctx.sessionId, {
-          sessionId: ctx.sessionId,
-          startedAt: ctx.startedAt,
-          endedAt: ctx.endedAt,
-          counts: summarizeOutcomes(ctx),
-          outcomes: ctx.outcomes,
-        });
+        if (ctx.training) {
+          // Practice: every take is deleted (with its key); nothing is archived or uploaded.
+          for (const tk of ctx.takes.flat())
+            await capture.kit
+              .deleteTake({ takeId: tk.takeId, reason: 'practice' })
+              .catch(() => undefined);
+        } else
+          await r.archiveSession(ctx.sessionId, {
+            sessionId: ctx.sessionId,
+            startedAt: ctx.startedAt,
+            endedAt: ctx.endedAt,
+            counts: summarizeOutcomes(ctx),
+            outcomes: ctx.outcomes,
+          });
         actor.stop();
         await r.clearSession();
         setActor(watch(startSession(inputFor(config, settings.operatorId))));

@@ -275,4 +275,14 @@ describe('session machine', () => {
     expect(retakesLeft(ctx)).toBe(3);
     expect(completedTakes(ctx, 5)).toEqual([]);
   });
+
+  it('a practice session starts without patient, medication state or consent', () => {
+    const a = startSession(input);
+    a.send({ type: 'START', at });
+    expect(state(a)).toBe('"setup"'); // a normal session needs them
+    a.send({ type: 'SET_TRAINING', on: true });
+    a.send({ type: 'START', at });
+    expect(a.getSnapshot().context.training).toBe(true);
+    expect(state(a)).toBe('{"test":"intro"}');
+  });
 });

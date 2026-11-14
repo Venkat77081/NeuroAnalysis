@@ -440,6 +440,13 @@
         "brow": "brow raises",
         "smile": "smiles"
       }
+    },
+    "practice": {
+      "toggle": "Practice session",
+      "detail": "For training operators. No patient needed; takes are not saved or uploaded.",
+      "badge": "Practice",
+      "start": "Start practice",
+      "summary": "Practice session: these takes are deleted when you end the session and are never uploaded."
     }
   },
   "trackingTest": {

@@ -61,7 +61,8 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
 
   const totalS = ctx.plan.reduce((s, p) => s + (config.tests.get(p.code)?.task.durationS ?? 0), 0);
   const minutes = Math.round(totalS / 60 + ctx.plan.length * 1.5);
-  const ready = !!ctx.patient && !!ctx.medState && !!ctx.consent;
+  const training = ctx.training;
+  const ready = training || (!!ctx.patient && !!ctx.medState && !!ctx.consent);
   const yob = Number(draft.yob);
   const draftOk = draft.ref.trim().length >= 3 && (!draft.yob || (yob >= 1900 && yob <= 2030));
 
@@ -111,73 +112,95 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
           </button>
         </div>
 
-        <Card className="flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-              {t('session.home.patient')}
-            </span>
-            {ctx.patient ? (
-              <>
-                <span className="text-[17px] font-semibold" data-testid="patient-ref">
-                  {t('session.home.ref')} {maskRef(ctx.patient.ref)}
-                </span>
-                <span className="text-[13px] text-muted">
-                  {[
-                    ctx.patient.yearOfBirth
-                      ? t('session.home.born', { year: ctx.patient.yearOfBirth })
-                      : null,
-                    ctx.patient.sex ? t(`session.home.sexes.${ctx.patient.sex}`) : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-              </>
-            ) : (
-              <span className="text-[15px] text-muted">{t('session.home.choosePatient')}</span>
-            )}
-          </div>
-          <Button variant="ghost" onClick={() => setPicker(true)} data-testid="choose-patient">
-            {ctx.patient ? t('session.home.change') : t('session.home.newPatient')}
-          </Button>
-        </Card>
-
-        <section className="flex flex-col gap-2">
-          <span id="medlabel" className="text-sm font-semibold">
-            {t('session.home.medState')}
-          </span>
-          <div role="group" aria-labelledby="medlabel" className="grid grid-cols-3 gap-2">
-            {(config.session.medStates as MedState[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={ctx.medState === m}
-                onClick={() => send({ type: 'SET_MED_STATE', medState: m })}
-                className={`h-12 rounded-xl border text-[15px] font-semibold ${ctx.medState === m ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white'}`}
-                data-testid={`med-${m}`}
-              >
-                {t(`session.home.med.${m}`)}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+        <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
           <input
             type="checkbox"
-            checked={!!ctx.consent}
-            onChange={(e) =>
-              send({ type: 'SET_CONSENT', given: e.target.checked, at: new Date().toISOString() })
-            }
+            checked={training}
+            onChange={(e) => send({ type: 'SET_TRAINING', on: e.target.checked })}
             className="size-6 accent-brand"
-            data-testid="consent"
+            data-testid="practice-toggle"
           />
           <span className="flex flex-col">
-            <span className="font-semibold">{t('session.home.consent')}</span>
-            <span className="text-xs text-muted">
-              {t('session.home.consentDetail', { version: config.session.consentVersion })}
-            </span>
+            <span className="font-semibold">{t('session.practice.toggle')}</span>
+            <span className="text-xs text-muted">{t('session.practice.detail')}</span>
           </span>
         </label>
+
+        {!training && (
+          <>
+            <Card className="flex items-center justify-between">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+                  {t('session.home.patient')}
+                </span>
+                {ctx.patient ? (
+                  <>
+                    <span className="text-[17px] font-semibold" data-testid="patient-ref">
+                      {t('session.home.ref')} {maskRef(ctx.patient.ref)}
+                    </span>
+                    <span className="text-[13px] text-muted">
+                      {[
+                        ctx.patient.yearOfBirth
+                          ? t('session.home.born', { year: ctx.patient.yearOfBirth })
+                          : null,
+                        ctx.patient.sex ? t(`session.home.sexes.${ctx.patient.sex}`) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[15px] text-muted">{t('session.home.choosePatient')}</span>
+                )}
+              </div>
+              <Button variant="ghost" onClick={() => setPicker(true)} data-testid="choose-patient">
+                {ctx.patient ? t('session.home.change') : t('session.home.newPatient')}
+              </Button>
+            </Card>
+
+            <section className="flex flex-col gap-2">
+              <span id="medlabel" className="text-sm font-semibold">
+                {t('session.home.medState')}
+              </span>
+              <div role="group" aria-labelledby="medlabel" className="grid grid-cols-3 gap-2">
+                {(config.session.medStates as MedState[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={ctx.medState === m}
+                    onClick={() => send({ type: 'SET_MED_STATE', medState: m })}
+                    className={`h-12 rounded-xl border text-[15px] font-semibold ${ctx.medState === m ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white'}`}
+                    data-testid={`med-${m}`}
+                  >
+                    {t(`session.home.med.${m}`)}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+              <input
+                type="checkbox"
+                checked={!!ctx.consent}
+                onChange={(e) =>
+                  send({
+                    type: 'SET_CONSENT',
+                    given: e.target.checked,
+                    at: new Date().toISOString(),
+                  })
+                }
+                className="size-6 accent-brand"
+                data-testid="consent"
+              />
+              <span className="flex flex-col">
+                <span className="font-semibold">{t('session.home.consent')}</span>
+                <span className="text-xs text-muted">
+                  {t('session.home.consentDetail', { version: config.session.consentVersion })}
+                </span>
+              </span>
+            </label>
+          </>
+        )}
 
         <section className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between">
@@ -219,7 +242,7 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
           onClick={() => send({ type: 'START', at: new Date().toISOString() })}
           data-testid="start-session"
         >
-          {t('session.home.start')}
+          {training ? t('session.practice.start') : t('session.home.start')}
         </Button>
       </footer>
 

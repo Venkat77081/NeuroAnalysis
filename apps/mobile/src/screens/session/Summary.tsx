@@ -119,41 +119,52 @@ export function Summary() {
             );
           })}
         </ol>
-        <section className="flex flex-col gap-2" data-testid="upload-panel">
-          {!settings.server ? (
-            <p className="m-0 text-[13px] text-muted" data-testid="upload-not-linked">
-              {t('uploads.notLinked')}
-            </p>
-          ) : (
-            <p className="m-0 text-[13px] text-muted" data-testid="upload-summary">
-              {allDone
-                ? t('uploads.allDone')
-                : t('uploads.background', { hours: t('uploads.hours', { count: retentionHours }) })}
-            </p>
-          )}
-          <div className="flex gap-2">
-            {(!settings.server || needLogin) && (
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setSetup(true)}
-                data-testid="upload-sign-in"
-              >
-                {settings.server ? t('uploads.signInToUpload') : t('uploads.setup')}
-              </Button>
+        {ctx.training ? (
+          <p
+            className="m-0 rounded-2xl bg-warn-soft px-4 py-3 text-sm text-warn"
+            data-testid="practice-summary"
+          >
+            {t('session.practice.summary')}
+          </p>
+        ) : (
+          <section className="flex flex-col gap-2" data-testid="upload-panel">
+            {!settings.server ? (
+              <p className="m-0 text-[13px] text-muted" data-testid="upload-not-linked">
+                {t('uploads.notLinked')}
+              </p>
+            ) : (
+              <p className="m-0 text-[13px] text-muted" data-testid="upload-summary">
+                {allDone
+                  ? t('uploads.allDone')
+                  : t('uploads.background', {
+                      hours: t('uploads.hours', { count: retentionHours }),
+                    })}
+              </p>
             )}
-            {retryable && (
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => void capture.kit.retryUploads()}
-                data-testid="upload-retry"
-              >
-                {t('uploads.retry')}
-              </Button>
-            )}
-          </div>
-        </section>
+            <div className="flex gap-2">
+              {(!settings.server || needLogin) && (
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setSetup(true)}
+                  data-testid="upload-sign-in"
+                >
+                  {settings.server ? t('uploads.signInToUpload') : t('uploads.setup')}
+                </Button>
+              )}
+              {retryable && (
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => void capture.kit.retryUploads()}
+                  data-testid="upload-retry"
+                >
+                  {t('uploads.retry')}
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
       </main>
       <footer className="px-5 pt-3 pb-6">
         <Button
@@ -196,8 +207,9 @@ function useSessionUploads(): Record<string, UploadStatus> {
   const server = settings.server;
   const signedIn = !!settings.signedIn;
 
+  const training = ctx.training;
   useEffect(() => {
-    if (!server) return;
+    if (!server || training) return; // practice takes are never uploaded
     let cancelled = false;
     let ids: string[] = [];
     const handle = capture.kit.addListener('uploadProgress', (u: UploadStatus) => {
@@ -218,7 +230,7 @@ function useSessionUploads(): Record<string, UploadStatus> {
     };
     // ctx is the finished session; it does not change on this screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server, signedIn, config]);
+  }, [server, signedIn, config, training]);
 
   return byTake;
 }

@@ -85,12 +85,14 @@ describe('evaluateRecordedTake (M8)', () => {
     expect(JSON.stringify(r.verdict.reasons)).not.toMatch(/SAW[0-9]/);
   });
 
-  it('FA with the mouth corners hidden: key points hidden → RETAKE', () => {
+  it('FA with a mouth corner hidden: only the mouth-width biomarkers are affected → RETAKE', () => {
     const r = evaluate('FA', 'normal', 1, (f) => {
-      if (f.face) f.face.pts[61] = { x: -0.2, y: 0.5, z: 0 };
+      if (f.face) f.face.pts[78] = { x: -0.2, y: 0.5, z: 0 };
     });
-    expect(r.readiness!.items.FA1!.status).toBe('NOT_COMPUTABLE');
-    expect(r.readiness!.items.FA1!.missing).toEqual(['landmarks']);
+    expect(r.readiness!.items.FA4!.status).toBe('NOT_COMPUTABLE'); // STD mouth width
+    expect(r.readiness!.items.FA4!.missing).toEqual(['landmarks']);
+    expect(r.readiness!.items.FA14!.status).toBe('NOT_COMPUTABLE'); // NIQR mouth width
+    expect(r.readiness!.items.FA1!.status).toBe('COMPUTABLE'); // eye opening: unaffected
     expect(r.verdict.verdict).toBe('RETAKE');
     expect(r.verdict.reasons.map((x) => x.code)).toContain('key_points_hidden');
   });

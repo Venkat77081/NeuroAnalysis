@@ -79,7 +79,7 @@ function cases(): {
     i % 2 && f.face
       ? {
           ...f,
-          face: { ...f.face, pts: f.face.pts.map((p, k) => (k === 61 ? { ...p, x: 1.2 } : p)) },
+          face: { ...f.face, pts: f.face.pts.map((p, k) => (k === 78 ? { ...p, x: 1.2 } : p)) },
         }
       : f,
   );
@@ -148,6 +148,6 @@ describe('readiness golden files (M8, TypeScript side)', () => {
         return Object.values(g.expected.items).map((i) => i.status);
       }),
     );
-    expect(statuses).toEqual(new Set(['PARTIAL', 'NOT_COMPUTABLE']));
+    expect(statuses).toEqual(new Set(['COMPUTABLE', 'PARTIAL', 'NOT_COMPUTABLE']));
   });
 });

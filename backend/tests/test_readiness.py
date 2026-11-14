@@ -61,7 +61,7 @@ def test_take_evidence_and_report_rows():
     assert rows[0] == {
         "id": "SAW1",
         "status": "NOT_COMPUTABLE",
-        "reason": "phases not detected: turn, walk_back",
+        "reason": "phases not detected: walk_back",
         "retakeFixable": True,
         "missing": ["phases"],
         "qualityRules": ["saw_phases"],
@@ -69,6 +69,8 @@ def test_take_evidence_and_report_rows():
     # Without landmarks (not decryptable here), visibility cannot be confirmed.
     no_lm = readiness_hint(REGISTRY, "SAW", evidence_from_take(quality, test_config, QUALITY, None, False))
     assert no_lm["items"]["SAW1"]["missing"] == ["landmarks", "phases"]
+    # Turning time needs the turn, not the walk back.
+    assert hint["items"]["SAW13"]["reason"] == "phases not detected: turn"
 
 
 def test_nclm_rejects_bad_input():

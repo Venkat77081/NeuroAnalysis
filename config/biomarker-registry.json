@@ -1,11 +1,13 @@
 {
   "schemaVersion": "1.0.0",
-  "registryVersion": "REG@0.1.0",
+  "registryVersion": "REG@0.2.0",
   "biomarkers": [
     {
       "id": "FT1",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Tapping amplitude (R)",
+      "family": "FT amplitude",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -13,7 +15,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -22,7 +24,9 @@
     {
       "id": "FT2",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Tapping amplitude (L)",
+      "family": "FT amplitude",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -30,7 +34,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -39,7 +43,9 @@
     {
       "id": "FT3",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Tapping amplitude asymmetry",
+      "family": "FT amplitude",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -47,7 +53,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -56,7 +62,9 @@
     {
       "id": "FT4",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Tapping period (R)",
+      "family": "FT period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -64,7 +72,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -73,7 +81,9 @@
     {
       "id": "FT5",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Tapping period (L)",
+      "family": "FT period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -81,7 +91,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -90,7 +100,9 @@
     {
       "id": "FT6",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Tapping period asymmetry",
+      "family": "FT period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -98,7 +110,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -107,7 +119,9 @@
     {
       "id": "FT7",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Max tapping speed (R)",
+      "family": "FT speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -115,7 +129,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -124,7 +138,9 @@
     {
       "id": "FT8",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Max tapping speed (L)",
+      "family": "FT speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -132,7 +148,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -141,7 +157,9 @@
     {
       "id": "FT9",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Max tapping speed asymmetry",
+      "family": "FT speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -149,7 +167,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -158,7 +176,9 @@
     {
       "id": "FT10",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Max tapping acceleration (R)",
+      "family": "FT acceleration",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -166,7 +186,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -175,7 +195,9 @@
     {
       "id": "FT11",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Max tapping acceleration (L)",
+      "family": "FT acceleration",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -183,7 +205,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -192,7 +214,9 @@
     {
       "id": "FT12",
       "testCode": "FT",
-      "family": "FT (definition pending: DNE Table A-II)",
+      "name": "Max tapping acceleration asymmetry",
+      "family": "FT acceleration",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -200,7 +224,7 @@
         "minDurationS": 14.9,
         "trackers": ["hand", "pose"],
         "landmarks": {
-          "hand": [0, 4, 8],
+          "hand": [4, 8],
           "pose": [13, 14, 15, 16]
         },
         "minLandmarkVisibleFrac": 0.9
@@ -209,7 +233,9 @@
     {
       "id": "FTF1",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean period (L)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -226,7 +252,9 @@
     {
       "id": "FTF2",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean period (R)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -243,7 +271,9 @@
     {
       "id": "FTF3",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD period (L)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -260,7 +290,9 @@
     {
       "id": "FTF4",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD period (R)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -277,7 +309,9 @@
     {
       "id": "FTF5",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean speed (L)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -294,7 +328,9 @@
     {
       "id": "FTF6",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean speed (R)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -311,7 +347,9 @@
     {
       "id": "FTF7",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD speed (L)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -328,7 +366,9 @@
     {
       "id": "FTF8",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD speed (R)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -345,7 +385,9 @@
     {
       "id": "FTF9",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean path smoothness (L)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -362,7 +404,9 @@
     {
       "id": "FTF10",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean path smoothness (R)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -379,7 +423,9 @@
     {
       "id": "FTF11",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD path smoothness (L)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -396,7 +442,9 @@
     {
       "id": "FTF12",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD path smoothness (R)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -413,7 +461,9 @@
     {
       "id": "FTF13",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean velocity angle symmetry (L)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -430,7 +480,9 @@
     {
       "id": "FTF14",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Mean velocity angle symmetry (R)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -447,7 +499,9 @@
     {
       "id": "FTF15",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD velocity angle symmetry (L)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -464,7 +518,9 @@
     {
       "id": "FTF16",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "STD velocity angle symmetry (R)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -481,7 +537,9 @@
     {
       "id": "FTF17",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Horizontal finger symmetry",
+      "family": "FTF finger symmetry",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -498,7 +556,9 @@
     {
       "id": "FTF18",
       "testCode": "FTF",
-      "family": "FTF (definition pending: DNE Table A-II)",
+      "name": "Vertical finger symmetry",
+      "family": "FTF finger symmetry",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -515,7 +575,9 @@
     {
       "id": "FR1",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Rolling amplitude (R)",
+      "family": "FR amplitude",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -532,7 +594,9 @@
     {
       "id": "FR2",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Rolling amplitude (L)",
+      "family": "FR amplitude",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -549,7 +613,9 @@
     {
       "id": "FR3",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Rolling amplitude asymmetry",
+      "family": "FR amplitude",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -566,7 +632,9 @@
     {
       "id": "FR4",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Rolling period (R)",
+      "family": "FR period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -583,7 +651,9 @@
     {
       "id": "FR5",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Rolling period (L)",
+      "family": "FR period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -600,7 +670,9 @@
     {
       "id": "FR6",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Rolling period asymmetry",
+      "family": "FR period",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -617,7 +689,9 @@
     {
       "id": "FR7",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Max rolling speed (R)",
+      "family": "FR speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -634,7 +708,9 @@
     {
       "id": "FR8",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Max rolling speed (L)",
+      "family": "FR speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -651,7 +727,9 @@
     {
       "id": "FR9",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Max rolling speed asymmetry",
+      "family": "FR speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -668,7 +746,9 @@
     {
       "id": "FR10",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Max rolling acceleration (R)",
+      "family": "FR acceleration",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -685,7 +765,9 @@
     {
       "id": "FR11",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Max rolling acceleration (L)",
+      "family": "FR acceleration",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -702,7 +784,9 @@
     {
       "id": "FR12",
       "testCode": "FR",
-      "family": "FR (definition pending: DNE Table A-II)",
+      "name": "Max rolling acceleration asymmetry",
+      "family": "FR acceleration",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -719,7 +803,9 @@
     {
       "id": "SAW1",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "STD step time",
+      "family": "SAW step time",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -730,13 +816,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW2",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean step length",
+      "family": "SAW step length",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -747,13 +835,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW3",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Median step length",
+      "family": "SAW step length",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -764,13 +854,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW4",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean step width",
+      "family": "SAW step width",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -781,13 +873,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW5",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "STD step width",
+      "family": "SAW step width",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -798,13 +892,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW6",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Median knee angle symmetry",
+      "family": "SAW knee angle",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -812,16 +908,18 @@
         "minDurationS": 44.9,
         "trackers": ["pose"],
         "landmarks": {
-          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+          "pose": [11, 12, 23, 24, 25, 26, 27, 28]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW7",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean knee angle symmetry",
+      "family": "SAW knee angle",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -829,16 +927,18 @@
         "minDurationS": 44.9,
         "trackers": ["pose"],
         "landmarks": {
-          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+          "pose": [11, 12, 23, 24, 25, 26, 27, 28]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW8",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "STD knee angle symmetry",
+      "family": "SAW knee angle",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -846,16 +946,18 @@
         "minDurationS": 44.9,
         "trackers": ["pose"],
         "landmarks": {
-          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+          "pose": [11, 12, 23, 24, 25, 26, 27, 28]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW9",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean step symmetry",
+      "family": "SAW step symmetry",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -866,13 +968,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW10",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean cadence",
+      "family": "SAW cadence",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -883,13 +987,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW11",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "STD cadence",
+      "family": "SAW cadence",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -900,13 +1006,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW12",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean walking speed",
+      "family": "SAW walking speed",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -917,13 +1025,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "SAW13",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean turning time",
+      "family": "SAW turning time",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -934,13 +1044,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["turn"]
       }
     },
     {
       "id": "SAW14",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "STD turning time",
+      "family": "SAW turning time",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -951,13 +1063,15 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["turn"]
       }
     },
     {
       "id": "SAW15",
       "testCode": "SAW",
-      "family": "SAW (definition pending: DNE Table A-II)",
+      "name": "Mean step time",
+      "family": "SAW step time",
+      "source": "DNE JBHI 2024 Table A-II",
       "formula": null,
       "formulaVersion": null,
       "inputs": {
@@ -968,21 +1082,23 @@
           "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
         },
         "minLandmarkVisibleFrac": 0.8,
-        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+        "requiresPhases": ["walk_out", "walk_back"]
       }
     },
     {
       "id": "FA1",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD eye opening (R)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(d_oe^r)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 362]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -990,15 +1106,17 @@
     {
       "id": "FA2",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD eye opening (L)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(d_oe^l)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [133, 249, 362, 373, 374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1006,15 +1124,17 @@
     {
       "id": "FA3",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD mouth opening",
+      "family": "FA mouth opening",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(d_om), d_om = (d_om^l + d_om^r)/2",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1022,15 +1142,17 @@
     {
       "id": "FA4",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD mouth width",
+      "family": "FA mouth width",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(d_mw)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [78, 133, 308, 362]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1038,15 +1160,17 @@
     {
       "id": "FA5",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD jaw opening",
+      "family": "FA jaw opening",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(d_ja)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [13, 80, 81, 82, 133, 140, 170, 171, 175, 310, 311, 312, 362, 369, 395, 396]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1054,15 +1178,17 @@
     {
       "id": "FA6",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD eye opening speed (R)",
+      "family": "FA eye opening speed",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(diff(d_oe^r))",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 362]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1070,15 +1196,17 @@
     {
       "id": "FA7",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD eye opening speed (L)",
+      "family": "FA eye opening speed",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(diff(d_oe^l))",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [133, 249, 362, 373, 374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1086,15 +1214,17 @@
     {
       "id": "FA8",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD eyebrow lift speed (R)",
+      "family": "FA eyebrow lift",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(diff(d_ebh^r))",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [63, 66, 70, 105, 107, 133, 157, 158, 159, 160, 161, 362]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1102,15 +1232,17 @@
     {
       "id": "FA9",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD eyebrow lift speed (L)",
+      "family": "FA eyebrow lift",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(diff(d_ebh^l))",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [133, 293, 296, 300, 334, 336, 362, 384, 385, 386, 387, 388]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1118,15 +1250,17 @@
     {
       "id": "FA10",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "STD mouth opening speed",
+      "family": "FA mouth opening speed",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "STD(diff(d_om))",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1134,15 +1268,17 @@
     {
       "id": "FA11",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Normalized IQR eye opening (R)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "NIQR(d_oe^r)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 362]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1150,15 +1286,17 @@
     {
       "id": "FA12",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Normalized IQR eye opening (L)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "NIQR(d_oe^l)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [133, 249, 362, 373, 374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1166,15 +1304,17 @@
     {
       "id": "FA13",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Normalized IQR mouth opening",
+      "family": "FA mouth opening",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "NIQR(d_om)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1182,15 +1322,17 @@
     {
       "id": "FA14",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Normalized IQR mouth width",
+      "family": "FA mouth width",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "NIQR(d_mw)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [78, 133, 308, 362]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1198,15 +1340,20 @@
     {
       "id": "FA15",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Eyes opening symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "CC(d_oe^l, d_oe^r)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [
+            7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 249, 362, 373,
+            374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466
+          ]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1214,15 +1361,17 @@
     {
       "id": "FA16",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Mouth opening symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "CC(d_om^l, d_om^r)",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1230,15 +1379,20 @@
     {
       "id": "FA17",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Eyes opening speed symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "CC(diff(d_oe^l), diff(d_oe^r))",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [
+            7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 249, 362, 373,
+            374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466
+          ]
         },
         "minLandmarkVisibleFrac": 0.9
       }
@@ -1246,15 +1400,17 @@
     {
       "id": "FA18",
       "testCode": "FA",
-      "family": "FA (definition pending: DNE Table A-II)",
-      "formula": null,
-      "formulaVersion": null,
+      "name": "Mouth opening speed symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II",
+      "formula": "CC(diff(d_om^l), diff(d_om^r))",
+      "formulaVersion": "DNE-JBHI-2024",
       "inputs": {
         "minEffectiveFps": 58,
         "minDurationS": 14.9,
         "trackers": ["face"],
         "landmarks": {
-          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
         },
         "minLandmarkVisibleFrac": 0.9
       }

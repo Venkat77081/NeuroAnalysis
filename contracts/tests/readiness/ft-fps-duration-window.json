@@ -18,7 +18,7 @@
     "startNs": "1000000000"
   },
   "expected": {
-    "registryVersion": "REG@0.1.0",
+    "registryVersion": "REG@0.2.0",
     "items": {
       "FT1": {
         "status": "NOT_COMPUTABLE",

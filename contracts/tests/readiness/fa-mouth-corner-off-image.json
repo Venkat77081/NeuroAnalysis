@@ -15,25 +15,16 @@
     "startNs": "1000000000"
   },
   "expected": {
-    "registryVersion": "REG@0.1.0",
+    "registryVersion": "REG@0.2.0",
     "items": {
       "FA1": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA2": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA3": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA4": {
         "status": "PARTIAL",
@@ -42,58 +33,31 @@
         "missing": ["landmarks"]
       },
       "FA5": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA6": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA7": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA8": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA9": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA10": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA11": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA12": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA13": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA14": {
         "status": "PARTIAL",
@@ -102,28 +66,16 @@
         "missing": ["landmarks"]
       },
       "FA15": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA16": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA17": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       },
       "FA18": {
-        "status": "PARTIAL",
-        "reason": "required landmarks visible in 50% of frames; needs 90%",
-        "retakeFixable": true,
-        "missing": ["landmarks"]
+        "status": "COMPUTABLE"
       }
     }
   }

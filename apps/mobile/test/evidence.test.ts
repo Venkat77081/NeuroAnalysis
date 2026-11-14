@@ -157,7 +157,7 @@ describe('buildQuality and the device evaluation (M6, M8)', () => {
       });
       expect(validate('quality', q).issues).toEqual([]);
       expect(q.eventsDetected).toBeGreaterThan(5);
-      expect(q.biomarkerReadinessHint.registryVersion).toBe('REG@0.1.0');
+      expect(q.biomarkerReadinessHint.registryVersion).toBe(config.registry!.registryVersion);
       expect((q.biomarkerReadinessHint as Record<string, unknown>)[`${code}1`]).toEqual({
         status: 'COMPUTABLE',
       });

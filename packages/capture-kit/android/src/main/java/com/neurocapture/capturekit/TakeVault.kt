@@ -1,6 +1,7 @@
 package com.neurocapture.capturekit
 
 import com.google.crypto.tink.Aead
+import com.google.crypto.tink.InsecureSecretKeyAccess
 import com.google.crypto.tink.KeyTemplates
 import com.google.crypto.tink.KeysetHandle
 import com.google.crypto.tink.RegistryConfiguration
@@ -33,10 +34,23 @@ class TakeVault(private val root: File, private val master: Aead) {
     private fun fileAd(takeId: String, name: String) = "nc-file-v1:$takeId/$name".toByteArray()
 
     @Synchronized
-    private fun dataKey(takeId: String): StreamingAead {
+    private fun dataKey(takeId: String): StreamingAead =
+        keyset(takeId).getPrimitive(RegistryConfiguration.get(), StreamingAead::class.java)
+
+    /**
+     * The take's data key as a plain Tink keyset, only to be wrapped for the server at once
+     * (never stored or logged). Fails if the take has no key.
+     */
+    fun exportDataKeyForWrapping(takeId: String): ByteArray {
+        require(File(takeDir(takeId), "datakey.enc").exists()) { "take has no data key" }
+        return TinkProtoKeysetFormat.serializeKeyset(keyset(takeId), InsecureSecretKeyAccess.get())
+    }
+
+    @Synchronized
+    private fun keyset(takeId: String): KeysetHandle {
         val dir = takeDir(takeId).apply { mkdirs() }
         val keyFile = File(dir, "datakey.enc")
-        val handle = if (keyFile.exists()) {
+        return if (keyFile.exists()) {
             TinkProtoKeysetFormat.parseEncryptedKeyset(keyFile.readBytes(), master, keyAd(takeId))
         } else {
             KeysetHandle.generateNew(KeyTemplates.get("AES256_GCM_HKDF_4KB")).also {
@@ -45,7 +59,6 @@ class TakeVault(private val root: File, private val master: Aead) {
                 if (!tmp.renameTo(keyFile)) throw IllegalStateException("could not store data key")
             }
         }
-        return handle.getPrimitive(RegistryConfiguration.get(), StreamingAead::class.java)
     }
 
     /** Opens `<name>.enc` for writing; the caller writes plaintext into the returned stream. */

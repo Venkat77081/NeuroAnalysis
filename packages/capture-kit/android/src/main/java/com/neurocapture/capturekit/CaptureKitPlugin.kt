@@ -9,7 +9,6 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
-import com.google.crypto.tink.integration.android.AndroidKeystoreKmsClient
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -17,7 +16,7 @@ import java.util.concurrent.Executors
  * CaptureKit Capacitor plugin (DEV_PLAN §5.3). Capabilities, camera + preview, fixed-duration
  * recording with per-frame timestamps and sensors, encrypted takes (Tink, Keystore-wrapped keys),
  * evidence, playback, crash recovery, sharpness calibration and the qualification benchmark.
- * Upload arrives in M7.
+ * Background upload (M7) runs in [UploadWorker] through the persistent [UploadQueue].
  */
 @CapacitorPlugin(
     name = "CaptureKit",
@@ -29,17 +28,22 @@ class CaptureKitPlugin : Plugin() {
     private var pendingStop: PluginCall? = null
     private lateinit var vault: TakeVault
     private lateinit var store: SecureStore
+    private lateinit var uploads: UploadQueue
     private val io = Executors.newSingleThreadExecutor { Thread(it, "nc-vault") }
     @Volatile private var recovered: List<String> = emptyList()
 
     override fun load() {
         session = CameraSession(activity, bridge.webView) { event, data -> notifyListeners(event, data) }
-        val master = AndroidKeystoreKmsClient.getOrGenerateNewAeadKey(MASTER_KEY_URI)
-        vault = TakeVault(takesDir(), master)
-        store = SecureStore(File(context.noBackupFilesDir, "store"), master)
+        vault = Services.vault(context)
+        store = Services.store(context)
+        uploads = Services.queue(context)
+        // Upload progress from the background worker reaches JS while the plugin is loaded.
+        Services.uploadListener = { status -> notifyListeners("uploadProgress", JSObject(status.toString())) }
         io.execute {
             playbackDir().deleteRecursively() // decrypted playback copies never survive a restart
             recovered = try { vault.recover() } catch (_: Exception) { emptyList() }
+            // Pending uploads continue (WorkManager also restarts them after a reboot).
+            if (uploads.pending()) Services.kickUploads(context)
         }
     }
 
@@ -410,13 +414,101 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** Upload settings; tokens only at sign-in (later calls keep the rotated tokens the queue holds). */
     @PluginMethod
-    fun enqueueUpload(call: PluginCall) = call.unimplemented("upload arrives in M7")
+    fun configureUploads(call: PluginCall) {
+        val endpoint = call.getString("endpoint") ?: return call.reject("endpoint required")
+        val keyId = call.getString("serverKeyId") ?: return call.reject("serverKeyId required")
+        val pem = call.getString("serverPublicKeyPem") ?: return call.reject("serverPublicKeyPem required")
+        if (!endpoint.startsWith("https://") && !(debuggable() && endpoint.startsWith("http://")))
+            return call.reject("endpoint must use https")
+        io.execute {
+            try {
+                KeyWrap.publicKey(pem) // reject a bad key now, not at upload time
+                uploads.configure(UploadSettings(
+                    endpoint.trimEnd('/'), call.getString("accessToken"), call.getString("refreshToken"), keyId, pem,
+                    call.getBoolean("wifiOnly", true)!!, call.getDouble("retentionHours") ?: 24.0,
+                ))
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("configureUploads failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
 
     @PluginMethod
-    fun getUploadStatus(call: PluginCall) = call.unimplemented("upload arrives in M7")
+    fun clearUploadCredentials(call: PluginCall) {
+        io.execute { uploads.clearCredentials(); call.resolve() }
+    }
+
+    @PluginMethod
+    fun enqueueUpload(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        val sid = call.getString("clientSessionId") ?: return call.reject("clientSessionId required")
+        val sessionBody = call.getString("session") ?: return call.reject("session required")
+        val takeBody = call.getString("take") ?: return call.reject("take required")
+        if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
+        io.execute {
+            try {
+                org.json.JSONObject(sessionBody); org.json.JSONObject(takeBody)
+                val files = VaultTakeFiles(vault, takeId)
+                if (files.kinds.isEmpty()) return@execute call.reject("unknown take")
+                uploads.enqueue(UploadJob(takeId, sid, sessionBody, takeBody), files.kinds.sumOf { files.size(it) })
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("enqueueUpload failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun enqueueSessionClose(call: PluginCall) {
+        val sid = call.getString("clientSessionId") ?: return call.reject("clientSessionId required")
+        val body = call.getString("body") ?: return call.reject("body required")
+        io.execute {
+            try {
+                org.json.JSONObject(body)
+                uploads.enqueueClose(sid, body)
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("enqueueSessionClose failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun getUploadStatus(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        io.execute {
+            val s = uploads.record(takeId)?.status()
+                ?: org.json.JSONObject().put("takeId", takeId).put("state", "failed_permanent")
+                    .put("bytesSent", 0).put("bytesTotal", 0).put("reason", "unknown")
+            call.resolve(JSObject(s.toString()))
+        }
+    }
+
+    @PluginMethod
+    fun listUploads(call: PluginCall) {
+        io.execute {
+            val arr = com.getcapacitor.JSArray()
+            uploads.records().forEach { arr.put(it.status()) }
+            call.resolve(JSObject().apply { put("uploads", arr) })
+        }
+    }
+
+    @PluginMethod
+    fun retryUploads(call: PluginCall) {
+        io.execute { uploads.retry(); Services.kickUploads(context); call.resolve() }
+    }
+
+    private fun debuggable() =
+        (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     override fun handleOnDestroy() {
+        Services.uploadListener = null
         benchmark?.cancel()
         if (::session.isInitialized) {
             session.close()
@@ -426,8 +518,7 @@ class CaptureKitPlugin : Plugin() {
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.7.0"
-        private const val MASTER_KEY_URI = "android-keystore://neurocapture_master_v1"
+        const val PLUGIN_VERSION = "0.8.0"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")
     }

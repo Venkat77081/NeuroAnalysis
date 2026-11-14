@@ -9,7 +9,7 @@ import java.io.File
  * associated data, so a file cannot be swapped for another key's. Writes are atomic (tmp + rename).
  * Lives in no-backup storage. Decision 011.
  */
-class SecureStore(private val dir: File, private val master: Aead) {
+class SecureStore(private val dir: File, private val master: Aead) : Kv {
     init {
         dir.mkdirs()
     }
@@ -22,14 +22,14 @@ class SecureStore(private val dir: File, private val master: Aead) {
     private fun ad(key: String) = "nc-store-v1:$key".toByteArray()
 
     @Synchronized
-    fun get(key: String): String? {
+    override fun get(key: String): String? {
         val f = file(key)
         if (!f.exists()) return null
         return String(master.decrypt(f.readBytes(), ad(key)), Charsets.UTF_8)
     }
 
     @Synchronized
-    fun put(key: String, json: String) {
+    override fun put(key: String, json: String) {
         val f = file(key)
         val tmp = File(dir, "$key.enc.tmp")
         tmp.writeBytes(master.encrypt(json.toByteArray(Charsets.UTF_8), ad(key)))
@@ -40,10 +40,10 @@ class SecureStore(private val dir: File, private val master: Aead) {
     }
 
     @Synchronized
-    fun delete(key: String): Boolean = file(key).delete()
+    override fun delete(key: String): Boolean = file(key).delete()
 
     @Synchronized
-    fun keys(prefix: String): List<String> =
+    override fun keys(prefix: String): List<String> =
         dir.listFiles()?.map { it.name }?.filter { it.endsWith(".enc") }?.map { it.removeSuffix(".enc") }
             ?.filter { it.startsWith(prefix) }?.sorted() ?: emptyList()
 

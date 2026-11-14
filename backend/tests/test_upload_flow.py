@@ -155,6 +155,9 @@ def test_full_upload_with_resume_and_checksum_mismatch(api, site):
         headers=auth(tok),
     )
     assert closed.status_code == 200
+    # POST alias for clients that cannot send PATCH (Android HttpURLConnection).
+    again = api.post(f"/sessions/{sid}/close", json={"ended_at": "2026-11-14T10:21:00Z"}, headers=auth(tok))
+    assert again.status_code == 200
 
 
 def test_auth_rules(api, site):

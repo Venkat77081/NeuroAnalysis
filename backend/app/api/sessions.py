@@ -94,6 +94,7 @@ class SessionClose(BaseModel):
 
 
 @router.patch("/{session_id}", response_model=SessionOut)
+@router.post("/{session_id}/close", response_model=SessionOut)  # for clients without PATCH (Android)
 def close_session(
     session_id: str,
     body: SessionClose,

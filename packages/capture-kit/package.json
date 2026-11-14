@@ -16,7 +16,8 @@
   "dependencies": {
     "@capacitor/core": "8.6.2",
     "@neurocapture/contracts-ts": "workspace:*",
-    "@neurocapture/quality-core": "workspace:*"
+    "@neurocapture/quality-core": "workspace:*",
+    "@mediapipe/tasks-vision": "0.10.35"
   },
   "devDependencies": {
     "tsx": "4.23.15",

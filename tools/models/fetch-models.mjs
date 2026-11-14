@@ -6,7 +6,7 @@
  *   node tools/models/fetch-models.mjs
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, cpSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,6 +47,16 @@ for (const m of models) {
     console.log(`${m.name} cached, verified`);
   }
   for (const t of targets) copyFileSync(cached, join(t, m.name));
+}
+// MediaPipe WASM runtime for the browser webcam mode (Tier W), served from public/mediapipe/wasm.
+const wasm = join(root, 'packages/capture-kit/node_modules/@mediapipe/tasks-vision/wasm');
+if (existsSync(wasm)) {
+  cpSync(wasm, join(root, 'apps/mobile/public/mediapipe/wasm'), { recursive: true });
+  console.log('copied MediaPipe WASM runtime to apps/mobile/public/mediapipe/wasm');
+} else {
+  console.warn(
+    'MediaPipe WASM runtime not found (run pnpm install first); webcam mode will not track',
+  );
 }
 if (failed) {
   console.error(`${failed} model(s) failed`);

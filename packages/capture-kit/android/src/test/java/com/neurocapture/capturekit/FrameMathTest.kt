@@ -46,7 +46,8 @@ class FrameMathTest {
         assertEquals(128f, flat.lumaMean, 1f)
         assertEquals(0f, flat.clippedFrac, 0f)
         assertEquals(0f, flat.sharpness, 0.001f)
-        val checker = FrameMath.stats(image(64, 64) { x, y -> if ((x + y) % 2 == 0) 255 else 0 }, 64, 64, 256)
+        // Period-3 stripes: a 2-px checkerboard would alias with the stride-2 Laplacian sampling.
+        val checker = FrameMath.stats(image(64, 64) { x, _ -> if (x % 3 == 0) 255 else 0 }, 64, 64, 256)
         assertTrue("checkerboard is sharp", checker.sharpness > 1000f)
         assertEquals(1f, checker.clippedFrac, 0.01f)
     }

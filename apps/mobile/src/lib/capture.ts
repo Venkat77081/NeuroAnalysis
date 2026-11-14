@@ -3,10 +3,10 @@ import { createCameraOwner } from './camera-owner.ts';
 
 const params = new URLSearchParams(globalThis.location?.search ?? '');
 
-/** `?impl=mock|native` overrides the platform default (dev only). */
+/** `?impl=mock|webcam|native` overrides the platform default (dev only). */
 function preferredImpl(): Implementation | undefined {
   const p = params.get('impl');
-  return p === 'mock' || p === 'native' ? p : undefined;
+  return p === 'mock' || p === 'webcam' || p === 'native' ? p : undefined;
 }
 
 /** `?mockSpeed=20` speeds up mock recordings and UI countdowns (development and e2e only). */

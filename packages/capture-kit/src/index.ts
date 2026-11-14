@@ -11,6 +11,7 @@ export { encodeFloat32, decodeFloat32 } from './codec.ts';
 export { PLUGIN_VERSION } from './version.ts';
 export * from './streams.ts';
 export * from './landmarks.ts';
+export * from './frame-math.ts';
 
 export const sampleFixtures = { 'ft-r-sample': ftRSample as CaptureFixture };
 
@@ -27,6 +28,13 @@ export function createCaptureKit(
 ): { kit: CaptureKitPlugin; implementation: Implementation } {
   const wantNative = preferred ? preferred === 'native' : Capacitor.isNativePlatform();
   if (wantNative) return { kit: NativeCaptureKit, implementation: 'native' };
+  if (preferred === 'webcam') {
+    // Lazy-loaded so the MediaPipe web bundle is only fetched in webcam demo mode.
+    return {
+      kit: new LazyWebcam(sampleFixtures['ft-r-sample']) as unknown as CaptureKitPlugin,
+      implementation: 'webcam',
+    };
+  }
   return {
     kit: new MockCaptureKit({
       fixture: sampleFixtures['ft-r-sample'],
@@ -34,4 +42,22 @@ export function createCaptureKit(
     }),
     implementation: 'mock',
   };
+}
+
+/** Proxy that loads webcam.ts (and MediaPipe) on first use. */
+class LazyWebcam {
+  private impl: Promise<CaptureKitPlugin>;
+  constructor(fixture: CaptureFixture) {
+    this.impl = import('./webcam.ts').then(
+      (m) => new m.WebcamCaptureKit({ fixture }) as CaptureKitPlugin,
+    );
+    return new Proxy(this, {
+      get:
+        (_t, prop: string) =>
+        (...args: unknown[]) =>
+          this.impl.then((k) =>
+            (k as unknown as Record<string, (...a: unknown[]) => unknown>)[prop]!(...args),
+          ),
+    });
+  }
 }

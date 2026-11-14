@@ -10,6 +10,7 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/coverage/**',
       '**/android/**',
+      'apps/mobile/public/mediapipe/**',
       '**/ios/**',
       'backend/**',
       'packages/contracts-ts/src/generated/**',

@@ -555,7 +555,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.listeners.clear();
   }
 
-  private emit<E extends CaptureKitEventName>(eventName: E, event: CaptureKitEvents[E]): void {
+  protected emit<E extends CaptureKitEventName>(eventName: E, event: CaptureKitEvents[E]): void {
     for (const fn of this.listeners.get(eventName) ?? [])
       (fn as (e: CaptureKitEvents[E]) => void)(event);
   }

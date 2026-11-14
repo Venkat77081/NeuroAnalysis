@@ -18,5 +18,6 @@ test('M4 tracking test (mock): measures analysis events while recording and draw
   await expect(page.getByTestId('tracking-result')).toHaveCount(1, { timeout: 30_000 });
   await expect(page.getByTestId('tracking-result')).toContainText('hand');
   await expect(page.getByTestId('tracking-result')).toContainText('landmark frames');
+  await expect(page.getByTestId('eval-p95')).toContainText('✓ quality evaluation p95');
   expect(errors).toEqual([]);
 });

@@ -359,11 +359,49 @@
       "language": "भाषा",
       "save": "सहेजें",
       "hint": "यह मेनू खोलने के लिए लोगो दबाकर रखें।",
-      "landmarks": "Show landmark overlay (debug)"
+      "landmarks": "Show landmark overlay (debug)",
+      "gateAdvisory": "पोज़िशनिंग गेट के बिना रिकॉर्ड (परीक्षण)"
     },
     "abort": {
       "title": "सत्र पहले समाप्त करें?",
       "confirm": "सत्र समाप्त करें"
+    },
+    "guidance": {
+      "prompt": {
+        "no_subject": "कोई दिख नहीं रहा। रोगी को कैमरे के सामने बैठाएँ",
+        "show_both_hands": "दोनों हाथ दिखते रहें",
+        "show_body": "सिर, कंधे और हाथ दिखते रहें",
+        "show_face": "पूरा चेहरा दिखता रहे",
+        "wrong_hand": "गलत हाथ: इस परीक्षण वाला हाथ इस्तेमाल करें",
+        "one_person": "केवल रोगी दिखना चाहिए",
+        "cut_off_left": "बाईं ओर कट रहा है: फ़ोन थोड़ा बाईं ओर घुमाएँ",
+        "cut_off_right": "दाईं ओर कट रहा है: फ़ोन थोड़ा दाईं ओर घुमाएँ",
+        "cut_off_top": "ऊपर से कट रहा है: फ़ोन ऊपर झुकाएँ या पीछे करें",
+        "cut_off_bottom": "नीचे से कट रहा है: फ़ोन नीचे झुकाएँ या पीछे करें",
+        "move_closer": "बहुत दूर: फ़ोन पास लाएँ",
+        "move_back": "बहुत पास: फ़ोन पीछे करें",
+        "turn_side_on": "रोगी को कैमरे की ओर बगल से करें",
+        "face_camera": "रोगी को सीधे कैमरे की ओर देखने को कहें",
+        "too_dark": "बहुत अँधेरा: रोगी के सामने रोशनी बढ़ाएँ",
+        "too_bright": "बहुत तेज़ रोशनी: रोगी के पीछे खिड़की या लैंप न हो",
+        "uneven_light": "चेहरे पर असमान रोशनी: चेहरे पर सामने से रोशनी करें",
+        "level_phone": "फ़ोन सीधा करें",
+        "hold_still": "फ़ोन स्थिर रखें",
+        "blurry": "धुंधला: लेंस साफ़ करें या फ़ोकस का इंतज़ार करें"
+      },
+      "chip": {
+        "in_frame": "फ़्रेम में",
+        "distance": "दूरी",
+        "view": "दिशा",
+        "light": "रोशनी",
+        "level": "सीधा",
+        "steady": "स्थिर",
+        "sharp": "साफ़"
+      },
+      "tracking": "ट्रैक हो रहा है…",
+      "ready": "तैयार। रिकॉर्ड दबाएँ",
+      "checking": "स्थिति जाँची जा रही है…",
+      "advisory": "गेट बंद (इंजीनियरिंग)"
     }
   },
   "trackingTest": {
@@ -379,6 +417,7 @@
     "latency": "latency p50 {{p50}} ms, p95 {{p95}} ms (≤ {{limit}})",
     "size": "largest event {{kb}} KB (≤ {{limit}})",
     "m2": "take: duration error {{dur}} ms · {{fps}} fps · {{lm}} landmark frames",
-    "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}"
+    "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}",
+    "eval": "गुणवत्ता जाँच p95 {{ms}} ms (≤ {{limit}}) · M5"
   }
 }

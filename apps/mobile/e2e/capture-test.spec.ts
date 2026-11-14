@@ -11,7 +11,7 @@ test('M2 capture test records a mock take and checks it against the acceptance c
   await openDeviceCheck(page);
   await page.getByTestId('open-capture-test').click();
   await expect(page.getByRole('heading', { name: 'Capture test (M2)' })).toBeVisible();
-  await page.getByTestId('test-select').selectOption('FA'); // 15 s, 30 fps
+  await page.getByTestId('test-select').selectOption('FA'); // 15 s, 60 fps target (DNE)
   await page.getByTestId('run-capture-test').click();
   await expect(page.getByTestId('live-view')).toBeVisible();
   await expect(page.getByTestId('live-take')).toHaveText('Take 1 of 1');
@@ -22,7 +22,7 @@ test('M2 capture test records a mock take and checks it against the acceptance c
   await expect(page.getByTestId('capture-results')).toContainText(
     '1 of 1 takes pass the M2 checks',
   );
-  await expect(page.getByTestId('capture-results')).toContainText('@ 30');
+  await expect(page.getByTestId('capture-results')).toContainText('@ 60');
   await page.getByRole('button', { name: 'Play' }).click();
   await expect(page.getByTestId('player')).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();

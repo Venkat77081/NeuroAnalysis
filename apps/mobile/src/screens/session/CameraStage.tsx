@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { captureVerdict } from '@neurocapture/quality-core';
 import type { RecordingStateEvent } from '@neurocapture/capture-kit';
 import { useApp } from '../../app/AppContext.tsx';
-import { beep } from '../../guidance/audio.ts';
-import { camera, capture, clockSpeed } from '../../lib/capture.ts';
+import { beep, speak } from '../../guidance/audio.ts';
+import { useGuidance } from '../../guidance/useGuidance.ts';
+import { applyMockScenario, camera, capture, clockSpeed } from '../../lib/capture.ts';
 import { buildMeta } from '../../lib/evidence.ts';
 import { loadQualification } from '../../lib/device-tier.ts';
 import { logger } from '../../lib/logger.ts';
@@ -13,7 +14,8 @@ import { stepTakes } from '../../session/machine.ts';
 import { useSession } from '../../session/useSession.ts';
 import { Outline, type OverlayKind } from '../../overlays/Outline.tsx';
 import { LandmarkOverlay } from '../../overlays/LandmarkOverlay.tsx';
-import { landmarkOverlayEnabled } from '../../lib/debug-flags.ts';
+import { gateAdvisory, landmarkOverlayEnabled, sharpnessBaseline } from '../../lib/debug-flags.ts';
+import type { GuidanceState, RuleName } from '@neurocapture/quality-core';
 import { preferredOrientation, rememberOrientation } from '../../lib/orientation-pref.ts';
 import type { PreviewTransform } from '@neurocapture/capture-kit';
 import { BackButton } from '../../ui/kit.tsx';
@@ -28,7 +30,7 @@ const started = new Set<string>();
  * only shows progress and turns the result into a verdict + meta.json.
  */
 export function CameraStage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const app = useApp();
   const { config } = app;
   const { ctx, send, snapshot } = useSession();
@@ -49,6 +51,36 @@ export function CameraStage() {
     preferredOrientation(step.code, allowed, cfg.camera.orientation),
   );
 
+  const [advisory] = useState(gateAdvisory);
+  const [baseline] = useState(sharpnessBaseline);
+  const [locked, setLocked] = useState(false);
+  const phaseRef = useRef(phase);
+  useEffect(() => {
+    phaseRef.current = phase;
+  });
+  // Positioning checks + rule engine on every analysis frame (DEV_PLAN §9.2–9.3).
+  const guidance = useGuidance({
+    test: cfg,
+    quality: config.quality,
+    side: step.side,
+    orientation,
+    sharpnessBaseline: baseline,
+    sensors: capture.implementation !== 'webcam',
+    onSpeak: (key) => {
+      if (phaseRef.current === 'framing')
+        void speak(t(`session.guidance.prompt.${key}`), i18n.language);
+    },
+    onGateOpen: () => {
+      // AE/AF/AWB are locked when the gate passes (DEV_PLAN §16 M5).
+      void capture.kit.lockCameraSettings(cfg.camera.lock).then(
+        () => setLocked(true),
+        () => undefined,
+      );
+      if (config.quality.guidance.hapticOnGateOpen) globalThis.navigator?.vibrate?.(40);
+    },
+  });
+  const gateOpen = !!guidance?.gateOpen;
+
   // Latest values for native event callbacks (updated after each render).
   const live = useRef({ ctx, cfg, app, send, orientation });
   useEffect(() => {
@@ -58,6 +90,7 @@ export function CameraStage() {
   // Camera lifetime = this screen.
   useEffect(() => {
     document.documentElement.classList.add('camera-active');
+    applyMockScenario(cfg, step.side);
     camera
       .open({
         facing: cfg.camera.facing,
@@ -79,7 +112,7 @@ export function CameraStage() {
       document.documentElement.classList.remove('camera-active');
       void camera.close().catch(() => undefined);
     };
-  }, [cfg, orientation]);
+  }, [cfg, orientation, step.side]);
 
   // Completion of the current take → verdict, meta.json, TAKE_FINISHED (registered once).
   useEffect(() => {
@@ -155,12 +188,12 @@ export function CameraStage() {
       {capture.implementation !== 'native' && (
         <div className="absolute inset-0 bg-[#20262F]" aria-hidden="true" />
       )}
-      {/* White = a fixed guide only. Green is reserved for "positioning checks passed" (M5); nothing checks the image yet. */}
+      {/* Green = gate open; amber = something to fix; white = checking / tracking (M5). */}
       <div className={L.guide}>
         <Outline
           kind={overlay}
-          color="#FFFFFF"
-          dashed={phase === 'framing'}
+          color={outlineColour(guidance)}
+          dashed={phase === 'framing' && !gateOpen}
           side={step.side}
           orientation={orientation}
         />
@@ -218,7 +251,12 @@ export function CameraStage() {
               {t('session.framing.interrupted')}
             </p>
           )}
-          <p className={L.hint}>{t(`session.framing.hint.${overlay}`)}</p>
+          <GuidancePrompt
+            state={guidance}
+            hint={t(`session.framing.hint.${overlay}`)}
+            className={L.hint}
+          />
+          <Chips state={guidance} />
           {cameraError && (
             <p className="m-0 rounded-2xl bg-[#E5484D] px-4 py-3 text-sm" role="alert">
               {cameraError}
@@ -231,7 +269,7 @@ export function CameraStage() {
         <Countdown
           key={ctx.currentTakeId}
           seconds={config.session.countdownS}
-          lock={cfg.camera.lock}
+          lock={locked ? null : cfg.camera.lock}
           onDone={() => send({ type: 'COUNTDOWN_DONE' })}
         />
       )}
@@ -245,16 +283,24 @@ export function CameraStage() {
         />
       ) : (
         <section className={L.panel} data-testid="controls">
-          <span className="text-center text-xs text-[#8C96A5]">{t('session.framing.later')}</span>
+          <span className="text-center text-xs text-[#8C96A5]" data-testid="gate-status">
+            {advisory && !gateOpen
+              ? t('session.guidance.advisory')
+              : gateOpen
+                ? t('session.guidance.ready')
+                : t('session.guidance.checking')}
+          </span>
           <div className="flex justify-center">
             <button
               type="button"
               aria-label={t('session.framing.record')}
-              disabled={phase === 'countdown' || !!cameraError}
+              disabled={phase === 'countdown' || !!cameraError || !(gateOpen || advisory)}
               onClick={() => send({ type: 'RECORD', takeId: newId('tk') })}
-              className="flex size-[76px] items-center justify-center rounded-full border-4 border-white disabled:opacity-40"
+              className="relative flex size-[76px] items-center justify-center rounded-full border-4 border-white disabled:opacity-40"
               data-testid="record"
+              data-gate={gateOpen ? 'open' : 'closed'}
             >
+              <GateRing progress={guidance?.gateProgress ?? 0} />
               <span className="size-14 rounded-full bg-[#E5484D]" />
             </button>
           </div>
@@ -271,7 +317,8 @@ function Countdown({
   onDone,
 }: {
   seconds: number;
-  lock: { ae: boolean; af: boolean; awb: boolean };
+  /** null = already locked when the gate opened. */
+  lock: { ae: boolean; af: boolean; awb: boolean } | null;
   onDone: () => void;
 }) {
   const [count, setCount] = useState(seconds);
@@ -280,7 +327,7 @@ function Countdown({
     done.current = onDone;
   });
   useEffect(() => {
-    void capture.kit.lockCameraSettings(lock).catch(() => undefined);
+    if (lock) void capture.kit.lockCameraSettings(lock).catch(() => undefined);
     let n = seconds;
     beep();
     const h = setInterval(() => {
@@ -402,3 +449,118 @@ const LANDSCAPE = {
   timeLeft: 'text-[36px] leading-none font-bold tabular-nums',
   auto: 'text-[11px] text-[#B8C0CC]',
 };
+
+const GREEN = '#3DDC84';
+const AMBER = '#F2A23A';
+
+function outlineColour(g: GuidanceState | null): string {
+  if (g?.gateOpen) return GREEN;
+  if (g?.prompt) return AMBER;
+  return '#FFFFFF';
+}
+
+/** The single prompt (or "tracking…" / the static hint) shown during framing. */
+function GuidancePrompt({
+  state,
+  hint,
+  className,
+}: {
+  state: GuidanceState | null;
+  hint: string;
+  className: string;
+}) {
+  const { t } = useTranslation();
+  if (state?.prompt)
+    return (
+      <p
+        className={`${className} !bg-[#F2A23A] font-semibold !text-[#1A1206]`}
+        role="status"
+        data-testid="guidance-prompt"
+        data-key={state.prompt.key}
+      >
+        {t(`session.guidance.prompt.${state.prompt.key}`)}
+      </p>
+    );
+  if (state?.tracking)
+    return (
+      <p className={`${className} text-[#B8C0CC]`} role="status" data-testid="guidance-tracking">
+        {t('session.guidance.tracking')}
+      </p>
+    );
+  return <p className={className}>{hint}</p>;
+}
+
+/** Check chips (mockup screen 3): one per group, worst state wins. */
+const CHIP_GROUPS: [string, RuleName[]][] = [
+  [
+    'in_frame',
+    [
+      'subject_present',
+      'required_landmarks_visible',
+      'in_safe_zone',
+      'single_person',
+      'handedness_match',
+    ],
+  ],
+  ['distance', ['subject_size']],
+  ['view', ['side_view', 'face_frontal']],
+  ['light', ['brightness', 'face_light_balance']],
+  ['level', ['tilt']],
+  ['steady', ['shake']],
+  ['sharp', ['sharpness']],
+];
+
+function Chips({ state }: { state: GuidanceState | null }) {
+  const { t } = useTranslation();
+  if (!state) return null;
+  const chips = CHIP_GROUPS.flatMap(([name, rules]) => {
+    const views = state.rules.filter((r) => rules.includes(r.rule));
+    if (!views.length) return [];
+    const s = views.some((v) => v.state === 'WARN')
+      ? 'WARN'
+      : views.some((v) => v.state === 'UNKNOWN')
+        ? 'UNKNOWN'
+        : 'OK';
+    return [{ name, s }];
+  });
+  const style = {
+    OK: 'bg-[#123824] text-[#5BE3A0]',
+    WARN: 'bg-[#3A2A10] text-[#F2A23A]',
+    UNKNOWN: 'bg-[#0E1116] text-[#8C96A5]',
+  };
+  const mark = { OK: '✓', WARN: '!', UNKNOWN: '…' };
+  return (
+    <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" data-testid="chips">
+      {chips.map((c) => (
+        <li
+          key={c.name}
+          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${style[c.s as keyof typeof style]}`}
+          data-testid={`chip-${c.name}`}
+          data-state={c.s}
+        >
+          {mark[c.s as keyof typeof mark]} {t(`session.guidance.chip.${c.name}`)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Ring around Record that fills while every check stays OK (gate hold). */
+function GateRing({ progress }: { progress: number }) {
+  const r = 36;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg className="pointer-events-none absolute -inset-1" viewBox="0 0 80 80" aria-hidden="true">
+      <circle
+        cx={40}
+        cy={40}
+        r={r}
+        fill="none"
+        stroke={GREEN}
+        strokeWidth={4}
+        strokeDasharray={`${c * progress} ${c}`}
+        transform="rotate(-90 40 40)"
+      />
+    </svg>
+  );
+}

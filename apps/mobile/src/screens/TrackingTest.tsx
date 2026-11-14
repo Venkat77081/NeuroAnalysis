@@ -20,6 +20,18 @@ import {
 import { logger } from '../lib/logger.ts';
 import { LandmarkOverlay } from '../overlays/LandmarkOverlay.tsx';
 import { newId } from '../data/repo.ts';
+import { decodeAnalysisFrame } from '@neurocapture/capture-kit';
+import {
+  GuidanceEngine,
+  SensorBuffer,
+  evaluateFrame,
+  gateRules,
+  type CheckContext,
+} from '@neurocapture/quality-core';
+import { percentile } from '../lib/m4-acceptance.ts';
+
+/** M5 acceptance: quality evaluation ≤ 5 ms p95 in the WebView (DEV_PLAN §16 M5). */
+const M5_EVAL_P95_MS = 5;
 
 function waitForTake(takeId: string): Promise<RecordingResult> {
   return new Promise((resolve, reject) => {
@@ -56,6 +68,8 @@ interface RunResult {
   summary: TrackingSummary;
   take: RecordingResult | null;
   gpu: boolean | null;
+  /** M5: positioning checks + rule engine time per frame in this WebView, p95 (ms). */
+  evalP95Ms: number;
 }
 
 /**
@@ -113,7 +127,23 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
       setTransform(opened.previewTransform);
       const offsetNs = await syncClock();
       const last = { hands: 0, poses: 0, faces: 0 };
+      const qctx: CheckContext = {
+        test: cfg,
+        quality: config.quality,
+        side: null,
+        orientation: cfg.camera.orientation,
+        sharpnessBaseline: 100,
+        sensors: true,
+      };
+      const engine = new GuidanceEngine(gateRules(qctx), config.quality);
+      const sensorBuf = new SensorBuffer();
+      const evalMs: number[] = [];
       handle = await capture.kit.addListener('analysisFrame', (e: AnalysisFrameEvent) => {
+        const t0 = performance.now();
+        const frame = decodeAnalysisFrame(e);
+        engine.push(evaluateFrame(frame, sensorBuf, qctx));
+        engine.update(frame.tNs);
+        evalMs.push(performance.now() - t0);
         const nowNs = BigInt(Math.round(performance.now() * 1e6)) + offsetNs;
         const tsNs = BigInt(e.tsNs);
         samples.push({
@@ -155,6 +185,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
         summary: summarizeTracking(samples),
         take,
         gpu: caps?.gpuDelegate ?? null,
+        evalP95Ms: percentile(evalMs, 95),
       };
       setResults((rs) => [r, ...rs]);
       logger.info('m4 tracking test', { code, record, ...r.summary });
@@ -345,6 +376,10 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
                 err: r.summary.errorFrames,
                 gpu: r.gpu === null ? '?' : r.gpu ? 'GPU' : 'CPU',
               })}
+            </span>
+            <span data-testid="eval-p95">
+              {mark(r.evalP95Ms <= M5_EVAL_P95_MS)}{' '}
+              {t('trackingTest.eval', { ms: r.evalP95Ms.toFixed(2), limit: M5_EVAL_P95_MS })}
             </span>
           </section>
         );

@@ -1,6 +1,7 @@
 import { validate } from '@neurocapture/contracts-ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  decodeAnalysisFrame,
   MockCaptureKit,
   scaledScheduler,
   sampleFixtures,
@@ -310,5 +311,39 @@ describe('createCaptureKit', () => {
   it('uses the mock outside a native platform', () => {
     expect(createCaptureKit().implementation).toBe('mock');
     expect(createCaptureKit('native').implementation).toBe('native');
+  });
+});
+
+describe('MockCaptureKit synthetic scenarios (M5)', () => {
+  it('emits synthetic frames and sensor batches for the chosen test and scenario', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const test = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, '../../../config/tests/FA.json'), 'utf8'),
+    );
+    vi.useFakeTimers();
+    const kit = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] });
+    kit.setScenario({ test, name: 'face_turned' });
+    const frames: AnalysisFrameEvent[] = [];
+    let sensorBatches = 0;
+    await kit.addListener('analysisFrame', (e) => frames.push(e));
+    await kit.addListener('sensorBatch', () => sensorBatches++);
+    await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: ['face'],
+      analysisFps: 30,
+    });
+    vi.advanceTimersByTime(1000);
+    expect(frames.length).toBeGreaterThanOrEqual(29);
+    expect(sensorBatches).toBe(frames.length);
+    const f = decodeAnalysisFrame(frames[0]!);
+    expect(f.face?.yaw).toBe(20);
+    expect(f.image).toEqual({ w: 480, h: 854 });
+    await kit.closeCamera();
+    kit.setScenario(null);
+    vi.useRealTimers();
   });
 });

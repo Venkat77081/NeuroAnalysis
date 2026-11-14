@@ -5,6 +5,7 @@ import { camera, capture } from '../lib/capture.ts';
 import { loadConfig } from '../lib/config.ts';
 import { allPass, checkTake, summarize, M2_LIMITS } from '../lib/m2-acceptance.ts';
 import { logger } from '../lib/logger.ts';
+import { setSharpnessBaseline } from '../lib/debug-flags.ts';
 
 /** Busy-waits on the JS thread: simulates a frozen WebView while native keeps recording (M2). */
 function freezeJs(ms: number) {
@@ -170,6 +171,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
       setLive({ mode: 'calibrate', take: 1, of: 1, elapsedS: 0, durationS: 3 });
       const r = await capture.kit.calibrateSharpness({ durationS: 3 });
       setBaseline(r.baseline);
+      setSharpnessBaseline(r.baseline); // used by the sharpness check (M5)
       setStatus(t('captureTest.calibrated', { baseline: r.baseline.toFixed(1), frames: r.frames }));
     } catch (e) {
       setStatus(String(e));

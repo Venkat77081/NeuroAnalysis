@@ -15,6 +15,9 @@ import type {
 } from './definitions.ts';
 import type { CaptureFixture } from './fixture.ts';
 import { PLUGIN_VERSION } from './version.ts';
+import type { TestConfig } from '@neurocapture/contracts-ts';
+import { syntheticFrame, type ScenarioName, type Side } from '@neurocapture/quality-core';
+import { encodeAnalysisFrame } from './landmarks.ts';
 
 export interface Scheduler {
   now(): number; // ms
@@ -88,6 +91,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private readonly mockMaxFps: 60 | 30;
   private benchCancel: (() => void) | null = null;
   private benchRunning = false;
+  /** Synthetic positioning scenario (M5); null = replay the fixture. */
+  private scenario: { test: TestConfig; name: ScenarioName; side: Side | null } | null = null;
 
   constructor(opts: MockOptions) {
     this.fixture = opts.fixture;
@@ -245,7 +250,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
       opts.targetFps > this.mockMaxFps && opts.fallbackFps ? opts.fallbackFps : opts.targetFps;
     this.startNs = BigInt(this.sched.now()) * 1_000_000n;
     this.frameIdx = 0;
-    const periodMs = 1000 / Math.min(opts.analysisFps, this.fixture.fps);
+    const periodMs =
+      1000 / (this.scenario ? opts.analysisFps : Math.min(opts.analysisFps, this.fixture.fps));
     this.frameTimer = this.sched.setInterval(() => this.emitNextFrame(), periodMs);
     return {
       previewTransform: {
@@ -260,7 +266,50 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
+  /**
+   * Mock only: generate synthetic frames for a test and positioning scenario (good, too_far,
+   * dark, ...) instead of replaying the fixture, so the guidance UI can be exercised in a browser.
+   */
+  setScenario(s: { test: TestConfig; name: ScenarioName; side?: Side | null } | null): void {
+    this.scenario = s ? { ...s, side: s.side ?? null } : null;
+  }
+
+  private emitSyntheticFrame(sc: {
+    test: TestConfig;
+    name: ScenarioName;
+    side: Side | null;
+  }): void {
+    const cam = this.camera!;
+    const periodNs = BigInt(Math.round(1e9 / cam.analysisFps));
+    const tNs = this.startNs + BigInt(this.frameIdx) * periodNs;
+    this.frameIdx++;
+    const { frame, sensors } = syntheticFrame(sc.test, sc.name, {
+      seq: this.seq++,
+      tNs,
+      orientation: cam.orientation,
+      side: sc.side,
+    });
+    this.emit('analysisFrame', {
+      ...encodeAnalysisFrame(frame),
+      emitNs: (tNs + 5_000_000n).toString(),
+      procMs: 5,
+    });
+    this.emit('sensorBatch', {
+      samples: sensors.map((x) => ({
+        type: x.type,
+        tsNs: x.tNs.toString(),
+        x: x.x,
+        y: x.y,
+        z: x.z,
+      })),
+    });
+  }
+
   private emitNextFrame(): void {
+    if (this.scenario && this.camera) {
+      this.emitSyntheticFrame(this.scenario);
+      return;
+    }
     const frames = this.fixture.frames;
     if (!frames.length) return;
     const src = frames[this.frameIdx % frames.length]!;

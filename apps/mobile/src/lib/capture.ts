@@ -1,4 +1,6 @@
-import { createCaptureKit, type Implementation } from '@neurocapture/capture-kit';
+import { createCaptureKit, MockCaptureKit, type Implementation } from '@neurocapture/capture-kit';
+import type { TestConfig } from '@neurocapture/contracts-ts';
+import type { ScenarioName, Side } from '@neurocapture/quality-core';
 import { createCameraOwner } from './camera-owner.ts';
 
 const params = new URLSearchParams(globalThis.location?.search ?? '');
@@ -14,3 +16,13 @@ const requested = Number(params.get('mockSpeed') ?? '1');
 export const capture = createCaptureKit(preferredImpl(), { speed: requested > 0 ? requested : 1 });
 export const clockSpeed = capture.implementation === 'mock' && requested > 0 ? requested : 1;
 export const camera = createCameraOwner(capture.kit);
+
+/**
+ * Mock mode: frames are synthetic positioning scenarios for the current test (M5).
+ * `?scenario=too_far` etc. picks a failure; default "good" so the gate opens.
+ */
+export function applyMockScenario(test: TestConfig, side: Side | null): void {
+  if (!(capture.kit instanceof MockCaptureKit)) return;
+  const name = (params.get('scenario') ?? 'good') as ScenarioName;
+  capture.kit.setScenario({ test, name, side });
+}

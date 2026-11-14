@@ -359,11 +359,49 @@
       "language": "Language",
       "save": "Save",
       "hint": "Long-press the logo to open this menu.",
-      "landmarks": "Show landmark overlay (debug)"
+      "landmarks": "Show landmark overlay (debug)",
+      "gateAdvisory": "Record without the positioning gate (testing)"
     },
     "abort": {
       "title": "End session early?",
       "confirm": "End session"
+    },
+    "guidance": {
+      "prompt": {
+        "no_subject": "No one in view. Seat the patient in front of the camera",
+        "show_both_hands": "Keep both hands in view",
+        "show_body": "Keep the head, shoulders and arms in view",
+        "show_face": "Keep the whole face in view",
+        "wrong_hand": "Wrong hand: use the hand for this test",
+        "one_person": "Only the patient should be in view",
+        "cut_off_left": "Cut off on the left: turn the phone a little to the left",
+        "cut_off_right": "Cut off on the right: turn the phone a little to the right",
+        "cut_off_top": "Cut off at the top: tilt the phone up or move it back",
+        "cut_off_bottom": "Cut off at the bottom: tilt the phone down or move it back",
+        "move_closer": "Too far: move the phone closer",
+        "move_back": "Too close: move the phone back",
+        "turn_side_on": "Turn the patient side-on to the camera",
+        "face_camera": "Ask the patient to look straight at the camera",
+        "too_dark": "Too dark: add light in front of the patient",
+        "too_bright": "Too bright: avoid a window or lamp behind the patient",
+        "uneven_light": "Uneven light on the face: light the face from the front",
+        "level_phone": "Level the phone",
+        "hold_still": "Hold the phone still",
+        "blurry": "Blurry: clean the lens or wait for focus"
+      },
+      "chip": {
+        "in_frame": "In frame",
+        "distance": "Distance",
+        "view": "View",
+        "light": "Light",
+        "level": "Level",
+        "steady": "Steady",
+        "sharp": "Sharp"
+      },
+      "tracking": "Tracking…",
+      "ready": "Ready. Press Record",
+      "checking": "Checking position…",
+      "advisory": "Gate off (engineering)"
     }
   },
   "trackingTest": {
@@ -379,6 +417,7 @@
     "latency": "latency p50 {{p50}} ms, p95 {{p95}} ms (≤ {{limit}})",
     "size": "largest event {{kb}} KB (≤ {{limit}})",
     "m2": "take: duration error {{dur}} ms · {{fps}} fps · {{lm}} landmark frames",
-    "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}"
+    "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}",
+    "eval": "quality evaluation p95 {{ms}} ms (≤ {{limit}}) · M5"
   }
 }

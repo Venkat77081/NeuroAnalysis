@@ -423,6 +423,8 @@
     "size": "largest event {{kb}} KB (≤ {{limit}})",
     "m2": "take: duration error {{dur}} ms · {{fps}} fps · {{lm}} landmark frames",
     "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}",
-    "eval": "quality evaluation p95 {{ms}} ms (≤ {{limit}}) · M5"
+    "eval": "quality evaluation p95 {{ms}} ms (≤ {{limit}}) · M5",
+    "delegate": "Tracker (MediaPipe delegate)",
+    "delegateAuto": "Auto (GPU, CPU if GPU fails)"
   }
 }

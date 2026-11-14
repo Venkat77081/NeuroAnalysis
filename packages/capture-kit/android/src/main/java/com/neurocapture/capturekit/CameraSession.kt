@@ -71,6 +71,8 @@ class CameraSession(
         val fallbackFps: Int? = null,
         val debugAnalysisDelayMs: Int = 0,
         val trackers: List<String> = emptyList(),
+        /** "auto" = GPU then CPU; "gpu" or "cpu" to force one (device tuning, decision 016). */
+        val trackerDelegate: String = "auto",
     )
 
     data class Outcome(
@@ -365,14 +367,17 @@ class CameraSession(
                 if (emitAnalysisEvents) emit("analysisFrame", statsOnlyEvent(seq, canonical, if (rotated) h else w, if (rotated) w else h, stats, t0))
                 return
             }
-            val tr = tracking ?: Tracking(activity, enabled, ::onTracked) { msg -> emit("trackingError", JSObject().apply { put("message", msg) }) }
+            val tr = tracking ?: Tracking(activity, enabled, cfg.trackerDelegate, ::onTracked) { msg -> emit("trackingError", JSObject().apply { put("message", msg) }) }
                 .also { tracking = it }
             var bmp = nextBitmap(w, h)
             buf.rewind()
             if (rowStride == w * 4) {
                 bmp.copyPixelsFromBuffer(buf)
             } else {
-                val packed = java.nio.ByteBuffer.allocate(w * h * 4)
+                // Reused between frames: allocating ~1.6 MB per frame stalls the analysis thread.
+                val packed = packedBuffer?.takeIf { it.capacity() == w * h * 4 }
+                    ?: java.nio.ByteBuffer.allocate(w * h * 4).also { packedBuffer = it }
+                packed.clear()
                 for (row in 0 until h) {
                     buf.position(row * rowStride)
                     val slice = buf.slice().also { it.limit(w * 4) }
@@ -407,6 +412,8 @@ class CameraSession(
             image.close()
         }
     }
+
+    private var packedBuffer: java.nio.ByteBuffer? = null
 
     private fun nextBitmap(w: Int, h: Int): android.graphics.Bitmap {
         poolIndex = (poolIndex + 1) % bitmapPool.size

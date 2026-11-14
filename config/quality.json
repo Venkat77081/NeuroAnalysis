@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "QUALITY@1.1.0",
+  "configVersion": "QUALITY@1.2.0",
   "ruleVersion": "1.0.0",
   "engine": {
     "windowMs": 700,
@@ -63,8 +63,8 @@
       "maxRadPerS": 0.15
     },
     "analysis_health": {
-      "minFps": 15,
-      "maxLatencyMs": 150
+      "minFps": 10,
+      "maxLatencyMs": 250
     }
   }
 }

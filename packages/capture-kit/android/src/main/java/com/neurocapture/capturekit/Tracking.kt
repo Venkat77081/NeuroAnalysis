@@ -24,6 +24,8 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 class Tracking(
     context: Context,
     val enabled: Set<String>,
+    /** "auto" (GPU, CPU on failure), "gpu" or "cpu". */
+    delegate: String,
     private val onFrame: (Joined) -> Unit,
     private val onError: (String) -> Unit,
 ) {
@@ -72,13 +74,17 @@ class Tracking(
     }
 
     init {
-        gpu = try {
-            create(context, Delegate.GPU)
-            true
-        } catch (e: Throwable) {
-            close()
-            create(context, Delegate.CPU)
-            false
+        gpu = when (delegate) {
+            "cpu" -> { create(context, Delegate.CPU); false }
+            "gpu" -> { create(context, Delegate.GPU); true }
+            else -> try {
+                create(context, Delegate.GPU)
+                true
+            } catch (e: Throwable) {
+                close()
+                create(context, Delegate.CPU)
+                false
+            }
         }
     }
 

@@ -63,6 +63,8 @@ export interface OpenCameraOpts {
   /** Record at this rate when targetFps is unsupported (interim policy, decision 007). */
   fallbackFps?: 30;
   /** Engineering only: sleep this long in every analysis frame (M2 isolation test). */
+  /** MediaPipe delegate: 'auto' (GPU, CPU on failure, default), 'gpu' or 'cpu' (decision 016). */
+  trackerDelegate?: 'auto' | 'gpu' | 'cpu';
   debugAnalysisDelayMs?: number;
 }
 

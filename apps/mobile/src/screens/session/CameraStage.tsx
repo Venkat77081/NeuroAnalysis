@@ -19,6 +19,7 @@ import {
   landmarkOverlayEnabled,
   setLandmarkOverlay,
   sharpnessBaseline,
+  trackerDelegate,
 } from '../../lib/debug-flags.ts';
 import { LandmarksToggle } from '../../overlays/LandmarksToggle.tsx';
 import type { RuleName } from '@neurocapture/quality-core';
@@ -112,6 +113,7 @@ export function CameraStage() {
         orientation,
         trackers: cfg.trackers,
         analysisFps: cfg.analysis.fps,
+        trackerDelegate: trackerDelegate(),
       })
       .then(
         (r) => {

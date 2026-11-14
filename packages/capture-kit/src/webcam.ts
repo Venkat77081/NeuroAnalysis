@@ -84,7 +84,10 @@ export class WebcamCaptureKit extends MockCaptureKit {
     if (!names.length) return;
     const mp = await import('@mediapipe/tasks-vision');
     const fileset = await mp.FilesetResolver.forVisionTasks(`${this.base}/wasm`);
+    const forced = this.opened?.trackerDelegate;
     const make = async <T>(create: (delegate: 'GPU' | 'CPU') => Promise<T>): Promise<T> => {
+      if (forced === 'cpu') return create('CPU');
+      if (forced === 'gpu') return create('GPU');
       try {
         return await create('GPU');
       } catch {

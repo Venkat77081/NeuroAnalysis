@@ -2,6 +2,7 @@
 const LANDMARKS = 'nc.debug.landmarks';
 const ADVISORY = 'nc.debug.gateAdvisory';
 const BASELINE = 'nc.device.sharpnessBaseline';
+const DELEGATE = 'nc.device.trackerDelegate';
 
 const production = () => import.meta.env.VITE_PRODUCTION === '1';
 
@@ -47,4 +48,16 @@ export function sharpnessBaseline(): number | null {
 
 export function setSharpnessBaseline(v: number | null): void {
   set(BASELINE, v === null ? null : String(v));
+}
+
+export type TrackerDelegate = 'auto' | 'gpu' | 'cpu';
+
+/** MediaPipe delegate chosen for this device in the Tracking test (decision 016). */
+export function trackerDelegate(): TrackerDelegate {
+  const v = get(DELEGATE);
+  return v === 'gpu' || v === 'cpu' ? v : 'auto';
+}
+
+export function setTrackerDelegate(v: TrackerDelegate): void {
+  set(DELEGATE, v === 'auto' ? null : v);
 }

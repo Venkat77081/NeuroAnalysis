@@ -423,6 +423,8 @@
     "size": "largest event {{kb}} KB (≤ {{limit}})",
     "m2": "take: duration error {{dur}} ms · {{fps}} fps · {{lm}} landmark frames",
     "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}",
-    "eval": "गुणवत्ता जाँच p95 {{ms}} ms (≤ {{limit}}) · M5"
+    "eval": "गुणवत्ता जाँच p95 {{ms}} ms (≤ {{limit}}) · M5",
+    "delegate": "ट्रैकर (MediaPipe डेलिगेट)",
+    "delegateAuto": "स्वतः (GPU, विफल हो तो CPU)"
   }
 }

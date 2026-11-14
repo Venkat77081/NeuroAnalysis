@@ -20,6 +20,7 @@ import {
 import { logger } from '../lib/logger.ts';
 import { LandmarkOverlay } from '../overlays/LandmarkOverlay.tsx';
 import { newId } from '../data/repo.ts';
+import { setTrackerDelegate, trackerDelegate, type TrackerDelegate } from '../lib/debug-flags.ts';
 import { decodeAnalysisFrame } from '@neurocapture/capture-kit';
 import {
   GuidanceEngine,
@@ -83,6 +84,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
   const codes = useMemo(() => [...new Set(config.session.order.map(([c]) => c))], [config]);
   const [code, setCode] = useState(codes[0] ?? 'FT');
   const [record, setRecord] = useState(true);
+  const [delegate, setDelegate] = useState<TrackerDelegate>(trackerDelegate);
   const [running, setRunning] = useState(false);
   const [transform, setTransform] = useState<PreviewTransform | null>(null);
   const [live, setLive] = useState<{
@@ -123,6 +125,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
         orientation: cfg.camera.orientation,
         trackers: cfg.trackers,
         analysisFps: cfg.analysis.fps,
+        trackerDelegate: delegate,
       });
       setTransform(opened.previewTransform);
       const offsetNs = await syncClock();
@@ -286,6 +289,23 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
                 </option>
               );
             })}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-semibold">
+          {t('trackingTest.delegate')}
+          <select
+            value={delegate}
+            onChange={(e) => {
+              const v = e.target.value as TrackerDelegate;
+              setDelegate(v);
+              setTrackerDelegate(v); // also used by the session camera on this device
+            }}
+            className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px] font-normal"
+            data-testid="delegate-select"
+          >
+            <option value="auto">{t('trackingTest.delegateAuto')}</option>
+            <option value="gpu">GPU</option>
+            <option value="cpu">CPU</option>
           </select>
         </label>
         <label className="flex items-center gap-2 text-sm">

@@ -36,6 +36,13 @@ class Tracking(
         val statusOf: (String) -> Int,
     )
 
+    private fun isEmpty(r: Any?): Boolean = when (r) {
+        is HandLandmarkerResult -> r.landmarks().isEmpty()
+        is PoseLandmarkerResult -> r.landmarks().isEmpty()
+        is FaceLandmarkerResult -> r.faceLandmarks().isEmpty()
+        else -> true
+    }
+
     private var hand: HandLandmarker? = null
     private var pose: PoseLandmarker? = null
     private var face: FaceLandmarker? = null
@@ -44,9 +51,13 @@ class Tracking(
     private val errored = HashSet<String>()
 
     private val joiner = FrameJoiner<Any>(enabled) { ms, results ->
+        // 0 off · 1 ok (found something) · 2 no_result (ran, found nothing) · 3 error (failed, or
+        // the frame was dropped by a busy tracker: input unavailable → UNKNOWN in the checks).
         fun status(name: String): Int = when {
             name !in enabled -> 0
+            name !in results -> 3
             results[name] == null -> if (name in errored) 3 else 2
+            isEmpty(results[name]) -> 2
             else -> 1
         }
         onFrame(

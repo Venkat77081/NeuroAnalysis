@@ -22,7 +22,7 @@ class FrameJoinerTest {
         j.offer(2, "hand", "b")
         j.offer(2, "pose", "c")
         assertEquals(listOf(1L, 2L), out)
-        assertEquals(mapOf("hand" to "a", "pose" to null), missing[0])
+        assertEquals(mapOf("hand" to "a"), missing[0]) // pose dropped: absent, not null
     }
 
     @Test fun boundsPendingFrames() {

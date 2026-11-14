@@ -15,7 +15,9 @@ import { useSession } from '../../session/useSession.ts';
 import { Outline, type OverlayKind } from '../../overlays/Outline.tsx';
 import { LandmarkOverlay } from '../../overlays/LandmarkOverlay.tsx';
 import { gateAdvisory, landmarkOverlayEnabled, sharpnessBaseline } from '../../lib/debug-flags.ts';
-import type { GuidanceState, RuleName } from '@neurocapture/quality-core';
+import type { RuleName } from '@neurocapture/quality-core';
+import type { GuidanceView } from '../../guidance/useGuidance.ts';
+import { ENGINEERING_TOOLS } from '../EngineeringMenu.tsx';
 import { preferredOrientation, rememberOrientation } from '../../lib/orientation-pref.ts';
 import type { PreviewTransform } from '@neurocapture/capture-kit';
 import { BackButton } from '../../ui/kit.tsx';
@@ -453,7 +455,7 @@ const LANDSCAPE = {
 const GREEN = '#3DDC84';
 const AMBER = '#F2A23A';
 
-function outlineColour(g: GuidanceState | null): string {
+function outlineColour(g: GuidanceView | null): string {
   if (g?.gateOpen) return GREEN;
   if (g?.prompt) return AMBER;
   return '#FFFFFF';
@@ -465,7 +467,7 @@ function GuidancePrompt({
   hint,
   className,
 }: {
-  state: GuidanceState | null;
+  state: GuidanceView | null;
   hint: string;
   className: string;
 }) {
@@ -485,6 +487,14 @@ function GuidancePrompt({
     return (
       <p className={`${className} text-[#B8C0CC]`} role="status" data-testid="guidance-tracking">
         {t('session.guidance.tracking')}
+        {ENGINEERING_TOOLS && (
+          <span className="ml-2 text-xs text-[#8C96A5]" data-testid="analysis-diag">
+            {t('session.guidance.diag', {
+              fps: state.analysisFps.toFixed(0),
+              ms: state.analysisLatencyMs.toFixed(0),
+            })}
+          </span>
+        )}
       </p>
     );
   return <p className={className}>{hint}</p>;
@@ -510,7 +520,7 @@ const CHIP_GROUPS: [string, RuleName[]][] = [
   ['sharp', ['sharpness']],
 ];
 
-function Chips({ state }: { state: GuidanceState | null }) {
+function Chips({ state }: { state: GuidanceView | null }) {
   const { t } = useTranslation();
   if (!state) return null;
   const chips = CHIP_GROUPS.flatMap(([name, rules]) => {

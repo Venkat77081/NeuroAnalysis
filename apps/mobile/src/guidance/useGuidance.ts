@@ -38,8 +38,14 @@ const STALE_MS = 1000;
  * All evaluation is in quality-core; this hook only wires native events to it and throttles
  * React updates. When frames stop arriving the windows expire and the state becomes "tracking".
  */
-export function useGuidance(o: GuidanceOptions): GuidanceState | null {
-  const [state, setState] = useState<GuidanceState | null>(null);
+export type GuidanceView = GuidanceState & {
+  /** Analysis health inputs, shown with "tracking…" in engineering builds. */
+  analysisFps: number;
+  analysisLatencyMs: number;
+};
+
+export function useGuidance(o: GuidanceOptions): GuidanceView | null {
+  const [state, setState] = useState<GuidanceView | null>(null);
   const cb = useRef({ onSpeak: o.onSpeak, onGateOpen: o.onGateOpen });
   useEffect(() => {
     cb.current = { onSpeak: o.onSpeak, onGateOpen: o.onGateOpen };
@@ -65,10 +71,12 @@ export function useGuidance(o: GuidanceOptions): GuidanceState | null {
       if (st.gateJustOpened) cb.current.onGateOpen?.();
       const spoken = engine.speech(st, nowNs);
       if (spoken) cb.current.onSpeak?.(spoken);
-      const sig = `${st.gateOpen}|${st.prompt?.key}|${st.tracking}|${st.gateProgress.toFixed(1)}|${st.rules.map((r) => r.state).join()}`;
+      const fps = health.fps();
+      const lat = health.latencyP95();
+      const sig = `${st.gateOpen}|${st.prompt?.key}|${st.tracking}|${st.gateProgress.toFixed(1)}|${st.rules.map((r) => r.state).join()}|${Math.round(fps)}|${Math.round(lat / 10)}`;
       if (sig !== lastPushed) {
         lastPushed = sig;
-        setState(st);
+        setState({ ...st, analysisFps: Number.isFinite(fps) ? fps : 0, analysisLatencyMs: lat });
       }
     };
     const handles: { remove: () => Promise<void> }[] = [];
@@ -78,7 +86,9 @@ export function useGuidance(o: GuidanceOptions): GuidanceState | null {
     void capture.kit
       .addListener('analysisFrame', (e: AnalysisFrameEvent) => {
         const frame = decodeAnalysisFrame(e);
-        const latencyMs = e.emitNs ? Number(BigInt(e.emitNs) - frame.tNs) / 1e6 : 0;
+        // Native processing time (analysis start → event), one clock. emitNs − tsNs would mix the
+        // camera and system clocks on phones whose camera timestamps are not REALTIME.
+        const latencyMs = e.procMs ?? 0;
         health.push(frame.tNs, latencyMs);
         engine.push(evaluateFrame(frame, sensors, ctx, health));
         lastT = frame.tNs;

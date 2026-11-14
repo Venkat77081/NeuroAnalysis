@@ -401,7 +401,8 @@
       "tracking": "Tracking…",
       "ready": "Ready. Press Record",
       "checking": "Checking position…",
-      "advisory": "Gate off (engineering)"
+      "advisory": "Gate off (engineering)",
+      "diag": "analysis {{fps}} fps · {{ms}} ms"
     }
   },
   "trackingTest": {

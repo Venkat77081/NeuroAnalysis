@@ -17,6 +17,7 @@ import { defaultSettings, newId, repo, type Repo, type Settings } from '../data/
 import { summarizeOutcomes, type PlanStep, type SessionInput } from '../session/machine.ts';
 import { persist, startSession, type SessionActor } from '../session/persist.ts';
 import { uploadConfig, uploadPrefs } from '../lib/uploads.ts';
+import { crashScreen } from '../lib/crash.ts';
 
 export interface AppServices {
   config: LoadedConfig;
@@ -111,6 +112,10 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
       cancelled = true;
     };
   }, [config, r, watch]);
+
+  useEffect(() => {
+    if (actor) crashScreen.get = () => JSON.stringify(actor.getSnapshot().value);
+  }, [actor]);
 
   const services = useMemo<AppServices | null>(() => {
     if (!actor) return null;

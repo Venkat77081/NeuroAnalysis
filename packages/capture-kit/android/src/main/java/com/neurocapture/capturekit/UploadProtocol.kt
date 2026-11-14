@@ -215,6 +215,11 @@ class UploadClient(
         call("POST", "/sessions/$serverSessionId/close", JSONObject(body))
     }
 
+    /** M9: PII-safe crash report (POST /diagnostics). */
+    fun sendDiagnostic(body: String) {
+        call("POST", "/diagnostics", JSONObject(body))
+    }
+
     private fun filePlan(plan: JSONObject, kind: String): JSONObject {
         val files = plan.getJSONArray("files")
         for (i in 0 until files.length()) if (files.getJSONObject(i).getString("kind") == kind) return files.getJSONObject(i)

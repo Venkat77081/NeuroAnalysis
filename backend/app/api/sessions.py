@@ -88,9 +88,21 @@ class AbortIn(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
+class OutcomeIn(BaseModel):
+    """One planned test as it ended (M9 audit). Reason codes only: free-text notes stay on the phone."""
+
+    test_code: str = Field(pattern=r"^(FT|FTF|FR|SAW|FA)$")
+    side: str | None = Field(default=None, pattern=r"^[RL]$")
+    status: str = Field(pattern=r"^(accepted|kept|skipped|pending)$")
+    reason: str | None = Field(default=None, pattern=r"^[a-z_]+$")
+    client_take_id: str | None = Field(default=None, max_length=64)
+    at: datetime | None = None
+
+
 class SessionClose(BaseModel):
     ended_at: datetime
     aborted: AbortIn | None = None
+    outcomes: list[OutcomeIn] = Field(default_factory=list, max_length=20)
 
 
 @router.patch("/{session_id}", response_model=SessionOut)
@@ -106,6 +118,32 @@ def close_session(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found")
     s.ended_at = body.ended_at
     s.aborted = body.aborted.model_dump() if body.aborted else None
-    audit(db, "operator", p.operator.id, "session_closed", "session", s.id, aborted=body.aborted is not None)
+    counts: dict[str, int] = {}
+    for o in body.outcomes:
+        counts[o.status] = counts.get(o.status, 0) + 1
+        if o.status in ("skipped", "kept"):
+            audit(
+                db,
+                "operator",
+                p.operator.id,
+                "test_skipped" if o.status == "skipped" else "take_kept",
+                "session",
+                s.id,
+                test_code=o.test_code,
+                side=o.side,
+                reason=o.reason,
+                client_take_id=o.client_take_id,
+                at=o.at.isoformat() if o.at else None,
+            )
+    audit(
+        db,
+        "operator",
+        p.operator.id,
+        "session_closed",
+        "session",
+        s.id,
+        aborted=body.aborted.reason if body.aborted else None,
+        outcomes=counts,
+    )
     db.commit()
     return SessionOut(id=s.id, client_session_id=s.client_session_id)

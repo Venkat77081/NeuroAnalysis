@@ -28,6 +28,7 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
     var revoked = false
     private val sessions = HashMap<String, String>() // client id → server id
     val closed = HashSet<String>()
+    val diagnostics = ArrayList<JSONObject>()
     private class F(val kind: String, val size: Int, val sha: String, var uploadId: Int, val parts: HashMap<Int, ByteArray> = HashMap(), var verified: Boolean = false)
     private class T(val id: String, val files: List<F>, var complete: Boolean = false)
     private val takes = HashMap<String, T>() // client take id → take
@@ -81,6 +82,7 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
                 ok(JSONObject().put("id", id).put("client_session_id", j.getString("client_session_id")))
             }
             method == "POST" && path.matches(Regex("/sessions/[^/]+/close")) -> { closed.add(path.split("/")[2]); ok("{}") }
+            method == "POST" && path == "/diagnostics" -> { diagnostics.add(j!!); ok("{}") }
             method == "POST" && path == "/takes" -> {
                 require(j!!.getString("wrapped_data_key").isNotEmpty())
                 require(j.has("quality") && j.has("meta"))
@@ -248,5 +250,27 @@ class UploadQueueTest {
         c.init(Cipher.DECRYPT_MODE, keys.private, OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT))
         assertTrue(secret.contentEquals(c.doFinal(wrapped)))
         assertNotNull(KeyWrap.publicKey(pem))
+    }
+
+    @Test
+    fun crashReportsWaitForSignInThenGoOnce() {
+        val srv = FakeServer()
+        val q = UploadQueue(MapKv(), { now })
+        q.enqueueDiagnostic("""{"kind":"crash","report":{"source":"native","error":"IllegalStateException"}}""")
+        assertTrue(q.pending())
+        run(q, srv)
+        assertEquals(0, srv.diagnostics.size) // not signed in yet
+        q.configure(settings())
+        run(q, srv)
+        assertEquals("IllegalStateException", srv.diagnostics.single().getJSONObject("report").getString("error"))
+        run(q, srv)
+        assertEquals(1, srv.diagnostics.size)
+        assertFalse(q.pending())
+    }
+
+    @Test
+    fun crashMessagesAreRedacted() {
+        val r = CrashReporter.redact("failed for a.b@c.org at /data/user/0/app/files/takes/tk-1 id 98765432 key QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVphYmNkZWZnaGlqa2xtbm9w")
+        assertEquals("failed for [email] at [path] id [number] key [blob]", r)
     }
 }

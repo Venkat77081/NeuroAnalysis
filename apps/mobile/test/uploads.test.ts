@@ -152,7 +152,36 @@ describe('upload glue (M7)', () => {
       session: config.session.configVersion,
       FT: expect.any(String),
     });
-    expect(closeBody(ctx, at)).toEqual({ ended_at: at, aborted: null });
+    const close = closeBody(ctx, at) as { outcomes: Record<string, unknown>[] };
+    expect(close).toMatchObject({ ended_at: at, aborted: null });
+    expect(close.outcomes).toEqual([
+      {
+        test_code: 'FT',
+        side: null,
+        status: 'accepted',
+        reason: null,
+        client_take_id: 'tk-ft2',
+        at: null,
+      },
+      {
+        test_code: 'FR',
+        side: null,
+        status: 'skipped',
+        reason: 'patient_unable',
+        client_take_id: null,
+        at,
+      },
+      {
+        test_code: 'FA',
+        side: null,
+        status: 'kept',
+        reason: 'patient_fatigue',
+        client_take_id: 'tk-fa1',
+        at,
+      },
+    ]);
+    // Free-text notes never leave the phone.
+    expect(JSON.stringify(close)).not.toContain('note');
     expect(uploadPrefs({ wifiOnly: null, retentionHours: null }, config)).toEqual({
       wifiOnly: true,
       retentionHours: 24,

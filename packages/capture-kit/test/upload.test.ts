@@ -205,3 +205,18 @@ describe('uploads (M7)', () => {
     );
   });
 });
+
+describe('diagnostics (M9)', () => {
+  it('sends queued crash reports once an operator is signed in', async () => {
+    const { kit, srv, cfg } = await setup();
+    await kit.enqueueDiagnostic({
+      body: JSON.stringify({ kind: 'crash', report: { error: 'TypeError' } }),
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(srv.diagnostics).toHaveLength(0);
+    await kit.configureUploads(cfg);
+    await until(() => srv.diagnostics.length === 1);
+    expect(srv.diagnostics[0]).toMatchObject({ kind: 'crash' });
+    await expect(kit.enqueueDiagnostic({ body: 'not json' })).rejects.toThrow();
+  });
+});

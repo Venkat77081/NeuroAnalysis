@@ -27,6 +27,8 @@ export class FakeServer {
   private devices = new Map<string, string>();
   private refresh = new Map<string, string>();
   private sessions = new Map<string, { id: string; closed: boolean }>();
+  /** Crash reports received (M9). */
+  readonly diagnostics: unknown[] = [];
   private takes = new Map<
     string,
     { id: string; status: string; files: Map<string, FFile>; confirmedAt?: string }
@@ -154,6 +156,10 @@ export class FakeServer {
       if (!s) return res(404);
       s.closed = true;
       return res(200, { id: s.id });
+    }
+    if (path === '/diagnostics' && init.method === 'POST') {
+      this.diagnostics.push(body);
+      return res(201, { status: 'stored' });
     }
     if (path === '/takes' && init.method === 'POST') {
       const key = `${String(body.session_id)}/${String(body.client_take_id)}`;

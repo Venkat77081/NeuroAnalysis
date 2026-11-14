@@ -825,6 +825,14 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.kickUploads();
   }
 
+  private diagnostics: string[] = [];
+
+  async enqueueDiagnostic(opts: { body: string }): Promise<void> {
+    JSON.parse(opts.body);
+    this.diagnostics.push(opts.body);
+    this.kickUploads();
+  }
+
   async enqueueSessionClose(opts: { clientSessionId: string; body: string }): Promise<void> {
     this.closes.set(opts.clientSessionId, opts.body);
     this.kickUploads();
@@ -953,6 +961,21 @@ export class MockCaptureKit implements CaptureKitPlugin {
             this.closes.delete(clientSessionId);
           } catch {
             /* retried on the next run */
+          }
+        }
+      // Crash reports go once the operator is signed in.
+      if (cfg)
+        while (this.diagnostics.length) {
+          try {
+            await new UploadClient(
+              this.fakeServer.http,
+              cfg.endpoint,
+              { access: cfg.accessToken, refresh: cfg.refreshToken },
+              () => undefined,
+            ).sendDiagnostic(this.diagnostics[0]!);
+            this.diagnostics.shift();
+          } catch {
+            break; // retried on the next run
           }
         }
       this.applyRetention();

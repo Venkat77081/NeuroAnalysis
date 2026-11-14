@@ -216,6 +216,11 @@ export class UploadClient {
   async closeSession(serverSessionId: string, body: string): Promise<void> {
     await this.call('PATCH', `/sessions/${serverSessionId}`, JSON.parse(body));
   }
+
+  /** M9: a PII-safe crash report (POST /diagnostics). */
+  async sendDiagnostic(body: string): Promise<void> {
+    await this.call('POST', '/diagnostics', JSON.parse(body));
+  }
 }
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {

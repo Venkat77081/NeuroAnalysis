@@ -118,6 +118,11 @@ class UploadQueue(
         if (record(job.takeId) == null) save(UploadRecord(job, bytesTotal = bytesTotal))
     }
 
+    /** M9: a redacted crash report, sent once an operator is signed in. */
+    fun enqueueDiagnostic(body: String) = synchronized(lock) {
+        kv.put(DIAG_PREFIX + "${clock()}-${(1000..9999).random()}", JSONObject().put("body", body).toString())
+    }
+
     fun enqueueClose(clientSessionId: String, body: String) = synchronized(lock) {
         kv.put(closeKey(clientSessionId), JSONObject().put("clientSessionId", clientSessionId).put("body", body).toString())
     }
@@ -141,7 +146,9 @@ class UploadQueue(
             .forEach { save(it.copy(state = UploadRecord.PAUSED, reason = reason)) }
     }
 
-    fun pending(): Boolean = records().any { it.state != UploadRecord.COMPLETED && it.state != UploadRecord.FAILED_PERMANENT }
+    fun pending(): Boolean =
+        records().any { it.state != UploadRecord.COMPLETED && it.state != UploadRecord.FAILED_PERMANENT } ||
+            kv.keys(DIAG_PREFIX).isNotEmpty()
 
     class RunResult(val retry: Boolean, val nextRetentionAtMs: Long?)
 
@@ -209,7 +216,10 @@ class UploadQueue(
                 retry = true
             }
         }
-        if (cfg != null && cfg.signedIn) retry = closeSessions(http, cfg) || retry
+        if (cfg != null && cfg.signedIn) {
+            retry = closeSessions(http, cfg) || retry
+            retry = sendDiagnostics(http, cfg) || retry
+        }
         return RunResult(retry, applyRetention(deleteTake))
     }
 
@@ -230,6 +240,20 @@ class UploadQueue(
             }
         }
         return retry
+    }
+
+    private fun sendDiagnostics(http: Http, cfg: UploadSettings): Boolean {
+        for (key in kv.keys(DIAG_PREFIX)) {
+            val body = kv.get(key)?.let { JSONObject(it).getString("body") } ?: continue
+            try {
+                UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens)
+                    .sendDiagnostic(body)
+                kv.delete(key)
+            } catch (e: UploadError) {
+                if (e.kind == UploadError.Kind.PERMANENT) kv.delete(key) else return true
+            }
+        }
+        return false
     }
 
     /**
@@ -265,6 +289,7 @@ class UploadQueue(
         private const val CONFIG = "upload.config"
         private const val JOB_PREFIX = "upload.job."
         private const val CLOSE_PREFIX = "upload.close."
+        private const val DIAG_PREFIX = "upload.diag."
         /** SecureStore keys are lower case; IDs are hex/ASCII so this stays unique in practice. */
         private fun jobKey(takeId: String) = JOB_PREFIX + takeId.lowercase()
         private fun closeKey(sid: String) = CLOSE_PREFIX + sid.lowercase()

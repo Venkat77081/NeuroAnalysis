@@ -238,10 +238,25 @@ export function takesToUpload(
 }
 
 /** PATCH /sessions/{id} body. */
+/**
+ * PATCH /sessions/{id} body: when it ended, why it ended early, and how each planned test ended
+ * (M9 audit). Reason codes only: free-text notes may hold patient details and stay on the phone.
+ */
 export function closeBody(ctx: SessionContext, endedAt: string): Record<string, unknown> {
   return {
     ended_at: ctx.endedAt ?? endedAt,
-    aborted: ctx.aborted ? { reason: ctx.aborted.reason, note: ctx.aborted.note } : null,
+    aborted: ctx.aborted ? { reason: ctx.aborted.reason } : null,
+    outcomes: ctx.plan.map((p, i) => {
+      const o = ctx.outcomes[i] ?? { status: 'pending' as const };
+      return {
+        test_code: p.code,
+        side: p.side,
+        status: o.status,
+        reason: o.status === 'kept' || o.status === 'skipped' ? o.reason : null,
+        client_take_id: 'takeId' in o ? o.takeId : null,
+        at: 'at' in o ? o.at : null,
+      };
+    }),
   };
 }
 

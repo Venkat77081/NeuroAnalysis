@@ -40,6 +40,7 @@ class CaptureKitPlugin : Plugin() {
         // Upload progress from the background worker reaches JS while the plugin is loaded.
         Services.uploadListener = { status -> notifyListeners("uploadProgress", JSObject(status.toString())) }
         watchThermal()
+        CrashReporter.install(uploads, PLUGIN_VERSION)
         io.execute {
             playbackDir().deleteRecursively() // decrypted playback copies never survive a restart
             recovered = try { vault.recover() } catch (_: Exception) { emptyList() }
@@ -490,6 +491,21 @@ class CaptureKitPlugin : Plugin() {
                 call.resolve()
             } catch (e: Exception) {
                 call.reject("enqueueUpload failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun enqueueDiagnostic(call: PluginCall) {
+        val body = call.getString("body") ?: return call.reject("body required")
+        io.execute {
+            try {
+                org.json.JSONObject(body)
+                uploads.enqueueDiagnostic(body)
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("enqueueDiagnostic failed: ${e.javaClass.simpleName}")
             }
         }
     }

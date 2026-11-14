@@ -320,6 +320,12 @@ export interface CaptureKitPlugin {
   }): Promise<void>;
   /** PATCH /sessions/{id} once the session's takes are queued (ended_at, aborted). */
   enqueueSessionClose(opts: { clientSessionId: string; body: string }): Promise<void>;
+  /**
+   * M9: queue a PII-safe diagnostic (crash report JSON, already redacted by the caller) for
+   * POST /diagnostics. Kept until the operator is signed in; native crashes are queued by the
+   * plugin itself at the next start.
+   */
+  enqueueDiagnostic(opts: { body: string }): Promise<void>;
   getUploadStatus(opts: { takeId: string }): Promise<UploadStatus>;
   listUploads(): Promise<{ uploads: UploadStatus[] }>;
   /** Retry failed uploads now (operator action on the Summary screen). */

@@ -433,11 +433,44 @@ export class MockCaptureKit implements CaptureKitPlugin {
     if (!this.camera) throw new Error('camera not open');
   }
 
+  private recovered: string[] = [];
+
+  /** Test helper: free storage reported to the app (§15 StorageLow). */
+  freeBytes = 64e9;
+
+  async getStorageStatus(): Promise<{ freeBytes: number; totalBytes: number }> {
+    return { freeBytes: this.freeBytes, totalBytes: 128e9 };
+  }
+
+  /** Test helper: the app goes to the background (or a call comes in) mid-recording. */
+  simulateBackground(): void {
+    if (this.recording) this.interrupt('app_backgrounded');
+  }
+
+  private interrupt(reason: string): void {
+    const rec = this.recording!;
+    this.sched.clearTimeout(rec.timer);
+    this.sched.clearInterval(rec.tick);
+    this.recording = null;
+    this.takeFrames = null;
+    this.recovered.push(rec.takeId); // partial kept encrypted, RetainedForRecovery
+    this.emit('recordingState', {
+      takeId: rec.takeId,
+      state: 'interrupted',
+      elapsedS: (this.sched.now() - rec.startedMs) / 1000,
+      reason,
+    });
+  }
+
   async startRecording(opts: {
     takeId: string;
     durationS: number;
+    minFreeBytes?: number;
+    stopBelowFreeBytes?: number;
   }): Promise<{ startedAtNs: string }> {
     if (!this.camera) throw new Error('camera not open');
+    if (opts.minFreeBytes !== undefined && this.freeBytes < opts.minFreeBytes)
+      throw Object.assign(new Error('storage low'), { code: 'STORAGE_LOW' });
     if (this.recording) throw new Error('already recording');
     if (!(opts.durationS > 0)) throw new Error('durationS must be > 0');
     if (this.takes.has(opts.takeId)) throw new Error('take already exists');
@@ -445,7 +478,12 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const startedMs = this.sched.now();
     // Mirrors the native contract: the plugin's own timer ends the take at durationS.
     const timer = this.sched.setTimeout(() => this.finish(false), opts.durationS * 1000);
+    const stopBelow = opts.stopBelowFreeBytes ?? 0;
     const tick = this.sched.setInterval(() => {
+      if (this.recording && this.freeBytes < stopBelow) {
+        this.interrupt('storage_low');
+        return;
+      }
       if (this.recording) {
         this.emit('recordingState', {
           takeId: opts.takeId,
@@ -576,7 +614,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     return {
       takes: [...this.takes].reverse().map((takeId) => ({
         takeId,
-        recovered: false,
+        recovered: this.recovered.includes(takeId),
         sizeBytes: 0,
         files: [
           'capture.json.enc',
@@ -625,7 +663,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
   }
 
   async getRecoveredTakes(): Promise<{ takeIds: string[] }> {
-    return { takeIds: [] };
+    return { takeIds: [...this.recovered] };
   }
 
   async calibrateSharpness(opts: {

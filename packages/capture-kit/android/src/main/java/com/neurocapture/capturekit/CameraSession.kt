@@ -87,6 +87,8 @@ class CameraSession(
         val mp4DurationS: Double?,
         val stoppedEarly: Boolean,
         val error: String?,
+        /** §15: 'storage_low' or 'app_backgrounded' when the take was cut short by the system. */
+        val interrupted: String? = null,
     )
 
     private val main = ContextCompat.getMainExecutor(activity)
@@ -132,6 +134,7 @@ class CameraSession(
     private var recordingTakeId: String? = null
     private var recordingFile: File? = null
     private var stoppedEarly = false
+    @Volatile private var interruptReason: String? = null
     private var recordStartElapsed = 0L
     private var onRecordingDone: ((Outcome) -> Unit)? = null
     private val stopRunnable = Runnable { stopRecording(early = false) }
@@ -564,7 +567,10 @@ class CameraSession(
 
     /** Starts recording to [file]; the native timer stops it after [durationS] (decision 002). */
     @SuppressLint("MissingPermission")
-    fun startRecording(takeId: String, file: File, durationS: Double, onDone: (Outcome) -> Unit, started: (String?) -> Unit) {
+    fun startRecording(
+        takeId: String, file: File, durationS: Double, onDone: (Outcome) -> Unit, started: (String?) -> Unit,
+        stopBelowFreeBytes: Long = 0,
+    ) {
         main.execute {
             val vc = videoCapture
             if (vc == null) return@execute started("camera not open")
@@ -579,6 +585,8 @@ class CameraSession(
             landmarkLog = lLog
             val fps = actualFps
             stoppedEarly = false
+            interruptReason = null
+            var lastSpaceCheckNs = 0L
             onRecordingDone = onDone
             recordingTakeId = takeId
             recordingFile = file
@@ -606,12 +614,27 @@ class CameraSession(
                             if (event.recordingStats.recordedDurationNanos >= targetNs && stopIssued.compareAndSet(false, true)) {
                                 stopRecording(early = false)
                             }
+                            // §15 StorageLow: check about once a second; stop gracefully and keep the partial.
+                            val t = SystemClock.elapsedRealtimeNanos()
+                            if (stopBelowFreeBytes > 0 && t - lastSpaceCheckNs > 1_000_000_000L) {
+                                lastSpaceCheckNs = t
+                                if ((file.parentFile?.usableSpace ?: Long.MAX_VALUE) < stopBelowFreeBytes &&
+                                    stopIssued.compareAndSet(false, true)
+                                ) interrupt("storage_low")
+                            }
                         }
                         is VideoRecordEvent.Finalize -> finalizeRecording(event, takeId, file, log, sLog, lLog, durationS, fps)
                         else -> Unit
                     }
                 }
         }
+    }
+
+    /** Ends the take now because of the system (§15); the partial is encrypted and kept for recovery. */
+    fun interrupt(reason: String) {
+        if (recording == null) return
+        interruptReason = reason
+        stopRecording(early = true)
     }
 
     fun stopRecording(early: Boolean) {
@@ -648,7 +671,8 @@ class CameraSession(
             }
         }
         val landmarks = synchronized(lLog) { ArrayList(lLog) }
-        val outcome = Outcome(takeId, file, log, sLog, landmarks, requestedS, fps, frames, durationS, stoppedEarly, error)
+        val outcome = Outcome(takeId, file, log, sLog, landmarks, requestedS, fps, frames, durationS, stoppedEarly, error, interruptReason)
+        interruptReason = null
         recording = null
         recordingTakeId = null
         recordingFile = null

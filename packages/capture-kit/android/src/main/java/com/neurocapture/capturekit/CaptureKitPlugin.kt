@@ -118,6 +118,10 @@ class CaptureKitPlugin : Plugin() {
         if (durationS <= 0 || durationS > 600) return call.reject("durationS out of range")
         val cfg = session.config ?: return call.reject("camera not open")
         if (vault.takeDir(takeId).exists()) return call.reject("take already exists")
+        // §15 StorageLow: block new takes below the configured free space.
+        val minFree = call.getDouble("minFreeBytes")?.toLong() ?: 0L
+        if (minFree > 0 && takesDir().apply { mkdirs() }.usableSpace < minFree) return call.reject("storage low", "STORAGE_LOW")
+        val stopBelow = call.getDouble("stopBelowFreeBytes")?.toLong() ?: 0L
         val video = File(vault.takeDir(takeId), "video.mp4") // plaintext only while recording; encrypted at stop
         session.startRecording(takeId, video, durationS, onDone = { outcome ->
             // Recording thread: no JS involved (DEV_PLAN §3).
@@ -136,7 +140,16 @@ class CaptureKitPlugin : Plugin() {
                     put("reason", "finalize failed: ${e.javaClass.simpleName}")
                 }) }
             }
-            if (result != null) {
+            if (result != null && outcome.interrupted != null) {
+                // Interrupted by the system: encrypted partial kept as RetainedForRecovery.
+                try { File(vault.takeDir(takeId), TakeVault.RECOVERY_MARKER).writeText("RetainedForRecovery\n") } catch (_: Exception) {}
+                recovered = recovered + takeId
+                notifyListeners("recordingState", JSObject().apply {
+                    put("takeId", takeId); put("state", "interrupted")
+                    put("elapsedS", result.getDouble("durationS")); put("reason", outcome.interrupted)
+                })
+                pendingStop?.reject("interrupted: ${outcome.interrupted}")
+            } else if (result != null) {
                 val error = outcome.error
                 // Learn the stop lead from this take's measured duration error (decision 010).
                 if (error == null && !outcome.stoppedEarly) session.learnStopLead(result.getDouble("durationErrorMs"))
@@ -152,7 +165,7 @@ class CaptureKitPlugin : Plugin() {
                 pendingStop?.reject("finalize failed")
             }
             pendingStop = null
-        }, started = { err ->
+        }, stopBelowFreeBytes = stopBelow, started = { err ->
             if (err != null) {
                 call.reject(err)
             } else {
@@ -502,6 +515,18 @@ class CaptureKitPlugin : Plugin() {
     @PluginMethod
     fun retryUploads(call: PluginCall) {
         io.execute { uploads.retry(); Services.kickUploads(context); call.resolve() }
+    }
+
+    @PluginMethod
+    fun getStorageStatus(call: PluginCall) {
+        val dir = takesDir().apply { mkdirs() }
+        call.resolve(JSObject().apply { put("freeBytes", dir.usableSpace); put("totalBytes", dir.totalSpace) })
+    }
+
+    /** §15 AppBackgrounded (also an incoming call taking the screen): stop now, take = Interrupted. */
+    override fun handleOnPause() {
+        if (::session.isInitialized && session.isRecording) session.interrupt("app_backgrounded")
+        super.handleOnPause()
     }
 
     private fun debuggable() =

@@ -369,3 +369,52 @@ describe('MockCaptureKit replay landmarks', () => {
     vi.useRealTimers();
   });
 });
+
+describe('§15 recording interruptions (mock)', () => {
+  const open = async () => {
+    const kit = new MockCaptureKit({
+      fixture: sampleFixtures['ft-r-sample'],
+      scheduler: scaledScheduler(1000),
+    });
+    await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: [],
+      analysisFps: 30,
+    });
+    const events: { state: string; reason?: string }[] = [];
+    await kit.addListener('recordingState', (e) => events.push(e));
+    return { kit, events };
+  };
+
+  it('refuses to start below the free-space limit and stops gracefully when space runs out', async () => {
+    const { kit, events } = await open();
+    kit.freeBytes = 1e9;
+    await expect(
+      kit.startRecording({ takeId: 'low', durationS: 5, minFreeBytes: 2e9 }),
+    ).rejects.toMatchObject({ code: 'STORAGE_LOW' });
+    expect((await kit.getStorageStatus()).freeBytes).toBe(1e9);
+    kit.freeBytes = 3e9;
+    await kit.startRecording({
+      takeId: 'r1',
+      durationS: 5,
+      minFreeBytes: 2e9,
+      stopBelowFreeBytes: 5e8,
+    });
+    kit.freeBytes = 1e8;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(events.at(-1)).toMatchObject({ state: 'interrupted', reason: 'storage_low' });
+    expect((await kit.getRecoveredTakes()).takeIds).toEqual(['r1']);
+  });
+
+  it('an app switch or incoming call mid-recording interrupts the take', async () => {
+    const { kit, events } = await open();
+    await kit.startRecording({ takeId: 'bg', durationS: 5 });
+    kit.simulateBackground();
+    expect(events.at(-1)).toMatchObject({ state: 'interrupted', reason: 'app_backgrounded' });
+    expect((await kit.listTakes()).takes.find((t) => t.takeId === 'bg')?.recovered).toBe(true);
+    await kit.startRecording({ takeId: 'bg2', durationS: 1 }); // camera still usable
+  });
+});

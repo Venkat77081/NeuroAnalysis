@@ -104,8 +104,12 @@ class TakeVault(private val root: File, private val master: Aead) {
                     f.name in PLAINTEXT_NAMES -> {
                         try {
                             encryptFile(dir.name, f, f.name)
+                            File(dir, ENCRYPT_PENDING).delete()
                         } catch (_: Exception) {
-                            f.delete() // cannot encrypt (e.g. key lost): never keep plaintext
+                            // §15 EncryptionFailure: keep the plaintext in app-private storage and retry
+                            // at the next start. Uploads only ever read `.enc` files.
+                            File(dir, "${f.name}.enc").delete() // drop a half-written ciphertext
+                            File(dir, ENCRYPT_PENDING).writeText("EncryptionPending\n")
                         }
                         touched = true
                     }
@@ -124,5 +128,6 @@ class TakeVault(private val root: File, private val master: Aead) {
         val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         val PLAINTEXT_NAMES = setOf("video.mp4", "frames.bin", "sensors.bin", "landmarks.bin", "quality.json", "meta.json", "capture.json")
         const val RECOVERY_MARKER = "RECOVERED"
+        const val ENCRYPT_PENDING = "ENCRYPT_PENDING"
     }
 }

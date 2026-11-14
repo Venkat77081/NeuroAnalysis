@@ -213,6 +213,7 @@ export interface RecordingStateEvent {
   elapsedS: number;
   /** Present when state is 'completed' (timer reached durationS, or stopped early). */
   result?: RecordingResult;
+  /** For 'interrupted': 'storage_low' | 'app_backgrounded' (§15); the partial take is kept encrypted. */
   reason?: string;
 }
 
@@ -247,7 +248,16 @@ export interface CaptureKitPlugin {
   ): Promise<{ previewTransform: PreviewTransform; actualFps: number }>;
   lockCameraSettings(opts: { ae: boolean; af: boolean; awb: boolean }): Promise<void>;
   /** The native side stops recording at durationS on its own timer, independent of JS (decision 002). */
-  startRecording(opts: { takeId: string; durationS: number }): Promise<{ startedAtNs: string }>;
+  startRecording(opts: {
+    takeId: string;
+    durationS: number;
+    /** §15: refuse to start (code STORAGE_LOW) with less free space than this. */
+    minFreeBytes?: number;
+    /** §15: stop gracefully (interrupted, reason storage_low) when free space falls below this. */
+    stopBelowFreeBytes?: number;
+  }): Promise<{ startedAtNs: string }>;
+  /** Free space where takes are stored (§15 StorageLow). */
+  getStorageStatus(): Promise<{ freeBytes: number; totalBytes: number }>;
   /** Early stop by the operator. */
   stopRecording(): Promise<RecordingResult>;
   closeCamera(): Promise<void>;

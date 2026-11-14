@@ -4,7 +4,7 @@ import type {
   RecordingResult,
 } from '@neurocapture/capture-kit';
 import type { QualityReport, TakeMeta, TestConfig } from '@neurocapture/contracts-ts';
-import { QUALITY_CORE_VERSION } from '@neurocapture/quality-core';
+import { QUALITY_CORE_VERSION, evaluationFields } from '@neurocapture/quality-core';
 import type { SessionContext } from '../session/machine.ts';
 import type { FinishedTake } from './take-analysis.ts';
 
@@ -71,19 +71,6 @@ export function buildMeta(args: {
 }
 
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
-const win = (w: { tStartS: number; tEndS: number }) => ({
-  tStartS: r3(w.tStartS),
-  tEndS: r3(w.tEndS),
-});
-
-/** SAW detector events → quality.json phase names (contracts/quality.schema.json). */
-const PHASES: Record<string, NonNullable<QualityReport['phasesDetected']>[number]> = {
-  stand_up: 'standing',
-  walk_out: 'walk_out',
-  turn: 'turn',
-  walk_back: 'walk_back',
-  sit_down: 'seated_end',
-};
 
 /**
  * quality.json for a take (DEV_PLAN §12.3): capture facts, the detector's movement evidence,
@@ -101,18 +88,6 @@ export function buildQuality(args: {
 }): QualityReport {
   const { ctx, cfg, result, take } = args;
   const step = ctx.plan[ctx.index]!;
-  const a = take.analysis;
-  const phases =
-    take.detector.detector === 'saw_phases'
-      ? [
-          'seated' as const,
-          ...[
-            ...new Set(
-              take.detector.events.map((e) => PHASES[e.kind]).filter((p) => p !== undefined),
-            ),
-          ],
-        ]
-      : undefined;
   return {
     schemaVersion: '1.0.0',
     configVersion: cfg.configVersion,
@@ -128,26 +103,10 @@ export function buildQuality(args: {
     fpsEffective: r3(result.effectiveFps),
     droppedFrames: result.droppedFrames,
     droppedFrac: r3(result.droppedFrac),
-    eventsDetected: take.detector.events.length,
-    ...(phases ? { phasesDetected: phases } : {}),
-    landmarkVisibleFrac: r3(a.landmarkVisibleFrac),
-    sharpnessMedian: a.sharpnessMedian === null ? null : r3(a.sharpnessMedian),
+    ...evaluationFields(take),
     sharpnessBaseline: args.sharpnessBaseline,
-    brightnessMedian: a.brightnessMedian === null ? null : r3(a.brightnessMedian),
-    movementWindow: a.movementWindow ? win(a.movementWindow) : null,
-    events: take.events.map((e) => ({ ...win(e), ruleId: e.ruleId, severity: e.severity })),
-    unknownWindows: take.unknownWindows.map(win),
-    captureVerdict: take.verdict.verdict,
-    captureReasons: take.verdict.reasons.map((r) => ({
-      code: r.code,
-      messageKey: r.messageKey,
-      ...(r.params ? { params: r.params } : {}),
-    })),
     override: null,
     flaggedForReview: false,
-    biomarkerReadinessHint: take.readiness
-      ? { registryVersion: take.readiness.registryVersion, ...take.readiness.items }
-      : { registryVersion: 'REG@0.0.0' },
     replayInputs: take.replayInputs,
   } as QualityReport;
 }

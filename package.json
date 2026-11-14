@@ -18,6 +18,7 @@
     "test": "pnpm -r test",
     "build:web": "pnpm --filter @neurocapture/mobile build",
     "e2e": "pnpm --filter @neurocapture/mobile e2e",
+    "replay": "pnpm --filter @neurocapture/replay replay",
     "models": "node tools/models/fetch-models.mjs"
   },
   "devDependencies": {

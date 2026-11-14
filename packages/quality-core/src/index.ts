@@ -92,3 +92,4 @@ export {
   type RecordedTakeEvaluation,
   type RecordedTakeInput,
 } from './verdict/recorded.ts';
+export { evaluationFields, type EvaluationFields } from './verdict/report.ts';

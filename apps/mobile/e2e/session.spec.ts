@@ -143,3 +143,19 @@ test('M3: go back to a previous test, keep its result, then end the session earl
   await expect(page.getByTestId('aborted')).toContainText('Session ended early: Patient unwell');
   await expect(page.getByTestId('summary-rows')).toContainText('Not done');
 });
+
+test('M3: tests other than SAW can switch between landscape and portrait', async ({ page }) => {
+  await startSession(page);
+  await page.getByTestId('set-up-camera').click();
+  const outline = page.getByTestId('outline');
+  await expect(outline).toHaveAttribute('viewBox', '0 0 844 390'); // FT default: landscape
+  await page.getByTestId('orientation-toggle').click();
+  await expect(outline).toHaveAttribute('viewBox', '0 0 390 844');
+  await expect(page.getByTestId('guide-refit')).toBeAttached();
+  await recordTake(page);
+  await page.getByTestId('accept').click();
+  // The choice is remembered for FT on this device.
+  await page.getByTestId('prev-test').getByRole('button').click();
+  await page.getByTestId('set-up-camera').click();
+  await expect(page.getByTestId('outline')).toHaveAttribute('viewBox', '0 0 390 844');
+});

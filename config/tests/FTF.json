@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FTF@2.0.0",
+  "configVersion": "FTF@2.1.0",
   "code": "FTF",
   "name": "Finger-to-Finger",
   "biomarkers": [
@@ -33,6 +33,7 @@
     "fallbackFps": 30,
     "minEffectiveFps": 29.5,
     "orientation": "landscape",
+    "allowedOrientations": ["landscape", "portrait"],
     "lock": {
       "ae": true,
       "af": true,

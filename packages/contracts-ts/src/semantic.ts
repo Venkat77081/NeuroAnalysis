@@ -22,6 +22,13 @@ export function checkTestConfig(cfg: TestConfig, fileStem?: string): ValidationI
   if (cfg.framing.subjectSize.min >= cfg.framing.subjectSize.max) {
     issues.push({ path: '/framing/subjectSize', message: 'min must be less than max' });
   }
+  const allowed = cfg.camera.allowedOrientations;
+  if (allowed && !allowed.includes(cfg.camera.orientation)) {
+    issues.push({
+      path: '/camera/allowedOrientations',
+      message: `must include the default orientation "${cfg.camera.orientation}"`,
+    });
+  }
   if (cfg.camera.minEffectiveFps > cfg.camera.targetFps) {
     issues.push({ path: '/camera/minEffectiveFps', message: 'must not exceed targetFps' });
   }

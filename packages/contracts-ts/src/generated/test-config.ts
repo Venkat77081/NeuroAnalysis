@@ -40,6 +40,12 @@ export interface TestConfig {
     targetFps: 60 | 30;
     minEffectiveFps: number;
     orientation: 'portrait' | 'landscape';
+    /**
+     * Orientations the operator may choose on the camera screen (default: orientation only). Must include orientation.
+     *
+     * @minItems 1
+     */
+    allowedOrientations?: ['portrait' | 'landscape', ...('portrait' | 'landscape')[]];
     lock: {
       ae: boolean;
       af: boolean;

@@ -20,6 +20,8 @@ export function buildMeta(args: {
   implementation: Implementation;
   tier: TakeMeta['tier'];
   createdAt: string;
+  /** Orientation the operator chose (camera.allowedOrientations); defaults to the config's. */
+  orientation?: 'portrait' | 'landscape';
 }): TakeMeta {
   const { ctx, cfg, result, caps } = args;
   const step = ctx.plan[ctx.index]!;
@@ -56,7 +58,7 @@ export function buildMeta(args: {
       facing: cfg.camera.facing,
       resolution: cfg.camera.resolution,
       targetFps: result.actualFps,
-      orientation: cfg.camera.orientation,
+      orientation: args.orientation ?? cfg.camera.orientation,
     },
     medState: ctx.medState ?? 'NA',
     operatorId: ctx.operatorId,

@@ -261,7 +261,12 @@
       "mode": "{{res}} · {{fps}} fps · {{dur}} s take",
       "record": "Start recording",
       "interrupted": "The last take was interrupted. Record it again.",
-      "later": "Live positioning checks arrive in M5."
+      "later": "Live positioning checks arrive in M5.",
+      "switchOrientation": "Switch camera orientation",
+      "orientation": {
+        "portrait": "⟲ Portrait",
+        "landscape": "⟲ Landscape"
+      }
     },
     "recording": {
       "left": "{{s}} s left of {{total}} s",

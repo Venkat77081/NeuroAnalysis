@@ -47,4 +47,30 @@ describe('buildMeta', () => {
     expect(validate('meta', noCaps).issues).toEqual([]);
     expect(noCaps.tier).toBeNull();
   });
+
+  it('records the orientation the operator chose', () => {
+    const config = loadConfig();
+    const ctx = {
+      sessionId: 's-1',
+      operatorId: 'OP-07',
+      plan: [{ code: 'FT', side: null }],
+      index: 0,
+      medState: 'ON',
+    } as unknown as SessionContext;
+    const base = {
+      ctx,
+      cfg: config.tests.get('FT')!,
+      sessionConfigVersion: config.session.configVersion,
+      result: { takeId: 'tk-3', actualFps: 60 } as RecordingResult,
+      takeNo: 1,
+      caps: null,
+      implementation: 'mock' as const,
+      tier: null,
+      createdAt: '2026-11-14T10:00:00.000Z',
+    };
+    expect(buildMeta(base).camera.orientation).toBe('landscape');
+    const meta = buildMeta({ ...base, orientation: 'portrait' });
+    expect(meta.camera.orientation).toBe('portrait');
+    expect(validate('meta', meta).issues).toEqual([]);
+  });
 });

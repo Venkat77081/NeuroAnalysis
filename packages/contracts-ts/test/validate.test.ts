@@ -107,6 +107,15 @@ describe('semantic checks', () => {
     expect(paths).toContain('/framing/handednessMustMatchSide');
   });
 
+  it('flags allowed orientations that leave out the default', () => {
+    const bad: TestConfig = structuredClone(ft);
+    bad.camera.orientation = 'landscape';
+    bad.camera.allowedOrientations = ['portrait'];
+    expect(checkTestConfig(bad).map((i) => i.path)).toContain('/camera/allowedOrientations');
+    bad.camera.allowedOrientations = ['portrait', 'landscape'];
+    expect(checkTestConfig(bad).map((i) => i.path)).not.toContain('/camera/allowedOrientations');
+  });
+
   it('flags unknown tests and wrong sides in the session order', () => {
     const sidedFt: TestConfig = { ...structuredClone(ft), sides: ['R', 'L'] };
     const tests = new Map([

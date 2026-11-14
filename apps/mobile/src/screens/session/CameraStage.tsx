@@ -14,6 +14,7 @@ import { useSession } from '../../session/useSession.ts';
 import { Outline, type OverlayKind } from '../../overlays/Outline.tsx';
 import { LandmarkOverlay } from '../../overlays/LandmarkOverlay.tsx';
 import { landmarkOverlayEnabled } from '../../lib/debug-flags.ts';
+import { preferredOrientation, rememberOrientation } from '../../lib/orientation-pref.ts';
 import type { PreviewTransform } from '@neurocapture/capture-kit';
 import { BackButton } from '../../ui/kit.tsx';
 import { stepTitle } from './TestIntro.tsx';
@@ -42,11 +43,16 @@ export function CameraStage() {
   const [fps, setFps] = useState<number>(cfg.camera.targetFps);
   const [transform, setTransform] = useState<PreviewTransform | null>(null);
   const [debugLandmarks] = useState(landmarkOverlayEnabled);
+  // Operator may switch portrait/landscape where the test allows it (config allowedOrientations).
+  const allowed = cfg.camera.allowedOrientations ?? [cfg.camera.orientation];
+  const [orientation, setOrientation] = useState(() =>
+    preferredOrientation(step.code, allowed, cfg.camera.orientation),
+  );
 
   // Latest values for native event callbacks (updated after each render).
-  const live = useRef({ ctx, cfg, app, send });
+  const live = useRef({ ctx, cfg, app, send, orientation });
   useEffect(() => {
-    live.current = { ctx, cfg, app, send };
+    live.current = { ctx, cfg, app, send, orientation };
   });
 
   // Camera lifetime = this screen.
@@ -58,7 +64,7 @@ export function CameraStage() {
         resolution: cfg.camera.resolution,
         targetFps: cfg.camera.targetFps,
         fallbackFps: cfg.camera.fallbackFps,
-        orientation: cfg.camera.orientation,
+        orientation,
         trackers: cfg.trackers,
         analysisFps: cfg.analysis.fps,
       })
@@ -73,12 +79,12 @@ export function CameraStage() {
       document.documentElement.classList.remove('camera-active');
       void camera.close().catch(() => undefined);
     };
-  }, [cfg]);
+  }, [cfg, orientation]);
 
   // Completion of the current take → verdict, meta.json, TAKE_FINISHED (registered once).
   useEffect(() => {
     async function finish(result: NonNullable<RecordingStateEvent['result']>) {
-      const { ctx: c, cfg: tc, app: a, send: s } = live.current;
+      const { ctx: c, cfg: tc, app: a, send: s, orientation: o } = live.current;
       const v = captureVerdict(
         { ...result, error: null },
         {
@@ -98,6 +104,7 @@ export function CameraStage() {
           implementation: capture.implementation,
           tier: loadQualification()?.assessment.tier ?? null,
           createdAt: new Date().toISOString(),
+          orientation: o,
         });
         await capture.kit.writeEvidence({
           takeId: result.takeId,
@@ -139,7 +146,7 @@ export function CameraStage() {
   }, [phase, ctx.currentTakeId, cfg, send]);
 
   const overlay = cfg.framing.overlay as OverlayKind;
-  const landscape = cfg.camera.orientation === 'landscape';
+  const landscape = orientation === 'landscape';
   const L = landscape ? LANDSCAPE : PORTRAIT;
 
   return (
@@ -150,7 +157,13 @@ export function CameraStage() {
       )}
       {/* White = a fixed guide only. Green is reserved for "positioning checks passed" (M5); nothing checks the image yet. */}
       <div className={L.guide}>
-        <Outline kind={overlay} color="#FFFFFF" dashed={phase === 'framing'} side={step.side} />
+        <Outline
+          kind={overlay}
+          color="#FFFFFF"
+          dashed={phase === 'framing'}
+          side={step.side}
+          orientation={orientation}
+        />
       </div>
       {debugLandmarks && <LandmarkOverlay transform={transform} />}
 
@@ -164,6 +177,23 @@ export function CameraStage() {
               label={t('common.back')}
             />
           </span>
+        )}
+        {phase === 'framing' && allowed.length > 1 && (
+          <button
+            type="button"
+            onClick={() => {
+              const next = orientation === 'portrait' ? 'landscape' : 'portrait';
+              rememberOrientation(step.code, next);
+              setOrientation(next);
+            }}
+            className="ml-auto rounded-full bg-[#0E1116] px-3 py-2 text-[13px] font-semibold"
+            aria-label={t('session.framing.switchOrientation')}
+            data-testid="orientation-toggle"
+          >
+            {t(
+              `session.framing.orientation.${orientation === 'portrait' ? 'landscape' : 'portrait'}`,
+            )}
+          </button>
         )}
         <div className={L.title}>
           <span className="text-sm font-semibold">{stepTitle(t, step.code, step.side)}</span>

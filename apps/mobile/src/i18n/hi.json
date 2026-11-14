@@ -261,7 +261,12 @@
       "mode": "{{res}} · {{fps}} fps · {{dur}} s टेक",
       "record": "रिकॉर्डिंग शुरू करें",
       "interrupted": "पिछला टेक बाधित हुआ। फिर से रिकॉर्ड करें।",
-      "later": "लाइव पोज़िशन जाँच M5 में आएगी।"
+      "later": "लाइव पोज़िशन जाँच M5 में आएगी।",
+      "switchOrientation": "कैमरा ओरिएंटेशन बदलें",
+      "orientation": {
+        "portrait": "⟲ पोर्ट्रेट",
+        "landscape": "⟲ लैंडस्केप"
+      }
     },
     "recording": {
       "left": "{{total}} s में से {{s}} s बाकी",

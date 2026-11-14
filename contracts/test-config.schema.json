@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://neurocapture.local/contracts/test-config.schema.json",
   "title": "TestConfig",
-  "description": "Protocol, thresholds and UI references for one examination (DEV_PLAN §8). Schema version 1.0.0.",
+  "description": "Protocol, thresholds and UI references for one examination (DEV_PLAN \u00a78). Schema version 1.0.0.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -94,6 +94,15 @@
         },
         "orientation": {
           "enum": ["portrait", "landscape"]
+        },
+        "allowedOrientations": {
+          "description": "Orientations the operator may choose on the camera screen (default: orientation only). Must include orientation.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["portrait", "landscape"]
+          }
         },
         "lock": {
           "type": "object",

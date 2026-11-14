@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FR@2.0.0",
+  "configVersion": "FR@2.1.0",
   "code": "FR",
   "name": "Forearm Roll",
   "biomarkers": [
@@ -27,6 +27,7 @@
     "fallbackFps": 30,
     "minEffectiveFps": 29.5,
     "orientation": "landscape",
+    "allowedOrientations": ["landscape", "portrait"],
     "lock": {
       "ae": true,
       "af": true,

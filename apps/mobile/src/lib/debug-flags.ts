@@ -50,12 +50,12 @@ export function setSharpnessBaseline(v: number | null): void {
   set(BASELINE, v === null ? null : String(v));
 }
 
-export type TrackerDelegate = 'auto' | 'gpu' | 'cpu';
+export type TrackerDelegate = 'auto' | 'gpu' | 'cpu' | 'mixed';
 
 /** MediaPipe delegate chosen for this device in the Tracking test (decision 016). */
 export function trackerDelegate(): TrackerDelegate {
   const v = get(DELEGATE);
-  return v === 'gpu' || v === 'cpu' ? v : 'auto';
+  return v === 'gpu' || v === 'cpu' || v === 'mixed' ? v : 'auto';
 }
 
 export function setTrackerDelegate(v: TrackerDelegate): void {

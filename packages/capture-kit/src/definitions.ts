@@ -64,7 +64,7 @@ export interface OpenCameraOpts {
   fallbackFps?: 30;
   /** Engineering only: sleep this long in every analysis frame (M2 isolation test). */
   /** MediaPipe delegate: 'auto' (GPU, CPU on failure, default), 'gpu' or 'cpu' (decision 016). */
-  trackerDelegate?: 'auto' | 'gpu' | 'cpu';
+  trackerDelegate?: 'auto' | 'gpu' | 'cpu' | 'mixed';
   debugAnalysisDelayMs?: number;
 }
 
@@ -165,6 +165,8 @@ export interface AnalysisFrameEvent {
   /** Canonical time when native emitted the event (latency = JS receipt − tsNs, §5.5). */
   emitNs?: string;
   /** Native processing time for this frame (analysis + tracking), ms. */
+  /** Native preparation time before MediaPipe (stats, copy, grid), ms. */
+  prepMs?: number;
   procMs?: number;
 }
 

@@ -71,6 +71,10 @@ interface RunResult {
   gpu: boolean | null;
   /** M5: positioning checks + rule engine time per frame in this WebView, p95 (ms). */
   evalP95Ms: number;
+  /** Native preparation before MediaPipe, p95 (ms), and the analysis image size. */
+  prepP95Ms: number;
+  image: string;
+  delegate: TrackerDelegate;
 }
 
 /**
@@ -141,8 +145,12 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
       const engine = new GuidanceEngine(gateRules(qctx), config.quality);
       const sensorBuf = new SensorBuffer();
       const evalMs: number[] = [];
+      const prepMs: number[] = [];
+      let image = '';
       handle = await capture.kit.addListener('analysisFrame', (e: AnalysisFrameEvent) => {
         const t0 = performance.now();
+        if (e.prepMs !== undefined) prepMs.push(e.prepMs);
+        image = `${e.imageW}×${e.imageH}`;
         const frame = decodeAnalysisFrame(e);
         engine.push(evaluateFrame(frame, sensorBuf, qctx));
         engine.update(frame.tNs);
@@ -189,6 +197,9 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
         take,
         gpu: caps?.gpuDelegate ?? null,
         evalP95Ms: percentile(evalMs, 95),
+        prepP95Ms: percentile(prepMs, 95),
+        image,
+        delegate,
       };
       setResults((rs) => [r, ...rs]);
       logger.info('m4 tracking test', { code, record, ...r.summary });
@@ -306,6 +317,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
             <option value="auto">{t('trackingTest.delegateAuto')}</option>
             <option value="gpu">GPU</option>
             <option value="cpu">CPU</option>
+            <option value="mixed">{t('trackingTest.delegateMixed')}</option>
           </select>
         </label>
         <label className="flex items-center gap-2 text-sm">
@@ -395,6 +407,13 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
                 proc: r.summary.procP95Ms.toFixed(0),
                 err: r.summary.errorFrames,
                 gpu: r.gpu === null ? '?' : r.gpu ? 'GPU' : 'CPU',
+              })}
+            </span>
+            <span className="text-muted" data-testid="prep">
+              {t('trackingTest.prep', {
+                image: r.image || '?',
+                prep: Number.isFinite(r.prepP95Ms) ? r.prepP95Ms.toFixed(0) : '–',
+                delegate: r.delegate,
               })}
             </span>
             <span data-testid="eval-p95">

@@ -425,6 +425,8 @@
     "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}",
     "eval": "गुणवत्ता जाँच p95 {{ms}} ms (≤ {{limit}}) · M5",
     "delegate": "ट्रैकर (MediaPipe डेलिगेट)",
-    "delegateAuto": "स्वतः (GPU, विफल हो तो CPU)"
+    "delegateAuto": "स्वतः (GPU, विफल हो तो CPU)",
+    "delegateMixed": "मिश्रित (पोज़ CPU, हाथ/चेहरा GPU)",
+    "prep": "इमेज {{image}} · तैयारी p95 {{prep}} ms · सेटिंग {{delegate}}"
   }
 }

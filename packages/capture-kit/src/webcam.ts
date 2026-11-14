@@ -87,7 +87,7 @@ export class WebcamCaptureKit extends MockCaptureKit {
     const forced = this.opened?.trackerDelegate;
     const make = async <T>(create: (delegate: 'GPU' | 'CPU') => Promise<T>): Promise<T> => {
       if (forced === 'cpu') return create('CPU');
-      if (forced === 'gpu') return create('GPU');
+      if (forced === 'gpu' || forced === 'mixed') return create('GPU');
       try {
         return await create('GPU');
       } catch {

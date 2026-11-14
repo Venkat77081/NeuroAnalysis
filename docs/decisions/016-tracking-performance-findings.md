@@ -26,6 +26,20 @@ gate never opened ("Tracking…").
   GPU, which also drives the 60 fps preview and the video encoder.
 - Removed a 1.6 MB per-frame allocation on the analysis thread.
 
+## Second run (FT, hand + pose)
+
+| Delegate | Analysis fps | Latency p95 | Processing p95 | Dropped tracker results |
+| -------- | ------------ | ----------- | -------------- | ----------------------- |
+| GPU      | 10.3         | 184 ms      | 107 ms         | 0                       |
+| CPU      | 20.8         | 423 ms      | 355 ms         | 149 of 328 frames       |
+
+CPU keeps up with the rate but MediaPipe queues frames (latency grows, busy trackers drop).
+Changes: at most **one frame in flight** (frames are skipped while the trackers are busy, so
+latency ≈ inference time and no tracker drops a frame); a **mixed** delegate (pose on CPU, hands
+and face on GPU, in parallel); the face light grid is one native scale instead of 3600
+`getPixel` calls; events carry `prepMs` (work before MediaPipe) and the Tracking test shows it
+with the analysis image size.
+
 ## Open
 
 M4 performance (≥ 20 fps, ≤ 80 ms) stays open until CPU vs GPU is measured on the phone.

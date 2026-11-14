@@ -425,6 +425,8 @@
     "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}",
     "eval": "quality evaluation p95 {{ms}} ms (≤ {{limit}}) · M5",
     "delegate": "Tracker (MediaPipe delegate)",
-    "delegateAuto": "Auto (GPU, CPU if GPU fails)"
+    "delegateAuto": "Auto (GPU, CPU if GPU fails)",
+    "delegateMixed": "Mixed (pose CPU, hands/face GPU)",
+    "prep": "image {{image}} · preparation p95 {{prep}} ms · setting {{delegate}}"
   }
 }

@@ -330,6 +330,8 @@ class CameraSession(
         val gw: Int,
         val gh: Int,
         val startNs: Long,
+        /** Analysis start → submit to MediaPipe (stats, copy, grid). */
+        val prepNs: Long = 0,
     )
 
     private val pendingFrames = java.util.concurrent.ConcurrentHashMap<Long, FrameInfo>()
@@ -346,6 +348,8 @@ class CameraSession(
             val ts = image.imageInfo.timestamp
             val minGap = 1_000_000_000L / cfg.analysisFps * 9 / 10
             if (ts - lastAnalysisTs < minGap) return
+            // Tracker still busy with the previous frame: skip this one entirely (no queue).
+            if (tracking?.ready() == false) return
             lastAnalysisTs = ts
             val t0 = System.nanoTime()
             val plane = image.planes[0] // RGBA_8888, single plane
@@ -396,14 +400,15 @@ class CameraSession(
             // Small upright grid (≈ 80 px wide) for the face light-balance ratio.
             val gw = 80
             val gh = maxOf(1, uh * gw / maxOf(uw, 1))
+            // One native scale + copy instead of 3600 getPixel calls. ARGB_8888 bytes are RGBA.
+            val small = android.graphics.Bitmap.createScaledBitmap(bmp, gw, gh, false)
             val grid = java.nio.ByteBuffer.allocate(gw * gh * 4)
-            for (gy in 0 until gh) for (gx in 0 until gw) {
-                val c = bmp.getPixel(gx * uw / gw, gy * uh / gh)
-                grid.put((c shr 16 and 0xFF).toByte()).put((c shr 8 and 0xFF).toByte()).put((c and 0xFF).toByte()).put(255.toByte())
-            }
+            small.copyPixelsToBuffer(grid)
+            small.recycle()
+            grid.rewind()
             // MediaPipe live stream needs strictly increasing millisecond timestamps.
             val frameMs = maxOf(canonical / 1_000_000L, lastFrameMs + 1).also { lastFrameMs = it }
-            pendingFrames[frameMs] = FrameInfo(seq, canonical, uw, uh, stats, grid, gw, gh, t0)
+            pendingFrames[frameMs] = FrameInfo(seq, canonical, uw, uh, stats, grid, gw, gh, t0, System.nanoTime() - t0)
             if (pendingFrames.size > 16) pendingFrames.keys.sorted().take(pendingFrames.size - 16).forEach { pendingFrames.remove(it) }
             tr.submit(bmp, 0, frameMs)
         } catch (e: Exception) {
@@ -510,6 +515,7 @@ class CameraSession(
             })
             put("emitNs", SystemClock.elapsedRealtimeNanos().toString())
             put("procMs", (System.nanoTime() - info.startNs) / 1e6)
+            put("prepMs", info.prepNs / 1e6)
         })
     }
 

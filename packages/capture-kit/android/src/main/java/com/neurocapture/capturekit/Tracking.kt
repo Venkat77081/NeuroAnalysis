@@ -52,7 +52,16 @@ class Tracking(
         private set
     private val errored = HashSet<String>()
 
+    // One frame in flight at a time: feeding MediaPipe faster than it finishes only builds a queue
+    // (latency grows, busy trackers drop frames). Decision 016.
+    @Volatile private var inFlightMs = -1L
+    @Volatile private var inFlightSinceNs = 0L
+
+    /** True when the previous frame's results are all back (or it is stuck for > 1 s). */
+    fun ready(): Boolean = inFlightMs < 0 || System.nanoTime() - inFlightSinceNs > 1_000_000_000L
+
     private val joiner = FrameJoiner<Any>(enabled) { ms, results ->
+        if (ms >= inFlightMs) inFlightMs = -1L
         // 0 off · 1 ok (found something) · 2 no_result (ran, found nothing) · 3 error (failed, or
         // the frame was dropped by a busy tracker: input unavailable → UNKNOWN in the checks).
         fun status(name: String): Int = when {
@@ -77,6 +86,8 @@ class Tracking(
         gpu = when (delegate) {
             "cpu" -> { create(context, Delegate.CPU); false }
             "gpu" -> { create(context, Delegate.GPU); true }
+            // Pose on CPU, hands and face on GPU: the two run in parallel on different hardware.
+            "mixed" -> { create(context, Delegate.GPU, poseDelegate = Delegate.CPU); true }
             else -> try {
                 create(context, Delegate.GPU)
                 true
@@ -91,7 +102,7 @@ class Tracking(
     private fun base(path: String, delegate: Delegate) =
         BaseOptions.builder().setModelAssetPath("mediapipe/$path").setDelegate(delegate).build()
 
-    private fun create(context: Context, delegate: Delegate) {
+    private fun create(context: Context, delegate: Delegate, poseDelegate: Delegate = delegate) {
         if ("hand" in enabled) {
             hand = HandLandmarker.createFromOptions(
                 context,
@@ -108,7 +119,7 @@ class Tracking(
             pose = PoseLandmarker.createFromOptions(
                 context,
                 PoseLandmarker.PoseLandmarkerOptions.builder()
-                    .setBaseOptions(base("pose_landmarker_lite.task", delegate))
+                    .setBaseOptions(base("pose_landmarker_lite.task", poseDelegate))
                     .setRunningMode(RunningMode.LIVE_STREAM)
                     .setNumPoses(2)
                     .setResultListener { r: PoseLandmarkerResult, _: MPImage -> joiner.offer(r.timestampMs(), "pose", r) }
@@ -143,6 +154,8 @@ class Tracking(
         val image = BitmapImageBuilder(bitmap).build()
         val opts = ImageProcessingOptions.builder().setRotationDegrees(rotationDegrees).build()
         synchronized(errored) { errored.clear() }
+        inFlightMs = frameMs
+        inFlightSinceNs = System.nanoTime()
         try { hand?.detectAsync(image, opts, frameMs) } catch (e: RuntimeException) { fail("hand", e); joiner.offer(frameMs, "hand", null) }
         try { pose?.detectAsync(image, opts, frameMs) } catch (e: RuntimeException) { fail("pose", e); joiner.offer(frameMs, "pose", null) }
         try { face?.detectAsync(image, opts, frameMs) } catch (e: RuntimeException) { fail("face", e); joiner.offer(frameMs, "face", null) }

@@ -92,7 +92,7 @@ class CaptureKitPlugin : Plugin() {
             fallbackFps = call.getInt("fallbackFps")?.takeIf { it == 30 },
             debugAnalysisDelayMs = (call.getInt("debugAnalysisDelayMs", 0)!!).coerceIn(0, 200),
             trackers = try { call.getArray("trackers")?.toList<String>() ?: emptyList() } catch (_: Exception) { emptyList() },
-            trackerDelegate = call.getString("trackerDelegate", "auto")!!.takeIf { it in setOf("auto", "gpu", "cpu") } ?: "auto",
+            trackerDelegate = call.getString("trackerDelegate", "auto")!!.takeIf { it in setOf("auto", "gpu", "cpu", "mixed") } ?: "auto",
         )
         session.open(cfg) { result, err -> if (err != null) call.reject(err) else call.resolve(result) }
     }

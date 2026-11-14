@@ -76,6 +76,17 @@
       "description": "Version of the consent text shown on Session home; saved with every session.",
       "type": "string",
       "pattern": "^CONSENT@[0-9]+\\.[0-9]+$"
+    },
+    "minFpsOptions": {
+      "description": "Frame-rate limits a doctor may choose in settings instead of each test's minEffectiveFps (decision 015).",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 60
+      }
     }
   },
   "$defs": {

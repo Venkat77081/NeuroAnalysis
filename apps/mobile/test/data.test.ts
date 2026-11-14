@@ -20,9 +20,9 @@ describe.each([
     expect(await r.loadSession()).toEqual({ value: 'setup' });
     await r.clearSession();
     expect(await r.loadSession()).toBeNull();
-    expect(await r.settings()).toEqual({ operatorId: 'OP-LOCAL', language: 'en' });
-    await r.saveSettings({ operatorId: 'OP-07', language: 'hi' });
-    expect(await r.settings()).toEqual({ operatorId: 'OP-07', language: 'hi' });
+    expect(await r.settings()).toEqual({ operatorId: 'OP-LOCAL', language: 'en', minFps: null });
+    await r.saveSettings({ operatorId: 'OP-07', language: 'hi', minFps: 55 });
+    expect(await r.settings()).toEqual({ operatorId: 'OP-07', language: 'hi', minFps: 55 });
     await r.archiveSession('S-AB', { passed: 7 });
     expect(await r.store.keys('sessiondone.')).toEqual(['sessiondone.s-ab']);
   });

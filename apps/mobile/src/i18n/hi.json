@@ -360,7 +360,10 @@
       "save": "सहेजें",
       "hint": "यह मेनू खोलने के लिए लोगो दबाकर रखें।",
       "landmarks": "Show landmark overlay (debug)",
-      "gateAdvisory": "पोज़िशनिंग गेट के बिना रिकॉर्ड (परीक्षण)"
+      "gateAdvisory": "पोज़िशनिंग गेट के बिना रिकॉर्ड (परीक्षण)",
+      "minFps": "इससे कम फ़्रेम रेट पर टेक फ़ेल करें",
+      "minFpsDefault": "परीक्षण डिफ़ॉल्ट ({{fps}} fps)",
+      "minFpsOption": "{{fps}} fps"
     },
     "abort": {
       "title": "सत्र पहले समाप्त करें?",

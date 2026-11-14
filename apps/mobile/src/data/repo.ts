@@ -6,9 +6,11 @@ const SESSION_KEY = 'session.current';
 export interface Settings {
   operatorId: string;
   language: 'en' | 'hi';
+  /** Doctor's frame-rate limit (fps) for the verdict; null = each test's config default. */
+  minFps: number | null;
 }
 
-export const defaultSettings: Settings = { operatorId: 'OP-LOCAL', language: 'en' };
+export const defaultSettings: Settings = { operatorId: 'OP-LOCAL', language: 'en', minFps: null };
 
 /** Patients, session snapshot and settings on top of an AppStore. */
 export function repo(store: AppStore) {

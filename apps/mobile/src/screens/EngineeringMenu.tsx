@@ -20,9 +20,11 @@ export function EngineeringMenu({
   onDeviceCheck: () => void;
 }) {
   const { t } = useTranslation();
-  const { settings, saveSettings } = useApp();
+  const { settings, saveSettings, config } = useApp();
   const [operatorId, setOperatorId] = useState(settings.operatorId);
   const [language, setLanguage] = useState(settings.language);
+  const [minFps, setMinFps] = useState<number | null>(settings.minFps);
+  const fpsOptions = config.session.minFpsOptions ?? [];
   const [landmarks, setLandmarks] = useState(landmarkOverlayEnabled);
   const [advisory, setAdvisory] = useState(gateAdvisory);
   const ok = /^[A-Za-z0-9-]{2,20}$/.test(operatorId);
@@ -49,10 +51,32 @@ export function EngineeringMenu({
           <option value="hi">हिन्दी</option>
         </select>
       </label>
+      {fpsOptions.length > 0 && (
+        <label className="flex flex-col gap-1 text-sm">
+          {t('session.engineering.minFps')}
+          <select
+            value={minFps ?? ''}
+            onChange={(e) => setMinFps(e.target.value === '' ? null : Number(e.target.value))}
+            className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px]"
+            data-testid="min-fps-select"
+          >
+            <option value="">
+              {t('session.engineering.minFpsDefault', {
+                fps: Math.min(...[...config.tests.values()].map((c) => c.camera.minEffectiveFps)),
+              })}
+            </option>
+            {fpsOptions.map((f) => (
+              <option key={f} value={f}>
+                {t('session.engineering.minFpsOption', { fps: f })}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <Button
         disabled={!ok}
         onClick={() => {
-          void saveSettings({ operatorId, language });
+          void saveSettings({ operatorId, language, minFps });
           onClose();
         }}
         data-testid="save-settings"

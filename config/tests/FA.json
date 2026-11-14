@@ -1,18 +1,17 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FA@1.4.0",
+  "configVersion": "FA@1.5.0",
   "code": "FA",
   "name": "Facial Activation",
   "biomarkers": "TBD",
   "sides": [],
-  "minTier": "B",
+  "minTier": "A",
   "trackers": ["face"],
   "camera": {
     "facing": "back",
     "resolution": "1080p",
     "targetFps": 60,
-    "fallbackFps": 30,
-    "minEffectiveFps": 29.5,
+    "minEffectiveFps": 59,
     "orientation": "portrait",
     "allowedOrientations": ["portrait", "landscape"],
     "lock": {

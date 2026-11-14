@@ -67,7 +67,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
     durationS: number;
   } | null>(null);
   const cfg = config.tests.get(code);
-  const minFps = cfg?.camera.minEffectiveFps ?? 29.5;
+  const minFps = cfg?.camera.minEffectiveFps ?? 59;
 
   // Make the page transparent while the camera is live so the native preview shows through.
   useEffect(() => {

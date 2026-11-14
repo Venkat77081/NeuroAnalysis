@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@2.0.0",
+  "configVersion": "SESSION@2.1.0",
   "order": [
     ["FT", null],
     ["FTF", null],
@@ -26,5 +26,6 @@
   ],
   "medStates": ["ON", "OFF", "NA"],
   "countdownS": 3,
-  "consentVersion": "CONSENT@1.0"
+  "consentVersion": "CONSENT@1.0",
+  "minFpsOptions": [59, 58, 57, 55, 50, 45, 40, 30]
 }

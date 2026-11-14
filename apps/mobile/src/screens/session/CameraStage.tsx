@@ -120,11 +120,13 @@ export function CameraStage() {
   useEffect(() => {
     async function finish(result: NonNullable<RecordingStateEvent['result']>) {
       const { ctx: c, cfg: tc, app: a, send: s, orientation: o } = live.current;
+      // Doctor's frame-rate limit from settings overrides the test default (decision 015).
+      const minFps = a.settings.minFps ?? tc.camera.minEffectiveFps;
       const v = captureVerdict(
         { ...result, error: null },
         {
           durationToleranceS: tc.verdict.durationToleranceS,
-          minEffectiveFps: tc.camera.minEffectiveFps,
+          minEffectiveFps: minFps,
           maxDroppedFrac: tc.verdict.maxDroppedFrac ?? null,
         },
       );
@@ -140,6 +142,7 @@ export function CameraStage() {
           tier: loadQualification()?.assessment.tier ?? null,
           createdAt: new Date().toISOString(),
           orientation: o,
+          minEffectiveFps: minFps,
         });
         await capture.kit.writeEvidence({
           takeId: result.takeId,

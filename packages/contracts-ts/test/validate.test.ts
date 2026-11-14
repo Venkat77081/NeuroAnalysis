@@ -30,12 +30,13 @@ describe('config files', () => {
     }
   });
 
-  it('uses the interim fps policy: RETAKE only below 29.5 fps, drops not enforced (decision 007)', () => {
+  it('records every test at 60 fps with no 30 fps fallback; below 59 fps fails (decision 015)', () => {
     for (const code of testCodes) {
       const cfg = read<TestConfig>(`config/tests/${code}.json`);
-      expect(cfg.camera.minEffectiveFps).toBe(29.5);
+      expect(cfg.camera.targetFps).toBe(60);
+      expect(cfg.camera.fallbackFps).toBeUndefined();
+      expect(cfg.camera.minEffectiveFps).toBe(59);
       expect(cfg.verdict.maxDroppedFrac).toBeNull();
-      expect(cfg.camera.fallbackFps).toBe(cfg.camera.targetFps === 60 ? 30 : undefined);
     }
   });
 

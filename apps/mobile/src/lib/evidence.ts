@@ -22,6 +22,8 @@ export function buildMeta(args: {
   createdAt: string;
   /** Orientation the operator chose (camera.allowedOrientations); defaults to the config's. */
   orientation?: 'portrait' | 'landscape';
+  /** Frame-rate limit used for the verdict (doctor's setting or config). */
+  minEffectiveFps?: number;
 }): TakeMeta {
   const { ctx, cfg, result, caps } = args;
   const step = ctx.plan[ctx.index]!;
@@ -59,6 +61,7 @@ export function buildMeta(args: {
       resolution: cfg.camera.resolution,
       targetFps: result.actualFps,
       orientation: args.orientation ?? cfg.camera.orientation,
+      minEffectiveFps: args.minEffectiveFps ?? cfg.camera.minEffectiveFps,
     },
     medState: ctx.medState ?? 'NA',
     operatorId: ctx.operatorId,

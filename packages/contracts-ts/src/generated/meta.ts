@@ -43,6 +43,10 @@ export interface TakeMeta {
     resolution: '1080p' | '720p';
     targetFps: 60 | 30;
     orientation: 'portrait' | 'landscape';
+    /**
+     * Frame-rate limit used for this take's verdict (config default or the doctor's setting).
+     */
+    minEffectiveFps?: number;
   };
   medState: 'ON' | 'OFF' | 'NA';
   operatorId: string;

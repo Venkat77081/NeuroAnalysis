@@ -41,4 +41,10 @@ export interface SessionConfig {
    * Version of the consent text shown on Session home; saved with every session.
    */
   consentVersion: string;
+  /**
+   * Frame-rate limits a doctor may choose in settings instead of each test's minEffectiveFps (decision 015).
+   *
+   * @minItems 1
+   */
+  minFpsOptions?: [number, ...number[]];
 }

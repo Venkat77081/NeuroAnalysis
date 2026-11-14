@@ -320,7 +320,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
           ? allPass(
               checkTake(
                 r.take,
-                config.tests.get(r.code as typeof code)?.camera.minEffectiveFps ?? 29.5,
+                config.tests.get(r.code as typeof code)?.camera.minEffectiveFps ?? 59,
               ),
             )
           : null;

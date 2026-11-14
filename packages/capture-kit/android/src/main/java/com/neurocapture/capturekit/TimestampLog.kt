@@ -1,15 +1,8 @@
 package com.neurocapture.capturekit
 
-import java.io.BufferedOutputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-
 /**
  * Per-frame timestamps of the capture session while recording (DEV_PLAN §5.6).
- * frames.bin layout (M1, little-endian): repeated { int64 frameNumber, int64 sensorTsNs, int64 canonicalTsNs }.
- * M2 adds the header/contract and encryption.
+ * Written as frames.bin by [StreamFormat] (contracts/stream-header.schema.json).
  */
 class TimestampLog(initial: Int = 4096) {
     private var frameNumbers = LongArray(initial)
@@ -36,15 +29,8 @@ class TimestampLog(initial: Int = 4096) {
     fun sensorSnapshot(): LongArray = sensor.copyOf(size)
 
     @Synchronized
-    fun writeTo(file: File) {
-        file.parentFile?.mkdirs()
-        BufferedOutputStream(FileOutputStream(file)).use { out ->
-            val buf = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN)
-            for (i in 0 until size) {
-                buf.clear()
-                buf.putLong(frameNumbers[i]).putLong(sensor[i]).putLong(canonical[i])
-                out.write(buf.array())
-            }
-        }
-    }
+    fun canonicalSnapshot(): LongArray = canonical.copyOf(size)
+
+    @Synchronized
+    fun frameNumberSnapshot(): LongArray = frameNumbers.copyOf(size)
 }

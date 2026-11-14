@@ -23,22 +23,34 @@
     "instructions"
   ],
   "properties": {
-    "schemaVersion": { "const": "1.0.0" },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
     "configVersion": {
       "type": "string",
       "pattern": "^(FT|FTF|FR|SAW|FA)@[0-9]+\\.[0-9]+\\.[0-9]+$"
     },
-    "code": { "$ref": "#/$defs/TestCode" },
-    "name": { "type": "string", "minLength": 1 },
+    "code": {
+      "$ref": "#/$defs/TestCode"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
     "biomarkers": {
       "description": "Biomarker IDs computed from this test, or \"TBD\" until defined.",
       "oneOf": [
-        { "const": "TBD" },
+        {
+          "const": "TBD"
+        },
         {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^(FT|FTF|FR|SAW|FA)[0-9]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^(FT|FTF|FR|SAW|FA)[0-9]+$"
+          }
         }
       ]
     },
@@ -46,34 +58,62 @@
       "description": "Sides recorded as separate takes. Empty = not sided.",
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["R", "L"] }
+      "items": {
+        "enum": ["R", "L"]
+      }
     },
-    "minTier": { "enum": ["A", "B"] },
+    "minTier": {
+      "enum": ["A", "B"]
+    },
     "trackers": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/Tracker" }
+      "items": {
+        "$ref": "#/$defs/Tracker"
+      }
     },
     "camera": {
       "type": "object",
       "additionalProperties": false,
       "required": ["facing", "resolution", "targetFps", "minEffectiveFps", "orientation", "lock"],
       "properties": {
-        "facing": { "enum": ["back", "front"] },
-        "resolution": { "enum": ["1080p", "720p"] },
-        "targetFps": { "enum": [60, 30] },
-        "minEffectiveFps": { "type": "number", "exclusiveMinimum": 0, "maximum": 60 },
-        "orientation": { "enum": ["portrait", "landscape"] },
+        "facing": {
+          "enum": ["back", "front"]
+        },
+        "resolution": {
+          "enum": ["1080p", "720p"]
+        },
+        "targetFps": {
+          "enum": [60, 30]
+        },
+        "minEffectiveFps": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 60
+        },
+        "orientation": {
+          "enum": ["portrait", "landscape"]
+        },
         "lock": {
           "type": "object",
           "additionalProperties": false,
           "required": ["ae", "af", "awb"],
           "properties": {
-            "ae": { "type": "boolean" },
-            "af": { "type": "boolean" },
-            "awb": { "type": "boolean" }
+            "ae": {
+              "type": "boolean"
+            },
+            "af": {
+              "type": "boolean"
+            },
+            "awb": {
+              "type": "boolean"
+            }
           }
+        },
+        "fallbackFps": {
+          "description": "If the device cannot record at targetFps, record at this rate instead (interim policy, decision 007). Omit to fail instead of falling back.",
+          "enum": [30]
         }
       }
     },
@@ -81,20 +121,35 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["fps"],
-      "properties": { "fps": { "type": "integer", "minimum": 5, "maximum": 60 } }
+      "properties": {
+        "fps": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 60
+        }
+      }
     },
     "setup": {
       "type": "object",
       "additionalProperties": false,
       "required": ["view", "distanceM", "heightRef", "checklist"],
       "properties": {
-        "view": { "enum": ["front_offset_30deg", "front_centred", "side_90deg", "frontal_face"] },
-        "distanceM": { "$ref": "#/$defs/Range" },
-        "heightRef": { "enum": ["hand", "chest", "hip", "eye"] },
+        "view": {
+          "enum": ["front_offset_30deg", "front_centred", "side_90deg", "frontal_face"]
+        },
+        "distanceM": {
+          "$ref": "#/$defs/Range"
+        },
+        "heightRef": {
+          "enum": ["hand", "chest", "hip", "eye"]
+        },
         "checklist": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          }
         },
         "walkwayM": {
           "description": "SAW only: walkway length between floor marks.",
@@ -108,18 +163,37 @@
       "additionalProperties": false,
       "required": ["overlay", "requiredLandmarks", "safeZoneMargin", "subjectSize"],
       "properties": {
-        "overlay": { "enum": ["hand_outline", "upper_body", "full_body", "face_oval"] },
+        "overlay": {
+          "enum": ["hand_outline", "upper_body", "full_body", "face_oval"]
+        },
         "requiredLandmarks": {
           "type": "object",
           "additionalProperties": false,
           "minProperties": 1,
           "properties": {
-            "hand": { "$ref": "#/$defs/LandmarkList" },
-            "pose": { "$ref": "#/$defs/LandmarkList" },
-            "face": { "oneOf": [{ "const": "ALL" }, { "$ref": "#/$defs/LandmarkList" }] }
+            "hand": {
+              "$ref": "#/$defs/LandmarkList"
+            },
+            "pose": {
+              "$ref": "#/$defs/LandmarkList"
+            },
+            "face": {
+              "oneOf": [
+                {
+                  "const": "ALL"
+                },
+                {
+                  "$ref": "#/$defs/LandmarkList"
+                }
+              ]
+            }
           }
         },
-        "safeZoneMargin": { "type": "number", "minimum": 0, "maximum": 0.25 },
+        "safeZoneMargin": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.25
+        },
         "subjectSize": {
           "type": "object",
           "additionalProperties": false,
@@ -128,21 +202,47 @@
             "metric": {
               "enum": ["hand_bbox_height", "upper_body_height", "body_height", "face_height"]
             },
-            "min": { "type": "number", "minimum": 0, "maximum": 1 },
-            "max": { "type": "number", "minimum": 0, "maximum": 1 }
+            "min": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "max": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
           }
         },
-        "handednessMustMatchSide": { "type": "boolean" },
-        "bothHandsRequired": { "type": "boolean" },
-        "singlePerson": { "type": "boolean" },
-        "sideViewMaxShoulderRatio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "handednessMustMatchSide": {
+          "type": "boolean"
+        },
+        "bothHandsRequired": {
+          "type": "boolean"
+        },
+        "singlePerson": {
+          "type": "boolean"
+        },
+        "sideViewMaxShoulderRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
         "maxFaceAngleDeg": {
           "type": "object",
           "additionalProperties": false,
           "required": ["yaw", "pitch"],
           "properties": {
-            "yaw": { "type": "number", "minimum": 0, "maximum": 45 },
-            "pitch": { "type": "number", "minimum": 0, "maximum": 45 }
+            "yaw": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 45
+            },
+            "pitch": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 45
+            }
           }
         }
       }
@@ -167,10 +267,20 @@
           "minimum": 5,
           "maximum": 120
         },
-        "noMotionTimeoutS": { "type": "number", "exclusiveMinimum": 0 },
+        "noMotionTimeoutS": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "detectorParams": {
           "description": "Detector-specific parameters, or \"TBD\" until the protocol is defined.",
-          "oneOf": [{ "const": "TBD" }, { "type": "object" }]
+          "oneOf": [
+            {
+              "const": "TBD"
+            },
+            {
+              "type": "object"
+            }
+          ]
         }
       }
     },
@@ -184,22 +294,53 @@
         "sharpness"
       ],
       "properties": {
-        "minLandmarkVisibleFrac": { "type": "number", "minimum": 0, "maximum": 1 },
+        "minLandmarkVisibleFrac": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
         "visibilityLandmarks": {
           "description": "Landmarks the visible fraction is measured on, if not all required landmarks.",
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "hand": { "$ref": "#/$defs/LandmarkList" },
-            "pose": { "$ref": "#/$defs/LandmarkList" }
+            "hand": {
+              "$ref": "#/$defs/LandmarkList"
+            },
+            "pose": {
+              "$ref": "#/$defs/LandmarkList"
+            }
           }
         },
-        "durationToleranceS": { "type": "number", "minimum": 0, "maximum": 2 },
-        "maxCriticalEvents": { "type": "integer", "minimum": 0 },
-        "sharpness": {
-          "oneOf": [{ "const": "DEVICE_CALIBRATED" }, { "type": "number", "exclusiveMinimum": 0 }]
+        "durationToleranceS": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
         },
-        "requireAllPhases": { "type": "boolean" }
+        "maxCriticalEvents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sharpness": {
+          "oneOf": [
+            {
+              "const": "DEVICE_CALIBRATED"
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          ]
+        },
+        "requireAllPhases": {
+          "type": "boolean"
+        },
+        "maxDroppedFrac": {
+          "description": "RETAKE when dropped frames exceed this fraction. null = measured and logged but not enforced (interim policy, decision 007).",
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     },
     "instructions": {
@@ -207,24 +348,41 @@
       "additionalProperties": false,
       "required": ["demoVideo", "stepKeys"],
       "properties": {
-        "demoVideo": { "type": "string", "minLength": 1, "description": "Asset path, or \"TBD\"." },
+        "demoVideo": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Asset path, or \"TBD\"."
+        },
         "stepKeys": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^[a-z]+\\.[a-zA-Z0-9_.]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]+\\.[a-zA-Z0-9_.]+$"
+          }
         }
       }
     }
   },
   "$defs": {
-    "TestCode": { "enum": ["FT", "FTF", "FR", "SAW", "FA"] },
-    "Tracker": { "enum": ["hand", "pose", "face"] },
+    "TestCode": {
+      "enum": ["FT", "FTF", "FR", "SAW", "FA"]
+    },
+    "Tracker": {
+      "enum": ["hand", "pose", "face"]
+    },
     "Range": {
       "tsType": "[number, number]",
       "type": "array",
       "prefixItems": [
-        { "type": "number", "minimum": 0 },
-        { "type": "number", "minimum": 0 }
+        {
+          "type": "number",
+          "minimum": 0
+        },
+        {
+          "type": "number",
+          "minimum": 0
+        }
       ],
       "minItems": 2,
       "maxItems": 2
@@ -233,7 +391,11 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "integer", "minimum": 0, "maximum": 477 }
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 477
+      }
     }
   }
 }

@@ -107,9 +107,8 @@ class Benchmark(
         if (seconds <= 0) return thermalPhase(opts.thermalMinutes * 60)
         phase = "recording"
         session.resetAnalysisStats()
-        segment("record", seconds) { outcome ->
-            val sensor = outcome.log.sensorSnapshot()
-            recordStats = FrameStats.recording(sensor, sensor.size, opts.targetFps, outcome.mp4Frames, outcome.mp4DurationS)
+        segment("record", seconds) { outcome, analysis ->
+            recordStats = analysis.stats
             val (frames, p95) = session.analysisStats()
             analysisFrames = frames
             analysisP95 = p95
@@ -122,7 +121,7 @@ class Benchmark(
         if (remainingS <= 0.5) return finish()
         phase = "thermal"
         val seg = minOf(remainingS, SEGMENT_S)
-        segment("thermal", seg) { outcome ->
+        segment("thermal", seg) { outcome, _ ->
             val sensor = outcome.log.sensorSnapshot()
             FrameStats.windowFps(sensor).forEach { thermalWindows.add(it) }
             thermalDurationS += outcome.mp4DurationS ?: seg
@@ -131,12 +130,13 @@ class Benchmark(
     }
 
     /** Records one segment, measures it, deletes the file, then continues. */
-    private fun segment(name: String, seconds: Double, then: (CameraSession.Outcome) -> Unit) {
+    private fun segment(name: String, seconds: Double, then: (CameraSession.Outcome, TakeFinalizer.Analysis) -> Unit) {
         val file = File(dir, "$name-${System.currentTimeMillis()}.mp4")
         session.startRecording("benchmark", file, seconds, onDone = { outcome ->
+            val analysis = TakeFinalizer.analyze(outcome) // measure before deleting the file
             file.delete()
             outcome.error?.let { errors.add("$name: $it") }
-            main.post { if (!cancelled) then(outcome) }
+            main.post { if (!cancelled) then(outcome, analysis) }
         }, started = { err -> if (err != null) main.post { fail("$name: $err") } })
     }
 

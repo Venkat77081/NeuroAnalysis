@@ -98,6 +98,41 @@
       "no_run_at_target_fps": "no run at {{limit}} fps",
       "record_too_short": "recording ran {{value}} s of {{limit}} s",
       "thermal_too_short": "thermal run ran {{value}} s of {{limit}} s"
-    }
+    },
+    "captureTest": "Capture test (M2)"
+  },
+  "captureTest": {
+    "title": "Capture test (M2)",
+    "test": "Test settings",
+    "repeats": "Takes in a row",
+    "delay": "Inject 40 ms analysis delay",
+    "freeze": "Freeze JavaScript during each take",
+    "run": "Record",
+    "calibrate": "Sharpness 3 s",
+    "recording": "Recording take {{n}} of {{of}}…",
+    "done": "{{passed}} of {{takes}} takes passed",
+    "calibrating": "Point at a still, textured target… measuring for 3 s",
+    "calibrated": "Sharpness baseline {{baseline}} ({{frames}} frames)",
+    "baseline": "Device sharpness baseline: {{baseline}}",
+    "recovered": "Recovered after a crash (encrypted, kept for review): {{ids}}",
+    "summary": "{{passed}} of {{takes}} takes pass the M2 checks",
+    "summaryLine": "max duration error {{dur}} ms (≤ {{durLimit}}) · min fps {{fps}} (≥ {{minFps}}) · max Δt {{ts}} ms (≤ {{tsLimit}}) · max dropped {{drop}}%",
+    "pass": "PASS",
+    "fail": "FAIL",
+    "play": "Play",
+    "duration": "duration",
+    "encrypted": "encrypted",
+    "sensors": "{{n}} sensor samples · sensor clock offset {{offset}} ms",
+    "deleteAll": "Delete these test takes",
+    "calibrateTitle": "Sharpness calibration",
+    "take": "Take {{n}} of {{of}}",
+    "liveHint": "Recording… the take stops by itself.",
+    "frozenHint": "JavaScript is frozen on purpose: the timer may not move, recording continues.",
+    "crash": "Kill the app 5 s into the next take (crash test)",
+    "interrupted": "Interrupted takes",
+    "recoveredTag": "recovered after crash · encrypted",
+    "noResult": "no result",
+    "unmatched": "{{n}} unmatched",
+    "stopLead": "stop lead {{ms}} ms"
   }
 }

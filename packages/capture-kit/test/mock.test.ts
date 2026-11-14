@@ -155,6 +155,57 @@ describe('MockCaptureKit', () => {
     await expect(kit.stopRecording()).rejects.toThrow(/not recording/);
   });
 
+  it('reports M2 recording details: duration error, actual fps, MP4 alignment, encryption', async () => {
+    await kit.openCamera(openOpts);
+    const done = new Promise<RecordingStateEvent>(
+      (r) => void kit.addListener('recordingState', (s) => s.state === 'completed' && r(s)),
+    );
+    await kit.startRecording({ takeId: 'm2', durationS: 15 });
+    await vi.advanceTimersByTimeAsync(15_000);
+    const res = (await done).result!;
+    expect(res).toMatchObject({
+      requestedDurationS: 15,
+      durationErrorMs: 0,
+      actualFps: 60,
+      encrypted: true,
+      encryptedNotPlayable: true,
+    });
+    expect(res.mp4?.anchor).toBe('pattern');
+    expect(res.files.video).toBe('capturekit://takes/m2/video.mp4.enc');
+    await expect(kit.startRecording({ takeId: 'm2', durationS: 15 })).rejects.toThrow(
+      /already exists/,
+    );
+  });
+
+  it('falls back to 30 fps when the camera cannot do 60 and a fallback is allowed', async () => {
+    const slow = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'], maxFps: 30 });
+    expect((await slow.openCamera({ ...openOpts, fallbackFps: 30 })).actualFps).toBe(30);
+    await slow.startRecording({ takeId: 's', durationS: 15 });
+    vi.advanceTimersByTime(15_000);
+    await slow.closeCamera();
+    const strict = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'], maxFps: 30 });
+    expect((await strict.openCamera(openOpts)).actualFps).toBe(60);
+    await strict.closeCamera();
+  });
+
+  it('plays takes into a temporary copy that closePlayback removes; calibrates sharpness', async () => {
+    await kit.openCamera(openOpts);
+    await kit.startRecording({ takeId: 'p1', durationS: 15 });
+    vi.advanceTimersByTime(15_000);
+    await expect(kit.playTake({ takeId: 'nope' })).rejects.toThrow(/unknown take/);
+    await kit.playTake({ takeId: 'p1' });
+    expect(kit.openPlaybacks()).toEqual(['p1']);
+    await kit.closePlayback({ takeId: 'p1' });
+    expect(kit.openPlaybacks()).toEqual([]);
+    await kit.playTake({ takeId: 'p1' });
+    await kit.closePlayback({});
+    expect(kit.openPlaybacks()).toEqual([]);
+    expect((await kit.calibrateSharpness({ durationS: 3 })).baseline).toBe(230);
+    expect(await kit.getRecoveredTakes()).toEqual({ takeIds: [] });
+    await kit.closeCamera();
+    await expect(kit.calibrateSharpness({ durationS: 3 })).rejects.toThrow(/not open/);
+  });
+
   it('marks an operator stop as stoppedEarly', async () => {
     await kit.openCamera(openOpts);
     await kit.startRecording({ takeId: 't2', durationS: 30 });
@@ -187,7 +238,6 @@ describe('MockCaptureKit', () => {
     await expect(
       kit.writeEvidence({ takeId: 't', name: 'meta.json', json: '{' }),
     ).rejects.toThrow();
-    expect((await kit.playTake({ takeId: 't' })).playerUrl).toContain('t');
     await kit.deleteTake({ takeId: 't', reason: 'test' });
     expect(kit.readEvidence('t', 'quality.json')).toBeUndefined();
   });

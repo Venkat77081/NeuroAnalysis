@@ -98,6 +98,41 @@
       "no_run_at_target_fps": "{{limit}} fps पर कोई रन नहीं",
       "record_too_short": "रिकॉर्डिंग {{value}} s चली, {{limit}} s चाहिए",
       "thermal_too_short": "थर्मल रन {{value}} s चला, {{limit}} s चाहिए"
-    }
+    },
+    "captureTest": "कैप्चर जाँच (M2)"
+  },
+  "captureTest": {
+    "title": "कैप्चर जाँच (M2)",
+    "test": "टेस्ट सेटिंग",
+    "repeats": "लगातार टेक",
+    "delay": "40 ms विश्लेषण देरी डालें",
+    "freeze": "हर टेक के दौरान JavaScript रोकें",
+    "run": "रिकॉर्ड करें",
+    "calibrate": "शार्पनेस 3 s",
+    "recording": "टेक {{n}} / {{of}} रिकॉर्ड हो रहा है…",
+    "done": "{{takes}} में से {{passed}} टेक पास",
+    "calibrating": "स्थिर, बनावट वाले लक्ष्य की ओर रखें… 3 s माप",
+    "calibrated": "शार्पनेस बेसलाइन {{baseline}} ({{frames}} फ़्रेम)",
+    "baseline": "डिवाइस शार्पनेस बेसलाइन: {{baseline}}",
+    "recovered": "क्रैश के बाद बचाए गए (एन्क्रिप्टेड, समीक्षा हेतु): {{ids}}",
+    "summary": "{{takes}} में से {{passed}} टेक M2 जाँच पास",
+    "summaryLine": "अधिकतम अवधि त्रुटि {{dur}} ms (≤ {{durLimit}}) · न्यूनतम fps {{fps}} (≥ {{minFps}}) · अधिकतम Δt {{ts}} ms (≤ {{tsLimit}}) · अधिकतम छूटे {{drop}}%",
+    "pass": "पास",
+    "fail": "फ़ेल",
+    "play": "चलाएँ",
+    "duration": "अवधि",
+    "encrypted": "एन्क्रिप्टेड",
+    "sensors": "{{n}} सेंसर सैंपल · सेंसर घड़ी ऑफ़सेट {{offset}} ms",
+    "deleteAll": "ये टेस्ट टेक हटाएँ",
+    "calibrateTitle": "शार्पनेस कैलिब्रेशन",
+    "take": "टेक {{n}} / {{of}}",
+    "liveHint": "रिकॉर्डिंग… टेक अपने आप रुकेगा।",
+    "frozenHint": "JavaScript जानबूझकर रोका गया है: टाइमर रुका दिख सकता है, रिकॉर्डिंग जारी है।",
+    "crash": "अगले टेक में 5 s पर ऐप बंद करें (क्रैश जाँच)",
+    "interrupted": "बाधित टेक",
+    "recoveredTag": "क्रैश के बाद बचाया · एन्क्रिप्टेड",
+    "noResult": "कोई परिणाम नहीं",
+    "unmatched": "{{n}} बेमेल",
+    "stopLead": "स्टॉप लीड {{ms}} ms"
   }
 }

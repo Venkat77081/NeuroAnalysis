@@ -45,6 +45,10 @@ export interface TestConfig {
       af: boolean;
       awb: boolean;
     };
+    /**
+     * If the device cannot record at targetFps, record at this rate instead (interim policy, decision 007). Omit to fail instead of falling back.
+     */
+    fallbackFps?: 30;
   };
   analysis: {
     fps: number;
@@ -111,6 +115,10 @@ export interface TestConfig {
     maxCriticalEvents: number;
     sharpness: 'DEVICE_CALIBRATED' | number;
     requireAllPhases?: boolean;
+    /**
+     * RETAKE when dropped frames exceed this fraction. null = measured and logged but not enforced (interim policy, decision 007).
+     */
+    maxDroppedFrac?: number | null;
   };
   instructions: {
     /**

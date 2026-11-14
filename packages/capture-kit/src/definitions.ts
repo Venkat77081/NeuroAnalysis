@@ -217,8 +217,11 @@ export interface RecordingStateEvent {
   reason?: string;
 }
 
+export type ThermalStatus =
+  'none' | 'light' | 'moderate' | 'severe' | 'critical' | 'emergency' | 'shutdown' | 'unsupported';
+
 export interface ThermalEvent {
-  status: 'none' | 'light' | 'moderate' | 'severe' | 'critical' | 'emergency' | 'shutdown';
+  status: ThermalStatus;
 }
 
 export type UploadProgressEvent = UploadStatus;
@@ -256,6 +259,13 @@ export interface CaptureKitPlugin {
     /** §15: stop gracefully (interrupted, reason storage_low) when free space falls below this. */
     stopBelowFreeBytes?: number;
   }): Promise<{ startedAtNs: string }>;
+  /**
+   * M9 thermal policy: lower (or restore, null) the analysis rate while the camera is open. Only
+   * tracking slows down; the recording frame rate is never changed.
+   */
+  setAnalysisFps(opts: { fps: number | null }): Promise<void>;
+  /** Current thermal status; changes also arrive as 'thermal' events. */
+  getThermalStatus(): Promise<ThermalEvent>;
   /** Free space where takes are stored (§15 StorageLow). */
   getStorageStatus(): Promise<{ freeBytes: number; totalBytes: number }>;
   /** Early stop by the operator. */

@@ -452,3 +452,31 @@ describe('recorded evidence files (M8)', () => {
     expect((await kit.readSensors({ takeId: 'none' })).data).toBeNull();
   });
 });
+
+describe('thermal policy hooks (M9)', () => {
+  it('reports thermal status and slows only the analysis rate', async () => {
+    const kit = new MockCaptureKit({
+      fixture: sampleFixtures['ft-r-sample'],
+      scheduler: scaledScheduler(1000),
+    });
+    await expect(kit.setAnalysisFps({ fps: 5 })).rejects.toThrow('camera not open');
+    const { actualFps } = await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: ['hand'],
+      analysisFps: 30,
+    });
+    const seen: string[] = [];
+    await kit.addListener('thermal', (t) => seen.push(t.status));
+    kit.setThermal('severe');
+    expect(seen).toEqual(['severe']);
+    expect((await kit.getThermalStatus()).status).toBe('severe');
+    await kit.setAnalysisFps({ fps: 5 });
+    expect(kit.currentAnalysisFps()).toBe(5);
+    expect(actualFps).toBe(60); // recording rate untouched
+    await kit.setAnalysisFps({ fps: null });
+    expect(kit.currentAnalysisFps()).toBe(30);
+  });
+});

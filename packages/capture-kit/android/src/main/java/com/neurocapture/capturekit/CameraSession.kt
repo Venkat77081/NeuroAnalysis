@@ -127,6 +127,8 @@ class CameraSession(
     private val analysisFrames = AtomicInteger(0)
     private val processingMs = ArrayList<Double>()
     private var lastAnalysisTs = 0L
+    /** M9 thermal policy: lower analysis rate while hot (null = config). Recording fps is untouched. */
+    @Volatile var analysisFpsOverride: Int? = null
     private var analysisSeq = 0
     @Volatile var emitAnalysisEvents = true
     private var sharpnessSamples: ArrayList<Double>? = null
@@ -202,6 +204,7 @@ class CameraSession(
         main.execute {
             try {
                 config = cfg
+                analysisFpsOverride = null
                 activity.requestedOrientation =
                     if (cfg.orientation == "landscape") ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 val rotation = if (cfg.orientation == "landscape") Surface.ROTATION_90 else Surface.ROTATION_0
@@ -354,7 +357,8 @@ class CameraSession(
         try {
             val cfg = config ?: return
             val ts = image.imageInfo.timestamp
-            val minGap = 1_000_000_000L / cfg.analysisFps * 9 / 10
+            val fps = analysisFpsOverride?.coerceIn(1, cfg.analysisFps) ?: cfg.analysisFps
+            val minGap = 1_000_000_000L / fps * 9 / 10
             if (ts - lastAnalysisTs < minGap) return
             // Tracker still busy with the previous frame: skip this one entirely (no queue).
             if (tracking?.ready() == false) return

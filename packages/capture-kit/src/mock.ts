@@ -12,6 +12,8 @@ import type {
   PreviewTransform,
   RecordingResult,
   SensorBatchEvent,
+  ThermalEvent,
+  ThermalStatus,
   StoredTake,
   UploadConfig,
   UploadStatus,
@@ -270,6 +272,40 @@ export class MockCaptureKit implements CaptureKitPlugin {
     return { fileName: opts.fileName };
   }
 
+  private analysisFpsOverride: number | null = null;
+  private thermal: ThermalStatus = 'none';
+
+  private startFrameTimer(): void {
+    const opts = this.camera!;
+    if (this.frameTimer !== null) this.sched.clearInterval(this.frameTimer);
+    const fps = Math.min(opts.analysisFps, this.analysisFpsOverride ?? Infinity);
+    const periodMs = 1000 / (this.scenario ? fps : Math.min(fps, this.fixture.fps));
+    this.frameTimer = this.sched.setInterval(() => this.emitNextFrame(), periodMs);
+  }
+
+  async setAnalysisFps(opts: { fps: number | null }): Promise<void> {
+    if (!this.camera) throw new Error('camera not open');
+    this.analysisFpsOverride = opts.fps === null ? null : Math.max(1, opts.fps);
+    this.startFrameTimer();
+  }
+
+  /** Analysis rate in use (test helper). */
+  currentAnalysisFps(): number | null {
+    return this.camera
+      ? Math.min(this.camera.analysisFps, this.analysisFpsOverride ?? Infinity)
+      : null;
+  }
+
+  async getThermalStatus(): Promise<ThermalEvent> {
+    return { status: this.thermal };
+  }
+
+  /** Test helper: the phone heats up or cools down. */
+  setThermal(status: ThermalStatus): void {
+    this.thermal = status;
+    this.emit('thermal', { status });
+  }
+
   async cancelBenchmark(): Promise<void> {
     this.benchCancel?.();
   }
@@ -283,9 +319,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
       opts.targetFps > this.mockMaxFps && opts.fallbackFps ? opts.fallbackFps : opts.targetFps;
     this.startNs = BigInt(this.sched.now()) * 1_000_000n;
     this.frameIdx = 0;
-    const periodMs =
-      1000 / (this.scenario ? opts.analysisFps : Math.min(opts.analysisFps, this.fixture.fps));
-    this.frameTimer = this.sched.setInterval(() => this.emitNextFrame(), periodMs);
+    this.analysisFpsOverride = null;
+    this.startFrameTimer();
     return {
       previewTransform: {
         scaleX: 1,

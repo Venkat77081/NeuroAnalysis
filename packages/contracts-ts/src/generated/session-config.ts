@@ -69,4 +69,54 @@ export interface SessionConfig {
     minFreeGbToStart: number;
     stopBelowMb: number;
   };
+  /**
+   * M9 thermal policy (DEV_PLAN M9): from the Android thermal status, first lower the analysis rate, then hide overlays; never the recording frame rate. Levels apply at that status and above.
+   */
+  thermal?: {
+    moderate: {
+      /**
+       * Analysis (tracking) rate at this level; the recording frame rate never changes.
+       */
+      analysisFps: number;
+      /**
+       * false = hide the landmark overlay (non-essential drawing)
+       */
+      overlays: boolean;
+      warn: boolean;
+      /**
+       * Ask the operator to let the phone cool before the next take.
+       */
+      blockNewTakes: boolean;
+    };
+    severe: {
+      /**
+       * Analysis (tracking) rate at this level; the recording frame rate never changes.
+       */
+      analysisFps: number;
+      /**
+       * false = hide the landmark overlay (non-essential drawing)
+       */
+      overlays: boolean;
+      warn: boolean;
+      /**
+       * Ask the operator to let the phone cool before the next take.
+       */
+      blockNewTakes: boolean;
+    };
+    critical: {
+      /**
+       * Analysis (tracking) rate at this level; the recording frame rate never changes.
+       */
+      analysisFps: number;
+      /**
+       * false = hide the landmark overlay (non-essential drawing)
+       */
+      overlays: boolean;
+      warn: boolean;
+      /**
+       * Ask the operator to let the phone cool before the next take.
+       */
+      blockNewTakes: boolean;
+    };
+  };
 }

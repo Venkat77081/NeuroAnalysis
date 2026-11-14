@@ -39,6 +39,7 @@ class CaptureKitPlugin : Plugin() {
         uploads = Services.queue(context)
         // Upload progress from the background worker reaches JS while the plugin is loaded.
         Services.uploadListener = { status -> notifyListeners("uploadProgress", JSObject(status.toString())) }
+        watchThermal()
         io.execute {
             playbackDir().deleteRecursively() // decrypted playback copies never survive a restart
             recovered = try { vault.recover() } catch (_: Exception) { emptyList() }
@@ -535,6 +536,38 @@ class CaptureKitPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun setAnalysisFps(call: PluginCall) {
+        if (!::session.isInitialized) return call.reject("camera not open")
+        val fps = call.getDouble("fps")?.toInt()
+        session.analysisFpsOverride = fps?.coerceAtLeast(1)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun getThermalStatus(call: PluginCall) {
+        call.resolve(JSObject().apply { put("status", thermalStatus()) })
+    }
+
+    private fun thermalStatus(): String {
+        if (android.os.Build.VERSION.SDK_INT < 29) return "unsupported"
+        val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        return Benchmark.thermalName(pm.currentThermalStatus)
+    }
+
+    private var thermalListener: Any? = null
+
+    /** Thermal changes go to JS as 'thermal' events (M9 policy is applied in the app). */
+    private fun watchThermal() {
+        if (android.os.Build.VERSION.SDK_INT < 29) return
+        val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        val l = android.os.PowerManager.OnThermalStatusChangedListener { level ->
+            notifyListeners("thermal", JSObject().apply { put("status", Benchmark.thermalName(level)) })
+        }
+        pm.addThermalStatusListener(context.mainExecutor, l)
+        thermalListener = l
+    }
+
+    @PluginMethod
     fun getStorageStatus(call: PluginCall) {
         val dir = takesDir().apply { mkdirs() }
         call.resolve(JSObject().apply { put("freeBytes", dir.usableSpace); put("totalBytes", dir.totalSpace) })
@@ -551,6 +584,11 @@ class CaptureKitPlugin : Plugin() {
 
     override fun handleOnDestroy() {
         Services.uploadListener = null
+        if (android.os.Build.VERSION.SDK_INT >= 29)
+            (thermalListener as? android.os.PowerManager.OnThermalStatusChangedListener)?.let {
+                (context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager)
+                    .removeThermalStatusListener(it)
+            }
         benchmark?.cancel()
         if (::session.isInitialized) {
             session.close()

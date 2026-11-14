@@ -125,6 +125,16 @@ export class WebcamCaptureKit extends MockCaptureKit {
     }
   }
 
+  private webcamFps = 15;
+
+  /** Thermal policy on a webcam: slow the browser's own analysis loop. */
+  override async setAnalysisFps(opts: { fps: number | null }): Promise<void> {
+    if (!this.loop) return;
+    clearInterval(this.loop);
+    const fps = Math.min(this.webcamFps, opts.fps ?? Infinity);
+    this.loop = setInterval(() => this.analyze(), 1000 / Math.max(1, fps));
+  }
+
   override async openCamera(
     opts: OpenCameraOpts,
   ): Promise<{ previewTransform: PreviewTransform; actualFps: number }> {
@@ -158,6 +168,7 @@ export class WebcamCaptureKit extends MockCaptureKit {
     this.opened = opts;
     this.canvas = document.createElement('canvas');
     await this.loadTrackers(opts.trackers);
+    this.webcamFps = opts.analysisFps;
     this.loop = setInterval(() => this.analyze(), 1000 / Math.max(1, opts.analysisFps));
     const settings = this.stream.getVideoTracks()[0]?.getSettings() ?? {};
     const actualFps = (settings.frameRate ?? 30) >= 50 ? 60 : 30;

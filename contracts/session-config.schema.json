@@ -141,6 +141,86 @@
           "maximum": 10000
         }
       }
+    },
+    "thermal": {
+      "description": "M9 thermal policy (DEV_PLAN M9): from the Android thermal status, first lower the analysis rate, then hide overlays; never the recording frame rate. Levels apply at that status and above.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["moderate", "severe", "critical"],
+      "properties": {
+        "moderate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["analysisFps", "overlays", "warn", "blockNewTakes"],
+          "properties": {
+            "analysisFps": {
+              "description": "Analysis (tracking) rate at this level; the recording frame rate never changes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            },
+            "overlays": {
+              "description": "false = hide the landmark overlay (non-essential drawing)",
+              "type": "boolean"
+            },
+            "warn": {
+              "type": "boolean"
+            },
+            "blockNewTakes": {
+              "description": "Ask the operator to let the phone cool before the next take.",
+              "type": "boolean"
+            }
+          }
+        },
+        "severe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["analysisFps", "overlays", "warn", "blockNewTakes"],
+          "properties": {
+            "analysisFps": {
+              "description": "Analysis (tracking) rate at this level; the recording frame rate never changes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            },
+            "overlays": {
+              "description": "false = hide the landmark overlay (non-essential drawing)",
+              "type": "boolean"
+            },
+            "warn": {
+              "type": "boolean"
+            },
+            "blockNewTakes": {
+              "description": "Ask the operator to let the phone cool before the next take.",
+              "type": "boolean"
+            }
+          }
+        },
+        "critical": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["analysisFps", "overlays", "warn", "blockNewTakes"],
+          "properties": {
+            "analysisFps": {
+              "description": "Analysis (tracking) rate at this level; the recording frame rate never changes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            },
+            "overlays": {
+              "description": "false = hide the landmark overlay (non-essential drawing)",
+              "type": "boolean"
+            },
+            "warn": {
+              "type": "boolean"
+            },
+            "blockNewTakes": {
+              "description": "Ask the operator to let the phone cool before the next take.",
+              "type": "boolean"
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

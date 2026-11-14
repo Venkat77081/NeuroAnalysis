@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { RecordingStateEvent } from '@neurocapture/capture-kit';
+import type { RecordingStateEvent, ThermalEvent, ThermalStatus } from '@neurocapture/capture-kit';
+import { thermalPolicy } from '../../lib/thermal.ts';
 import { useApp } from '../../app/AppContext.tsx';
 import { beep, speak } from '../../guidance/audio.ts';
 import { useGuidance } from '../../guidance/useGuidance.ts';
@@ -61,8 +62,12 @@ export function CameraStage() {
   /** Why the last take was cut short (§15), for the framing notice. */
   const [interruptReason, setInterruptReason] = useState<string | null>(null);
   const [fps, setFps] = useState<number>(cfg.camera.targetFps);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [transform, setTransform] = useState<PreviewTransform | null>(null);
   const [showLm, setShowLm] = useState(landmarkOverlayEnabled);
+  // M9 thermal policy: slower tracking, then no overlay, then cool down before the next take.
+  const [heat, setHeat] = useState<ThermalStatus>('none');
+  const thermal = thermalPolicy(heat, app.config.session.thermal);
   const toggleLm = (v: boolean) => {
     setShowLm(v);
     setLandmarkOverlay(v);
@@ -132,14 +137,38 @@ export function CameraStage() {
         (r) => {
           setFps(r.actualFps);
           setTransform(r.previewTransform);
+          setCameraOpen(true);
         },
         (e: unknown) => setCameraError(String(e)),
       );
     return () => {
       document.documentElement.classList.remove('camera-active');
+      setCameraOpen(false);
       void camera.close().catch(() => undefined);
     };
   }, [cfg, orientation, step.side]);
+
+  useEffect(() => {
+    let alive = true;
+    capture.kit.getThermalStatus().then(
+      (t) => alive && setHeat(t.status),
+      () => undefined,
+    );
+    const handle = capture.kit.addListener('thermal', (t: ThermalEvent) => {
+      logger.info('thermal status', { status: t.status });
+      setHeat(t.status);
+    });
+    return () => {
+      alive = false;
+      void handle.then((h) => h.remove());
+    };
+  }, []);
+  // Applied once the camera is open (fps known) and whenever the level changes.
+  const thermalFps = thermal?.analysisFps ?? null;
+  useEffect(() => {
+    if (!cameraOpen) return;
+    capture.kit.setAnalysisFps({ fps: thermalFps }).catch(() => undefined);
+  }, [thermalFps, cameraOpen]);
 
   // Completion of the current take → verdict, meta.json, TAKE_FINISHED (registered once).
   useEffect(() => {
@@ -303,7 +332,7 @@ export function CameraStage() {
           orientation={orientation}
         />
       </div>
-      {showLm && <LandmarkOverlay transform={transform} />}
+      {showLm && (thermal?.overlays ?? true) && <LandmarkOverlay transform={transform} />}
 
       <header className={L.header}>
         {phase === 'recording' ? (
@@ -363,6 +392,15 @@ export function CameraStage() {
                     defaultValue: t('session.framing.interrupted'),
                   })
                 : t('session.framing.interrupted')}
+            </p>
+          )}
+          {thermal?.warn && (
+            <p
+              className={`m-0 rounded-2xl px-4 py-3 text-[15px] font-semibold ${thermal.blockNewTakes ? 'bg-[#E5484D] text-white' : 'bg-[#F2A23A] text-[#1A1206]'}`}
+              role="alert"
+              data-testid="thermal-warning"
+            >
+              {t(`session.framing.thermal.${thermal.blockNewTakes ? 'hot' : 'warm'}`)}
             </p>
           )}
           {storageLow && (
@@ -441,7 +479,11 @@ export function CameraStage() {
               type="button"
               aria-label={t('session.framing.record')}
               disabled={
-                phase === 'countdown' || !!cameraError || storageLow || !(gateOpen || advisory)
+                phase === 'countdown' ||
+                !!cameraError ||
+                storageLow ||
+                !!thermal?.blockNewTakes ||
+                !(gateOpen || advisory)
               }
               onClick={() => send({ type: 'RECORD', takeId: newId('tk') })}
               className="relative flex size-[76px] items-center justify-center rounded-full border-4 border-white disabled:opacity-40"

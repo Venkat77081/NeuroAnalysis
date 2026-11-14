@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../app/AppContext.tsx';
 import { Button, Sheet } from '../ui/kit.tsx';
+import { landmarkOverlayEnabled, setLandmarkOverlay } from '../lib/debug-flags.ts';
 
 /** Engineering tools are hidden from production builds (VITE_PRODUCTION=1). */
 export const ENGINEERING_TOOLS = import.meta.env.VITE_PRODUCTION !== '1';
@@ -17,6 +18,7 @@ export function EngineeringMenu({
   const { settings, saveSettings } = useApp();
   const [operatorId, setOperatorId] = useState(settings.operatorId);
   const [language, setLanguage] = useState(settings.language);
+  const [landmarks, setLandmarks] = useState(landmarkOverlayEnabled);
   const ok = /^[A-Za-z0-9-]{2,20}$/.test(operatorId);
   return (
     <Sheet title={t('session.engineering.title')} onClose={onClose} testId="engineering-menu">
@@ -51,6 +53,20 @@ export function EngineeringMenu({
       >
         {t('session.engineering.save')}
       </Button>
+      {ENGINEERING_TOOLS && (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={landmarks}
+            onChange={(e) => {
+              setLandmarks(e.target.checked);
+              setLandmarkOverlay(e.target.checked);
+            }}
+            data-testid="landmarks-toggle"
+          />
+          {t('session.engineering.landmarks')}
+        </label>
+      )}
       {ENGINEERING_TOOLS && (
         <Button variant="secondary" onClick={onDeviceCheck} data-testid="open-device-check">
           {t('session.engineering.deviceCheck')}

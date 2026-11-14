@@ -408,7 +408,7 @@ class CaptureKitPlugin : Plugin() {
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.6.0"
+        const val PLUGIN_VERSION = "0.7.0"
         private const val MASTER_KEY_URI = "android-keystore://neurocapture_master_v1"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")

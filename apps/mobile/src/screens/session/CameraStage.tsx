@@ -12,6 +12,9 @@ import { newId } from '../../data/repo.ts';
 import { stepTakes } from '../../session/machine.ts';
 import { useSession } from '../../session/useSession.ts';
 import { Outline, type OverlayKind } from '../../overlays/Outline.tsx';
+import { LandmarkOverlay } from '../../overlays/LandmarkOverlay.tsx';
+import { landmarkOverlayEnabled } from '../../lib/debug-flags.ts';
+import type { PreviewTransform } from '@neurocapture/capture-kit';
 import { BackButton } from '../../ui/kit.tsx';
 import { stepTitle } from './TestIntro.tsx';
 
@@ -37,6 +40,8 @@ export function CameraStage() {
       : 'framing';
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [fps, setFps] = useState<number>(cfg.camera.targetFps);
+  const [transform, setTransform] = useState<PreviewTransform | null>(null);
+  const [debugLandmarks] = useState(landmarkOverlayEnabled);
 
   // Latest values for native event callbacks (updated after each render).
   const live = useRef({ ctx, cfg, app, send });
@@ -58,7 +63,10 @@ export function CameraStage() {
         analysisFps: cfg.analysis.fps,
       })
       .then(
-        (r) => setFps(r.actualFps),
+        (r) => {
+          setFps(r.actualFps);
+          setTransform(r.previewTransform);
+        },
         (e: unknown) => setCameraError(String(e)),
       );
     return () => {
@@ -140,6 +148,7 @@ export function CameraStage() {
       )}
       {/* White = a fixed guide only. Green is reserved for "positioning checks passed" (M5); nothing checks the image yet. */}
       <Outline kind={overlay} color="#FFFFFF" dashed={phase === 'framing'} />
+      {debugLandmarks && <LandmarkOverlay transform={transform} />}
 
       <header className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-3">
         {phase === 'recording' ? (

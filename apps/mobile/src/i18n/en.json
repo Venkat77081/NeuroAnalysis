@@ -100,7 +100,8 @@
       "record_too_short": "recording ran {{value}} s of {{limit}} s",
       "thermal_too_short": "thermal run ran {{value}} s of {{limit}} s"
     },
-    "captureTest": "Capture test (M2)"
+    "captureTest": "Capture test (M2)",
+    "trackingTest": "Tracking test (M4)"
   },
   "captureTest": {
     "title": "Capture test (M2)",
@@ -334,7 +335,23 @@
       "operatorId": "Operator ID",
       "language": "Language",
       "save": "Save",
-      "hint": "Long-press the logo to open this menu."
+      "hint": "Long-press the logo to open this menu.",
+      "landmarks": "Show landmark overlay (debug)"
     }
+  },
+  "trackingTest": {
+    "title": "Tracking test (M4)",
+    "record": "Record one take while tracking ({{s}} s)",
+    "limits": "Pass: analysis ≥ {{fps}} fps · latency p95 ≤ {{p95}} ms · event ≤ {{kb}} KB · take meets M2",
+    "run": "Start",
+    "stop": "Stop",
+    "starting": "Starting trackers…",
+    "hud": "{{fps}} fps · p95 {{p95}} ms · {{kb}} KB",
+    "counts": "hands {{hands}} · pose {{poses}} · face {{faces}}",
+    "fps": "analysis {{v}} fps (≥ {{limit}})",
+    "latency": "latency p50 {{p50}} ms, p95 {{p95}} ms (≤ {{limit}})",
+    "size": "largest event {{kb}} KB (≤ {{limit}})",
+    "m2": "take: duration error {{dur}} ms · {{fps}} fps · {{lm}} landmark frames",
+    "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}"
   }
 }

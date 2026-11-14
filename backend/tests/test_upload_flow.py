@@ -100,7 +100,8 @@ def test_full_upload_with_resume_and_checksum_mismatch(api, site):
     etags = upload_parts(api, vf, video, only={1})
     resume = api.get(f"/takes/{take_id}/upload", headers=auth(tok)).json()
     vf2 = next(f for f in resume["files"] if f["kind"] == "video")
-    assert vf2["uploaded_parts"] == [1]
+    assert [p["number"] for p in vf2["uploaded_parts"]] == [1]
+    assert vf2["uploaded_parts"][0]["etag"] == etags[1].strip('"')
     assert [p["number"] for p in vf2["parts"]] == [2, 3]
     # Retried POST /takes (lost response) gives the same take and the same resume plan.
     again = api.post("/takes", json=take_body(sid, {"video": video, "quality": quality}), headers=auth(tok))

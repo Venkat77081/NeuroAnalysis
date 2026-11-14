@@ -144,6 +144,23 @@ export interface UploadStatus {
   bytesSent: number;
   bytesTotal: number;
   reason?: string;
+  /** Server confirmation time (ISO); local files are deleted retentionHours after it. */
+  confirmedAt?: string;
+  /** Local files deleted after confirmation + retention. */
+  localDeleted?: boolean;
+}
+
+export interface UploadConfig {
+  /** Server base URL, e.g. https://api.example.in (plain http only in debug builds). */
+  endpoint: string;
+  accessToken: string;
+  refreshToken: string;
+  /** Server RSA-OAEP public key (PEM) that wraps each take's data key, and its ID (§14). */
+  serverKeyId: string;
+  serverPublicKeyPem: string;
+  wifiOnly: boolean;
+  /** Local copies are deleted this long after the server confirms all checksums (§14). */
+  retentionHours: number;
 }
 
 export interface AnalysisFrameEvent {
@@ -258,13 +275,29 @@ export interface CaptureKitPlugin {
   debugArmCrash(opts: { afterS: number }): Promise<void>;
   deleteTake(opts: { takeId: string; reason: string }): Promise<void>;
 
+  /**
+   * Server access for the native upload worker (M7, decision 019). Kept in the encrypted store so
+   * uploads continue without the WebView; the worker refreshes the access token itself.
+   */
+  configureUploads(opts: UploadConfig): Promise<void>;
+  /** Forget server credentials (operator logout); queued uploads pause until configured again. */
+  clearUploadCredentials(): Promise<void>;
+  /**
+   * Queue a stored take for upload. `session` and `take` are the JSON bodies for POST /sessions and
+   * POST /takes (without files, checksums and the wrapped key, which native adds). Idempotent.
+   */
   enqueueUpload(opts: {
     takeId: string;
-    sessionId: string;
-    endpoint: string;
-    token: string;
+    clientSessionId: string;
+    session: string;
+    take: string;
   }): Promise<void>;
+  /** PATCH /sessions/{id} once the session's takes are queued (ended_at, aborted). */
+  enqueueSessionClose(opts: { clientSessionId: string; body: string }): Promise<void>;
   getUploadStatus(opts: { takeId: string }): Promise<UploadStatus>;
+  listUploads(): Promise<{ uploads: UploadStatus[] }>;
+  /** Retry failed uploads now (operator action on the Summary screen). */
+  retryUploads(): Promise<void>;
 
   addListener<E extends CaptureKitEventName>(
     eventName: E,

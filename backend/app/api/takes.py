@@ -48,13 +48,19 @@ class PartUrl(BaseModel):
     url: str
 
 
+class UploadedPart(BaseModel):
+    number: int
+    etag: str
+
+
 class FilePlan(BaseModel):
     kind: str
     part_size: int
     parts_total: int
     #: Parts still to upload (with fresh URLs); empty when the file is verified.
     parts: list[PartUrl]
-    uploaded_parts: list[int]
+    #: Parts already on the server with their ETags (needed to complete after a restart).
+    uploaded_parts: list[UploadedPart]
     verified: bool
 
 
@@ -77,8 +83,8 @@ def _plan(take: Take, files: list[TakeFile]) -> TakePlan:
                 )
             )
             continue
-        done = {p.number for p in st.list_parts(f.object_key, f.upload_id or "")}
-        missing = [n for n in range(1, total + 1) if n not in done]
+        have = {p.number: p.etag for p in st.list_parts(f.object_key, f.upload_id or "")}
+        missing = [n for n in range(1, total + 1) if n not in have]
         out.append(
             FilePlan(
                 kind=f.kind,
@@ -87,7 +93,7 @@ def _plan(take: Take, files: list[TakeFile]) -> TakePlan:
                 parts=[
                     PartUrl(number=n, url=st.part_url(f.object_key, f.upload_id or "", n)) for n in missing
                 ],
-                uploaded_parts=sorted(done),
+                uploaded_parts=[UploadedPart(number=n, etag=e) for n, e in sorted(have.items())],
                 verified=False,
             )
         )

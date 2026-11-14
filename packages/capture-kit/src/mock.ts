@@ -12,6 +12,7 @@ import type {
   PreviewTransform,
   RecordingResult,
   StoredTake,
+  UploadConfig,
   UploadStatus,
 } from './definitions.ts';
 import type { CaptureFixture } from './fixture.ts';
@@ -32,6 +33,8 @@ import {
   type LandmarkRecord,
 } from './landmarks.ts';
 import { bytesToBase64 } from './codec.ts';
+import { FakeServer } from './upload/fake-server.ts';
+import { UploadClient, sha256Hex, type UploadError, type UploadJob } from './upload/protocol.ts';
 import type { LandmarksHeader } from '@neurocapture/contracts-ts/types';
 
 export interface Scheduler {
@@ -101,7 +104,6 @@ export class MockCaptureKit implements CaptureKitPlugin {
     tick: unknown;
   } | null = null;
   private evidence = new Map<string, string>();
-  private uploads = new Map<string, UploadStatus>();
   private readonly benchSpeed: number;
   private readonly mockMaxFps: 60 | 30;
   private benchCancel: (() => void) | null = null;
@@ -645,28 +647,69 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.firstSampleNs.delete(opts.takeId);
     for (const k of [...this.evidence.keys()])
       if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);
-    this.uploads.delete(opts.takeId);
+    this.jobs.delete(opts.takeId);
+  }
+
+  // ── Uploads (M7): the real protocol client against an in-memory fake server ──────────────
+
+  /** Mock only: the fake API the uploads talk to (tests can drop the network or corrupt a part). */
+  readonly fakeServer = new FakeServer();
+  private uploadCfg: UploadConfig | null = null;
+  private jobs = new Map<string, { job: UploadJob; status: UploadStatus; attempts: number }>();
+  private closes = new Map<string, string>();
+  private uploading = false;
+  private retryTimer: unknown = null;
+
+  async configureUploads(opts: UploadConfig): Promise<void> {
+    this.uploadCfg = { ...opts };
+    for (const j of this.jobs.values())
+      if (j.status.reason === 'login_required')
+        this.setUpload(j, { state: 'queued', reason: undefined });
+    this.kickUploads();
+  }
+
+  async clearUploadCredentials(): Promise<void> {
+    this.uploadCfg = null;
   }
 
   async enqueueUpload(opts: {
     takeId: string;
-    sessionId: string;
-    endpoint: string;
-    token: string;
+    clientSessionId: string;
+    session: string;
+    take: string;
   }): Promise<void> {
-    const status: UploadStatus = {
-      takeId: opts.takeId,
-      state: 'queued',
-      bytesSent: 0,
-      bytesTotal: 1,
-    };
-    this.uploads.set(opts.takeId, status);
-    this.emit('uploadProgress', status);
+    if (!this.takes.has(opts.takeId)) throw new Error('unknown take');
+    if (this.jobs.has(opts.takeId)) return; // idempotent
+    const files = this.mockFiles(opts.takeId);
+    this.jobs.set(opts.takeId, {
+      job: {
+        takeId: opts.takeId,
+        clientSessionId: opts.clientSessionId,
+        session: opts.session,
+        take: opts.take,
+        wrappedDataKey: 'bW9jay13cmFwcGVkLWtleQ==',
+        keyId: this.uploadCfg?.serverKeyId ?? 'mock',
+      },
+      status: {
+        takeId: opts.takeId,
+        state: 'queued',
+        bytesSent: 0,
+        bytesTotal: files.kinds.reduce((a, k) => a + files.size(k), 0),
+      },
+      attempts: 0,
+    });
+    this.emit('uploadProgress', this.jobs.get(opts.takeId)!.status);
+    this.kickUploads();
+  }
+
+  async enqueueSessionClose(opts: { clientSessionId: string; body: string }): Promise<void> {
+    this.closes.set(opts.clientSessionId, opts.body);
+    this.kickUploads();
   }
 
   async getUploadStatus(opts: { takeId: string }): Promise<UploadStatus> {
     return (
-      this.uploads.get(opts.takeId) ?? {
+      this.jobs.get(opts.takeId)?.status ?? {
         takeId: opts.takeId,
         state: 'failed_permanent',
         bytesSent: 0,
@@ -674,6 +717,146 @@ export class MockCaptureKit implements CaptureKitPlugin {
         reason: 'unknown take',
       }
     );
+  }
+
+  async listUploads(): Promise<{ uploads: UploadStatus[] }> {
+    return { uploads: [...this.jobs.values()].map((j) => j.status) };
+  }
+
+  async retryUploads(): Promise<void> {
+    for (const j of this.jobs.values())
+      if (j.status.state === 'failed_retryable' || j.status.state === 'failed_permanent') {
+        j.attempts = 0;
+        this.setUpload(j, { state: 'queued', reason: undefined });
+      }
+    this.kickUploads();
+  }
+
+  /** Mock only: simulate losing / regaining the network. */
+  setNetwork(online: boolean): void {
+    this.fakeServer.online = online;
+    if (online) this.kickUploads();
+  }
+
+  private setUpload(j: { status: UploadStatus }, patch: Partial<UploadStatus>): void {
+    j.status = { ...j.status, ...patch };
+    this.emit('uploadProgress', j.status);
+  }
+
+  /** Deterministic stand-ins for the encrypted take files (video + evidence). */
+  private mockFiles(takeId: string) {
+    let h = 0;
+    for (const c of takeId) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const enc = new TextEncoder();
+    const data = new Map<string, Uint8Array>();
+    const video = new Uint8Array(200_000);
+    for (let i = 0; i < video.length; i++) video[i] = (h + i * 7) & 0xff;
+    data.set('video', video);
+    for (const kind of ['quality', 'meta'] as const) {
+      const json = this.evidence.get(`${takeId}/${kind}.json`);
+      if (json) data.set(kind, enc.encode(json));
+    }
+    return {
+      kinds: [...data.keys()],
+      size: (k: string) => data.get(k)!.length,
+      sha256: (k: string) => sha256Hex(data.get(k)!),
+      read: async (k: string, off: number, len: number) => data.get(k)!.slice(off, off + len),
+    };
+  }
+
+  private kickUploads(): void {
+    if (this.uploading) return;
+    this.uploading = true;
+    this.sched.setTimeout(() => void this.runUploads(), 0);
+  }
+
+  private async runUploads(): Promise<void> {
+    try {
+      const cfg = this.uploadCfg;
+      for (const j of this.jobs.values()) {
+        if (j.status.state === 'completed' || j.status.state === 'failed_permanent') continue;
+        if (!cfg) {
+          this.setUpload(j, { state: 'paused', reason: 'login_required' });
+          continue;
+        }
+        const client = new UploadClient(
+          this.fakeServer.http,
+          cfg.endpoint,
+          { access: cfg.accessToken, refresh: cfg.refreshToken },
+          (t) => {
+            cfg.accessToken = t.access;
+            cfg.refreshToken = t.refresh;
+          },
+        );
+        this.setUpload(j, { state: 'uploading', reason: undefined });
+        try {
+          const { confirmedAt, job } = await client.run(
+            j.job,
+            this.mockFiles(j.job.takeId),
+            (sent, total) => this.setUpload(j, { bytesSent: sent, bytesTotal: total }),
+          );
+          j.job = job;
+          this.setUpload(j, { state: 'completed', confirmedAt });
+        } catch (e) {
+          const err = e as UploadError;
+          if (err.kind === 'auth') this.setUpload(j, { state: 'paused', reason: 'login_required' });
+          else if (err.kind === 'permanent')
+            this.setUpload(j, { state: 'failed_permanent', reason: err.message });
+          else {
+            j.attempts++;
+            this.setUpload(j, { state: 'failed_retryable', reason: 'network' });
+          }
+        }
+      }
+      // Close sessions whose takes are all uploaded.
+      if (cfg)
+        for (const [clientSessionId, body] of this.closes) {
+          const mine = [...this.jobs.values()].filter(
+            (j) => j.job.clientSessionId === clientSessionId,
+          );
+          const sid = mine.find((j) => j.job.serverSessionId)?.job.serverSessionId;
+          if (!sid || mine.some((j) => j.status.state !== 'completed')) continue;
+          try {
+            await new UploadClient(
+              this.fakeServer.http,
+              cfg.endpoint,
+              { access: cfg.accessToken, refresh: cfg.refreshToken },
+              () => undefined,
+            ).closeSession(sid, body);
+            this.closes.delete(clientSessionId);
+          } catch {
+            /* retried on the next run */
+          }
+        }
+      this.applyRetention();
+    } finally {
+      this.uploading = false;
+    }
+    // Exponential backoff for network failures (capped at 24 h, §15).
+    const waiting = [...this.jobs.values()].filter((j) => j.status.state === 'failed_retryable');
+    if (waiting.length && !this.retryTimer) {
+      const attempts = Math.max(...waiting.map((j) => j.attempts));
+      const delay = Math.min(24 * 3600_000, 2000 * 2 ** (attempts - 1));
+      this.retryTimer = this.sched.setTimeout(() => {
+        this.retryTimer = null;
+        this.kickUploads();
+      }, delay);
+    }
+  }
+
+  /** Delete local copies retentionHours after server confirmation (§14). */
+  private applyRetention(): void {
+    const hours = this.uploadCfg?.retentionHours;
+    if (hours === undefined) return;
+    for (const j of this.jobs.values()) {
+      if (j.status.state !== 'completed' || j.status.localDeleted || !j.status.confirmedAt)
+        continue;
+      if (Date.parse(j.status.confirmedAt) + hours * 3600_000 <= Date.now()) {
+        this.takes.delete(j.job.takeId);
+        this.results.delete(j.job.takeId);
+        this.setUpload(j, { localDeleted: true });
+      }
+    }
   }
 
   async addListener<E extends CaptureKitEventName>(

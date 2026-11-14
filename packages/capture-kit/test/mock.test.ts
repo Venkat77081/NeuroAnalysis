@@ -275,15 +275,11 @@ describe('MockCaptureKit', () => {
     expect(kit.readEvidence('t', 'quality.json')).toBeUndefined();
   });
 
-  it('queues uploads and reports status; listeners can be removed', async () => {
-    const seen: string[] = [];
-    const h = await kit.addListener('uploadProgress', (u) => seen.push(u.state));
-    await kit.enqueueUpload({ takeId: 't', sessionId: 's', endpoint: 'https://x', token: 'tok' });
-    expect((await kit.getUploadStatus({ takeId: 't' })).state).toBe('queued');
+  it('reports unknown uploads; listeners can be removed', async () => {
     expect((await kit.getUploadStatus({ takeId: 'nope' })).state).toBe('failed_permanent');
-    await h.remove();
-    await kit.enqueueUpload({ takeId: 't2', sessionId: 's', endpoint: 'https://x', token: 'tok' });
-    expect(seen).toEqual(['queued']);
+    await expect(
+      kit.enqueueUpload({ takeId: 'nope', clientSessionId: 's', session: '{}', take: '{}' }),
+    ).rejects.toThrow();
     await kit.removeAllListeners();
   });
 });

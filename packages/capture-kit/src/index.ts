@@ -61,3 +61,5 @@ class LazyWebcam {
     });
   }
 }
+export * from './upload/protocol.ts';
+export { FakeServer } from './upload/fake-server.ts';

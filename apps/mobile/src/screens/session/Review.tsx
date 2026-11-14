@@ -45,7 +45,10 @@ export function Review() {
 
   if (player) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-black" data-testid="player">
+      <div
+        className="fixed inset-0 flex flex-col bg-black pt-[var(--sat)] pb-[var(--sab)]"
+        data-testid="player"
+      >
         <video src={player} controls autoPlay playsInline className="min-h-0 flex-1" />
         <Button className="m-4" variant="secondary" onClick={() => void closePlayer()}>
           {t('common.close')}

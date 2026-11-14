@@ -16,10 +16,19 @@
   --color-bad: #b42318;
 }
 
+/* Edge-to-edge Android: Capacitor's SystemBars sets --safe-area-inset-*; browsers use env(). */
+:root {
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
 html,
 body,
 #root {
   height: 100%;
+}
+#root {
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
 }
 body {
   margin: 0;

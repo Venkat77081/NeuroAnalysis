@@ -208,7 +208,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
     const pct = Math.min(100, (live.elapsedS / live.durationS) * 100);
     return (
       <div className="fixed inset-0" data-testid="live-view">
-        <div className="absolute inset-x-4 top-4 flex items-center justify-between gap-2">
+        <div className="absolute inset-x-4 top-[calc(1rem+var(--sat))] flex items-center justify-between gap-2">
           {live.mode === 'record' ? (
             <span className="flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold text-white tabular-nums">
               <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
@@ -228,7 +228,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
             </span>
           )}
         </div>
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-t-3xl bg-[#0E1116] p-5 text-white">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-t-3xl bg-[#0E1116] p-5 pb-[calc(1.25rem+var(--sab))] text-white">
           <span className="text-sm">
             {live.mode === 'record'
               ? freeze
@@ -254,7 +254,10 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
 
   if (player) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-black" data-testid="player">
+      <div
+        className="fixed inset-0 flex flex-col bg-black pt-[var(--sat)] pb-[var(--sab)]"
+        data-testid="player"
+      >
         <video src={player.url} controls autoPlay playsInline className="min-h-0 flex-1" />
         <button
           type="button"

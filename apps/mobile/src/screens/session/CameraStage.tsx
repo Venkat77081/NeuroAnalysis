@@ -150,7 +150,7 @@ export function CameraStage() {
       <Outline kind={overlay} color="#FFFFFF" dashed={phase === 'framing'} />
       {debugLandmarks && <LandmarkOverlay transform={transform} />}
 
-      <header className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-3">
+      <header className="absolute inset-x-0 top-[var(--sat)] flex items-center justify-between gap-2 p-3">
         {phase === 'recording' ? (
           <span />
         ) : (
@@ -174,7 +174,7 @@ export function CameraStage() {
       </header>
 
       {phase === 'framing' && (
-        <div className="absolute inset-x-4 top-20 flex flex-col gap-2">
+        <div className="absolute inset-x-4 top-[calc(5rem+var(--sat))] flex flex-col gap-2">
           {ctx.notice === 'take_interrupted' && (
             <p
               className="m-0 rounded-2xl bg-[#F2A23A] px-4 py-3 text-[15px] font-semibold text-[#1A1206]"
@@ -211,7 +211,7 @@ export function CameraStage() {
           durationS={cfg.task.durationS}
         />
       ) : (
-        <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-6">
+        <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-[calc(1.5rem+var(--sab))]">
           <span className="text-center text-xs text-[#8C96A5]">{t('session.framing.later')}</span>
           <div className="flex justify-center">
             <button
@@ -293,13 +293,13 @@ function RecordingPanel({ takeId, durationS }: { takeId: string; durationS: numb
   return (
     <>
       <span
-        className="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold tabular-nums"
+        className="absolute top-[calc(0.75rem+var(--sat))] left-3 flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold tabular-nums"
         data-testid="rec-badge"
       >
         <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
         REC {elapsed.toFixed(1)} s
       </span>
-      <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-6">
+      <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-[calc(1.5rem+var(--sab))]">
         <div className="flex items-end justify-between">
           <span className="text-[44px] leading-none font-bold tabular-nums">{left.toFixed(1)}</span>
           <span className="text-right text-[13px] text-[#B8C0CC]">

@@ -179,7 +179,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
           <div className="absolute inset-0 bg-[#20262F]" aria-hidden="true" />
         )}
         <LandmarkOverlay transform={transform} />
-        <div className="absolute inset-x-4 top-4 flex flex-wrap gap-2 text-sm font-semibold tabular-nums">
+        <div className="absolute inset-x-4 top-[calc(1rem+var(--sat))] flex flex-wrap gap-2 text-sm font-semibold tabular-nums">
           <span className="rounded-xl bg-[#0E1116] px-3 py-2" data-testid="tracking-hud">
             {live
               ? t('trackingTest.hud', {
@@ -198,7 +198,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
         {!record && (
           <button
             type="button"
-            className="absolute inset-x-4 bottom-6 h-12 rounded-2xl bg-[#0E1116] font-semibold"
+            className="absolute inset-x-4 bottom-[calc(1.5rem+var(--sab))] h-12 rounded-2xl bg-[#0E1116] font-semibold"
             disabled={stopReq}
             onClick={() => {
               setStopReq(true);

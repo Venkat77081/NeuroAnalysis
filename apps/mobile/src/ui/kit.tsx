@@ -75,7 +75,7 @@ export function Sheet({
 }) {
   return (
     <div
-      className="fixed inset-0 z-20 flex flex-col justify-end bg-[#14181F]/55"
+      className="fixed inset-0 z-20 flex flex-col justify-end bg-[#14181F]/55 pt-[var(--sat)]"
       data-testid={testId}
     >
       <button
@@ -89,7 +89,7 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="mx-auto flex max-h-[88vh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-3xl bg-white px-5 pt-3 pb-6"
+        className="mx-auto flex max-h-[88vh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-3xl bg-white px-5 pt-3 pb-[calc(1.5rem+var(--sab))]"
       >
         <span className="mx-auto h-1.5 w-10 rounded-full bg-[#C9CFD8]" aria-hidden="true" />
         <h2 className="m-0 text-[22px] font-bold">{title}</h2>

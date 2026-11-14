@@ -70,9 +70,9 @@ describe('buildMeta', () => {
       tier: null,
       createdAt: '2026-11-14T10:00:00.000Z',
     };
-    expect(buildMeta(base).camera.orientation).toBe('landscape');
-    const meta = buildMeta({ ...base, orientation: 'portrait' });
-    expect(meta.camera.orientation).toBe('portrait');
+    expect(buildMeta(base).camera.orientation).toBe('portrait');
+    const meta = buildMeta({ ...base, orientation: 'landscape' });
+    expect(meta.camera.orientation).toBe('landscape');
     expect(validate('meta', meta).issues).toEqual([]);
   });
 });

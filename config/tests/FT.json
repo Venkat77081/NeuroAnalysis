@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FT@2.3.0",
+  "configVersion": "FT@2.4.0",
   "code": "FT",
   "name": "Finger Tapping",
   "biomarkers": [
@@ -25,8 +25,8 @@
     "resolution": "1080p",
     "targetFps": 60,
     "minEffectiveFps": 59,
-    "orientation": "landscape",
-    "allowedOrientations": ["landscape", "portrait"],
+    "orientation": "portrait",
+    "allowedOrientations": ["portrait", "landscape"],
     "lock": {
       "ae": true,
       "af": true,

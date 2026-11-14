@@ -42,5 +42,4 @@ CLAUDE.md). What it guarantees for the downstream pipeline:
 - Using MediaPipe on the device while the paper used OpenPose is fine because the server
   re-extracts keypoints from the MP4; if the on-device landmarks are used for biomarkers, the
   biomarkers must be re-validated on MediaPipe (`docs/dne-coverage.md`, open question 2).
-- Open for the product owner: who enters clinical labels, the label vocabulary, and the export
-  format expected by the chosen analysis code.
+- Open for the product owner: the export format expected by the client's analysis code.

@@ -309,6 +309,6 @@ export function scenariosFor(
   if (test.trackers.includes('face')) out.push({ name: 'face_shadow', expect: 'uneven_light' });
   if (opts.sharpness) out.push({ name: 'blurry', expect: 'blurry' });
   if (opts.sensors)
-    out.push({ name: 'tilted', expect: 'level_phone' }, { name: 'shaken', expect: 'hold_still' });
+    out.push({ name: 'tilted', expect: 'rotate_cw' }, { name: 'shaken', expect: 'hold_still' });
   return out;
 }

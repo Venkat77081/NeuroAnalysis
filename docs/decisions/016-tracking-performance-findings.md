@@ -59,6 +59,18 @@ device tests and continue the build. The M4 performance criteria (≥ 20 fps, �
 device tier stay **open**; they are re-measured with the next APK, and the M5 gate works at the
 current rate (analysis-health limits ≥ 10 fps, ≤ 250 ms).
 
+## Positioning made easier (user feedback, 14 Nov 2026)
+
+Session at 7 fps / 177 ms: "In frame" and "Distance" stayed at "…" because analysis health
+(≥ 10 fps) turned every landmark check UNKNOWN; levelling was hard with only "Level the phone".
+
+- Analysis health now only catches a stalled tracker: **≥ 3 fps, ≤ 600 ms** (QUALITY@1.4.0).
+  Framing needs fresh landmarks, not fast ones.
+- Tilt: roll ±5° (keeps the frame straight), **pitch ±10°** (a phone on a stand is usually aimed
+  slightly at the patient).
+- Tilt prompts say which way: turn clockwise / anticlockwise, point the camera up / down.
+- A live spirit level on the camera screen (bar = roll, dot = pitch, green when within limits).
+
 ## Open
 
 M4 performance (≥ 20 fps, ≤ 80 ms) stays open until CPU vs GPU is measured on the phone.

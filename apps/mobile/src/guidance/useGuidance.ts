@@ -11,6 +11,7 @@ import {
   SensorBuffer,
   evaluateFrame,
   gateRules,
+  tiltAngles,
   type CheckContext,
   type GuidanceState,
   type PromptKey,
@@ -42,6 +43,8 @@ export type GuidanceView = GuidanceState & {
   /** Analysis health inputs, shown with "tracking…" in engineering builds. */
   analysisFps: number;
   analysisLatencyMs: number;
+  /** Phone tilt for the on-screen level (degrees), null without a gravity sensor. */
+  tilt: { rollDeg: number; pitchDeg: number } | null;
 };
 
 export function useGuidance(o: GuidanceOptions): GuidanceView | null {
@@ -73,10 +76,17 @@ export function useGuidance(o: GuidanceOptions): GuidanceView | null {
       if (spoken) cb.current.onSpeak?.(spoken);
       const fps = health.fps();
       const lat = health.latencyP95();
-      const sig = `${st.gateOpen}|${st.prompt?.key}|${st.tracking}|${st.gateProgress.toFixed(1)}|${st.rules.map((r) => r.state).join()}|${Math.round(fps)}|${Math.round(lat / 10)}`;
+      const g = sensors.latestGravity(nowNs);
+      const tilt = g ? tiltAngles(g, orientation) : null;
+      const sig = `${st.gateOpen}|${st.prompt?.key}|${st.tracking}|${st.gateProgress.toFixed(1)}|${st.rules.map((r) => r.state).join()}|${Math.round(fps)}|${Math.round(lat / 10)}|${tilt ? `${Math.round(tilt.rollDeg)},${Math.round(tilt.pitchDeg)}` : ''}`;
       if (sig !== lastPushed) {
         lastPushed = sig;
-        setState({ ...st, analysisFps: Number.isFinite(fps) ? fps : 0, analysisLatencyMs: lat });
+        setState({
+          ...st,
+          analysisFps: Number.isFinite(fps) ? fps : 0,
+          analysisLatencyMs: lat,
+          tilt,
+        });
       }
     };
     const handles: { remove: () => Promise<void> }[] = [];

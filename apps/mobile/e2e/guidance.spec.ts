@@ -27,7 +27,7 @@ for (const [scenario, key, text, chip] of [
   ['too_far', 'move_closer', 'Too far: move the phone closer', 'distance'],
   ['one_hand', 'show_both_hands', 'Keep both hands in view', 'in_frame'],
   ['dark', 'too_dark', 'Too dark', 'light'],
-  ['tilted', 'level_phone', 'Level the phone', 'level'],
+  ['tilted', 'rotate_cw', 'Turn the phone a little clockwise', 'level'],
 ] as const) {
   test(`M5: ${scenario} → single prompt "${key}", Record disabled`, async ({ page }) => {
     await framing(page, scenario);

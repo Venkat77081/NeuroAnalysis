@@ -22,6 +22,7 @@ import {
   trackerDelegate,
 } from '../../lib/debug-flags.ts';
 import { LandmarksToggle } from '../../overlays/LandmarksToggle.tsx';
+import { LevelIndicator } from '../../overlays/LevelIndicator.tsx';
 import type { RuleName } from '@neurocapture/quality-core';
 import type { GuidanceView } from '../../guidance/useGuidance.ts';
 import { ENGINEERING_TOOLS } from '../EngineeringMenu.tsx';
@@ -278,7 +279,14 @@ export function CameraStage() {
             hint={t(`session.framing.hint.${overlay}`)}
             className={L.hint}
           />
-          <Chips state={guidance} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Chips state={guidance} />
+            <LevelIndicator
+              tilt={guidance?.tilt ?? null}
+              maxRollDeg={config.quality.checks.tilt.maxRollDeg}
+              maxPitchDeg={config.quality.checks.tilt.maxPitchDeg}
+            />
+          </div>
           {cameraError && (
             <p className="m-0 rounded-2xl bg-[#E5484D] px-4 py-3 text-sm" role="alert">
               {cameraError}

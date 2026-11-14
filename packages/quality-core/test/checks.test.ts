@@ -249,7 +249,14 @@ describe('image and sensor checks', () => {
     const cfg = { maxRollDeg: 5, maxPitchDeg: 5 };
     expect(tilt(null, 'portrait', cfg).state).toBe('UNKNOWN');
     expect(tilt({ x: 0, y: 9.81, z: 0 }, 'portrait', cfg).state).toBe('OK');
-    expect(tilt({ x: 0, y: 9.81, z: 0 }, 'landscape', cfg).hint).toBe('level_phone');
+    expect(tilt({ x: 0, y: 9.81, z: 0 }, 'landscape', cfg).hint).toBe('rotate_ccw');
+    expect(tilt({ x: 9.81 * s, y: 9.81 * c, z: 0 }, 'portrait', cfg).hint).toBe('rotate_cw');
+    expect(
+      tilt({ x: 0, y: 9.81 * Math.cos(0.3), z: 9.81 * Math.sin(0.3) }, 'portrait', cfg).hint,
+    ).toBe('aim_down');
+    expect(
+      tilt({ x: 0, y: 9.81 * Math.cos(0.3), z: -9.81 * Math.sin(0.3) }, 'portrait', cfg).hint,
+    ).toBe('aim_up');
   });
   it('shake and analysis health', () => {
     expect(shake([], 0.15).state).toBe('UNKNOWN');

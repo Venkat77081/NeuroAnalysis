@@ -93,6 +93,10 @@ export type PromptKey =
   | 'too_bright'
   | 'uneven_light'
   | 'level_phone'
+  | 'rotate_cw'
+  | 'rotate_ccw'
+  | 'aim_down'
+  | 'aim_up'
   | 'hold_still'
   | 'blurry';
 

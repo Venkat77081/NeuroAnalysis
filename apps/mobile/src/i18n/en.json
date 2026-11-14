@@ -390,7 +390,11 @@
         "uneven_light": "Uneven light on the face: light the face from the front",
         "level_phone": "Level the phone",
         "hold_still": "Hold the phone still",
-        "blurry": "Blurry: clean the lens or wait for focus"
+        "blurry": "Blurry: clean the lens or wait for focus",
+        "rotate_cw": "Turn the phone a little clockwise",
+        "rotate_ccw": "Turn the phone a little anticlockwise",
+        "aim_down": "Point the camera a little down",
+        "aim_up": "Point the camera a little up"
       },
       "chip": {
         "in_frame": "In frame",
@@ -405,7 +409,8 @@
       "ready": "Ready. Press Record",
       "checking": "Checking position…",
       "advisory": "Gate off (engineering)",
-      "diag": "analysis {{fps}} fps · {{ms}} ms"
+      "diag": "analysis {{fps}} fps · {{ms}} ms",
+      "levelAria": "Phone tilt: roll {{roll}}°, pitch {{pitch}}°"
     },
     "landmarks": "Landmarks"
   },

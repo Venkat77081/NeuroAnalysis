@@ -338,8 +338,23 @@ export function tilt(
   const threshold: [number, number] = [cfg.maxRollDeg, cfg.maxPitchDeg];
   if (!gravity) return unknown(threshold);
   const { rollDeg, pitchDeg } = tiltAngles(gravity, orientation);
-  const ok = Math.abs(rollDeg) <= cfg.maxRollDeg && Math.abs(pitchDeg) <= cfg.maxPitchDeg;
-  return result(ok, Math.max(Math.abs(rollDeg), Math.abs(pitchDeg)), threshold, 'level_phone');
+  const rollBad = Math.abs(rollDeg) > cfg.maxRollDeg;
+  const pitchBad = Math.abs(pitchDeg) > cfg.maxPitchDeg;
+  // Say which way: roll < 0 = phone turned clockwise (seen from behind it); pitch > 0 = camera
+  // aimed up.
+  const hint: PromptKey = rollBad
+    ? rollDeg > 0
+      ? 'rotate_cw'
+      : 'rotate_ccw'
+    : pitchDeg > 0
+      ? 'aim_down'
+      : 'aim_up';
+  return result(
+    !rollBad && !pitchBad,
+    Math.max(Math.abs(rollDeg), Math.abs(pitchDeg)),
+    threshold,
+    hint,
+  );
 }
 
 /** shake: mean angular speed over the gyro samples of the last window below the limit. */

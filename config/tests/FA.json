@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FA@1.1.0",
+  "configVersion": "FA@1.2.0",
   "code": "FA",
   "name": "Facial Activation",
   "biomarkers": "TBD",
@@ -60,6 +60,6 @@
   },
   "instructions": {
     "demoVideo": "TBD",
-    "stepKeys": ["fa.step1", "fa.step2"]
+    "stepKeys": ["fa.step1", "fa.step2", "fa.step3"]
   }
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SAW@1.1.0",
+  "configVersion": "SAW@2.0.0",
   "code": "SAW",
   "name": "Stand and Walk",
   "biomarkers": [
@@ -40,12 +40,12 @@
   },
   "setup": {
     "view": "side_90deg",
-    "distanceM": [3.0, 4.0],
+    "distanceM": [4.0, 5.0],
     "heightRef": "hip",
-    "walkwayM": 5,
+    "walkwayM": 4.6,
     "checklist": [
       "floor_tape_start",
-      "floor_tape_5m",
+      "floor_tape_turn",
       "chair_no_armrest",
       "phone_on_stand",
       "clear_walkway"
@@ -70,7 +70,7 @@
   },
   "task": {
     "detector": "saw_phases",
-    "durationS": 30,
+    "durationS": 45,
     "noMotionTimeoutS": 5
   },
   "verdict": {
@@ -86,6 +86,6 @@
   },
   "instructions": {
     "demoVideo": "TBD",
-    "stepKeys": ["saw.step1", "saw.step2", "saw.step3", "saw.step4"]
+    "stepKeys": ["saw.step1", "saw.step2", "saw.step3"]
   }
 }

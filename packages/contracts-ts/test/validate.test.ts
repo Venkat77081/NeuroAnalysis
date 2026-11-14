@@ -22,10 +22,10 @@ describe('config files', () => {
     expect(checkTestConfig(cfg, code)).toEqual([]);
   });
 
-  it('uses fixed durations: 15 s, and 30 s for SAW (decision 002)', () => {
+  it('uses fixed durations: 15 s, and 45 s for SAW (decisions 002, 013)', () => {
     for (const code of testCodes) {
       const cfg = read<TestConfig>(`config/tests/${code}.json`);
-      expect(cfg.task.durationS).toBe(code === 'SAW' ? 30 : 15);
+      expect(cfg.task.durationS).toBe(code === 'SAW' ? 45 : 15);
     }
   });
 
@@ -98,7 +98,9 @@ describe('semantic checks', () => {
 
   it('flags landmarks for a tracker that is not enabled, and handedness on an unsided test', () => {
     const bad: TestConfig = structuredClone(ft);
-    bad.framing.requiredLandmarks = { ...bad.framing.requiredLandmarks, pose: [11] };
+    bad.trackers = ['hand'];
+    bad.framing.requiredLandmarks = { hand: [0], pose: [11] };
+    bad.framing.handednessMustMatchSide = true;
     bad.sides = [];
     const paths = checkTestConfig(bad).map((i) => i.path);
     expect(paths).toContain('/framing/requiredLandmarks/pose');
@@ -106,8 +108,9 @@ describe('semantic checks', () => {
   });
 
   it('flags unknown tests and wrong sides in the session order', () => {
+    const sidedFt: TestConfig = { ...structuredClone(ft), sides: ['R', 'L'] };
     const tests = new Map([
-      ['FT', ft],
+      ['FT', sidedFt],
       ['SAW', read<TestConfig>('config/tests/SAW.json')],
     ]);
     const session = read<SessionConfig>('config/session.json');

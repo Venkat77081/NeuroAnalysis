@@ -64,7 +64,15 @@ export interface TestConfig {
     walkwayM?: number;
   };
   framing: {
-    overlay: 'hand_outline' | 'upper_body' | 'one_arm' | 'side_reach' | 'full_body' | 'face_oval';
+    overlay:
+      | 'hand_outline'
+      | 'upper_body'
+      | 'one_arm'
+      | 'upper_body_hands_up'
+      | 'upper_body_forearms'
+      | 'side_reach'
+      | 'full_body'
+      | 'face_oval';
     requiredLandmarks: {
       hand?: LandmarkList;
       pose?: LandmarkList;

@@ -6,7 +6,7 @@ describe('loadConfig', () => {
     const c = loadConfig();
     expect(c.errors).toEqual([]);
     expect(c.tests.size).toBe(5);
-    expect(c.session.order).toHaveLength(8);
+    expect(c.session.order).toHaveLength(5);
   });
   it('reports the field of an invalid config', () => {
     const c = loadConfig({

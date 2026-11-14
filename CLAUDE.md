@@ -21,7 +21,8 @@ The full plan is in `DEV_PLAN.md` (v3.1). The agreed UI mockups are linked from 
 
 ## Agreed product decisions (mockup review, 13 Nov 2026)
 
-- Takes are **fixed duration**: 15 s (FT, FR, FTF, FA), 30 s (SAW). The native timer stops recording; detectors never do.
+- Takes are **fixed duration**: 15 s (FT, FR, FTF, FA), 45 s (SAW). The native timer stops recording; detectors never do.
+- Capture follows the **DNE protocol** (decision 013): FT, FTF, FR with both hands in one take, patient seated facing the camera; SAW back and forth 15 ft. The per-hand variant lives on branch `claude/variant-per-hand-protocol`.
 - Biomarker readiness is **never shown to operators**. Retake-fixable readiness failures become plain RETAKE reasons.
 - Override = **"Keep this take…"** → reason required → "Keep and flag for review" → shown as "Kept · flagged".
 

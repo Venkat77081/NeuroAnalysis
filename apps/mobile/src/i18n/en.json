@@ -217,33 +217,34 @@
       "chair_no_armrest": "Chair, no armrest",
       "clear_walkway": "Walkway clear",
       "hair_off_face": "Hair off the face",
-      "examiner_in_frame": "Examiner's hand in view"
+      "examiner_in_frame": "Examiner's hand in view",
+      "floor_tape_turn": "Turn mark on floor (15 ft)"
     },
     "steps": {
       "ft": {
-        "step1": "Patient sits upright, forearm resting, hand raised to shoulder height.",
-        "step2": "Tap index finger against thumb, as wide and as fast as possible.",
-        "step3": "Keep tapping until the recording stops by itself."
+        "step1": "Patient sits facing the camera and raises both hands beside the shoulders, thumb and index finger of each hand touching.",
+        "step2": "Tap thumb and index finger together on both hands at the same time, opening as wide and tapping as fast as possible.",
+        "step3": "Keep tapping until the recording stops by itself (15 s)."
       },
       "ftf": {
-        "step1": "Patient sits side-on to the camera, tested arm nearest the camera. The examiner stands facing the patient, at the far side of the picture.",
-        "step2": "The examiner holds up an index finger within the patient's reach and moves it to a new position every few seconds.",
-        "step3": "The patient touches the examiner's fingertip with the index finger each time. Continue until the recording stops by itself."
+        "step1": "Patient sits facing the camera with both index fingers pointing to the ceiling.",
+        "step2": "Bring the two index fingertips together out in front of the chest, then point them to the ceiling again.",
+        "step3": "Repeat until the recording stops by itself (15 s)."
       },
       "fr": {
-        "step1": "Patient sits facing the camera and holds the tested arm out to the side at shoulder height, thumb up.",
-        "step2": "Turn the forearm palm-up and palm-down, as wide and fast as possible.",
-        "step3": "Keep going until the recording stops by itself."
+        "step1": "Patient sits facing the camera, gently clenches both hands and holds the forearms horizontally in front of the chest.",
+        "step2": "Roll the hands around each other as fast as possible.",
+        "step3": "Keep rolling until the recording stops by itself (15 s)."
       },
       "saw": {
         "step1": "Patient sits on the chair at the start mark, side-on to the camera.",
-        "step2": "Stand up without using the arms.",
-        "step3": "Walk to the 5 m mark, turn around and walk back.",
-        "step4": "Sit down again. The recording stops by itself."
+        "step2": "Stand up and walk to the turn mark (15 ft / 4.6 m), turn and walk back.",
+        "step3": "Keep walking back and forth until the recording stops by itself (45 s)."
       },
       "fa": {
-        "step1": "Patient looks straight at the camera, face fully visible.",
-        "step2": "Follow the spoken prompts for each expression."
+        "step1": "Patient looks at the camera and keeps the head still.",
+        "step2": "Lift the eyebrows as high as possible, make a big smile, then relax the face.",
+        "step3": "Do it all once more: eyebrows up, big smile, relax."
       }
     },
     "framing": {
@@ -253,7 +254,9 @@
         "full_body": "Seat the patient inside the start box, side-on",
         "face_oval": "Fit the face inside the oval",
         "one_arm": "Fit head, shoulders and the tested arm inside the outline",
-        "side_reach": "Patient side-on, tested arm nearest the camera; examiner's finger inside the yellow box"
+        "side_reach": "Patient side-on, tested arm nearest the camera; examiner's finger inside the yellow box",
+        "upper_body_hands_up": "Fit head, upper body and both raised hands inside the outline",
+        "upper_body_forearms": "Fit head, upper body and both forearms inside the outline"
       },
       "mode": "{{res}} · {{fps}} fps · {{dur}} s take",
       "record": "Start recording",

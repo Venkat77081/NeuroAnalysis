@@ -3,7 +3,14 @@
  * its colour follows the positioning checks and M4 adds tracked points.
  */
 export type OverlayKind =
-  'hand_outline' | 'upper_body' | 'one_arm' | 'side_reach' | 'full_body' | 'face_oval';
+  | 'hand_outline'
+  | 'upper_body'
+  | 'one_arm'
+  | 'upper_body_hands_up'
+  | 'upper_body_forearms'
+  | 'side_reach'
+  | 'full_body'
+  | 'face_oval';
 
 const HAND =
   'M152 560 C150 530 148 505 142 488 C132 470 106 446 94 424 C86 408 92 392 106 390 C118 389 126 398 134 410 C142 422 148 428 152 424 L152 276 C152 260 176 260 176 276 L176 388 C176 395 182 395 182 388 L182 256 C182 238 208 238 208 256 L208 388 C208 395 214 395 214 388 L214 268 C214 250 240 250 240 268 L240 396 C240 403 246 403 246 396 L246 304 C246 288 268 288 268 304 L268 440 C268 480 262 520 254 560';
@@ -14,6 +21,14 @@ const HAND =
  */
 const ONE_ARM =
   'M560 52 a38 38 0 1 1 -0.1 0 M610 160 L640 176 L632 330 L488 330 L480 202 L140 202 C126 202 126 178 140 178 L150 178 L150 156 C150 146 168 146 168 156 L168 178 L480 178 L500 162 C515 146 595 146 610 160 Z';
+
+/** Seated patient facing the camera (DNE protocol): head and torso down to the lap. */
+const SEATED_TORSO =
+  'M422 36 a40 40 0 1 1 -0.1 0 M352 140 C380 126 464 126 492 140 L506 330 L338 330 Z';
+/** Both hands raised beside the shoulders (FT, FTF start pose). */
+const ARMS_UP = 'M352 150 L282 250 L296 128 M492 150 L562 250 L548 128';
+/** Forearms horizontal in front of the chest, fists together (FR). */
+const ARMS_FOREARMS = 'M352 150 L316 268 L404 252 M492 150 L528 268 L440 252';
 
 const UPPER_BODY =
   'M422 58 a40 40 0 1 1 -0.1 0 M372 160 C390 140 454 140 472 160 L520 178 L740 178 C752 178 752 202 740 202 L520 202 L500 210 L490 330 L354 330 L344 210 L324 202 L104 202 C92 202 92 178 104 178 L324 178 Z';
@@ -66,6 +81,38 @@ export function Outline({
         </g>
       )}
       {kind === 'upper_body' && <Guide d={UPPER_BODY} color={color} dash={dash} />}
+      {(kind === 'upper_body_hands_up' || kind === 'upper_body_forearms') && (
+        <g data-testid={kind}>
+          <Guide d={SEATED_TORSO} color={color} dash={dash} />
+          <Limbs
+            d={kind === 'upper_body_hands_up' ? ARMS_UP : ARMS_FOREARMS}
+            color={color}
+            dash={dash}
+          />
+          {(kind === 'upper_body_hands_up'
+            ? [
+                [296, 104],
+                [548, 104],
+              ]
+            : [
+                [400, 252],
+                [444, 252],
+              ]
+          ).map(([cx, cy]) => (
+            <circle
+              key={cx}
+              cx={cx}
+              cy={cy}
+              r={20}
+              fill={color}
+              fillOpacity={0.06}
+              stroke={color}
+              strokeWidth={3}
+              strokeDasharray={dash}
+            />
+          ))}
+        </g>
+      )}
       {kind === 'one_arm' && (
         // Path spans x 126–640; shift it to the centre, mirror about the viewBox centre for L.
         <g
@@ -191,6 +238,16 @@ export function Outline({
         </g>
       )}
     </svg>
+  );
+}
+
+/** Arms as a wide translucent band with a dashed centre line. */
+function Limbs({ d, color, dash }: { d: string; color: string; dash?: string }) {
+  return (
+    <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} stroke={color} strokeOpacity={0.16} strokeWidth={34} />
+      <path d={d} stroke={color} strokeWidth={3} strokeDasharray={dash} />
+    </g>
   );
 }
 

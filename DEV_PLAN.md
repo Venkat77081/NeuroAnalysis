@@ -13,7 +13,7 @@
 **Later change (13 Nov 2026):** device-model approval (tier gating, §7) is **deferred** until the client asks for it; per-take fps/drop checks remain the safety net. See `docs/decisions/006-defer-device-model-approval.md`.
 
 **Changes from v3** (agreed in the mockup review, 13 Nov 2026)
-- **Fixed-duration takes.** Every take records for a fixed time instead of stopping after a number of reps: **15 s** for FT, FR, FTF and FA, **30 s** for SAW. Task detectors no longer decide when recording stops; they mark movement, events and phases.
+- **Fixed-duration takes.** Every take records for a fixed time instead of stopping after a number of reps: **15 s** for FT, FR, FTF and FA, **45 s** for SAW (decision 013; was 30 s). Task detectors no longer decide when recording stops; they mark movement, events and phases.
 - **Biomarker readiness is not shown to operators.** Readiness problems that a retake can fix become plain RETAKE reasons in the capture verdict. Everything else is saved in `quality.json` for the server and reviewers.
 - **Override is a deliberate step: "Keep this take…".** It opens a panel that repeats the failure reasons, requires a reason from the config enum (free text for "other"), and confirms with "Keep and flag for review". Kept takes show as "Kept · flagged".
 
@@ -40,7 +40,7 @@ NeuroCapture is a **clinic/operator app** that records standardized videos of pa
 | FT  | Finger Tapping    | FT1–FT12   | 12  | Right, Left (separate takes) | 15 s |
 | FTF | Finger-to-Finger  | FTF1–FTF18 | 18  | Both arms in one take | 15 s |
 | FR  | Forearm Roll      | FR1–FR12   | 12  | Right, Left (separate takes) | 15 s |
-| SAW | Stand and Walk    | SAW1–SAW15 | 15  | Not sided | 30 s |
+| SAW | Stand and Walk    | SAW1–SAW15 | 15  | Not sided | 45 s |
 | FA  | Facial Activation | TBD        | TBD | Not sided | 15 s |
 
 The UI follows the agreed mockup screens: Session home → Test instructions → Live framing check → Recording → Quality review → (Keep this take) → (Gait framing) → Session summary.
@@ -219,7 +219,7 @@ The plugin has three implementations, chosen at startup:
 
 `PatientSelected → ConsentConfirmed → MedStateSet → DeviceCheck → [for each test/side: Intro → Framing → Countdown → Recording(fixed duration) → Review(Accept | Retake | KeepThisTake(reason) | Skip(reason))] → Summary → UploadQueued`
 
-- Test order comes from `config/session.json`. Default: FT-R, FT-L, FR-R, FR-L, FTF, FA, SAW.
+- Test order comes from `config/session.json`. Default (DNE protocol, decision 013): FT, FTF, FR, SAW, FA — both hands in one take.
 - Skipping a test requires a reason, from an enum plus free text.
 - At most **3 retakes** per test. After that, only "Keep this take…" (with a reason) or Skip.
 - "Keep this take…" is offered only after a RETAKE verdict. It requires a reason from `overrideReasons` (free text required for `other`), records operator ID and time, and sets `flaggedForReview: true`.

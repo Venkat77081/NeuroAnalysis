@@ -1,15 +1,12 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@1.3.0",
+  "configVersion": "SESSION@2.0.0",
   "order": [
-    ["FT", "R"],
-    ["FT", "L"],
-    ["FR", "R"],
-    ["FR", "L"],
-    ["FTF", "R"],
-    ["FTF", "L"],
-    ["FA", null],
-    ["SAW", null]
+    ["FT", null],
+    ["FTF", null],
+    ["FR", null],
+    ["SAW", null],
+    ["FA", null]
   ],
   "maxRetakes": 3,
   "skipReasons": [

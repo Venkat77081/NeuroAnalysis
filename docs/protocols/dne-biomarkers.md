@@ -70,6 +70,14 @@ user on 14 Nov 2026. The PDF is not stored in the repo (copyright). What we took
   100 or 200 frames. They need full-rate keypoint sequences, i.e. server keypoint extraction
   from the 60 fps video (open item in DEV_PLAN §19).
 
+## Where biomarkers are computed (user, 14 Nov)
+
+Biomarker values are computed **on the server from the uploaded 60 fps video** (server keypoint
+extraction, then these formulas). The landmarks the phone tracks during recording (~7–10 fps)
+only guide the operator and check that the take is usable; they are never the biomarker input.
+The registry inputs below therefore describe what must be **visible in the video**; the phone's
+landmarks are a proxy for that.
+
 ## How the registry inputs were set (readiness, not formulas)
 
 | Test                             | Landmarks each biomarker needs                                                          | Phases              |
@@ -87,14 +95,11 @@ All need ≥ 58 effective fps and the full take (14.9 s; SAW 44.9 s), with landm
 
 ## Open points for the biomarker owner
 
-1. **FA speed:** the JBHI appendix takes the STD of the frame-to-frame difference v = d[i] − d[i−1],
-   while the user's summary says |d/dt d_m| (absolute value). The registry follows the appendix
-   (STD(diff(d))).
-2. **FA range of motion:** the JBHI appendix defines NIQR = (P90 − P10) / P90, while the user's
-   summary says IQR = Q3 − Q1 (P75 − P25). The registry follows the appendix.
-3. **SAW pose:** the papers use 3D pose (VideoPose3D) for SAW and OpenPose 2D for the rest. The
+1. ~~FA speed and range of motion~~ — **decided (user, 14 Nov):** follow the JBHI appendix:
+   STD of the frame-to-frame difference v = d[i] − d[i−1], and NIQR = (P90 − P10) / P90.
+2. **SAW pose:** the papers use 3D pose (VideoPose3D) for SAW and OpenPose 2D for the rest. The
    phone records MediaPipe pose (x, y, relative z). Biomarkers must be re-validated on whichever
    keypoints the server extracts (decision 017).
-4. **Not in Table A-II but defined in [12]:** FT/FR frequency, tapping/rolling rate,
+3. **Not in Table A-II but defined in [12]:** FT/FR frequency, tapping/rolling rate,
    wrist/elbow stability, time to stand. These are not registered; add them if the client's
    model uses them.

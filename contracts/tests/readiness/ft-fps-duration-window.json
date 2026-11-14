@@ -1,0 +1,97 @@
+{
+  "name": "ft-fps-duration-window",
+  "testCode": "FT",
+  "landmarksFile": "ft-fps-duration-window.landmarks.bin",
+  "evidence": {
+    "effectiveFps": 41.24,
+    "durationS": 9.95,
+    "trackers": ["hand", "pose"],
+    "movementWindow": {
+      "tStartS": 0.15,
+      "tEndS": 1.45
+    },
+    "phases": [],
+    "sensors": true,
+    "handsNeeded": 2,
+    "poseMinVisibility": 0.5,
+    "handMinScore": 0.6,
+    "startNs": "1000000000"
+  },
+  "expected": {
+    "registryVersion": "REG@0.1.0",
+    "items": {
+      "FT1": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT2": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT3": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT4": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT5": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT6": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT7": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT8": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT9": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT10": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT11": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      },
+      "FT12": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "requires >= 58 fps; effective 41.2 fps; requires >= 14.9 s; recorded 10 s; required landmarks visible in 69.2% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["fps", "duration", "landmarks"]
+      }
+    }
+  }
+}

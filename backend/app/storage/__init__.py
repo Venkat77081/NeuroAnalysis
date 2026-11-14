@@ -37,6 +37,7 @@ class Storage(Protocol):
     def abort(self, key: str, upload_id: str) -> None: ...
     def sha256(self, key: str) -> str: ...
     def size(self, key: str) -> int: ...
+    def read(self, key: str) -> bytes: ...
 
 
 def _safe(name: str) -> str:
@@ -121,6 +122,9 @@ class LocalStorage:
     def size(self, key: str) -> int:
         return (self.root / "objects" / key).stat().st_size
 
+    def read(self, key: str) -> bytes:
+        return (self.root / "objects" / key).read_bytes()
+
 
 class S3Storage:
     def __init__(self, client, bucket: str, ttl_s: int):
@@ -168,6 +172,9 @@ class S3Storage:
 
     def size(self, key: str) -> int:
         return self.s3.head_object(Bucket=self.bucket, Key=key)["ContentLength"]
+
+    def read(self, key: str) -> bytes:
+        return self.s3.get_object(Bucket=self.bucket, Key=key)["Body"].read()
 
 
 @lru_cache

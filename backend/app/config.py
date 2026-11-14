@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,6 +31,11 @@ class Settings(BaseSettings):
     # Server RSA-OAEP public key that wraps each take's data key (§14). PEM file and key ID.
     server_key_id: str = "dev-key-1"
     server_public_key_path: str | None = None
+    # Its private key, for server-side readiness (M8). Dev/pilot only: production keeps it in the
+    # KMS (decision 020). Without it, readiness falls back to the phone's hint (source device_hint).
+    server_private_key_path: str | None = None
+    # Repo config/ (test configs, quality.json, biomarker-registry.json). Docker: mounted read-only.
+    config_dir: str = str(Path(__file__).resolve().parents[2] / "config")
 
 
 @lru_cache

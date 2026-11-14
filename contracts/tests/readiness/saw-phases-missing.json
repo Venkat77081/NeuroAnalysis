@@ -1,0 +1,112 @@
+{
+  "name": "saw-phases-missing",
+  "testCode": "SAW",
+  "landmarksFile": "saw-phases-missing.landmarks.bin",
+  "evidence": {
+    "effectiveFps": 59.9,
+    "durationS": 45,
+    "trackers": ["pose"],
+    "movementWindow": null,
+    "phases": ["stand_up", "walk_out"],
+    "sensors": true,
+    "handsNeeded": 1,
+    "poseMinVisibility": 0.5,
+    "handMinScore": 0.6,
+    "startNs": "1000000000"
+  },
+  "expected": {
+    "registryVersion": "REG@0.1.0",
+    "items": {
+      "SAW1": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW2": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW3": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW4": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW5": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW6": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW7": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW8": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW9": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW10": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW11": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW12": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW13": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW14": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      },
+      "SAW15": {
+        "status": "NOT_COMPUTABLE",
+        "reason": "phases not detected: turn, walk_back",
+        "retakeFixable": true,
+        "missing": ["phases"]
+      }
+    }
+  }
+}

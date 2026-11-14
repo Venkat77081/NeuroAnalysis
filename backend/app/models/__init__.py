@@ -134,6 +134,21 @@ class TakeFile(Base):
     __table_args__ = (UniqueConstraint("take_id", "kind"),)
 
 
+class BiomarkerRun(Base):
+    """Biomarker readiness (M8) and, later, biomarker results for one take (§13.1)."""
+
+    __tablename__ = "biomarker_runs"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    take_id: Mapped[str] = mapped_column(ForeignKey("takes.id"), index=True)
+    registry_version: Mapped[str] = mapped_column(String(20))
+    #: server = recomputed from the decrypted files; device_hint = the phone's hint (no key here)
+    source: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(10))  # ready | error
+    readiness: Mapped[dict] = mapped_column(Json)
+    results: Mapped[dict | None] = mapped_column(Json)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)

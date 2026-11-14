@@ -1,0 +1,130 @@
+{
+  "name": "fa-mouth-corner-off-image",
+  "testCode": "FA",
+  "landmarksFile": "fa-mouth-corner-off-image.landmarks.bin",
+  "evidence": {
+    "effectiveFps": 59.9,
+    "durationS": 15,
+    "trackers": ["face"],
+    "movementWindow": null,
+    "phases": [],
+    "sensors": true,
+    "handsNeeded": 1,
+    "poseMinVisibility": 0.5,
+    "handMinScore": 0.6,
+    "startNs": "1000000000"
+  },
+  "expected": {
+    "registryVersion": "REG@0.1.0",
+    "items": {
+      "FA1": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA2": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA3": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA4": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA5": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA6": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA7": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA8": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA9": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA10": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA11": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA12": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA13": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA14": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA15": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA16": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA17": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      },
+      "FA18": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": ["landmarks"]
+      }
+    }
+  }
+}

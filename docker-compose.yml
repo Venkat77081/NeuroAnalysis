@@ -47,7 +47,9 @@ services:
       NC_STORAGE_DIR: /data/storage
       NC_PUBLIC_BASE_URL: ${NC_PUBLIC_BASE_URL:-http://localhost:8000}
       NC_JWT_SECRET: ${NC_JWT_SECRET:-dev-only-change-me}
-    volumes: [takedata:/data/storage]
+      # M8 readiness: test configs + biomarker registry (read-only from the repo).
+      NC_CONFIG_DIR: /srv/config
+    volumes: [takedata:/data/storage, ./config:/srv/config:ro]
     ports: ['8000:8000']
     depends_on:
       postgres: { condition: service_healthy }

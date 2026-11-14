@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VerdictReason } from '@neurocapture/quality-core';
 import { capture } from '../../lib/capture.ts';
+import { landmarkOverlayEnabled, setLandmarkOverlay } from '../../lib/debug-flags.ts';
+import { ReplayOverlay } from '../../overlays/ReplayOverlay.tsx';
+import { LandmarksToggle } from '../../overlays/LandmarksToggle.tsx';
 import { cleanNote, lastTake, retakesLeft } from '../../session/machine.ts';
 import { useSession } from '../../session/useSession.ts';
 import { Button, Card, Radio, Sheet } from '../../ui/kit.tsx';
@@ -29,6 +32,8 @@ export function Review() {
   const left = retakesLeft(ctx);
   const [player, setPlayer] = useState<string | null>(null);
   const [skipping, setSkipping] = useState(false);
+  const [showLm, setShowLm] = useState(landmarkOverlayEnabled);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   async function play() {
     try {
@@ -49,10 +54,35 @@ export function Review() {
         className="fixed inset-0 flex flex-col bg-black pt-[var(--sat)] pb-[var(--sab)]"
         data-testid="player"
       >
-        <video src={player} controls autoPlay playsInline className="min-h-0 flex-1" />
-        <Button className="m-4" variant="secondary" onClick={() => void closePlayer()}>
-          {t('common.close')}
-        </Button>
+        <div className="relative min-h-0 flex-1">
+          <video
+            ref={videoRef}
+            src={player}
+            controls
+            autoPlay
+            playsInline
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+          {showLm && (
+            <ReplayOverlay
+              takeId={take.takeId}
+              firstSampleNs={r.mp4?.firstSampleNs ?? null}
+              video={videoRef}
+            />
+          )}
+        </div>
+        <div className="m-4 flex gap-2">
+          <LandmarksToggle
+            on={showLm}
+            onChange={(v) => {
+              setShowLm(v);
+              setLandmarkOverlay(v);
+            }}
+          />
+          <Button className="flex-1" variant="secondary" onClick={() => void closePlayer()}>
+            {t('common.close')}
+          </Button>
+        </div>
       </div>
     );
   }

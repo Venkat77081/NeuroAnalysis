@@ -347,3 +347,29 @@ describe('MockCaptureKit synthetic scenarios (M5)', () => {
     vi.useRealTimers();
   });
 });
+
+describe('MockCaptureKit replay landmarks', () => {
+  it('keeps the landmarks of a recorded take and the video start time', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { decodeLandmarks, base64ToBytes } = await import('../src/index.ts');
+    const test = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, '../../../config/tests/FT.json'), 'utf8'),
+    );
+    vi.useFakeTimers();
+    const kit = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] });
+    kit.setScenario({ test, name: 'good' });
+    await kit.openCamera({ ...openOpts, trackers: ['hand', 'pose'], orientation: 'landscape' });
+    await kit.startRecording({ takeId: 'tk-replay', durationS: 1 });
+    vi.advanceTimersByTime(1100);
+    const res = (await kit.listTakes()).takes.find((t) => t.takeId === 'tk-replay')!.result!;
+    expect(res.mp4?.firstSampleNs).toMatch(/^\d+$/);
+    const { data } = await kit.readLandmarks({ takeId: 'tk-replay' });
+    const file = decodeLandmarks(base64ToBytes(data!));
+    expect(file.records.length).toBeGreaterThanOrEqual(25);
+    expect(file.records[0]!.hands).toHaveLength(2);
+    expect((await kit.readLandmarks({ takeId: 'none' })).data).toBeNull();
+    await kit.closeCamera();
+    vi.useRealTimers();
+  });
+});

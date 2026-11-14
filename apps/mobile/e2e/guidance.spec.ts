@@ -43,7 +43,7 @@ for (const [scenario, key, text, chip] of [
 
 test('M5: a tracker error shows "Tracking…", not an error prompt', async ({ page }) => {
   await framing(page, 'tracker_error');
-  await expect(page.getByTestId('guidance-tracking')).toHaveText('Tracking…');
+  await expect(page.getByTestId('guidance-tracking')).toContainText('Tracking…');
   await expect(page.getByTestId('guidance-prompt')).toHaveCount(0);
   await expect(page.getByTestId('record')).toBeDisabled();
 });

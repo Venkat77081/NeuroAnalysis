@@ -388,6 +388,10 @@ export class WebcamCaptureKit extends MockCaptureKit {
     return { playerUrl: s.url };
   }
 
+  override async readLandmarks(): Promise<{ data: string | null }> {
+    return { data: null }; // webcam takes keep no landmarks.bin
+  }
+
   override async closePlayback(): Promise<void> {
     /* object URLs live until deleteTake */
   }

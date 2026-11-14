@@ -145,6 +145,7 @@ object TakeFinalizer {
                 put("p95AbsDiffMs", alignment.p95AbsDiffMs)
                 put("unmatchedSamples", alignment.unmatchedSamples)
                 put("anchor", alignment.anchor)
+                canonical.getOrNull(alignment.firstRecordIndex)?.let { put("firstSampleNs", it.toString()) }
             })
             put("sensorSamples", o.sensorLog.size)
             put("landmarkFrames", if (trackers.isNotEmpty()) o.landmarks.size else JSONObject.NULL)

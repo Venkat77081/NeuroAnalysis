@@ -1,4 +1,5 @@
 import type {
+  AnalysisFrameEvent,
   BenchmarkOpts,
   BenchmarkProgressEvent,
   BenchmarkReport,
@@ -17,7 +18,14 @@ import type { CaptureFixture } from './fixture.ts';
 import { PLUGIN_VERSION } from './version.ts';
 import type { TestConfig } from '@neurocapture/contracts-ts';
 import { syntheticFrame, type ScenarioName, type Side } from '@neurocapture/quality-core';
-import { encodeAnalysisFrame } from './landmarks.ts';
+import {
+  encodeAnalysisFrame,
+  encodeLandmarks,
+  recordFromEvent,
+  type LandmarkRecord,
+} from './landmarks.ts';
+import { bytesToBase64 } from './codec.ts';
+import type { LandmarksHeader } from '@neurocapture/contracts-ts/types';
 
 export interface Scheduler {
   now(): number; // ms
@@ -93,6 +101,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private benchRunning = false;
   /** Synthetic positioning scenario (M5); null = replay the fixture. */
   private scenario: { test: TestConfig; name: ScenarioName; side: Side | null } | null = null;
+  /** landmarks.bin records per take, captured while recording (replay overlay). */
+  private landmarkRecords = new Map<string, LandmarkRecord[]>();
+  private firstSampleNs = new Map<string, bigint>();
 
   constructor(opts: MockOptions) {
     this.fixture = opts.fixture;
@@ -266,6 +277,38 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
+  /** Emit an analysis event and, while recording, keep it as a landmarks.bin record. */
+  private emitAnalysis(e: AnalysisFrameEvent): void {
+    this.emit('analysisFrame', e);
+    if (this.recording && (this.camera?.trackers.length ?? 0) > 0)
+      this.landmarkRecords.get(this.recording.takeId)?.push(recordFromEvent(e));
+  }
+
+  async readLandmarks(opts: { takeId: string }): Promise<{ data: string | null }> {
+    const records = this.landmarkRecords.get(opts.takeId);
+    if (!records?.length) return { data: null };
+    const header: LandmarksHeader = {
+      schemaVersion: '1.0.0',
+      layout: 'NCLM-v1',
+      takeId: opts.takeId,
+      coordinateSystem: 'normalized_upright_analysis_frame',
+      orientation: this.camera?.orientation ?? 'portrait',
+      mirrored: false,
+      imageMirrored: false,
+      handednessLabels: 'mediapipe_raw',
+      timestampSemantics: 'camera_frame_canonical_elapsed_realtime_ns',
+      clockSource: 'SIMULATED',
+      record: { endianness: 'little', dtype: 'float32' },
+      trackers: (this.camera?.trackers.length ? this.camera.trackers : ['hand']).map((name) => ({
+        name,
+        modelVersion: 'mock',
+        pointsPerFrame: name === 'hand' ? 21 : name === 'pose' ? 33 : 478,
+        valuesPerPoint: name === 'face' ? 3 : 4,
+      })) as LandmarksHeader['trackers'],
+    };
+    return { data: bytesToBase64(encodeLandmarks(header, records)) };
+  }
+
   /**
    * Mock only: generate synthetic frames for a test and positioning scenario (good, too_far,
    * dark, ...) instead of replaying the fixture, so the guidance UI can be exercised in a browser.
@@ -289,7 +332,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
       orientation: cam.orientation,
       side: sc.side,
     });
-    this.emit('analysisFrame', {
+    this.emitAnalysis({
       ...encodeAnalysisFrame(frame),
       emitNs: (tNs + 5_000_000n).toString(),
       procMs: 5,
@@ -320,7 +363,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const on = new Set(this.camera?.trackers ?? []);
     const ts = this.startNs + loopNs + BigInt(src.tsNs);
     const hands = on.has('hand') ? src.hands : undefined;
-    this.emit('analysisFrame', {
+    this.emitAnalysis({
       seq: this.seq++,
       tsNs: ts.toString(),
       imageW: src.imageW,
@@ -380,6 +423,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
       }
     }, 100);
     this.recording = { takeId: opts.takeId, durationS: opts.durationS, startedMs, timer, tick };
+    this.landmarkRecords.set(opts.takeId, []);
+    this.firstSampleNs.set(opts.takeId, BigInt(Math.round(startedMs)) * 1_000_000n);
     this.emit('recordingState', { takeId: opts.takeId, state: 'recording', elapsedS: 0 });
     return { startedAtNs: (BigInt(startedMs) * 1_000_000n).toString() };
   }
@@ -421,6 +466,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
         p95AbsDiffMs: 0.05,
         unmatchedSamples: 0,
         anchor: 'pattern',
+        firstSampleNs: (this.firstSampleNs.get(rec.takeId) ?? 0n).toString(),
       },
       sensorSamples: Math.round(durationS * 200),
       landmarkFrames:
@@ -556,6 +602,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.takes.delete(opts.takeId);
     this.results.delete(opts.takeId);
     this.playing.delete(opts.takeId);
+    this.landmarkRecords.delete(opts.takeId);
+    this.firstSampleNs.delete(opts.takeId);
     for (const k of [...this.evidence.keys()])
       if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);
     this.uploads.delete(opts.takeId);

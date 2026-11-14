@@ -281,6 +281,23 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** Decrypted landmarks.bin of a take as base64 (replay overlay); data = null when absent. */
+    @PluginMethod
+    fun readLandmarks(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
+        io.execute {
+            try {
+                val bytes = vault.openDecrypting(takeId, "landmarks.bin").use { it.readBytes() }
+                call.resolve(JSObject().apply { put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)) })
+            } catch (e: java.io.FileNotFoundException) {
+                call.resolve(JSObject().apply { put("data", org.json.JSONObject.NULL) })
+            } catch (e: Exception) {
+                call.reject("readLandmarks failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
     @PluginMethod
     fun closePlayback(call: PluginCall) {
         val takeId = call.getString("takeId")

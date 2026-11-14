@@ -50,6 +50,40 @@ export function coverTransform(
   };
 }
 
+/** Transform for a video shown with "contain" scaling inside a viewW×viewH box (replay). */
+export function containTransform(
+  imageW: number,
+  imageH: number,
+  viewW: number,
+  viewH: number,
+): PreviewTransform {
+  const s = Math.min(viewW / imageW, viewH / imageH);
+  const dw = imageW * s;
+  const dh = imageH * s;
+  return {
+    scaleX: dw,
+    scaleY: dh,
+    offsetX: (viewW - dw) / 2,
+    offsetY: (viewH - dh) / 2,
+    rotationDeg: 0,
+    mirrored: false,
+  };
+}
+
+/** Index of the record whose time is nearest to tNs (times sorted ascending); -1 if empty. */
+export function nearestIndex(times: readonly bigint[], tNs: bigint): number {
+  if (!times.length) return -1;
+  let lo = 0;
+  let hi = times.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid]! < tNs) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo > 0 && tNs - times[lo - 1]! < times[lo]! - tNs) return lo - 1;
+  return lo;
+}
+
 /** MediaPipe hand connections (21 points). */
 export const HAND_EDGES: [number, number][] = [
   [0, 1],

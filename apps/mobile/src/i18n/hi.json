@@ -406,7 +406,8 @@
       "checking": "स्थिति जाँची जा रही है…",
       "advisory": "गेट बंद (इंजीनियरिंग)",
       "diag": "विश्लेषण {{fps}} fps · {{ms}} ms"
-    }
+    },
+    "landmarks": "लैंडमार्क"
   },
   "trackingTest": {
     "title": "Tracking test (M4)",

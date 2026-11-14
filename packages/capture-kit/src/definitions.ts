@@ -85,6 +85,8 @@ export interface Mp4Alignment {
   /** MP4 samples with no logged frame within half a frame period (decision 009). */
   unmatchedSamples: number;
   anchor: 'pattern' | 'earliest_candidate';
+  /** Canonical time (ns, decimal string) of MP4 sample 0: video time τ ↔ firstSampleNs + τ. */
+  firstSampleNs?: string;
 }
 
 export interface RecordingResult {
@@ -233,6 +235,8 @@ export interface CaptureKitPlugin {
   /** Decrypts into a temporary in-app file; always call closePlayback when the player closes. */
   playTake(opts: { takeId: string }): Promise<{ playerUrl: string }>;
   closePlayback(opts: { takeId?: string }): Promise<void>;
+  /** Decrypted landmarks.bin of a take (NCLM-v1, base64), for the replay overlay; null if none. */
+  readLandmarks(opts: { takeId: string }): Promise<{ data: string | null }>;
   /** Takes found as plaintext after a crash at the last start, now encrypted and marked RetainedForRecovery. */
   getRecoveredTakes(): Promise<{ takeIds: string[] }>;
   /** Median Laplacian-variance sharpness over durationS of a static target (device baseline, §9.2). */

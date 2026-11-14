@@ -7,7 +7,12 @@ import {
   summarizeTracking,
   type TrackingSample,
 } from '../src/lib/m4-acceptance.ts';
-import { coverTransform, toScreen } from '../src/overlays/landmark-geometry.ts';
+import {
+  containTransform,
+  coverTransform,
+  nearestIndex,
+  toScreen,
+} from '../src/overlays/landmark-geometry.ts';
 
 const sample = (i: number, over: Partial<TrackingSample> = {}): TrackingSample => ({
   tsNs: BigInt(i) * 40_000_000n, // 25 fps
@@ -93,5 +98,22 @@ describe('coverTransform', () => {
     expect(t.scaleY).toBeCloseTo(915);
     expect(t.offsetX).toBeLessThan(0);
     expect(t.mirrored).toBe(true);
+  });
+});
+
+describe('replay mapping', () => {
+  it('contain-fits a video in its box (letterbox)', () => {
+    const t = containTransform(1920, 1080, 400, 800);
+    expect(t.scaleX).toBeCloseTo(400);
+    expect(t.scaleY).toBeCloseTo(225);
+    expect(t.offsetY).toBeCloseTo(287.5);
+  });
+  it('finds the record nearest to a video time', () => {
+    const times = [0n, 33n, 66n, 100n];
+    expect(nearestIndex([], 5n)).toBe(-1);
+    expect(nearestIndex(times, -5n)).toBe(0);
+    expect(nearestIndex(times, 40n)).toBe(1);
+    expect(nearestIndex(times, 60n)).toBe(2);
+    expect(nearestIndex(times, 500n)).toBe(3);
   });
 });

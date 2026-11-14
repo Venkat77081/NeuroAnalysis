@@ -406,7 +406,8 @@
       "checking": "Checking position…",
       "advisory": "Gate off (engineering)",
       "diag": "analysis {{fps}} fps · {{ms}} ms"
-    }
+    },
+    "landmarks": "Landmarks"
   },
   "trackingTest": {
     "title": "Tracking test (M4)",

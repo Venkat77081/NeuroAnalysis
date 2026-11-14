@@ -7,7 +7,7 @@ import ftRSample from '../fixtures/ft-r-sample.json' with { type: 'json' };
 export * from './definitions.ts';
 export type { CaptureFixture } from './fixture.ts';
 export { MockCaptureKit, scaledScheduler, type MockOptions, type Scheduler } from './mock.ts';
-export { encodeFloat32, decodeFloat32 } from './codec.ts';
+export { encodeFloat32, decodeFloat32, bytesToBase64, base64ToBytes } from './codec.ts';
 export { PLUGIN_VERSION } from './version.ts';
 export * from './streams.ts';
 export * from './landmarks.ts';

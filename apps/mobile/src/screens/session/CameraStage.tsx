@@ -14,7 +14,13 @@ import { stepTakes } from '../../session/machine.ts';
 import { useSession } from '../../session/useSession.ts';
 import { Outline, type OverlayKind } from '../../overlays/Outline.tsx';
 import { LandmarkOverlay } from '../../overlays/LandmarkOverlay.tsx';
-import { gateAdvisory, landmarkOverlayEnabled, sharpnessBaseline } from '../../lib/debug-flags.ts';
+import {
+  gateAdvisory,
+  landmarkOverlayEnabled,
+  setLandmarkOverlay,
+  sharpnessBaseline,
+} from '../../lib/debug-flags.ts';
+import { LandmarksToggle } from '../../overlays/LandmarksToggle.tsx';
 import type { RuleName } from '@neurocapture/quality-core';
 import type { GuidanceView } from '../../guidance/useGuidance.ts';
 import { ENGINEERING_TOOLS } from '../EngineeringMenu.tsx';
@@ -46,7 +52,11 @@ export function CameraStage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [fps, setFps] = useState<number>(cfg.camera.targetFps);
   const [transform, setTransform] = useState<PreviewTransform | null>(null);
-  const [debugLandmarks] = useState(landmarkOverlayEnabled);
+  const [showLm, setShowLm] = useState(landmarkOverlayEnabled);
+  const toggleLm = (v: boolean) => {
+    setShowLm(v);
+    setLandmarkOverlay(v);
+  };
   // Operator may switch portrait/landscape where the test allows it (config allowedOrientations).
   const allowed = cfg.camera.allowedOrientations ?? [cfg.camera.orientation];
   const [orientation, setOrientation] = useState(() =>
@@ -203,7 +213,7 @@ export function CameraStage() {
           orientation={orientation}
         />
       </div>
-      {debugLandmarks && <LandmarkOverlay transform={transform} />}
+      {showLm && <LandmarkOverlay transform={transform} />}
 
       <header className={L.header}>
         {phase === 'recording' ? (
@@ -216,6 +226,11 @@ export function CameraStage() {
             />
           </span>
         )}
+        {phase === 'framing' && (
+          <span className={allowed.length > 1 ? '' : 'ml-auto'}>
+            <LandmarksToggle on={showLm} onChange={toggleLm} />
+          </span>
+        )}
         {phase === 'framing' && allowed.length > 1 && (
           <button
             type="button"
@@ -224,7 +239,7 @@ export function CameraStage() {
               rememberOrientation(step.code, next);
               setOrientation(next);
             }}
-            className="ml-auto rounded-full bg-[#0E1116] px-3 py-2 text-[13px] font-semibold"
+            className="rounded-full bg-[#0E1116] px-3 py-2 text-[13px] font-semibold"
             aria-label={t('session.framing.switchOrientation')}
             data-testid="orientation-toggle"
           >
@@ -285,6 +300,7 @@ export function CameraStage() {
           takeId={ctx.currentTakeId}
           durationS={cfg.task.durationS}
           landscape={landscape}
+          landmarks={<LandmarksToggle on={showLm} onChange={toggleLm} />}
         />
       ) : (
         <section className={L.panel} data-testid="controls">
@@ -361,10 +377,13 @@ function RecordingPanel({
   takeId,
   durationS,
   landscape,
+  landmarks,
 }: {
   takeId: string;
   durationS: number;
   landscape: boolean;
+  /** Landmark overlay switch, shown with the recording controls. */
+  landmarks: React.ReactNode;
 }) {
   const L = landscape ? LANDSCAPE : PORTRAIT;
   const { t } = useTranslation();
@@ -407,6 +426,7 @@ function RecordingPanel({
         >
           <div className="h-2 rounded bg-[#5BE3A0]" style={{ width: `${pct}%` }} />
         </div>
+        <div className="flex justify-center">{landmarks}</div>
         <button
           type="button"
           onClick={() => void capture.kit.stopRecording().catch(() => undefined)}

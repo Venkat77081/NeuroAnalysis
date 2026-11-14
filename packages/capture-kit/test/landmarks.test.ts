@@ -5,6 +5,7 @@ import { validate } from '@neurocapture/contracts-ts';
 import {
   BLENDSHAPE_NAMES,
   decodeAnalysisFrame,
+  encodeAnalysisFrame,
   decodeLandmarks,
   encodeFloat32,
   encodeLandmarks,
@@ -118,5 +119,28 @@ describe('landmarks.bin', () => {
     new DataView(bad.buffer).setUint32(8 + hLen, 1, true); // first record claims 1 byte
     expect(() => decodeLandmarks(bad)).toThrow(/record length mismatch|truncated record/);
     expect(() => decodeLandmarks(golden.subarray(0, 8 + hLen + 2))).toThrow(/truncated record/);
+  });
+});
+
+describe('encodeAnalysisFrame', () => {
+  it('round-trips a synthetic frame through the event format', async () => {
+    const { syntheticFrame } = await import('@neurocapture/quality-core');
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const test = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, '../../../config/tests/FT.json'), 'utf8'),
+    );
+    const { frame } = syntheticFrame(test, 'good', {
+      seq: 3,
+      tNs: 123_456_789n,
+      orientation: 'landscape',
+    });
+    const back = decodeAnalysisFrame(encodeAnalysisFrame(frame));
+    expect(back.tNs).toBe(123_456_789n);
+    expect(back.hands.map((h) => h.side)).toEqual(frame.hands.map((h) => h.side));
+    expect(back.hands[0]!.pts[8]!.x).toBeCloseTo(frame.hands[0]!.pts[8]!.x, 5);
+    expect(back.pose).toHaveLength(33);
+    expect(back.image).toEqual({ w: 854, h: 480 });
+    expect(back.counts).toEqual(frame.counts);
   });
 });

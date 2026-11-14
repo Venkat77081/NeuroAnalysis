@@ -130,6 +130,46 @@ export function decodeAnalysisFrame(
       : {}),
     stats: { ...e.stats },
     trackerStatus: { ...e.trackerStatus },
+    ...(e.imageW && e.imageH ? { image: { w: e.imageW, h: e.imageH } } : {}),
+    ...(e.counts ? { counts: { ...e.counts } } : {}),
+  };
+}
+
+/**
+ * Inverse of decodeAnalysisFrame for an un-mirrored image: builds the event native code would
+ * send for a LandmarkFrame (mock camera, synthetic scenarios). Hand labels are MediaPipe-raw.
+ */
+export function encodeAnalysisFrame(f: LandmarkFrame): AnalysisFrameEvent {
+  const flat4 = (pts: readonly { x: number; y: number; z: number; v?: number }[]) =>
+    encodeFloat32(pts.flatMap((p) => [p.x, p.y, p.z, p.v ?? 1]));
+  return {
+    seq: f.seq,
+    tsNs: f.tNs.toString(),
+    imageW: f.image?.w ?? 0,
+    imageH: f.image?.h ?? 0,
+    ...(f.hands.length
+      ? {
+          hands: f.hands.map((h) => ({
+            handedness: (h.side === 'R' ? 'Right' : 'Left') as 'Left' | 'Right',
+            score: h.score,
+            lm: flat4(h.pts),
+          })),
+        }
+      : {}),
+    ...(f.pose ? { pose: { lm: flat4(f.pose) } } : {}),
+    ...(f.face
+      ? {
+          face: {
+            lm: encodeFloat32(f.face.pts.flatMap((p) => [p.x, p.y, p.z])),
+            yawDeg: f.face.yaw,
+            pitchDeg: f.face.pitch,
+            rollDeg: f.face.roll,
+          },
+        }
+      : {}),
+    stats: { ...f.stats },
+    trackerStatus: { ...f.trackerStatus },
+    ...(f.counts ? { counts: { ...f.counts } } : {}),
   };
 }
 

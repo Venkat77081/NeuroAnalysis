@@ -19,3 +19,29 @@ export {
   type VerdictReason,
   type VerdictReasonCode,
 } from './verdict/capture.ts';
+export * from './checks/checks.ts';
+export {
+  AnalysisHealth,
+  SensorBuffer,
+  evaluateFrame,
+  gateRules,
+  type CheckContext,
+} from './checks/evaluate.ts';
+export {
+  GuidanceEngine,
+  fallbackKey,
+  lowFpsCritical,
+  type GuidanceState,
+  type Prompt,
+  type RuleView,
+  type WindowState,
+} from './engine/guidance.ts';
+export {
+  SYNTHETIC_SHARPNESS_BASELINE,
+  scenariosFor,
+  syntheticFrame,
+  type Expectation,
+  type ScenarioName,
+  type SyntheticOptions,
+  type SyntheticSample,
+} from './synthetic.ts';

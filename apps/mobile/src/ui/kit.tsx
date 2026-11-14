@@ -30,7 +30,7 @@ export function BackButton({ onClick, label }: { onClick: () => void; label: str
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="-ml-2 flex size-11 items-center justify-center rounded-full"
+      className="-ml-2 flex size-12 items-center justify-center rounded-full"
     >
       <svg
         width="22"

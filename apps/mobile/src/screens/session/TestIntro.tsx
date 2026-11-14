@@ -46,7 +46,7 @@ export function TestIntro() {
           <button
             type="button"
             onClick={() => setEnding(true)}
-            className="h-11 rounded-full px-2 text-[13px] font-semibold text-bad"
+            className="h-12 rounded-full px-3 text-[13px] font-semibold text-bad"
             data-testid="end-early"
           >
             {t('session.intro.end')}
@@ -172,7 +172,7 @@ export function TestIntro() {
                 type="button"
                 aria-pressed={!!done[c]}
                 onClick={() => setDone({ ...done, [c]: !done[c] })}
-                className={`flex min-h-10 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium ${done[c] ? 'border-[#9ED4B5] bg-ok-soft text-[#145F38]' : 'border-[#C9CFD8] bg-white text-muted'}`}
+                className={`flex min-h-12 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium ${done[c] ? 'border-[#9ED4B5] bg-ok-soft text-[#145F38]' : 'border-[#C9CFD8] bg-white text-muted'}`}
               >
                 <Check />
                 {t(`session.checklist.${c}`)}

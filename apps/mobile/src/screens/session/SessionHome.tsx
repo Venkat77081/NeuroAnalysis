@@ -100,7 +100,7 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
           <h1 className="m-0 text-[26px] font-bold">{t('session.home.title')}</h1>
           <button
             type="button"
-            className="flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[13px] text-muted"
+            className="flex min-h-12 items-center gap-1.5 rounded-full px-2 text-[13px] text-muted"
             onClick={() => setUploads(true)}
             data-testid="open-upload-setup"
           >

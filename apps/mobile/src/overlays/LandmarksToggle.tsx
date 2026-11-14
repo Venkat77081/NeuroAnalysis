@@ -15,7 +15,7 @@ export function LandmarksToggle({
       role="switch"
       aria-checked={on}
       onClick={() => onChange(!on)}
-      className={`flex h-11 items-center gap-2 rounded-full px-3 text-[13px] font-semibold ${
+      className={`flex h-12 items-center gap-2 rounded-full px-3 text-[13px] font-semibold ${
         on ? 'bg-[#4FC3F7] text-[#0E1116]' : 'bg-[#0E1116] text-white'
       }`}
       data-testid="landmarks-switch"

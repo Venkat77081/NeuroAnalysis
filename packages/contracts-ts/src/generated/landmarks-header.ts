@@ -30,7 +30,7 @@ export interface LandmarksHeader {
       modelVersion: string;
       pointsPerFrame: 21 | 33 | 478;
       valuesPerPoint: 3 | 4;
-    }[],
+    }[]
   ];
   layout?: 'NCLM-v1';
   takeId?: string;
@@ -43,4 +43,11 @@ export interface LandmarksHeader {
    */
   imageMirrored?: boolean;
   blendshapeNames?: string[];
+  /**
+   * Analysis image size in pixels (upright), so readers can restore aspect-dependent geometry (M8 replay). Optional for files written before plugin 0.9.0.
+   */
+  image?: {
+    w: number;
+    h: number;
+  };
 }

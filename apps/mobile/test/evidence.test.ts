@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { LandmarksHeader } from '@neurocapture/contracts-ts';
+import type { LandmarkFrame } from '@neurocapture/quality-core';
 import { validate } from '@neurocapture/contracts-ts';
 import { MockCaptureKit, sampleFixtures, type RecordingResult } from '@neurocapture/capture-kit';
 import { buildMeta } from '../src/lib/evidence.ts';
@@ -75,17 +77,43 @@ describe('buildMeta', () => {
   });
 });
 
-describe('buildQuality (M6)', () => {
-  it('builds a schema-valid quality.json from a synthetic take', async () => {
+describe('buildQuality and the device evaluation (M6, M8)', () => {
+  /** landmarks.bin bytes for synthetic frames, as the plugin writes them. */
+  async function landmarksFile(frames: LandmarkFrame[], takeId: string) {
+    const { encodeAnalysisFrame, encodeLandmarks, recordFromEvent, bytesToBase64 } =
+      await import('@neurocapture/capture-kit');
+    const header = {
+      schemaVersion: '1.0.0',
+      layout: 'NCLM-v1',
+      takeId,
+      coordinateSystem: 'normalized_upright_analysis_frame',
+      orientation: 'landscape',
+      image: frames[0]!.image,
+      mirrored: false,
+      imageMirrored: false,
+      handednessLabels: 'mediapipe_raw',
+      timestampSemantics: 'camera_frame_canonical_elapsed_realtime_ns',
+      clockSource: 'SIMULATED',
+      record: { endianness: 'little', dtype: 'float32' },
+      trackers: [
+        { name: 'hand', modelVersion: 'x', pointsPerFrame: 21, valuesPerPoint: 3 },
+        { name: 'pose', modelVersion: 'x', pointsPerFrame: 33, valuesPerPoint: 4 },
+        { name: 'face', modelVersion: 'x', pointsPerFrame: 478, valuesPerPoint: 3 },
+      ],
+    } as unknown as LandmarksHeader;
+    const records = frames.map((f) => recordFromEvent(encodeAnalysisFrame(f)));
+    return bytesToBase64(encodeLandmarks(header, records));
+  }
+
+  it('builds a schema-valid quality.json from the recorded files, with readiness and replay inputs', async () => {
     const { syntheticTake } = await import('@neurocapture/quality-core');
-    const { TakeCollector, finishTake } = await import('../src/lib/take-analysis.ts');
+    const { evaluateOnDevice } = await import('../src/lib/take-analysis.ts');
     const { buildQuality } = await import('../src/lib/evidence.ts');
     const config = loadConfig();
     for (const code of ['FT', 'SAW'] as const) {
       const cfg = config.tests.get(code)!;
-      const tk = syntheticTake(cfg, 'normal');
-      const collector = new TakeCollector(config.quality.ruleVersion);
-      for (const f of tk.frames) collector.push(f, [], false);
+      const tk = syntheticTake(cfg, 'normal', { fps: 30 });
+      const data = await landmarksFile(tk.frames, 'tk-q');
       const result = {
         takeId: 'tk-q',
         durationS: tk.durationS,
@@ -97,15 +125,25 @@ describe('buildQuality (M6)', () => {
         actualFps: 60,
         mp4: { firstSampleNs: tk.t0Ns.toString() },
       } as unknown as RecordingResult;
-      const take = finishTake({
-        collector,
+      const take = await evaluateOnDevice({
+        kit: {
+          readLandmarks: async () => ({ data }),
+          readSensors: async () => ({ data: null }),
+        },
+        collector: null,
         result,
         test: cfg,
         quality: config.quality,
+        registry: config.registry,
+        side: null,
+        orientation: cfg.camera.orientation as 'portrait' | 'landscape',
+        hasSensors: false,
         minEffectiveFps: 59,
         sharpnessBaseline: null,
       });
       expect(take.verdict.verdict, code).toBe('PASS');
+      expect(take.replayInputs).toMatchObject({ source: 'recorded', sensorsSha256: null });
+      expect(take.replayInputs.landmarksSha256).toMatch(/^[0-9a-f]{64}$/);
       const ctx = { plan: [{ code, side: null }], index: 0 } as unknown as SessionContext;
       const q = buildQuality({
         ctx,
@@ -119,20 +157,25 @@ describe('buildQuality (M6)', () => {
       });
       expect(validate('quality', q).issues).toEqual([]);
       expect(q.eventsDetected).toBeGreaterThan(5);
+      expect(q.biomarkerReadinessHint.registryVersion).toBe('REG@0.1.0');
+      expect((q.biomarkerReadinessHint as Record<string, unknown>)[`${code}1`]).toEqual({
+        status: 'COMPUTABLE',
+      });
       if (code === 'SAW')
         expect(q.phasesDetected).toEqual(['seated', 'standing', 'walk_out', 'turn', 'walk_back']);
     }
   });
 
-  it('gives plain RETAKE reasons for an interrupted take', async () => {
+  it('falls back to the live frames when the files cannot be read; plain RETAKE reasons', async () => {
     const { syntheticTake } = await import('@neurocapture/quality-core');
-    const { TakeCollector, finishTake } = await import('../src/lib/take-analysis.ts');
+    const { TakeCollector, evaluateOnDevice } = await import('../src/lib/take-analysis.ts');
     const config = loadConfig();
     const cfg = config.tests.get('FT')!;
-    const tk = syntheticTake(cfg, 'interrupted');
+    const tk = syntheticTake(cfg, 'interrupted', { fps: 30 });
     const collector = new TakeCollector(config.quality.ruleVersion);
-    for (const f of tk.frames) collector.push(f, [{ rule: 'shake', severity: 'CRITICAL' }], false);
+    for (const f of tk.frames) collector.push(f, [], false);
     const result = {
+      takeId: 'tk-i',
       durationS: 15,
       requestedDurationS: 15,
       stoppedEarly: false,
@@ -140,24 +183,28 @@ describe('buildQuality (M6)', () => {
       droppedFrac: 0,
       mp4: null,
     } as unknown as RecordingResult;
-    const take = finishTake({
+    const args = {
       collector,
       result,
       test: cfg,
       quality: config.quality,
+      registry: config.registry,
+      side: null,
+      orientation: 'landscape' as const,
+      hasSensors: false,
       minEffectiveFps: 59,
       sharpnessBaseline: 100,
-    });
-    expect(take.verdict.reasons.map((r) => r.code)).toEqual(['no_motion', 'critical_events']);
-    expect(take.events[0]).toMatchObject({ ruleId: 'shake@1.0.0', severity: 'CRITICAL' });
-    const empty = finishTake({
-      collector: null,
-      result,
-      test: cfg,
-      quality: config.quality,
-      minEffectiveFps: 59,
-      sharpnessBaseline: null,
-    });
+    };
+    const broken = {
+      readLandmarks: async () => Promise.reject(new Error('io')),
+      readSensors: async () => ({ data: null }),
+    };
+    const take = await evaluateOnDevice({ ...args, kit: broken });
+    expect(take.replayInputs.source).toBe('live');
+    expect(take.verdict.reasons.map((r) => r.code)).toContain('no_motion');
+    const none = { readLandmarks: async () => ({ data: null }), readSensors: broken.readSensors };
+    const empty = await evaluateOnDevice({ ...args, kit: none });
+    expect(empty.replayInputs.source).toBe('recorded');
     expect(empty.verdict.reasons.map((r) => r.code)).toContain('protocol_incomplete');
   });
 });

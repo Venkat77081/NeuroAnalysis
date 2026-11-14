@@ -418,3 +418,37 @@ describe('§15 recording interruptions (mock)', () => {
     await kit.startRecording({ takeId: 'bg2', durationS: 1 }); // camera still usable
   });
 });
+
+describe('recorded evidence files (M8)', () => {
+  it('readSensors/readLandmarks return what was recorded, decodable for the verdict', async () => {
+    const { framesFromLandmarksFile, readingsFromSensorsFile, base64ToBytes } =
+      await import('../src/index.ts');
+    const kit = new MockCaptureKit({
+      fixture: sampleFixtures['ft-r-sample'],
+      scheduler: scaledScheduler(1000),
+    });
+    await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: ['hand', 'pose'],
+      analysisFps: 30,
+    });
+    let done = false;
+    await kit.addListener('recordingState', (e) => {
+      if (e.state === 'completed') done = true;
+    });
+    await kit.startRecording({ takeId: 'ev1', durationS: 1 });
+    while (!done) await new Promise((r) => setTimeout(r, 5));
+    const lm = await kit.readLandmarks({ takeId: 'ev1' });
+    const { header, frames } = framesFromLandmarksFile(base64ToBytes(lm.data!));
+    expect(frames.length).toBeGreaterThan(0);
+    expect(header.image).toEqual(frames[0]!.image);
+    const se = await kit.readSensors({ takeId: 'ev1' });
+    const readings = readingsFromSensorsFile(base64ToBytes(se.data!));
+    expect(readings.length).toBeGreaterThan(0);
+    expect(new Set(readings.map((r) => r.type))).toEqual(new Set(['gyro', 'gravity']));
+    expect((await kit.readSensors({ takeId: 'none' })).data).toBeNull();
+  });
+});

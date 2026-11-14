@@ -3,8 +3,10 @@ import {
   checkTestConfig,
   checkSessionConfig,
   checkQualityConfig,
+  checkBiomarkerRegistry,
 } from '@neurocapture/contracts-ts';
 import type {
+  BiomarkerRegistry,
   DeviceTiersConfig,
   QualityConfig,
   SessionConfig,
@@ -13,6 +15,7 @@ import type {
 import quality from '../../../../config/quality.json' with { type: 'json' };
 import deviceTiers from '../../../../config/device-tiers.json' with { type: 'json' };
 import session from '../../../../config/session.json' with { type: 'json' };
+import registryJson from '../../../../config/biomarker-registry.json' with { type: 'json' };
 import FT from '../../../../config/tests/FT.json' with { type: 'json' };
 import FTF from '../../../../config/tests/FTF.json' with { type: 'json' };
 import FR from '../../../../config/tests/FR.json' with { type: 'json' };
@@ -23,17 +26,26 @@ export interface LoadedConfig {
   session: SessionConfig;
   tiers: DeviceTiersConfig;
   quality: QualityConfig;
+  /** Biomarker registry (M8): readiness hint per take; never shown to operators. */
+  registry: BiomarkerRegistry | null;
   tests: Map<string, TestConfig>;
   errors: string[];
 }
 
 /** Load and validate the bundled configs. The app refuses clinical capture if errors is non-empty. */
 export function loadConfig(
-  raw: { session: unknown; tests: Record<string, unknown>; tiers?: unknown; quality?: unknown } = {
+  raw: {
+    session: unknown;
+    tests: Record<string, unknown>;
+    tiers?: unknown;
+    quality?: unknown;
+    registry?: unknown;
+  } = {
     session,
     tests: { FT, FTF, FR, SAW, FA },
     tiers: deviceTiers,
     quality,
+    registry: registryJson,
   },
 ): LoadedConfig {
   const errors: string[] = [];
@@ -72,9 +84,19 @@ export function loadConfig(
       ...checkQualityConfig(q as QualityConfig).map((i) => `quality.json ${i.path} ${i.message}`),
     );
   }
+  const r = raw.registry ?? registryJson;
+  const rres = validate('biomarker-registry', r);
+  errors.push(...rres.issues.map((i) => `biomarker-registry.json ${i.path || '/'} ${i.message}`));
+  if (rres.valid)
+    errors.push(
+      ...checkBiomarkerRegistry(r as BiomarkerRegistry, tests).map(
+        (i) => `biomarker-registry.json ${i.path} ${i.message}`,
+      ),
+    );
   return {
     session: raw.session as SessionConfig,
     quality: q as QualityConfig,
+    registry: rres.valid ? (r as BiomarkerRegistry) : null,
     tests,
     tiers: tiers as DeviceTiersConfig,
     errors,

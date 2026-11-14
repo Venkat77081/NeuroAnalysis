@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://neurocapture.local/contracts/landmarks-header.schema.json",
   "title": "LandmarksHeader",
-  "description": "JSON header of landmarks.bin (DEV_PLAN §12.2). File layout: 4-byte magic 'NCLM', uint32 LE header length, UTF-8 JSON header, then records, each: uint32 LE byte length of the rest, then the record body (layout 'NCLM-v1', see packages/capture-kit/src/landmarks.ts). Schema version 1.0.0.",
+  "description": "JSON header of landmarks.bin (DEV_PLAN \u00a712.2). File layout: 4-byte magic 'NCLM', uint32 LE header length, UTF-8 JSON header, then records, each: uint32 LE byte length of the rest, then the record body (layout 'NCLM-v1', see packages/capture-kit/src/landmarks.ts). Schema version 1.0.0.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -90,6 +90,22 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "image": {
+      "description": "Analysis image size in pixels (upright), so readers can restore aspect-dependent geometry (M8 replay). Optional for files written before plugin 0.9.0.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["w", "h"],
+      "properties": {
+        "w": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "h": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }

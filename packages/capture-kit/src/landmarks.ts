@@ -409,3 +409,20 @@ export function eventFromRecord(
     trackerStatus: { ...r.status },
   };
 }
+
+/**
+ * landmarks.bin → LandmarkFrames as the live path sees them (M8: verdict from recorded evidence,
+ * tools/replay): handedness corrected, image size from the header.
+ */
+export function framesFromLandmarksFile(buf: ArrayBuffer | Uint8Array): {
+  header: LandmarksHeader;
+  frames: LandmarkFrame[];
+} {
+  const { header, records } = decodeLandmarks(buf);
+  const w = header.image?.w ?? 0;
+  const h = header.image?.h ?? 0;
+  const frames = records.map((r) =>
+    decodeAnalysisFrame(eventFromRecord(r, w, h), { imageMirrored: header.imageMirrored ?? false }),
+  );
+  return { header, frames };
+}

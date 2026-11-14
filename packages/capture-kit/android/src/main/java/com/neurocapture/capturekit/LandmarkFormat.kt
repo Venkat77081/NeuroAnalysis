@@ -52,7 +52,10 @@ object LandmarkFormat {
 
     private fun str(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-    fun header(takeId: String, orientation: String, mirrored: Boolean, clockSource: String, trackers: List<String>): String {
+    fun header(
+        takeId: String, orientation: String, mirrored: Boolean, clockSource: String, trackers: List<String>,
+        imageW: Int = 0, imageH: Int = 0,
+    ): String {
         val ts = trackers.mapNotNull { TRACKERS[it] }.joinToString(",") {
             "{\"name\":${str(it.name)},\"modelVersion\":${str(it.modelVersion)},\"pointsPerFrame\":${it.points},\"valuesPerPoint\":${it.values}}"
         }
@@ -60,7 +63,8 @@ object LandmarkFormat {
             "\"coordinateSystem\":\"normalized_upright_analysis_frame\",\"orientation\":${str(orientation)}," +
             "\"mirrored\":$mirrored,\"imageMirrored\":false,\"handednessLabels\":\"mediapipe_raw\"," +
             "\"timestampSemantics\":\"camera_frame_canonical_elapsed_realtime_ns\",\"clockSource\":${str(clockSource)}," +
-            "\"record\":{\"endianness\":\"little\",\"dtype\":\"float32\"},\"trackers\":[$ts]}"
+            "\"record\":{\"endianness\":\"little\",\"dtype\":\"float32\"},\"trackers\":[$ts]" +
+            (if (imageW > 0 && imageH > 0) ",\"image\":{\"w\":$imageW,\"h\":$imageH}}" else "}")
     }
 
     fun writeHeader(out: OutputStream, headerJson: String) {

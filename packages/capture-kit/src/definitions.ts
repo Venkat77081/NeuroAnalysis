@@ -272,6 +272,8 @@ export interface CaptureKitPlugin {
   closePlayback(opts: { takeId?: string }): Promise<void>;
   /** Decrypted landmarks.bin of a take (NCLM-v1, base64), for the replay overlay; null if none. */
   readLandmarks(opts: { takeId: string }): Promise<{ data: string | null }>;
+  /** Decrypted sensors.bin of a take as base64 (M8 verdict from recorded evidence); null when absent. */
+  readSensors(opts: { takeId: string }): Promise<{ data: string | null }>;
   /** Takes found as plaintext after a crash at the last start, now encrypted and marked RetainedForRecovery. */
   getRecoveredTakes(): Promise<{ takeIds: string[] }>;
   /** Median Laplacian-variance sharpness over durationS of a static target (device baseline, §9.2). */

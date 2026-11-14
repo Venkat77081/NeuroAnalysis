@@ -110,7 +110,7 @@ object TakeFinalizer {
         }
         if (trackers.isNotEmpty()) {
             vault.openEncrypting(takeId, "landmarks.bin").use { out ->
-                LandmarkFormat.writeHeader(out, LandmarkFormat.header(takeId, orientation, mirrored, clock, trackers))
+                LandmarkFormat.writeHeader(out, LandmarkFormat.header(takeId, orientation, mirrored, clock, trackers, o.imageW, o.imageH))
                 o.landmarks.forEach { LandmarkFormat.writeRecord(out, it) }
             }
         }

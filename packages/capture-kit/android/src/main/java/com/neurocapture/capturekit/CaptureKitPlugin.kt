@@ -316,6 +316,23 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** Decrypted sensors.bin of a take as base64 (M8: verdict from recorded evidence); null when absent. */
+    @PluginMethod
+    fun readSensors(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
+        io.execute {
+            try {
+                val bytes = vault.openDecrypting(takeId, "sensors.bin").use { it.readBytes() }
+                call.resolve(JSObject().apply { put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)) })
+            } catch (e: java.io.FileNotFoundException) {
+                call.resolve(JSObject().apply { put("data", org.json.JSONObject.NULL) })
+            } catch (e: Exception) {
+                call.reject("readSensors failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
     @PluginMethod
     fun closePlayback(call: PluginCall) {
         val takeId = call.getString("takeId")
@@ -543,7 +560,7 @@ class CaptureKitPlugin : Plugin() {
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.8.0"
+        const val PLUGIN_VERSION = "0.9.0"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")
     }

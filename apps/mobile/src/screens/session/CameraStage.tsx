@@ -12,7 +12,7 @@ import {
   storageLimits,
 } from '../../lib/capture.ts';
 import { buildMeta, buildQuality } from '../../lib/evidence.ts';
-import { TakeCollector, finishTake } from '../../lib/take-analysis.ts';
+import { TakeCollector, evaluateOnDevice } from '../../lib/take-analysis.ts';
 import { loadQualification } from '../../lib/device-tier.ts';
 import { logger } from '../../lib/logger.ts';
 import { newId } from '../../data/repo.ts';
@@ -148,11 +148,16 @@ export function CameraStage() {
       // Doctor's frame-rate limit from settings overrides the test default (decision 015).
       const minFps = a.settings.minFps ?? tc.camera.minEffectiveFps;
       const baselineNow = sharpnessBaseline();
-      const take = finishTake({
+      const take = await evaluateOnDevice({
+        kit: capture.kit,
         collector: collector.current,
         result,
         test: tc,
         quality: a.config.quality,
+        registry: a.config.registry,
+        side: c.plan[c.index]?.side ?? null,
+        orientation: o,
+        hasSensors: capture.implementation !== 'webcam',
         minEffectiveFps: minFps,
         sharpnessBaseline: baselineNow,
       });

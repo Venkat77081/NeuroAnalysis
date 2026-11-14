@@ -87,6 +87,9 @@ class CameraSession(
         val mp4DurationS: Double?,
         val stoppedEarly: Boolean,
         val error: String?,
+        /** Analysis image size (upright) for the landmarks.bin header. */
+        val imageW: Int = 0,
+        val imageH: Int = 0,
         /** §15: 'storage_low' or 'app_backgrounded' when the take was cut short by the system. */
         val interrupted: String? = null,
     )
@@ -135,6 +138,8 @@ class CameraSession(
     private var recordingFile: File? = null
     private var stoppedEarly = false
     @Volatile private var interruptReason: String? = null
+    @Volatile private var lastImageW = 0
+    @Volatile private var lastImageH = 0
     private var recordStartElapsed = 0L
     private var onRecordingDone: ((Outcome) -> Unit)? = null
     private val stopRunnable = Runnable { stopRecording(early = false) }
@@ -485,6 +490,8 @@ class CameraSession(
             info.stats.lumaMean, info.stats.clippedFrac, info.stats.sharpness, faceRatio, hands, pose, face,
         )
         landmarkLog?.let { synchronized(it) { if (it.size < MAX_LANDMARK_FRAMES) it.add(record) } }
+        lastImageW = info.w
+        lastImageH = info.h
         if (!emitAnalysisEvents) return
         emit("analysisFrame", JSObject().apply {
             put("seq", info.seq)
@@ -671,7 +678,7 @@ class CameraSession(
             }
         }
         val landmarks = synchronized(lLog) { ArrayList(lLog) }
-        val outcome = Outcome(takeId, file, log, sLog, landmarks, requestedS, fps, frames, durationS, stoppedEarly, error, interruptReason)
+        val outcome = Outcome(takeId, file, log, sLog, landmarks, requestedS, fps, frames, durationS, stoppedEarly, error, lastImageW, lastImageH, interruptReason)
         interruptReason = null
         recording = null
         recordingTakeId = null

@@ -1,21 +1,29 @@
 /**
- * M6: collects a take's landmark frames and alert history while it records, and turns them into
- * the detector result, take analysis and capture verdict when it ends. All logic is in
- * quality-core; this only wires the pieces and fixes the time origin (video sample 0).
+ * Take evaluation on the device. M6 collected the live frames; since M8 the verdict is computed
+ * from the take's recorded files by quality-core's evaluateRecordedTake, the same function
+ * tools/replay runs. All logic is in quality-core; this only reads the files and wires the pieces.
  */
 import type { QualityConfig, TestConfig } from '@neurocapture/contracts-ts';
-import type { RecordingResult } from '@neurocapture/capture-kit';
+import type { BiomarkerRegistry } from '@neurocapture/contracts-ts';
+import {
+  base64ToBytes,
+  framesFromLandmarksFile,
+  readingsFromSensorsFile,
+  sha256Hex,
+  type CaptureKitPlugin,
+  type RecordingResult,
+} from '@neurocapture/capture-kit';
 import {
   SeverityLog,
-  analyseTake,
-  captureVerdict,
-  runDetector,
+  evaluateRecordedTake,
   type CaptureVerdict,
-  type DetectorParams,
   type DetectorResult,
   type LandmarkFrame,
+  type ReadinessHint,
   type RuleName,
+  type SensorReading,
   type Severity,
+  type Side,
   type TakeAnalysis,
   type TakeEvent,
   type Window,
@@ -47,59 +55,90 @@ export interface FinishedTake {
   analysis: TakeAnalysis;
   events: TakeEvent[];
   unknownWindows: Window[];
+  readiness: ReadinessHint | null;
+  /** What tools/replay needs to recompute this verdict (quality.json `replayInputs`). */
+  replayInputs: ReplayInputs;
 }
 
-export function finishTake(args: {
+export interface ReplayInputs {
+  source: 'recorded' | 'live';
+  landmarksSha256: string | null;
+  sensorsSha256: string | null;
+  minEffectiveFps: number;
+  hasSensors: boolean;
+  orientation: 'portrait' | 'landscape';
+  firstSampleNs: string | null;
+}
+
+/**
+ * M8: the verdict comes from the take's own recorded files (landmarks.bin, sensors.bin), through
+ * the same quality-core function tools/replay uses, so a replay reproduces it exactly. If the
+ * files cannot be read, the frames collected live are used instead (source "live").
+ */
+export async function evaluateOnDevice(args: {
+  kit: Pick<CaptureKitPlugin, 'readLandmarks' | 'readSensors'>;
   collector: TakeCollector | null;
   result: RecordingResult;
   test: TestConfig;
   quality: QualityConfig;
+  registry: BiomarkerRegistry | null;
+  side: Side | null;
+  orientation: 'portrait' | 'landscape';
+  hasSensors: boolean;
   /** Frame-rate limit (doctor's setting or config). */
   minEffectiveFps: number;
   sharpnessBaseline: number | null;
-}): FinishedTake {
-  const { result, test, quality } = args;
-  const frames = args.collector?.frames ?? [];
-  const startNs = result.mp4?.firstSampleNs
-    ? BigInt(result.mp4.firstSampleNs)
-    : (args.collector?.t0Ns ?? 0n);
-  // The log counted from the first collected frame; shift it to video time.
-  const shift = args.collector?.t0Ns != null ? Number(args.collector.t0Ns - startNs) / 1e9 : 0;
-  const logged = args.collector?.log.finish(result.durationS - shift) ?? {
-    events: [],
-    unknownWindows: [],
-  };
-  const move = (w: { tStartS: number; tEndS: number }) => ({
-    tStartS: Math.max(0, w.tStartS + shift),
-    tEndS: Math.max(0, w.tEndS + shift),
-  });
-  const events = logged.events.map((e) => ({ ...e, ...move(e) }));
-  const unknownWindows = logged.unknownWindows.map(move);
-  const detector = runDetector(
-    test.task.detector,
+}): Promise<FinishedTake> {
+  const { kit, result } = args;
+  let frames: LandmarkFrame[] = args.collector?.frames ?? [];
+  let sensors: SensorReading[] = [];
+  let source: ReplayInputs['source'] = 'live';
+  let landmarksSha256: string | null = null;
+  let sensorsSha256: string | null = null;
+  try {
+    const [lm, se] = await Promise.all([
+      kit.readLandmarks({ takeId: result.takeId }),
+      kit.readSensors({ takeId: result.takeId }),
+    ]);
+    if (lm.data) {
+      const bytes = base64ToBytes(lm.data);
+      frames = framesFromLandmarksFile(bytes).frames;
+      landmarksSha256 = await sha256Hex(bytes);
+    } else frames = [];
+    if (se.data) {
+      const bytes = base64ToBytes(se.data);
+      sensors = readingsFromSensorsFile(bytes);
+      sensorsSha256 = await sha256Hex(bytes);
+    }
+    source = 'recorded';
+  } catch {
+    // Unreadable evidence: fall back to what the live path collected.
+  }
+  const firstSampleNs = result.mp4?.firstSampleNs ?? null;
+  const evaluation = evaluateRecordedTake({
     frames,
-    startNs,
-    test.task.detectorParams as unknown as DetectorParams,
-    test.task.noMotionTimeoutS,
-    result.durationS,
-  );
-  const analysis = analyseTake({ frames, test, quality, detector, events, unknownWindows });
-  const verdict = captureVerdict(
-    { ...result, error: null },
-    {
-      durationToleranceS: test.verdict.durationToleranceS,
+    sensors,
+    facts: result,
+    firstSampleNs: firstSampleNs ? BigInt(firstSampleNs) : null,
+    test: args.test,
+    quality: args.quality,
+    registry: args.registry,
+    side: args.side,
+    orientation: args.orientation,
+    sharpnessBaseline: args.sharpnessBaseline,
+    hasSensors: args.hasSensors,
+    minEffectiveFps: args.minEffectiveFps,
+  });
+  return {
+    ...evaluation,
+    replayInputs: {
+      source,
+      landmarksSha256,
+      sensorsSha256,
       minEffectiveFps: args.minEffectiveFps,
-      maxDroppedFrac: test.verdict.maxDroppedFrac ?? null,
+      hasSensors: args.hasSensors,
+      orientation: args.orientation,
+      firstSampleNs,
     },
-    {
-      analysis,
-      minLandmarkVisibleFrac: test.verdict.minLandmarkVisibleFrac,
-      maxCriticalEvents: test.verdict.maxCriticalEvents,
-      minSharpness:
-        args.sharpnessBaseline !== null
-          ? args.sharpnessBaseline * quality.checks.sharpness.minFracOfBaseline
-          : null,
-    },
-  );
-  return { verdict, detector, analysis, events, unknownWindows };
+  };
 }

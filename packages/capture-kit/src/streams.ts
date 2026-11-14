@@ -128,3 +128,16 @@ export function canonicalTimeOfSample(
   if (k === undefined || k === null) return null;
   return frames.records[sampleIndex + k]?.canonicalTsNs ?? null;
 }
+
+/** sensors.bin → readings for quality-core (type 1 = gyro, 2 = gravity). */
+export function readingsFromSensorsFile(
+  buf: ArrayBuffer | Uint8Array,
+): { tNs: bigint; type: 'gyro' | 'gravity'; x: number; y: number; z: number }[] {
+  return decodeSensors(buf).records.map((r) => ({
+    type: r.type === 2 ? ('gravity' as const) : ('gyro' as const),
+    tNs: r.tsNs,
+    x: r.x,
+    y: r.y,
+    z: r.z,
+  }));
+}

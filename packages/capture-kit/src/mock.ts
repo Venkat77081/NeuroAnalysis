@@ -11,6 +11,7 @@ import type {
   PluginListenerHandle,
   PreviewTransform,
   RecordingResult,
+  SensorBatchEvent,
   StoredTake,
   UploadConfig,
   UploadStatus,
@@ -33,6 +34,7 @@ import {
   type LandmarkRecord,
 } from './landmarks.ts';
 import { bytesToBase64 } from './codec.ts';
+import { encodeSensors } from './streams.ts';
 import { FakeServer } from './upload/fake-server.ts';
 import { UploadClient, sha256Hex, type UploadError, type UploadJob } from './upload/protocol.ts';
 import type { LandmarksHeader } from '@neurocapture/contracts-ts/types';
@@ -121,6 +123,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private lastSyntheticNs = 0n;
   /** landmarks.bin records per take, captured while recording (replay overlay). */
   private landmarkRecords = new Map<string, LandmarkRecord[]>();
+  private sensorRecords = new Map<string, SensorBatchEvent['samples']>();
+  private lastImage: { w: number; h: number } | null = null;
   private firstSampleNs = new Map<string, bigint>();
 
   constructor(opts: MockOptions) {
@@ -298,8 +302,46 @@ export class MockCaptureKit implements CaptureKitPlugin {
   /** Emit an analysis event and, while recording, keep it as a landmarks.bin record. */
   private emitAnalysis(e: AnalysisFrameEvent): void {
     this.emit('analysisFrame', e);
+    if (e.imageW && e.imageH) this.lastImage = { w: e.imageW, h: e.imageH };
     if (this.recording && (this.camera?.trackers.length ?? 0) > 0)
       this.landmarkRecords.get(this.recording.takeId)?.push(recordFromEvent(e));
+  }
+
+  /** Emit a sensor batch and, while recording, keep it for sensors.bin (like native SensorLog). */
+  private emitSensors(samples: SensorBatchEvent['samples']): void {
+    this.emit('sensorBatch', { samples });
+    if (this.recording) this.sensorRecords.get(this.recording.takeId)?.push(...samples);
+  }
+
+  async readSensors(opts: { takeId: string }): Promise<{ data: string | null }> {
+    const samples = this.sensorRecords.get(opts.takeId);
+    if (!samples) return { data: null };
+    const bytes = encodeSensors(
+      {
+        schemaVersion: '1.0.0',
+        stream: 'sensors',
+        takeId: opts.takeId,
+        clockSource: 'SIMULATED',
+        timestampSemantics: 'sensor_event_elapsed_realtime_ns',
+        recordSize: 24,
+        fields: [
+          { name: 'type', type: 'uint8' },
+          { name: 'pad', type: 'pad3' },
+          { name: 'tsNs', type: 'int64' },
+          { name: 'x', type: 'float32' },
+          { name: 'y', type: 'float32' },
+          { name: 'z', type: 'float32' },
+        ],
+      },
+      samples.map((x) => ({
+        type: x.type === 'gravity' ? 2 : 1,
+        tsNs: BigInt(x.tsNs),
+        x: x.x,
+        y: x.y,
+        z: x.z,
+      })),
+    );
+    return { data: bytesToBase64(bytes) };
   }
 
   async readLandmarks(opts: { takeId: string }): Promise<{ data: string | null }> {
@@ -311,6 +353,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
       takeId: opts.takeId,
       coordinateSystem: 'normalized_upright_analysis_frame',
       orientation: this.camera?.orientation ?? 'portrait',
+      ...(this.lastImage ? { image: this.lastImage } : {}),
       mirrored: false,
       imageMirrored: false,
       handednessLabels: 'mediapipe_raw',
@@ -369,15 +412,15 @@ export class MockCaptureKit implements CaptureKitPlugin {
       emitNs: (tNs + 5_000_000n).toString(),
       procMs: 5,
     });
-    this.emit('sensorBatch', {
-      samples: sensors.map((x) => ({
+    this.emitSensors(
+      sensors.map((x) => ({
         type: x.type,
         tsNs: x.tNs.toString(),
         x: x.x,
         y: x.y,
         z: x.z,
       })),
-    });
+    );
   }
 
   private emitNextFrame(): void {
@@ -420,12 +463,12 @@ export class MockCaptureKit implements CaptureKitPlugin {
     // Emit the sensor batch(es) belonging to this frame's time slot.
     const slot = this.fixture.sensorBatches.filter((b) => b.tsNs === src.tsNs);
     for (const b of slot) {
-      this.emit('sensorBatch', {
-        samples: b.samples.map((s) => ({
+      this.emitSensors(
+        b.samples.map((s) => ({
           ...s,
           tsNs: (this.startNs + loopNs + BigInt(s.tsNs)).toString(),
         })),
-      });
+      );
     }
   }
 
@@ -494,6 +537,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     }, 100);
     this.recording = { takeId: opts.takeId, durationS: opts.durationS, startedMs, timer, tick };
     this.landmarkRecords.set(opts.takeId, []);
+    this.sensorRecords.set(opts.takeId, []);
     this.firstSampleNs.set(opts.takeId, BigInt(Math.round(startedMs)) * 1_000_000n);
     if (this.scenario && this.camera) {
       this.takeStartNs = BigInt(Math.round(this.sched.now() * 1e6));
@@ -682,6 +726,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.results.delete(opts.takeId);
     this.playing.delete(opts.takeId);
     this.landmarkRecords.delete(opts.takeId);
+    this.sensorRecords.delete(opts.takeId);
     this.firstSampleNs.delete(opts.takeId);
     for (const k of [...this.evidence.keys()])
       if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);

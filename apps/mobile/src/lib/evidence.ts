@@ -145,6 +145,9 @@ export function buildQuality(args: {
     })),
     override: null,
     flaggedForReview: false,
-    biomarkerReadinessHint: { registryVersion: 'REG@0.1.0' },
+    biomarkerReadinessHint: take.readiness
+      ? { registryVersion: take.readiness.registryVersion, ...take.readiness.items }
+      : { registryVersion: 'REG@0.0.0' },
+    replayInputs: take.replayInputs,
   } as QualityReport;
 }

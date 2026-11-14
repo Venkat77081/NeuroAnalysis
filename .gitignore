@@ -22,3 +22,7 @@ apps/mobile/android/local.properties
 apps/mobile/android/capacitor-cordova-android-plugins/build/
 *.apk
 *.aab
+# MediaPipe models: fetched by tools/models/fetch-models.mjs (verified by SHA-256), never committed
+tools/models/.cache/
+apps/mobile/android/app/src/main/assets/mediapipe/
+apps/mobile/public/mediapipe/

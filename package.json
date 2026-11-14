@@ -17,7 +17,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "build:web": "pnpm --filter @neurocapture/mobile build",
-    "e2e": "pnpm --filter @neurocapture/mobile e2e"
+    "e2e": "pnpm --filter @neurocapture/mobile e2e",
+    "models": "node tools/models/fetch-models.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

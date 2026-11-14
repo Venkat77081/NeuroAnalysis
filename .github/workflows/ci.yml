@@ -30,6 +30,8 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Fetch MediaPipe models (verified)
+        run: pnpm models
       - run: pnpm build:web
       - name: Install Playwright browser
         run: pnpm --filter @neurocapture/mobile exec playwright install --with-deps chromium
@@ -65,6 +67,8 @@ jobs:
       - name: Show Android SDK
         run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms"
       - run: pnpm install --frozen-lockfile
+      - name: Fetch MediaPipe models (verified)
+        run: pnpm models
       - run: pnpm build:web
       - run: pnpm --filter @neurocapture/mobile exec cap sync android
       - name: CaptureKit unit tests (JVM) and debug APK

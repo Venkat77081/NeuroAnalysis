@@ -138,11 +138,8 @@ export function CameraStage() {
       {capture.implementation !== 'native' && (
         <div className="absolute inset-0 bg-[#20262F]" aria-hidden="true" />
       )}
-      <Outline
-        kind={overlay}
-        color={phase === 'recording' ? '#5BE3A0' : '#FFFFFF'}
-        dashed={phase === 'framing'}
-      />
+      {/* White = a fixed guide only. Green is reserved for "positioning checks passed" (M5); nothing checks the image yet. */}
+      <Outline kind={overlay} color="#FFFFFF" dashed={phase === 'framing'} />
 
       <header className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-3">
         {phase === 'recording' ? (

@@ -5,7 +5,7 @@ import {
   type PreviewTransform,
 } from '@neurocapture/capture-kit';
 import { capture } from '../lib/capture.ts';
-import { HAND_EDGES, POSE_EDGES, toScreen } from './landmark-geometry.ts';
+import { coverTransform, HAND_EDGES, POSE_EDGES, toScreen } from './landmark-geometry.ts';
 
 type Pt = { x: number; y: number };
 
@@ -34,8 +34,7 @@ export function LandmarkOverlay({ transform }: { transform: PreviewTransform | n
       raf = requestAnimationFrame(draw);
       const c = ref.current;
       const e = latest.current;
-      const t = tr.current;
-      if (!c || !e || !t || e.seq === drawnSeq) return;
+      if (!c || !e || e.seq === drawnSeq || !e.imageW || !e.imageH) return;
       drawnSeq = e.seq;
       const dpr = window.devicePixelRatio || 1;
       const w = window.innerWidth;
@@ -46,6 +45,7 @@ export function LandmarkOverlay({ transform }: { transform: PreviewTransform | n
       if (!g) return;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.clearRect(0, 0, w, h);
+      const t = coverTransform(e.imageW, e.imageH, w, h, tr.current?.mirrored ?? false);
       const f = decodeAnalysisFrame(e, { imageMirrored: false });
       const map = (p: { x: number; y: number }) => toScreen(p.x, p.y, t);
       const lines = (pts: Pt[], edges: [number, number][], color: string) => {

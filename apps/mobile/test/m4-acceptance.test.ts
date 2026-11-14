@@ -7,7 +7,7 @@ import {
   summarizeTracking,
   type TrackingSample,
 } from '../src/lib/m4-acceptance.ts';
-import { toScreen } from '../src/overlays/landmark-geometry.ts';
+import { coverTransform, toScreen } from '../src/overlays/landmark-geometry.ts';
 
 const sample = (i: number, over: Partial<TrackingSample> = {}): TrackingSample => ({
   tsNs: BigInt(i) * 40_000_000n, // 25 fps
@@ -76,5 +76,22 @@ describe('toScreen', () => {
     expect(toScreen(0.1, 0.2, { ...u, rotationDeg: 90 })).toEqual({ x: 0.8, y: 0.1 });
     expect(toScreen(0.1, 0.2, { ...u, rotationDeg: 180 })).toEqual({ x: 0.9, y: 0.8 });
     expect(toScreen(0.1, 0.2, { ...u, rotationDeg: 270 })).toEqual({ x: 0.2, y: 0.9 });
+  });
+});
+
+describe('coverTransform', () => {
+  it('fills a landscape screen with a 16:9 image (crops top and bottom)', () => {
+    const t = coverTransform(854, 480, 915, 412, false);
+    expect(t.scaleX).toBeCloseTo(915);
+    expect(t.scaleY).toBeCloseTo(514.3, 1);
+    expect(t.offsetX).toBeCloseTo(0);
+    expect(t.offsetY).toBeCloseTo(-51.1, 1);
+    expect(toScreen(0.5, 0.5, t)).toEqual({ x: 457.5, y: 206 });
+  });
+  it('fills a portrait screen (crops the sides) and keeps mirroring', () => {
+    const t = coverTransform(480, 854, 412, 915, true);
+    expect(t.scaleY).toBeCloseTo(915);
+    expect(t.offsetX).toBeLessThan(0);
+    expect(t.mirrored).toBe(true);
   });
 });

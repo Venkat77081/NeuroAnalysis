@@ -2,10 +2,18 @@
  * Static per-test framing guides (DEV_PLAN §8.2 `framing.overlay`). M3 draws the guide only; in M5
  * its colour follows the positioning checks and M4 adds tracked points.
  */
-export type OverlayKind = 'hand_outline' | 'upper_body' | 'full_body' | 'face_oval';
+export type OverlayKind =
+  'hand_outline' | 'upper_body' | 'one_arm' | 'side_reach' | 'full_body' | 'face_oval';
 
 const HAND =
   'M152 560 C150 530 148 505 142 488 C132 470 106 446 94 424 C86 408 92 392 106 390 C118 389 126 398 134 410 C142 422 148 428 152 424 L152 276 C152 260 176 260 176 276 L176 388 C176 395 182 395 182 388 L182 256 C182 238 208 238 208 256 L208 388 C208 395 214 395 214 388 L214 268 C214 250 240 250 240 268 L240 396 C240 403 246 403 246 396 L246 304 C246 288 268 288 268 304 L268 440 C268 480 262 520 254 560';
+
+/**
+ * Patient facing the camera with the RIGHT arm out to the side (image left on the un-mirrored
+ * back camera), thumb up. Mirrored for the left arm.
+ */
+const ONE_ARM =
+  'M560 52 a38 38 0 1 1 -0.1 0 M610 160 L640 176 L632 330 L488 330 L480 202 L140 202 C126 202 126 178 140 178 L150 178 L150 156 C150 146 168 146 168 156 L168 178 L480 178 L500 162 C515 146 595 146 610 160 Z';
 
 const UPPER_BODY =
   'M422 58 a40 40 0 1 1 -0.1 0 M372 160 C390 140 454 140 472 160 L520 178 L740 178 C752 178 752 202 740 202 L520 202 L500 210 L490 330 L354 330 L344 210 L324 202 L104 202 C92 202 92 178 104 178 L324 178 Z';
@@ -15,13 +23,13 @@ export function Outline({
   kind,
   color = '#FFFFFF',
   dashed = true,
-  mirror = false,
+  side = null,
 }: {
   kind: OverlayKind;
   color?: string;
   dashed?: boolean;
-  /** Mirror the hand guide (drawn as a left hand, palm to camera) for the right hand. */
-  mirror?: boolean;
+  /** Tested side: the hand guide is drawn as a left hand and the arm guide as a right arm. */
+  side?: 'R' | 'L' | null;
 }) {
   const portrait = kind === 'hand_outline' || kind === 'face_oval';
   const w = portrait ? 390 : 844;
@@ -51,13 +59,70 @@ export function Outline({
       {kind === 'hand_outline' && (
         // The path spans x 86–268; mirror about its own centre (177) so it stays in place.
         <g
-          transform={mirror ? 'translate(354 0) scale(-1 1)' : undefined}
-          data-testid={mirror ? 'hand-guide-right' : 'hand-guide-left'}
+          transform={side === 'R' ? 'translate(354 0) scale(-1 1)' : undefined}
+          data-testid={side === 'R' ? 'hand-guide-right' : 'hand-guide-left'}
         >
           <Guide d={HAND} color={color} dash={dash} />
         </g>
       )}
       {kind === 'upper_body' && <Guide d={UPPER_BODY} color={color} dash={dash} />}
+      {kind === 'one_arm' && (
+        // Path spans x 126–640; shift it to the centre, mirror about the viewBox centre for L.
+        <g
+          transform={
+            side === 'L' ? 'translate(844 0) scale(-1 1) translate(39 0)' : 'translate(39 0)'
+          }
+          data-testid={side === 'L' ? 'arm-guide-left' : 'arm-guide-right'}
+        >
+          <Guide d={ONE_ARM} color={color} dash={dash} />
+        </g>
+      )}
+      {kind === 'side_reach' && (
+        <g data-testid="reach-guide">
+          {/* Patient seated side-on, facing right, reaching towards the examiner's finger. */}
+          <rect
+            x={60}
+            y={40}
+            width={300}
+            height={285}
+            rx={18}
+            fill={color}
+            fillOpacity={0.05}
+            stroke={color}
+            strokeWidth={2.5}
+            strokeDasharray={dash ?? '10 8'}
+          />
+          <g
+            fill="none"
+            stroke={color}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx={190} cy={100} r={30} />
+            <path d="M185 132 L175 260 M182 160 L250 170 L320 158 M175 250 L270 252 L276 312" />
+          </g>
+          {/* Examiner's finger: moves anywhere inside this box. */}
+          <rect
+            x={430}
+            y={40}
+            width={340}
+            height={250}
+            rx={18}
+            fill="#F2D33A"
+            fillOpacity={0.06}
+            stroke="#F2D33A"
+            strokeWidth={2.5}
+            strokeDasharray="6 8"
+          />
+          <g fill="#F2D33A" fillOpacity={0.9}>
+            <circle cx={500} cy={95} r={7} />
+            <circle cx={690} cy={130} r={7} />
+            <circle cx={560} cy={225} r={7} />
+            <circle cx={720} cy={240} r={7} />
+          </g>
+        </g>
+      )}
       {kind === 'face_oval' && (
         <g>
           <ellipse

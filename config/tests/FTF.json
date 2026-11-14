@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FTF@1.1.0",
+  "configVersion": "FTF@1.2.0",
   "code": "FTF",
   "name": "Finger-to-Finger",
   "biomarkers": [
@@ -43,13 +43,13 @@
     "fps": 30
   },
   "setup": {
-    "view": "front_centred",
+    "view": "side_90deg",
     "distanceM": [1.5, 2.0],
     "heightRef": "chest",
-    "checklist": ["phone_on_stand", "light_in_front", "seated_no_armrest", "space_to_extend_arms"]
+    "checklist": ["phone_on_stand", "light_in_front", "seated_no_armrest", "examiner_in_frame"]
   },
   "framing": {
-    "overlay": "upper_body",
+    "overlay": "side_reach",
     "requiredLandmarks": {
       "pose": [0, 11, 12, 13, 14, 15, 16],
       "hand": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
@@ -60,8 +60,8 @@
       "min": 0.45,
       "max": 0.85
     },
-    "bothHandsRequired": true,
-    "singlePerson": true
+    "bothHandsRequired": false,
+    "singlePerson": false
   },
   "task": {
     "detector": "ftf_cycle_counter",

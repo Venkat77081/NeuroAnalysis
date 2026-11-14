@@ -25,6 +25,31 @@ export function toScreen(x: number, y: number, t: PreviewTransform): { x: number
   return { x: t.offsetX + u * t.scaleX, y: t.offsetY + v * t.scaleY };
 }
 
+/**
+ * Transform for an image shown full-screen with "cover" scaling (the native preview uses
+ * FILL_CENTER over the whole window). Computed from the current window size on every frame,
+ * because a transform captured when the camera opened can predate a portrait→landscape turn.
+ */
+export function coverTransform(
+  imageW: number,
+  imageH: number,
+  viewW: number,
+  viewH: number,
+  mirrored: boolean,
+): PreviewTransform {
+  const s = Math.max(viewW / imageW, viewH / imageH);
+  const dw = imageW * s;
+  const dh = imageH * s;
+  return {
+    scaleX: dw,
+    scaleY: dh,
+    offsetX: (viewW - dw) / 2,
+    offsetY: (viewH - dh) / 2,
+    rotationDeg: 0,
+    mirrored,
+  };
+}
+
 /** MediaPipe hand connections (21 points). */
 export const HAND_EDGES: [number, number][] = [
   [0, 1],

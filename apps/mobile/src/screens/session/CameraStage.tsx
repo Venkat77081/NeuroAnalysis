@@ -150,12 +150,7 @@ export function CameraStage() {
       )}
       {/* White = a fixed guide only. Green is reserved for "positioning checks passed" (M5); nothing checks the image yet. */}
       <div className={L.guide}>
-        <Outline
-          kind={overlay}
-          color="#FFFFFF"
-          dashed={phase === 'framing'}
-          mirror={step.side === 'R'}
-        />
+        <Outline kind={overlay} color="#FFFFFF" dashed={phase === 'framing'} side={step.side} />
       </div>
       {debugLandmarks && <LandmarkOverlay transform={transform} />}
 

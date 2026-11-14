@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FR@1.1.0",
+  "configVersion": "FR@1.2.0",
   "code": "FR",
   "name": "Forearm Roll",
   "biomarkers": [
@@ -43,7 +43,7 @@
     "checklist": ["sleeve_rolled", "phone_on_stand", "light_in_front", "seated_no_armrest"]
   },
   "framing": {
-    "overlay": "upper_body",
+    "overlay": "one_arm",
     "requiredLandmarks": {
       "pose": [13, 14, 15, 16],
       "hand": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]

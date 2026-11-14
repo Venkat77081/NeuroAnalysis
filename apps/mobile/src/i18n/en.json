@@ -216,7 +216,8 @@
       "floor_tape_5m": "5 m mark on floor",
       "chair_no_armrest": "Chair, no armrest",
       "clear_walkway": "Walkway clear",
-      "hair_off_face": "Hair off the face"
+      "hair_off_face": "Hair off the face",
+      "examiner_in_frame": "Examiner's hand in view"
     },
     "steps": {
       "ft": {
@@ -225,12 +226,12 @@
         "step3": "Keep tapping until the recording stops by itself."
       },
       "ftf": {
-        "step1": "Patient sits facing the camera with both arms free.",
-        "step2": "Stretch the arms out, then bring the index fingertips together in front of the chest.",
-        "step3": "Repeat until the recording stops by itself."
+        "step1": "Patient sits side-on to the camera. The examiner stands facing the patient, at the far side of the picture.",
+        "step2": "The examiner holds up an index finger within the patient's reach and moves it to a new position every few seconds.",
+        "step3": "The patient touches the examiner's fingertip with the index finger each time. Continue until the recording stops by itself."
       },
       "fr": {
-        "step1": "Patient sits facing the camera, elbow bent, forearm forward.",
+        "step1": "Patient sits facing the camera and holds the tested arm out to the side at shoulder height, thumb up.",
         "step2": "Turn the forearm palm-up and palm-down, as wide and fast as possible.",
         "step3": "Keep going until the recording stops by itself."
       },
@@ -250,7 +251,9 @@
         "hand_outline": "Place the hand inside the outline",
         "upper_body": "Fit head, shoulders and both arms inside the outline",
         "full_body": "Seat the patient inside the start box, side-on",
-        "face_oval": "Fit the face inside the oval"
+        "face_oval": "Fit the face inside the oval",
+        "one_arm": "Fit head, shoulders and the tested arm inside the outline",
+        "side_reach": "Patient side-on on the left; examiner's finger inside the box"
       },
       "mode": "{{res}} · {{fps}} fps · {{dur}} s take",
       "record": "Start recording",

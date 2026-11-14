@@ -43,3 +43,7 @@ CLAUDE.md). What it guarantees for the downstream pipeline:
   re-extracts keypoints from the MP4; if the on-device landmarks are used for biomarkers, the
   biomarkers must be re-validated on MediaPipe (`docs/dne-coverage.md`, open question 2).
 - Open for the product owner: the export format expected by the client's analysis code.
+- Licensing of the paper's keypoint models: OpenPose (CMU) is free for non-commercial use only
+  (commercial use needs a paid CMU licence); VideoPose3D (Meta) is CC BY-NC 4.0. MediaPipe (used on
+  the phone) is Apache 2.0. A commercial product needs those licences or permissively licensed
+  alternatives, and the biomarkers must be re-validated on whichever keypoints are used.

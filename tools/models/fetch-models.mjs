@@ -26,7 +26,7 @@ for (const t of targets) mkdirSync(t, { recursive: true });
 let failed = 0;
 for (const m of models) {
   const cached = join(cache, m.name);
-  let ok = existsSync(cached) && sha(readFileSync(cached)) === m.sha256;
+  const ok = existsSync(cached) && sha(readFileSync(cached)) === m.sha256;
   if (!ok) {
     process.stdout.write(`downloading ${m.name} … `);
     const res = await fetch(m.url);
@@ -43,7 +43,6 @@ for (const m of models) {
     }
     writeFileSync(cached, buf);
     console.log(`${buf.length} bytes, verified`);
-    ok = true;
   } else {
     console.log(`${m.name} cached, verified`);
   }

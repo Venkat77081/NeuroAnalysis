@@ -1,8 +1,12 @@
 import type { PreviewTransform } from '@neurocapture/capture-kit';
 import type { LandmarkFrame } from '@neurocapture/quality-core';
+import quality from '../../../../config/quality.json' with { type: 'json' };
 import { HAND_EDGES, POSE_EDGES, toScreen } from './landmark-geometry.ts';
 
 type Pt = { x: number; y: number };
+
+/** Same limit as the required-landmarks check (config/quality.json). */
+const POSE_MIN_VISIBILITY = quality.checks.required_landmarks_visible.poseMinVisibility;
 
 /**
  * Draws one frame's hands (blue = L, orange = R), pose (green) and face (white dots) on a 2D
@@ -46,9 +50,15 @@ export function drawLandmarks(
     }
   }
   if (f.pose) {
-    const pts = f.pose.map(map);
-    lines(pts, POSE_EDGES, '#81C784');
-    dots(pts, '#81C784', 3);
+    // Only confident body points: a pose model can "find" a body in a close-up hand (low
+    // visibility); drawing those looks like extra landmarks on the hand.
+    const pts = f.pose.map((p) => ((p.v ?? 1) >= POSE_MIN_VISIBILITY ? map(p) : undefined));
+    lines(pts as Pt[], POSE_EDGES, '#81C784');
+    dots(
+      pts.filter((p): p is Pt => !!p),
+      '#81C784',
+      3,
+    );
   }
   if (f.face) dots(f.face.pts.map(map), 'rgba(255,255,255,0.7)', 1);
 }

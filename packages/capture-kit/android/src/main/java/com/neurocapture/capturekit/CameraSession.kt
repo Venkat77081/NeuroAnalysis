@@ -357,7 +357,13 @@ class CameraSession(
             val rowStride = plane.rowStride
             val w = image.width
             val h = image.height
-            val stats = FrameMath.stats(buf, w, h, rowStride)
+            // One bulk copy into a reused, tightly packed array; stats and the bitmap use the copy.
+            val frameSize = w * h * 4
+            val bytes = frameBytes?.takeIf { it.size == frameSize } ?: ByteArray(frameSize).also { frameBytes = it }
+            buf.rewind()
+            if (rowStride == w * 4) buf.get(bytes, 0, frameSize)
+            else for (row in 0 until h) { buf.position(row * rowStride); buf.get(bytes, row * w * 4, w * 4) }
+            val stats = FrameMath.stats(bytes, w, h, w * 4)
             sharpnessSamples?.let { synchronized(it) { it.add(stats.sharpness.toDouble()) } }
             if (cfg.debugAnalysisDelayMs > 0) Thread.sleep(cfg.debugAnalysisDelayMs.toLong()) // M2 isolation test only
             analysisFrames.incrementAndGet()
@@ -374,22 +380,7 @@ class CameraSession(
             val tr = tracking ?: Tracking(activity, enabled, cfg.trackerDelegate, ::onTracked) { msg -> emit("trackingError", JSObject().apply { put("message", msg) }) }
                 .also { tracking = it }
             var bmp = nextBitmap(w, h)
-            buf.rewind()
-            if (rowStride == w * 4) {
-                bmp.copyPixelsFromBuffer(buf)
-            } else {
-                // Reused between frames: allocating ~1.6 MB per frame stalls the analysis thread.
-                val packed = packedBuffer?.takeIf { it.capacity() == w * h * 4 }
-                    ?: java.nio.ByteBuffer.allocate(w * h * 4).also { packedBuffer = it }
-                packed.clear()
-                for (row in 0 until h) {
-                    buf.position(row * rowStride)
-                    val slice = buf.slice().also { it.limit(w * 4) }
-                    packed.put(slice)
-                }
-                packed.rewind()
-                bmp.copyPixelsFromBuffer(packed)
-            }
+            bmp.copyPixelsFromBuffer(java.nio.ByteBuffer.wrap(bytes))
             // Normally 0 (rotation done by CameraX); rotate here if a device ignores that setting.
             if (rotation != 0) {
                 val m = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
@@ -418,7 +409,7 @@ class CameraSession(
         }
     }
 
-    private var packedBuffer: java.nio.ByteBuffer? = null
+    private var frameBytes: ByteArray? = null
 
     private fun nextBitmap(w: Int, h: Int): android.graphics.Bitmap {
         poolIndex = (poolIndex + 1) % bitmapPool.size

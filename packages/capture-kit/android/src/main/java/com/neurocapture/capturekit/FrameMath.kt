@@ -35,6 +35,20 @@ object FrameMath {
      * central 50 % (every 2nd pixel) of an RGBA image (DEV_PLAN §9.2 brightness, sharpness).
      */
     fun stats(buf: ByteBuffer, w: Int, h: Int, rowStride: Int): Stats {
+        val arr = ByteArray(rowStride * (h - 1) + w * 4)
+        buf.position(0)
+        buf.get(arr, 0, minOf(arr.size, buf.remaining()))
+        buf.position(0)
+        return stats(arr, w, h, rowStride)
+    }
+
+    /**
+     * Same statistics on a byte array (fast path for the analysis thread: ByteBuffer.get(index)
+     * per pixel cost ~50 ms per frame on the first device, decision 016).
+     */
+    fun stats(px: ByteArray, w: Int, h: Int, rowStride: Int): Stats {
+        fun luma(i: Int): Int =
+            (77 * (px[i].toInt() and 0xFF) + 150 * (px[i + 1].toInt() and 0xFF) + 29 * (px[i + 2].toInt() and 0xFF)) shr 8
         var sum = 0L
         var n = 0
         var clipped = 0
@@ -42,7 +56,7 @@ object FrameMath {
         while (y < h) {
             var x = 0
             while (x < w) {
-                val l = luma(buf, y * rowStride + x * 4)
+                val l = luma(y * rowStride + x * 4)
                 sum += l
                 if (l <= 2 || l >= 253) clipped++
                 n++
@@ -53,12 +67,12 @@ object FrameMath {
         var s = 0.0
         var s2 = 0.0
         var m = 0
-        fun px(xx: Int, yy: Int) = luma(buf, yy * rowStride + xx * 4)
+        fun p(xx: Int, yy: Int) = luma(yy * rowStride + xx * 4)
         y = maxOf(h / 4, 1)
         while (y < minOf(h * 3 / 4, h - 1)) {
             var x = maxOf(w / 4, 1)
             while (x < minOf(w * 3 / 4, w - 1)) {
-                val lap = (px(x - 1, y) + px(x + 1, y) + px(x, y - 1) + px(x, y + 1) - 4 * px(x, y)).toDouble()
+                val lap = (p(x - 1, y) + p(x + 1, y) + p(x, y - 1) + p(x, y + 1) - 4 * p(x, y)).toDouble()
                 s += lap; s2 += lap * lap; m++
                 x += 2
             }

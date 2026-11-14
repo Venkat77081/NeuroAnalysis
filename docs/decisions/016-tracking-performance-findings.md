@@ -40,6 +40,25 @@ and face on GPU, in parallel); the face light grid is one native scale instead o
 `getPixel` calls; events carry `prepMs` (work before MediaPipe) and the Tracking test shows it
 with the analysis image size.
 
+## Third run (FT, one frame in flight)
+
+| Delegate | fps  | Latency p95 | Processing p95 | Preparation p95 | Dropped |
+| -------- | ---- | ----------- | -------------- | --------------- | ------- |
+| GPU      | 10.0 | 165 ms      | 94 ms          | 58 ms           | 0       |
+| CPU      | 6.4  | 252 ms      | 183 ms         | 75 ms           | 0       |
+| Mixed    | 7.4  | 252 ms      | 176 ms         | 71 ms           | 0       |
+
+Queueing and dropped results are gone, GPU is the best delegate, and **more than half of the
+per-frame time is our own preparation** (per-pixel `ByteBuffer.get` for the brightness and
+sharpness statistics). Fix: one bulk copy of the frame into a reused array; statistics and the
+bitmap use the copy. The overlay draws only pose points with visibility ≥ the required-landmark
+limit (a pose model "finds" a body in a close-up hand).
+
+**User instruction (14 Nov 2026):** if the benchmark cannot be resolved now, skip the remaining
+device tests and continue the build. The M4 performance criteria (≥ 20 fps, ≤ 80 ms) and the
+device tier stay **open**; they are re-measured with the next APK, and the M5 gate works at the
+current rate (analysis-health limits ≥ 10 fps, ≤ 250 ms).
+
 ## Open
 
 M4 performance (≥ 20 fps, ≤ 80 ms) stays open until CPU vs GPU is measured on the phone.

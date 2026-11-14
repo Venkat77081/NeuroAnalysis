@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@2.1.0",
+  "configVersion": "SESSION@2.2.0",
   "order": [
     ["FT", null],
     ["FTF", null],
@@ -27,5 +27,11 @@
   "medStates": ["ON", "OFF", "NA"],
   "countdownS": 3,
   "consentVersion": "CONSENT@1.0",
-  "minFpsOptions": [59, 58, 57, 55, 50, 45, 40, 30]
+  "minFpsOptions": [59, 58, 57, 55, 50, 45, 40, 30],
+  "upload": {
+    "defaultRetentionHours": 24,
+    "retentionHoursOptions": [24, 72, 168],
+    "wifiOnlyDefault": true,
+    "defaultEndpoint": "fake://api"
+  }
 }

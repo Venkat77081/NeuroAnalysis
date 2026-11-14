@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MockCaptureKit, sampleFixtures } from '@neurocapture/capture-kit';
 import { browserStore, kitStore, memoryStorage } from '../src/data/store.ts';
-import { maskRef, newId, repo } from '../src/data/repo.ts';
+import { defaultSettings, maskRef, newId, repo } from '../src/data/repo.ts';
 
 const patient = { localId: 'p-1', ref: 'A0142', yearOfBirth: 1958, sex: 'M' as const };
 
@@ -20,9 +20,10 @@ describe.each([
     expect(await r.loadSession()).toEqual({ value: 'setup' });
     await r.clearSession();
     expect(await r.loadSession()).toBeNull();
-    expect(await r.settings()).toEqual({ operatorId: 'OP-LOCAL', language: 'en', minFps: null });
-    await r.saveSettings({ operatorId: 'OP-07', language: 'hi', minFps: 55 });
-    expect(await r.settings()).toEqual({ operatorId: 'OP-07', language: 'hi', minFps: 55 });
+    expect(await r.settings()).toEqual(defaultSettings);
+    const s = { ...defaultSettings, operatorId: 'OP-07', language: 'hi' as const, minFps: 55 };
+    await r.saveSettings(s);
+    expect(await r.settings()).toEqual(s);
     await r.archiveSession('S-AB', { passed: 7 });
     expect(await r.store.keys('sessiondone.')).toEqual(['sessiondone.s-ab']);
   });

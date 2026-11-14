@@ -1,4 +1,5 @@
 import type { Patient } from '../session/machine.ts';
+import type { ServerLink, SignedIn } from '../lib/uploads.ts';
 import type { AppStore } from './store.ts';
 
 const SESSION_KEY = 'session.current';
@@ -8,9 +9,24 @@ export interface Settings {
   language: 'en' | 'hi';
   /** Doctor's frame-rate limit (fps) for the verdict; null = each test's config default. */
   minFps: number | null;
+  /** Site enrollment (M7); null until this phone is registered with a server. */
+  server: ServerLink | null;
+  /** Operator signed in for uploads (tokens live inside CaptureKit, not here). */
+  signedIn: SignedIn | null;
+  /** null = config default (session.json `upload`). */
+  wifiOnly: boolean | null;
+  retentionHours: number | null;
 }
 
-export const defaultSettings: Settings = { operatorId: 'OP-LOCAL', language: 'en', minFps: null };
+export const defaultSettings: Settings = {
+  operatorId: 'OP-LOCAL',
+  language: 'en',
+  minFps: null,
+  server: null,
+  signedIn: null,
+  wifiOnly: null,
+  retentionHours: null,
+};
 
 /** Patients, session snapshot and settings on top of an AppStore. */
 export function repo(store: AppStore) {

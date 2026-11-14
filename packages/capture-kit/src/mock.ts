@@ -654,14 +654,19 @@ export class MockCaptureKit implements CaptureKitPlugin {
 
   /** Mock only: the fake API the uploads talk to (tests can drop the network or corrupt a part). */
   readonly fakeServer = new FakeServer();
-  private uploadCfg: UploadConfig | null = null;
+  private uploadCfg: (UploadConfig & { accessToken: string; refreshToken: string }) | null = null;
   private jobs = new Map<string, { job: UploadJob; status: UploadStatus; attempts: number }>();
   private closes = new Map<string, string>();
   private uploading = false;
   private retryTimer: unknown = null;
 
   async configureUploads(opts: UploadConfig): Promise<void> {
-    this.uploadCfg = { ...opts };
+    const accessToken = opts.accessToken ?? this.uploadCfg?.accessToken;
+    const refreshToken = opts.refreshToken ?? this.uploadCfg?.refreshToken;
+    if (!accessToken || !refreshToken) {
+      return; // no sign-in yet: uploads keep waiting for login
+    }
+    this.uploadCfg = { ...opts, accessToken, refreshToken };
     for (const j of this.jobs.values())
       if (j.status.reason === 'login_required')
         this.setUpload(j, { state: 'queued', reason: undefined });
@@ -761,6 +766,10 @@ export class MockCaptureKit implements CaptureKitPlugin {
       size: (k: string) => data.get(k)!.length,
       sha256: (k: string) => sha256Hex(data.get(k)!),
       read: async (k: string, off: number, len: number) => data.get(k)!.slice(off, off + len),
+      evidence: async (name: 'quality' | 'meta') => {
+        const json = this.evidence.get(`${takeId}/${name}.json`);
+        return json ? (JSON.parse(json) as unknown) : null;
+      },
     };
   }
 

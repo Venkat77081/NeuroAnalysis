@@ -6,6 +6,7 @@ import { maskRef, newId } from '../../data/repo.ts';
 import { useSession } from '../../session/useSession.ts';
 import type { MedState, Patient } from '../../session/machine.ts';
 import { Button, Card, Sheet } from '../../ui/kit.tsx';
+import { UploadSetup } from '../UploadSetup.tsx';
 
 const LONG_PRESS_MS = 1200;
 
@@ -50,6 +51,7 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
   const { ctx, send } = useSession();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [picker, setPicker] = useState(false);
+  const [uploads, setUploads] = useState(false);
   const [draft, setDraft] = useState({ ref: '', yob: '', sex: '' as '' | 'M' | 'F' | 'O' });
   const native = capture.implementation === 'native';
 
@@ -95,9 +97,18 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
       <main className="flex flex-1 flex-col gap-3.5 px-5 pt-1">
         <div className="flex items-baseline justify-between">
           <h1 className="m-0 text-[26px] font-bold">{t('session.home.title')}</h1>
-          <span className="text-[13px] text-muted">
+          <button
+            type="button"
+            className="flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[13px] text-muted"
+            onClick={() => setUploads(true)}
+            data-testid="open-upload-setup"
+          >
+            <span
+              className={`size-2 rounded-full ${settings.signedIn ? 'bg-ok' : 'bg-[#C9CFD8]'}`}
+              aria-hidden="true"
+            />
             {t('session.home.operator', { id: settings.operatorId })}
-          </span>
+          </button>
         </div>
 
         <Card className="flex items-center justify-between">
@@ -283,6 +294,7 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
           </Button>
         </Sheet>
       )}
+      {uploads && <UploadSetup onClose={() => setUploads(false)} />}
     </div>
   );
 }

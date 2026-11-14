@@ -25,6 +25,8 @@ export interface TakeFiles {
   size(kind: string): number;
   sha256(kind: string): Promise<string>;
   read(kind: string, offset: number, length: number): Promise<Uint8Array>;
+  /** Plain JSON of an evidence file (quality.json, meta.json) for the take record's metadata. */
+  evidence?(name: 'quality' | 'meta'): Promise<unknown>;
 }
 
 export interface UploadJob {
@@ -150,8 +152,12 @@ export class UploadClient {
         sha256: await files.sha256(kind),
       })),
     );
+    const take = JSON.parse(job.take) as Record<string, unknown>;
+    // quality/meta come from the take's evidence when the app did not inline them.
+    for (const name of ['quality', 'meta'] as const)
+      if (take[name] === undefined) take[name] = (await files.evidence?.(name)) ?? {};
     const body = {
-      ...(JSON.parse(job.take) as object),
+      ...take,
       session_id: job.serverSessionId,
       wrapped_data_key: job.wrappedDataKey,
       key_id: job.keyId,

@@ -153,8 +153,12 @@ export interface UploadStatus {
 export interface UploadConfig {
   /** Server base URL, e.g. https://api.example.in (plain http only in debug builds). */
   endpoint: string;
-  accessToken: string;
-  refreshToken: string;
+  /**
+   * Set at operator sign-in. Omit to keep the tokens the plugin already holds (it rotates them
+   * itself and stores them, so the app never needs the current pair).
+   */
+  accessToken?: string;
+  refreshToken?: string;
   /** Server RSA-OAEP public key (PEM) that wraps each take's data key, and its ID (§14). */
   serverKeyId: string;
   serverPublicKeyPem: string;

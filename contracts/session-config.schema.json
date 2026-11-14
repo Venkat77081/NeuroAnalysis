@@ -87,6 +87,42 @@
         "minimum": 1,
         "maximum": 60
       }
+    },
+    "upload": {
+      "description": "Upload rules (M7). Local copies are deleted retentionHours after the server confirms all checksums.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultRetentionHours",
+        "retentionHoursOptions",
+        "wifiOnlyDefault",
+        "defaultEndpoint"
+      ],
+      "properties": {
+        "defaultRetentionHours": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 720
+        },
+        "retentionHoursOptions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 720
+          }
+        },
+        "wifiOnlyDefault": {
+          "type": "boolean"
+        },
+        "defaultEndpoint": {
+          "description": "Server address prefilled on the setup screen; fake://api is the built-in test server (mock mode).",
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   },
   "$defs": {

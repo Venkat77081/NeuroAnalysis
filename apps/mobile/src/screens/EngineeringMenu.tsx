@@ -76,7 +76,7 @@ export function EngineeringMenu({
       <Button
         disabled={!ok}
         onClick={() => {
-          void saveSettings({ operatorId, language, minFps });
+          void saveSettings({ ...settings, operatorId, language, minFps });
           onClose();
         }}
         data-testid="save-settings"

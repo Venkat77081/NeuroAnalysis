@@ -354,7 +354,6 @@
       "takes_one": "{{count}} take",
       "takes_other": "{{count}} takes",
       "reason": "Reason: {{reason}}",
-      "stored": "Takes are stored encrypted on this device. Upload arrives in M7.",
       "end": "End session",
       "aborted": "Session ended early: {{reason}}. Tests not done are marked \"Not done\"."
     },
@@ -452,5 +451,49 @@
     "delegateAuto": "Auto (GPU, CPU if GPU fails)",
     "delegateMixed": "Mixed (pose CPU, hands/face GPU)",
     "prep": "image {{image}} · preparation p95 {{prep}} ms · setting {{delegate}}"
+  },
+  "uploads": {
+    "title": "Server & uploads",
+    "serverAddress": "Server address",
+    "enrollCode": "Enrollment code (from your site admin)",
+    "enroll": "Register this phone",
+    "enrolled": "Registered with site {{site}}",
+    "changeServer": "Use another server",
+    "operatorCode": "Operator code",
+    "pin": "PIN",
+    "signIn": "Sign in",
+    "signedIn": "Signed in as {{id}}",
+    "signOut": "Sign out",
+    "wifiOnly": "Upload on Wi-Fi only",
+    "retention": "Keep local copies after upload",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "working": "Please wait…",
+    "done": "Done",
+    "errors": {
+      "network": "Cannot reach the server. Check the address and the network.",
+      "bad_code": "This enrollment code was not accepted.",
+      "bad_login": "Operator code or PIN is wrong.",
+      "server": "The server had a problem. Try again later."
+    },
+    "state": {
+      "queued": "Waiting to upload",
+      "uploading": "Uploading {{pct}}%",
+      "paused": "Paused",
+      "failed_retryable": "Will retry",
+      "failed_permanent": "Upload failed",
+      "completed": "Uploaded"
+    },
+    "reason": {
+      "login_required": "Sign in to upload",
+      "network": "No connection to the server",
+      "wifi_required": "Waiting for Wi-Fi"
+    },
+    "notLinked": "This phone is not registered with a server. Takes stay encrypted on this device.",
+    "background": "Uploads continue in the background. Local copies are deleted {{hours}} after the server confirms them.",
+    "allDone": "All takes uploaded and confirmed by the server.",
+    "retry": "Retry now",
+    "setup": "Set up uploads",
+    "signInToUpload": "Sign in to upload"
   }
 }

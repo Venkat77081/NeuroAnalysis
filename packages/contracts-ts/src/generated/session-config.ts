@@ -47,4 +47,19 @@ export interface SessionConfig {
    * @minItems 1
    */
   minFpsOptions?: [number, ...number[]];
+  /**
+   * Upload rules (M7). Local copies are deleted retentionHours after the server confirms all checksums.
+   */
+  upload?: {
+    defaultRetentionHours: number;
+    /**
+     * @minItems 1
+     */
+    retentionHoursOptions: [number, ...number[]];
+    wifiOnlyDefault: boolean;
+    /**
+     * Server address prefilled on the setup screen; fake://api is the built-in test server (mock mode).
+     */
+    defaultEndpoint: string;
+  };
 }

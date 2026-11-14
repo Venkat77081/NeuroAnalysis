@@ -1,4 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { UploadStatus } from '@neurocapture/capture-kit';
+import { capture } from '../../lib/capture.ts';
+import { logger } from '../../lib/logger.ts';
+import { queueSession, uploadPrefs } from '../../lib/uploads.ts';
+import { UploadSetup } from '../UploadSetup.tsx';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { maskRef } from '../../data/repo.ts';
@@ -16,8 +21,20 @@ const chip: Record<string, string> = {
 
 export function Summary() {
   const { t } = useTranslation();
-  const { newSession } = useApp();
+  const { newSession, settings, config } = useApp();
   const { ctx, send } = useSession();
+  const uploads = useSessionUploads();
+  const [setup, setSetup] = useState(false);
+  const statuses = Object.values(uploads);
+  const allDone = statuses.length > 0 && statuses.every((u) => u.state === 'completed');
+  const needLogin =
+    !!settings.server &&
+    (!settings.signedIn || statuses.some((u) => u.reason === 'login_required'));
+  const retryable = statuses.some(
+    (u) =>
+      u.state === 'failed_retryable' || (u.state === 'paused' && u.reason !== 'login_required'),
+  );
+  const { retentionHours } = uploadPrefs(settings, config);
   const counts = summarizeOutcomes(ctx);
   const [now] = useState(() => Date.now());
   const minutes = ctx.startedAt
@@ -86,6 +103,14 @@ export function Summary() {
                 <span className="flex flex-1 flex-col">
                   <span className="text-sm font-semibold">{stepTitle(t, p.code, p.side)}</span>
                   <span className="text-xs text-muted">{detail}</span>
+                  {'takeId' in o && uploads[o.takeId] && (
+                    <span
+                      className={`text-xs ${uploads[o.takeId]!.state === 'completed' ? 'text-ok' : 'text-muted'}`}
+                      data-testid={`upload-${p.code}`}
+                    >
+                      {uploadLabel(t, uploads[o.takeId]!)}
+                    </span>
+                  )}
                 </span>
                 <span className={`rounded-full px-2 py-1 text-xs font-bold ${chip[o.status]}`}>
                   {t(`session.summary.status.${o.status}`)}
@@ -94,7 +119,41 @@ export function Summary() {
             );
           })}
         </ol>
-        <p className="m-0 text-[13px] text-muted">{t('session.summary.stored')}</p>
+        <section className="flex flex-col gap-2" data-testid="upload-panel">
+          {!settings.server ? (
+            <p className="m-0 text-[13px] text-muted" data-testid="upload-not-linked">
+              {t('uploads.notLinked')}
+            </p>
+          ) : (
+            <p className="m-0 text-[13px] text-muted" data-testid="upload-summary">
+              {allDone
+                ? t('uploads.allDone')
+                : t('uploads.background', { hours: t('uploads.hours', { count: retentionHours }) })}
+            </p>
+          )}
+          <div className="flex gap-2">
+            {(!settings.server || needLogin) && (
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setSetup(true)}
+                data-testid="upload-sign-in"
+              >
+                {settings.server ? t('uploads.signInToUpload') : t('uploads.setup')}
+              </Button>
+            )}
+            {retryable && (
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => void capture.kit.retryUploads()}
+                data-testid="upload-retry"
+              >
+                {t('uploads.retry')}
+              </Button>
+            )}
+          </div>
+        </section>
       </main>
       <footer className="px-5 pt-3 pb-6">
         <Button
@@ -108,6 +167,58 @@ export function Summary() {
           {t('session.summary.end')}
         </Button>
       </footer>
+      {setup && <UploadSetup onClose={() => setSetup(false)} />}
     </div>
   );
+}
+
+type TFn = ReturnType<typeof useTranslation>['t'];
+
+function uploadLabel(t: TFn, u: UploadStatus): string {
+  if (u.state === 'uploading')
+    return t('uploads.state.uploading', {
+      pct: u.bytesTotal ? Math.floor((100 * u.bytesSent) / u.bytesTotal) : 0,
+    });
+  const state = t(`uploads.state.${u.state}`);
+  return u.reason && u.state !== 'completed' && u.state !== 'failed_permanent'
+    ? `${state} · ${t(`uploads.reason.${u.reason}`, { defaultValue: '' }) || u.reason}`
+    : state;
+}
+
+/**
+ * Queue this session's accepted/kept takes once the phone is registered (idempotent, so it also
+ * runs after a later sign-in), and follow their progress.
+ */
+function useSessionUploads(): Record<string, UploadStatus> {
+  const { config, settings } = useApp();
+  const { ctx } = useSession();
+  const [byTake, setByTake] = useState<Record<string, UploadStatus>>({});
+  const server = settings.server;
+  const signedIn = !!settings.signedIn;
+
+  useEffect(() => {
+    if (!server) return;
+    let cancelled = false;
+    let ids: string[] = [];
+    const handle = capture.kit.addListener('uploadProgress', (u: UploadStatus) => {
+      if (!cancelled && ids.includes(u.takeId)) setByTake((m) => ({ ...m, [u.takeId]: u }));
+    });
+    queueSession(capture.kit, ctx, server, config, new Date().toISOString())
+      .then(async (queued) => {
+        ids = queued;
+        const all = await Promise.all(
+          queued.map((takeId) => capture.kit.getUploadStatus({ takeId })),
+        );
+        if (!cancelled) setByTake(Object.fromEntries(all.map((u) => [u.takeId, u])));
+      })
+      .catch((e: unknown) => logger.error('upload queue failed', { error: String(e) }));
+    return () => {
+      cancelled = true;
+      void handle.then((h) => h.remove());
+    };
+    // ctx is the finished session; it does not change on this screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server, signedIn, config]);
+
+  return byTake;
 }

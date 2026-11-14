@@ -16,6 +16,7 @@ import { browserStore, kitStore, memoryStorage } from '../data/store.ts';
 import { defaultSettings, newId, repo, type Repo, type Settings } from '../data/repo.ts';
 import { summarizeOutcomes, type PlanStep, type SessionInput } from '../session/machine.ts';
 import { persist, startSession, type SessionActor } from '../session/persist.ts';
+import { uploadConfig, uploadPrefs } from '../lib/uploads.ts';
 
 export interface AppServices {
   config: LoadedConfig;
@@ -96,6 +97,11 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         setActor(a);
       }
       if (!cancelled) setSettings(s);
+      // Re-apply upload settings; CaptureKit keeps the operator's tokens across restarts.
+      if (s.server && s.signedIn)
+        capture.kit
+          .configureUploads(uploadConfig(s.server, uploadPrefs(s, config)))
+          .catch((e: unknown) => logger.warn('upload config failed', { error: String(e) }));
       capture.kit.getCapabilities().then(
         (c) => !cancelled && setCaps(c),
         () => undefined,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SAW@2.0.0",
+  "configVersion": "SAW@2.1.0",
   "code": "SAW",
   "name": "Stand and Walk",
   "biomarkers": [
@@ -26,7 +26,8 @@
   "camera": {
     "facing": "back",
     "resolution": "1080p",
-    "targetFps": 30,
+    "targetFps": 60,
+    "fallbackFps": 30,
     "minEffectiveFps": 29.5,
     "orientation": "landscape",
     "lock": {

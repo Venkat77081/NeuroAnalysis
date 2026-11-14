@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://neurocapture.local/contracts/landmarks-header.schema.json",
   "title": "LandmarksHeader",
-  "description": "JSON header at the start of landmarks.bin (DEV_PLAN §12.2). Schema version 1.0.0.",
+  "description": "JSON header of landmarks.bin (DEV_PLAN §12.2). File layout: 4-byte magic 'NCLM', uint32 LE header length, UTF-8 JSON header, then records, each: uint32 LE byte length of the rest, then the record body (layout 'NCLM-v1', see packages/capture-kit/src/landmarks.ts). Schema version 1.0.0.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,17 +16,36 @@
     "trackers"
   ],
   "properties": {
-    "schemaVersion": { "const": "1.0.0" },
-    "coordinateSystem": { "const": "normalized_upright_analysis_frame" },
-    "orientation": { "enum": ["portrait", "landscape"] },
-    "mirrored": { "type": "boolean" },
-    "timestampSemantics": { "const": "camera_frame_canonical_elapsed_realtime_ns" },
-    "clockSource": { "enum": ["REALTIME", "UNKNOWN", "SIMULATED"] },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "coordinateSystem": {
+      "const": "normalized_upright_analysis_frame"
+    },
+    "orientation": {
+      "enum": ["portrait", "landscape"]
+    },
+    "mirrored": {
+      "type": "boolean"
+    },
+    "timestampSemantics": {
+      "const": "camera_frame_canonical_elapsed_realtime_ns"
+    },
+    "clockSource": {
+      "enum": ["REALTIME", "UNKNOWN", "SIMULATED"]
+    },
     "record": {
       "type": "object",
       "additionalProperties": false,
       "required": ["endianness", "dtype"],
-      "properties": { "endianness": { "const": "little" }, "dtype": { "const": "float32" } }
+      "properties": {
+        "endianness": {
+          "const": "little"
+        },
+        "dtype": {
+          "const": "float32"
+        }
+      }
     },
     "trackers": {
       "type": "array",
@@ -36,11 +55,41 @@
         "additionalProperties": false,
         "required": ["name", "modelVersion", "pointsPerFrame", "valuesPerPoint"],
         "properties": {
-          "name": { "enum": ["hand", "pose", "face"] },
-          "modelVersion": { "type": "string", "minLength": 1 },
-          "pointsPerFrame": { "enum": [21, 33, 478] },
-          "valuesPerPoint": { "enum": [3, 4] }
+          "name": {
+            "enum": ["hand", "pose", "face"]
+          },
+          "modelVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pointsPerFrame": {
+            "enum": [21, 33, 478]
+          },
+          "valuesPerPoint": {
+            "enum": [3, 4]
+          }
         }
+      }
+    },
+    "layout": {
+      "const": "NCLM-v1"
+    },
+    "takeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "handednessLabels": {
+      "description": "MediaPipe labels handedness as if the image were mirrored; records store the raw label. imageMirrored tells readers whether to flip it (decision 012).",
+      "const": "mediapipe_raw"
+    },
+    "imageMirrored": {
+      "type": "boolean",
+      "description": "Whether the analysis image given to the trackers was mirrored."
+    },
+    "blendshapeNames": {
+      "type": "array",
+      "items": {
+        "type": "string"
       }
     }
   }

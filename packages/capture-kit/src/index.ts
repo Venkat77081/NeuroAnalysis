@@ -10,6 +10,7 @@ export { MockCaptureKit, scaledScheduler, type MockOptions, type Scheduler } fro
 export { encodeFloat32, decodeFloat32 } from './codec.ts';
 export { PLUGIN_VERSION } from './version.ts';
 export * from './streams.ts';
+export * from './landmarks.ts';
 
 export const sampleFixtures = { 'ft-r-sample': ftRSample as CaptureFixture };
 

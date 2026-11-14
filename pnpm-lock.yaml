@@ -111,6 +111,9 @@ importers:
       '@neurocapture/contracts-ts':
         specifier: workspace:*
         version: link:../contracts-ts
+      '@neurocapture/quality-core':
+        specifier: workspace:*
+        version: link:../quality-core
     devDependencies:
       tsx:
         specifier: 4.23.15

@@ -2,7 +2,7 @@
 /** GENERATED from /contracts by scripts/gen.ts — do not edit. Run `pnpm contracts:gen`. */
 
 /**
- * JSON header at the start of landmarks.bin (DEV_PLAN §12.2). Schema version 1.0.0.
+ * JSON header of landmarks.bin (DEV_PLAN §12.2). File layout: 4-byte magic 'NCLM', uint32 LE header length, UTF-8 JSON header, then records, each: uint32 LE byte length of the rest, then the record body (layout 'NCLM-v1', see packages/capture-kit/src/landmarks.ts). Schema version 1.0.0.
  */
 export interface LandmarksHeader {
   schemaVersion: '1.0.0';
@@ -32,4 +32,15 @@ export interface LandmarksHeader {
       valuesPerPoint: 3 | 4;
     }[]
   ];
+  layout?: 'NCLM-v1';
+  takeId?: string;
+  /**
+   * MediaPipe labels handedness as if the image were mirrored; records store the raw label. imageMirrored tells readers whether to flip it (decision 012).
+   */
+  handednessLabels?: 'mediapipe_raw';
+  /**
+   * Whether the analysis image given to the trackers was mirrored.
+   */
+  imageMirrored?: boolean;
+  blendshapeNames?: string[];
 }

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0.0",
+  "layout": "NCLM-v1",
+  "takeId": "golden",
+  "coordinateSystem": "normalized_upright_analysis_frame",
+  "orientation": "portrait",
+  "mirrored": false,
+  "imageMirrored": false,
+  "handednessLabels": "mediapipe_raw",
+  "timestampSemantics": "camera_frame_canonical_elapsed_realtime_ns",
+  "clockSource": "REALTIME",
+  "record": { "endianness": "little", "dtype": "float32" },
+  "trackers": [
+    {
+      "name": "hand",
+      "modelVersion": "hand_landmarker/float16/1",
+      "pointsPerFrame": 21,
+      "valuesPerPoint": 4
+    },
+    {
+      "name": "pose",
+      "modelVersion": "pose_landmarker_lite/float16/1",
+      "pointsPerFrame": 33,
+      "valuesPerPoint": 4
+    },
+    {
+      "name": "face",
+      "modelVersion": "face_landmarker/float16/1",
+      "pointsPerFrame": 478,
+      "valuesPerPoint": 3
+    }
+  ]
+}

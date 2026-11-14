@@ -79,7 +79,7 @@
       "pattern": "^[A-Za-z0-9_-]{1,64}$"
     },
     "handednessLabels": {
-      "description": "MediaPipe labels handedness as if the image were mirrored; records store the raw label. imageMirrored tells readers whether to flip it (decision 012).",
+      "description": "Records store MediaPipe's raw label. On an un-mirrored image it names the subject's hand; when imageMirrored is true readers flip it (decision 012).",
       "const": "mediapipe_raw"
     },
     "imageMirrored": {

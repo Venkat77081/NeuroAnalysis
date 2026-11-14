@@ -15,10 +15,13 @@ export function Outline({
   kind,
   color = '#FFFFFF',
   dashed = true,
+  mirror = false,
 }: {
   kind: OverlayKind;
   color?: string;
   dashed?: boolean;
+  /** Mirror the hand guide (drawn as a left hand, palm to camera) for the right hand. */
+  mirror?: boolean;
 }) {
   const portrait = kind === 'hand_outline' || kind === 'face_oval';
   const w = portrait ? 390 : 844;
@@ -45,7 +48,15 @@ export function Outline({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {kind === 'hand_outline' && <Guide d={HAND} color={color} dash={dash} />}
+      {kind === 'hand_outline' && (
+        // The path spans x 86–268; mirror about its own centre (177) so it stays in place.
+        <g
+          transform={mirror ? 'translate(354 0) scale(-1 1)' : undefined}
+          data-testid={mirror ? 'hand-guide-right' : 'hand-guide-left'}
+        >
+          <Guide d={HAND} color={color} dash={dash} />
+        </g>
+      )}
       {kind === 'upper_body' && <Guide d={UPPER_BODY} color={color} dash={dash} />}
       {kind === 'face_oval' && (
         <g>

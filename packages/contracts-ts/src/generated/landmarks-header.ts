@@ -35,7 +35,7 @@ export interface LandmarksHeader {
   layout?: 'NCLM-v1';
   takeId?: string;
   /**
-   * MediaPipe labels handedness as if the image were mirrored; records store the raw label. imageMirrored tells readers whether to flip it (decision 012).
+   * Records store MediaPipe's raw label. On an un-mirrored image it names the subject's hand; when imageMirrored is true readers flip it (decision 012).
    */
   handednessLabels?: 'mediapipe_raw';
   /**

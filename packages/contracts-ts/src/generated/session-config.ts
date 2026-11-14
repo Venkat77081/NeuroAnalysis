@@ -5,6 +5,12 @@
  * @minItems 1
  */
 export type ReasonList = [string, ...string[]];
+/**
+ * Reasons for ending a session before all tests are done.
+ *
+ * @minItems 1
+ */
+export type ReasonList1 = [string, ...string[]];
 
 /**
  * Test order and session rules (DEV_PLAN §8.3). Schema version 1.0.0.
@@ -22,6 +28,7 @@ export interface SessionConfig {
   maxRetakes: number;
   skipReasons: ReasonList;
   overrideReasons: ReasonList;
+  abortReasons: ReasonList1;
   /**
    * @minItems 1
    */

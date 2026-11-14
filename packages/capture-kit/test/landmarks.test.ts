@@ -42,11 +42,11 @@ const full: AnalysisFrameEvent = {
 };
 
 describe('handedness', () => {
-  it('flips MediaPipe labels for non-mirrored camera frames (decision 012)', () => {
-    expect(sideFromLabel('Left', false)).toBe('R');
-    expect(sideFromLabel('Right', false)).toBe('L');
-    expect(sideFromLabel('Left', true)).toBe('L');
-    expect(sideFromLabel('Right', true)).toBe('R');
+  it('keeps MediaPipe labels on un-mirrored frames and flips them on mirrored ones (decision 012)', () => {
+    expect(sideFromLabel('Left', false)).toBe('L');
+    expect(sideFromLabel('Right', false)).toBe('R');
+    expect(sideFromLabel('Left', true)).toBe('R');
+    expect(sideFromLabel('Right', true)).toBe('L');
   });
 });
 
@@ -54,7 +54,7 @@ describe('decodeAnalysisFrame', () => {
   it('decodes hands, pose, face, blendshapes and stats without precision loss on the timestamp', () => {
     const f = decodeAnalysisFrame(full);
     expect(f.tNs).toBe(9007199254740993123n);
-    expect(f.hands.map((h) => h.side)).toEqual(['R', 'L']);
+    expect(f.hands.map((h) => h.side)).toEqual(['L', 'R']);
     expect(f.hands[0]!.pts).toHaveLength(21);
     expect(f.hands[0]!.pts[0]).toEqual({ x: 0.5, y: 0.5, z: 0.5, v: 0.5 });
     expect(f.pose).toHaveLength(33);
@@ -62,7 +62,7 @@ describe('decodeAnalysisFrame', () => {
     expect(f.face?.pts[0]).toEqual({ x: 0.375, y: 0.375, z: 0.375 });
     expect(Object.keys(f.face!.blend!)).toEqual([...BLENDSHAPE_NAMES]);
     expect(f.face).toMatchObject({ yaw: 3, pitch: -4, roll: 1 });
-    expect(decodeAnalysisFrame(full, { imageMirrored: true }).hands[0]!.side).toBe('L');
+    expect(decodeAnalysisFrame(full, { imageMirrored: true }).hands[0]!.side).toBe('R');
   });
 
   it('handles frames with nothing tracked', () => {

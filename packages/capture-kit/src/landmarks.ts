@@ -71,10 +71,14 @@ export const BLENDSHAPE_NAMES = [
   'noseSneerRight',
 ] as const;
 
-/** Anatomical side from MediaPipe's raw label. */
+/**
+ * Subject's side from MediaPipe's raw handedness label (decision 012, revised after the first
+ * device check): on an un-mirrored camera frame the label already names the subject's hand
+ * (raw "Right" = right hand); on a mirrored frame it is the opposite.
+ */
 export function sideFromLabel(label: 'Left' | 'Right', imageMirrored: boolean): Side {
-  const left = label === 'Left';
-  return (imageMirrored ? left : !left) ? 'L' : 'R';
+  const right = label === 'Right';
+  return (imageMirrored ? !right : right) ? 'R' : 'L';
 }
 
 function points(f: Float32Array, stride: 3 | 4): Landmark[] {

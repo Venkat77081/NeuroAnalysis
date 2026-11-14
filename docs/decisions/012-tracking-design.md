@@ -1,6 +1,6 @@
 # 012 — Tracking layer: coordinates, handedness, timing, web mode
 
-- **Status:** accepted (handedness rule needs a device check, see QA #4)
+- **Status:** accepted; handedness rule revised 2026-11-14 after the first device check
 - **Date:** 2026-11-14
 - **Milestone:** M4
 
@@ -18,10 +18,14 @@ left/right hands and one clock.
   points (`toScreen`). Preview, video and analysis are all 16:9 (A14), so one FILL_CENTER
   scale/offset maps them.
 - **Handedness.** Events and `landmarks.bin` carry MediaPipe's **raw** label
-  (`handednessLabels: "mediapipe_raw"`, `imageMirrored: false`). MediaPipe assumes a mirrored
-  (selfie) image, so on our un-mirrored frames the subject's side is the opposite label:
-  `sideFromLabel(label, imageMirrored)` → `Left → R`. Consumers never interpret the raw label
-  themselves. Storing the raw label keeps the file re-interpretable if this rule turns out wrong.
+  (`handednessLabels: "mediapipe_raw"`, `imageMirrored: false`). Consumers get the side only
+  through `sideFromLabel(label, imageMirrored)`.
+  - First version assumed MediaPipe labels as if the image were mirrored (its documentation says
+    so) and flipped the label on our un-mirrored back-camera frames.
+  - Device check (OnePlus CPH2649, back camera, right hand palm towards the camera, upright frames):
+    raw label **Right** twice. So on un-mirrored frames the raw label already names the subject's
+    hand; it is flipped only when `imageMirrored` is true.
+  - Because the raw label is stored, takes written before the fix are read correctly by the new rule.
 - **Running mode.** Android: `LIVE_STREAM` with result listeners; `FrameJoiner` merges the
   per-tracker results for one frame and marks missing ones as `error`. Only trackers listed in the
   test config are created. GPU delegate first, CPU on failure (`gpuDelegate` in capabilities).
@@ -35,6 +39,10 @@ left/right hands and one clock.
   WebM with MediaRecorder (not encrypted, in memory only). It is lazy-loaded so mock and native
   builds never fetch the WASM. Models and WASM are served from `public/mediapipe` (fetched and
   hash-checked by `pnpm models`, not committed).
+
+- **Upright input.** MediaPipe returns landmarks in the frame of the image it was given, even
+  when a rotation option is passed (first device check: overlay rotated 90°). CameraX therefore
+  rotates analysis frames (`setOutputImageRotationEnabled`), with a bitmap rotation as fallback.
 
 ## Consequences
 

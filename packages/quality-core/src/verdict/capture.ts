@@ -32,7 +32,8 @@ export type VerdictReasonCode =
   | 'landmarks_low'
   | 'critical_events'
   | 'tracking_lost'
-  | 'sharpness_low';
+  | 'sharpness_low'
+  | 'key_points_hidden';
 
 export interface VerdictReason {
   code: VerdictReasonCode;

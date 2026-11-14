@@ -23,7 +23,7 @@ export interface SessionConfig {
    */
   order: [
     ['FT' | 'FTF' | 'FR' | 'SAW' | 'FA', 'R' | 'L' | null],
-    ...['FT' | 'FTF' | 'FR' | 'SAW' | 'FA', 'R' | 'L' | null][]
+    ...['FT' | 'FTF' | 'FR' | 'SAW' | 'FA', 'R' | 'L' | null][],
   ];
   maxRetakes: number;
   skipReasons: ReasonList;

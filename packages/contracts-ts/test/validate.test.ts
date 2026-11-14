@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
+  checkBiomarkerRegistry,
   checkQualityConfig,
   validate,
   formatIssues,
@@ -10,7 +11,7 @@ import {
   schemaNames,
   isSchemaName,
 } from '../src/index.ts';
-import type { TestConfig, SessionConfig, QualityConfig } from '../src/index.ts';
+import type { TestConfig, SessionConfig, QualityConfig, BiomarkerRegistry } from '../src/index.ts';
 
 const root = resolve(import.meta.dirname, '../../..');
 const read = <T>(p: string): T => JSON.parse(readFileSync(join(root, p), 'utf8')) as T;
@@ -168,5 +169,39 @@ describe('checkQualityConfig', () => {
       '/checks/brightness',
       '/checks/face_light_balance',
     ]);
+  });
+});
+
+describe('checkBiomarkerRegistry (M8)', () => {
+  const tests = new Map(testCodes.map((c) => [c, read<TestConfig>(`config/tests/${c}.json`)]));
+  const reg = read<BiomarkerRegistry>('config/biomarker-registry.json');
+
+  it('config/biomarker-registry.json is valid and matches the test configs', () => {
+    expect(validate('biomarker-registry', reg).issues).toEqual([]);
+    expect(checkBiomarkerRegistry(reg, tests)).toEqual([]);
+    expect(reg.biomarkers).toHaveLength(75);
+  });
+
+  it('flags duplicates, wrong prefixes, unrecorded trackers and unlisted IDs', () => {
+    const b0 = reg.biomarkers[0]!;
+    const bad: BiomarkerRegistry = {
+      ...reg,
+      biomarkers: [
+        ...reg.biomarkers.slice(1),
+        b0,
+        b0,
+        { ...b0, id: 'FA77' },
+        { ...b0, id: 'FT13', inputs: { trackers: ['face'], landmarks: { face: [1] } } },
+      ],
+    };
+    const msgs = checkBiomarkerRegistry(bad, tests).map((i) => i.message);
+    expect(msgs).toContain('duplicate id FT1');
+    expect(msgs).toContain('id FA77 does not start with FT');
+    expect(msgs).toContain('FT does not record face');
+    expect(msgs).toContain('FT13 is registered but FT does not list it');
+    const missing = { ...reg, biomarkers: reg.biomarkers.slice(1) };
+    expect(checkBiomarkerRegistry(missing, tests).map((i) => i.message)).toContain(
+      'FT lists FT1, which is not registered',
+    );
   });
 });

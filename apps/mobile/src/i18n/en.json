@@ -308,7 +308,8 @@
       "landmarks_low": "Body or hands were out of view too often ({{pct}} % visible, needs {{minPct}} %).",
       "critical_events": "A serious problem happened during recording ({{n}}).",
       "tracking_lost": "Tracking was lost for {{s}} s ({{from}}–{{to}} s).",
-      "sharpness_low": "The video was blurry."
+      "sharpness_low": "The video was blurry.",
+      "key_points_hidden": "Key body points for this test were hidden too often. Keep the whole body part in view and retake."
     },
     "keep": {
       "title": "Why keep this take?",

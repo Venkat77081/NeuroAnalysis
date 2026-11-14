@@ -1,0 +1,1263 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryVersion": "REG@0.1.0",
+  "biomarkers": [
+    {
+      "id": "FT1",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT2",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT3",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT4",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT5",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT6",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT7",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT8",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT9",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT10",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT11",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT12",
+      "testCode": "FT",
+      "family": "FT (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF1",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF2",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF3",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF4",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF5",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF6",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF7",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF8",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF9",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF10",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF11",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF12",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF13",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF14",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF15",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF16",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF17",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF18",
+      "testCode": "FTF",
+      "family": "FTF (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [8],
+          "pose": [11, 12, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR1",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR2",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR3",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR4",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR5",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR6",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR7",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR8",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR9",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR10",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR11",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR12",
+      "testCode": "FR",
+      "family": "FR (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [0, 5, 17],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "SAW1",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW2",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW3",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW4",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW5",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW6",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW7",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW8",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW9",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW10",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW11",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW12",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW13",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW14",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW15",
+      "testCode": "SAW",
+      "family": "SAW (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28, 29, 30, 31, 32]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["stand_up", "walk_out", "turn", "walk_back"]
+      }
+    },
+    {
+      "id": "FA1",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA2",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA3",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA4",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA5",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA6",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA7",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA8",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA9",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA10",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA11",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA12",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA13",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA14",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA15",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA16",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA17",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA18",
+      "testCode": "FA",
+      "family": "FA (definition pending: DNE Table A-II)",
+      "formula": null,
+      "formulaVersion": null,
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [61, 105, 133, 145, 159, 291, 334, 362, 374, 386]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    }
+  ]
+}

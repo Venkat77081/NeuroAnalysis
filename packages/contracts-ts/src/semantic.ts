@@ -1,6 +1,7 @@
 import type { TestConfig } from './generated/test-config.ts';
 import type { SessionConfig } from './generated/session-config.ts';
 import type { QualityConfig } from './generated/quality-config.ts';
+import type { BiomarkerRegistry } from './generated/biomarker-registry.ts';
 import type { ValidationIssue } from './validate.ts';
 
 /**
@@ -124,5 +125,55 @@ export function checkQualityConfig(cfg: QualityConfig): ValidationIssue[] {
   const f = cfg.checks.face_light_balance;
   if (f.min >= f.max)
     issues.push({ path: '/checks/face_light_balance', message: 'min must be below max' });
+  return issues;
+}
+
+/**
+ * Biomarker registry (M8): unique IDs whose prefix is the test code; every ID a test config
+ * lists is registered and vice versa; required trackers are recorded by that test.
+ */
+export function checkBiomarkerRegistry(
+  reg: BiomarkerRegistry,
+  tests: Map<string, TestConfig>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const seen = new Set<string>();
+  reg.biomarkers.forEach((b, i) => {
+    const at = `/biomarkers/${i}`;
+    if (seen.has(b.id)) issues.push({ path: `${at}/id`, message: `duplicate id ${b.id}` });
+    seen.add(b.id);
+    if (!new RegExp(`^${b.testCode}[0-9]+$`).test(b.id))
+      issues.push({ path: `${at}/id`, message: `id ${b.id} does not start with ${b.testCode}` });
+    const test = tests.get(b.testCode);
+    if (!test) return;
+    for (const t of b.inputs.trackers ?? [])
+      if (!test.trackers.includes(t))
+        issues.push({
+          path: `${at}/inputs/trackers`,
+          message: `${b.testCode} does not record ${t}`,
+        });
+    for (const t of Object.keys(b.inputs.landmarks ?? {}))
+      if (!test.trackers.includes(t as 'hand' | 'pose' | 'face'))
+        issues.push({
+          path: `${at}/inputs/landmarks`,
+          message: `${b.testCode} does not record ${t}`,
+        });
+  });
+  for (const [code, test] of tests)
+    for (const id of test.biomarkers ?? [])
+      if (!seen.has(id))
+        issues.push({
+          path: '/biomarkers',
+          message: `${code} lists ${id}, which is not registered`,
+        });
+  for (const id of seen) {
+    const code = id.replace(/[0-9]+$/, '');
+    const test = tests.get(code);
+    if (test && !(test.biomarkers ?? []).includes(id))
+      issues.push({
+        path: '/biomarkers',
+        message: `${id} is registered but ${code} does not list it`,
+      });
+  }
   return issues;
 }

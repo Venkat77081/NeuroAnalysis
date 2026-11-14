@@ -1,2 +1,2 @@
 /** Saved in every quality.json (`qualityCoreVersion`). Bump with any behaviour change. */
-export const QUALITY_CORE_VERSION = '0.4.0';
+export const QUALITY_CORE_VERSION = '0.5.0';

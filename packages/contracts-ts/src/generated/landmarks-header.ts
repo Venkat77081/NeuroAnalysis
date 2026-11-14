@@ -30,7 +30,7 @@ export interface LandmarksHeader {
       modelVersion: string;
       pointsPerFrame: 21 | 33 | 478;
       valuesPerPoint: 3 | 4;
-    }[]
+    }[],
   ];
   layout?: 'NCLM-v1';
   takeId?: string;

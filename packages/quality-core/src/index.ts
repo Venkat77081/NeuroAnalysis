@@ -75,3 +75,20 @@ export {
   type TakeVariant,
   type TruthEvent,
 } from './synthetic-takes.ts';
+export {
+  QUALITY_RULES_FOR,
+  RETAKE_FIXABLE,
+  landmarkVisibleFrac,
+  readinessHint,
+  readinessRetakeReasons,
+  type MissingInput,
+  type ReadinessEvidence,
+  type ReadinessHint,
+  type ReadinessItem,
+  type ReadinessStatus,
+} from './verdict/readiness.ts';
+export {
+  evaluateRecordedTake,
+  type RecordedTakeEvaluation,
+  type RecordedTakeInput,
+} from './verdict/recorded.ts';

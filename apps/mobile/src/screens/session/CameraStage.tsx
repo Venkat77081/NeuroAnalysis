@@ -25,7 +25,8 @@ const started = new Set<string>();
  */
 export function CameraStage() {
   const { t } = useTranslation();
-  const { config, caps } = useApp();
+  const app = useApp();
+  const { config } = app;
   const { ctx, send, snapshot } = useSession();
   const step = ctx.plan[ctx.index]!;
   const cfg = config.tests.get(step.code)!;
@@ -34,12 +35,14 @@ export function CameraStage() {
     : snapshot.matches({ test: 'countdown' })
       ? 'countdown'
       : 'framing';
-  const [count, setCount] = useState(config.session.countdownS);
-  const [elapsed, setElapsed] = useState(0);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [fps, setFps] = useState<number>(cfg.camera.targetFps);
-  const ctxRef = useRef(ctx);
-  ctxRef.current = ctx;
+
+  // Latest values for native event callbacks (updated after each render).
+  const live = useRef({ ctx, cfg, app, send });
+  useEffect(() => {
+    live.current = { ctx, cfg, app, send };
+  });
 
   // Camera lifetime = this screen.
   useEffect(() => {
@@ -64,85 +67,61 @@ export function CameraStage() {
     };
   }, [cfg]);
 
-  // Recording events → progress and completion (registered once for this screen).
+  // Completion of the current take → verdict, meta.json, TAKE_FINISHED (registered once).
   useEffect(() => {
+    async function finish(result: NonNullable<RecordingStateEvent['result']>) {
+      const { ctx: c, cfg: tc, app: a, send: s } = live.current;
+      const v = captureVerdict(
+        { ...result, error: null },
+        {
+          durationToleranceS: tc.verdict.durationToleranceS,
+          minEffectiveFps: tc.camera.minEffectiveFps,
+          maxDroppedFrac: tc.verdict.maxDroppedFrac ?? null,
+        },
+      );
+      try {
+        const meta = buildMeta({
+          ctx: c,
+          cfg: tc,
+          sessionConfigVersion: a.config.session.configVersion,
+          result,
+          takeNo: stepTakes(c).length + 1,
+          caps: a.caps,
+          implementation: capture.implementation,
+          tier: loadQualification()?.assessment.tier ?? null,
+          createdAt: new Date().toISOString(),
+        });
+        await capture.kit.writeEvidence({
+          takeId: result.takeId,
+          name: 'meta.json',
+          json: JSON.stringify(meta),
+        });
+      } catch (e) {
+        logger.error('meta.json write failed', { error: String(e) });
+      }
+      s({ type: 'TAKE_FINISHED', result, verdict: v.verdict, reasons: v.reasons });
+    }
     let handle: { remove: () => Promise<void> } | undefined;
     let cancelled = false;
     void capture.kit
       .addListener('recordingState', (e: RecordingStateEvent) => {
-        const c = ctxRef.current;
-        if (e.takeId !== c.currentTakeId) return;
-        if (e.state === 'recording') setElapsed(e.elapsedS);
-        else if (e.state === 'completed' && e.result) void finish(e.result);
-        else if (e.state === 'error' || e.state === 'interrupted') send({ type: 'TAKE_FAILED' });
+        if (e.takeId !== live.current.ctx.currentTakeId) return;
+        if (e.state === 'completed' && e.result) void finish(e.result);
+        else if (e.state === 'error' || e.state === 'interrupted')
+          live.current.send({ type: 'TAKE_FAILED' });
       })
       .then((h) => (cancelled ? void h.remove() : (handle = h)));
     return () => {
       cancelled = true;
       void handle?.remove();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  async function finish(result: NonNullable<RecordingStateEvent['result']>) {
-    const c = ctxRef.current;
-    const v = captureVerdict(
-      { ...result, error: null },
-      {
-        durationToleranceS: cfg.verdict.durationToleranceS,
-        minEffectiveFps: cfg.camera.minEffectiveFps,
-        maxDroppedFrac: cfg.verdict.maxDroppedFrac ?? null,
-      },
-    );
-    try {
-      const meta = buildMeta({
-        ctx: c,
-        cfg,
-        sessionConfigVersion: config.session.configVersion,
-        result,
-        takeNo: stepTakes(c).length + 1,
-        caps,
-        implementation: capture.implementation,
-        tier: loadQualification()?.assessment.tier ?? null,
-        createdAt: new Date().toISOString(),
-      });
-      await capture.kit.writeEvidence({
-        takeId: result.takeId,
-        name: 'meta.json',
-        json: JSON.stringify(meta),
-      });
-    } catch (e) {
-      logger.error('meta.json write failed', { error: String(e) });
-    }
-    send({ type: 'TAKE_FINISHED', result, verdict: v.verdict, reasons: v.reasons });
-  }
-
-  // Countdown with beeps, then COUNTDOWN_DONE. AE/AF/AWB lock first (§8.1 camera.lock).
-  useEffect(() => {
-    if (phase !== 'countdown') return;
-    let n = config.session.countdownS;
-    setCount(n);
-    void capture.kit.lockCameraSettings(cfg.camera.lock).catch(() => undefined);
-    beep();
-    const h = setInterval(() => {
-      n -= 1;
-      setCount(n);
-      if (n > 0) beep();
-      else {
-        clearInterval(h);
-        beep(true);
-        send({ type: 'COUNTDOWN_DONE' });
-      }
-    }, 1000 / clockSpeed);
-    return () => clearInterval(h);
-  }, [phase, cfg, config.session.countdownS, send]);
 
   // Start the take once per takeId; native stops it at durationS.
   useEffect(() => {
     const id = ctx.currentTakeId;
     if (phase !== 'recording' || !id || started.has(id)) return;
     started.add(id);
-    setElapsed(0);
     capture.kit
       .startRecording({ takeId: id, durationS: cfg.task.durationS })
       .catch((e: unknown) => {
@@ -152,8 +131,6 @@ export function CameraStage() {
   }, [phase, ctx.currentTakeId, cfg, send]);
 
   const overlay = cfg.framing.overlay as OverlayKind;
-  const left = Math.max(0, cfg.task.durationS - elapsed);
-  const pct = Math.min(100, (elapsed / cfg.task.durationS) * 100);
 
   return (
     <div className="fixed inset-0 text-white" data-testid={`stage-${phase}`}>
@@ -169,13 +146,7 @@ export function CameraStage() {
 
       <header className="absolute inset-x-0 top-0 flex items-center justify-between gap-2 p-3">
         {phase === 'recording' ? (
-          <span
-            className="flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold tabular-nums"
-            data-testid="rec-badge"
-          >
-            <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
-            REC {elapsed.toFixed(1)} s
-          </span>
+          <span />
         ) : (
           <span className="rounded-full bg-[#0E1116]">
             <BackButton
@@ -218,61 +189,135 @@ export function CameraStage() {
         </div>
       )}
 
-      {phase === 'countdown' && (
-        <div className="absolute inset-0 flex items-center justify-center" aria-live="assertive">
-          <span className="text-[120px] font-bold drop-shadow-lg" data-testid="countdown">
-            {count > 0 ? count : ''}
-          </span>
-        </div>
+      {phase === 'countdown' && ctx.currentTakeId && (
+        <Countdown
+          key={ctx.currentTakeId}
+          seconds={config.session.countdownS}
+          lock={cfg.camera.lock}
+          onDone={() => send({ type: 'COUNTDOWN_DONE' })}
+        />
       )}
 
-      <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-6">
-        {phase === 'recording' ? (
-          <>
-            <div className="flex items-end justify-between">
-              <span className="text-[44px] leading-none font-bold tabular-nums">
-                {left.toFixed(1)}
-              </span>
-              <span className="text-right text-[13px] text-[#B8C0CC]">
-                {t('session.recording.auto', { total: cfg.task.durationS })}
-              </span>
-            </div>
-            <div
-              className="h-2 rounded bg-[#2E3540]"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={cfg.task.durationS}
-              aria-valuenow={Math.round(elapsed)}
-            >
-              <div className="h-2 rounded bg-[#5BE3A0]" style={{ width: `${pct}%` }} />
-            </div>
+      {phase === 'recording' && ctx.currentTakeId ? (
+        <RecordingPanel
+          key={ctx.currentTakeId}
+          takeId={ctx.currentTakeId}
+          durationS={cfg.task.durationS}
+        />
+      ) : (
+        <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-6">
+          <span className="text-center text-xs text-[#8C96A5]">{t('session.framing.later')}</span>
+          <div className="flex justify-center">
             <button
               type="button"
-              onClick={() => void capture.kit.stopRecording().catch(() => undefined)}
-              className="h-12 rounded-2xl border border-[#4A525E] text-[15px] font-semibold"
-              data-testid="stop-early"
+              aria-label={t('session.framing.record')}
+              disabled={phase === 'countdown' || !!cameraError}
+              onClick={() => send({ type: 'RECORD', takeId: newId('tk') })}
+              className="flex size-[76px] items-center justify-center rounded-full border-4 border-white disabled:opacity-40"
+              data-testid="record"
             >
-              {t('session.recording.stopEarly')}
+              <span className="size-14 rounded-full bg-[#E5484D]" />
             </button>
-          </>
-        ) : (
-          <>
-            <span className="text-center text-xs text-[#8C96A5]">{t('session.framing.later')}</span>
-            <div className="flex justify-center">
-              <button
-                type="button"
-                aria-label={t('session.framing.record')}
-                disabled={phase === 'countdown' || !!cameraError}
-                onClick={() => send({ type: 'RECORD', takeId: newId('tk') })}
-                className="flex size-[76px] items-center justify-center rounded-full border-4 border-white disabled:opacity-40"
-                data-testid="record"
-              >
-                <span className="size-14 rounded-full bg-[#E5484D]" />
-              </button>
-            </div>
-          </>
-        )}
-      </section>
+          </div>
+        </section>
+      )}
     </div>
+  );
+}
+
+/** 3-2-1 with beeps after locking AE/AF/AWB (§8.1 camera.lock); one instance per take. */
+function Countdown({
+  seconds,
+  lock,
+  onDone,
+}: {
+  seconds: number;
+  lock: { ae: boolean; af: boolean; awb: boolean };
+  onDone: () => void;
+}) {
+  const [count, setCount] = useState(seconds);
+  const done = useRef(onDone);
+  useEffect(() => {
+    done.current = onDone;
+  });
+  useEffect(() => {
+    void capture.kit.lockCameraSettings(lock).catch(() => undefined);
+    let n = seconds;
+    beep();
+    const h = setInterval(() => {
+      n -= 1;
+      setCount(n);
+      if (n > 0) beep();
+      else {
+        clearInterval(h);
+        beep(true);
+        done.current();
+      }
+    }, 1000 / clockSpeed);
+    return () => clearInterval(h);
+  }, [seconds, lock]);
+  return (
+    <div className="absolute inset-0 flex items-center justify-center" aria-live="assertive">
+      <span className="text-[120px] font-bold drop-shadow-lg" data-testid="countdown">
+        {count > 0 ? count : ''}
+      </span>
+    </div>
+  );
+}
+
+/** REC badge, time left and Stop early for one take (elapsed comes from native events). */
+function RecordingPanel({ takeId, durationS }: { takeId: string; durationS: number }) {
+  const { t } = useTranslation();
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    let handle: { remove: () => Promise<void> } | undefined;
+    let cancelled = false;
+    void capture.kit
+      .addListener('recordingState', (e: RecordingStateEvent) => {
+        if (e.takeId === takeId && e.state === 'recording') setElapsed(e.elapsedS);
+      })
+      .then((h) => (cancelled ? void h.remove() : (handle = h)));
+    return () => {
+      cancelled = true;
+      void handle?.remove();
+    };
+  }, [takeId]);
+  const left = Math.max(0, durationS - elapsed);
+  const pct = Math.min(100, (elapsed / durationS) * 100);
+  return (
+    <>
+      <span
+        className="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold tabular-nums"
+        data-testid="rec-badge"
+      >
+        <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
+        REC {elapsed.toFixed(1)} s
+      </span>
+      <section className="absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-6">
+        <div className="flex items-end justify-between">
+          <span className="text-[44px] leading-none font-bold tabular-nums">{left.toFixed(1)}</span>
+          <span className="text-right text-[13px] text-[#B8C0CC]">
+            {t('session.recording.auto', { total: durationS })}
+          </span>
+        </div>
+        <div
+          className="h-2 rounded bg-[#2E3540]"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={durationS}
+          aria-valuenow={Math.round(elapsed)}
+        >
+          <div className="h-2 rounded bg-[#5BE3A0]" style={{ width: `${pct}%` }} />
+        </div>
+        <button
+          type="button"
+          onClick={() => void capture.kit.stopRecording().catch(() => undefined)}
+          className="h-12 rounded-2xl border border-[#4A525E] text-[15px] font-semibold"
+          data-testid="stop-early"
+        >
+          {t('session.recording.stopEarly')}
+        </button>
+      </section>
+    </>
   );
 }

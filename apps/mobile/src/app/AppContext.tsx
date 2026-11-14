@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -64,7 +63,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [actor, setActor] = useState<SessionActor | null>(null);
   const [caps, setCaps] = useState<DeviceCapabilities | null>(null);
-  const saving = useRef<Promise<void>>(Promise.resolve());
+  // Serial save queue (a plain holder, not a ref: it is only touched in callbacks).
+  const [saving] = useState(() => ({ current: Promise.resolve() as Promise<void> }));
 
   const watch = useCallback(
     (a: SessionActor) => {
@@ -77,7 +77,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
       });
       return a;
     },
-    [r],
+    [r, saving],
   );
 
   useEffect(() => {
@@ -133,7 +133,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         setActor(watch(startSession(inputFor(config, settings.operatorId))));
       },
     };
-  }, [actor, caps, config, r, settings, watch]);
+  }, [actor, caps, config, r, settings, watch, saving]);
 
   if (!services) return <>{fallback}</>;
   return <Ctx.Provider value={services}>{children}</Ctx.Provider>;

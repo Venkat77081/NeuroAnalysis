@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { maskRef } from '../../data/repo.ts';
@@ -18,8 +19,9 @@ export function Summary() {
   const { newSession } = useApp();
   const { ctx, send } = useSession();
   const counts = summarizeOutcomes(ctx);
+  const [now] = useState(() => Date.now());
   const minutes = ctx.startedAt
-    ? Math.max(1, Math.round((Date.now() - Date.parse(ctx.startedAt)) / 60000))
+    ? Math.max(1, Math.round((now - Date.parse(ctx.startedAt)) / 60000))
     : 0;
 
   return (

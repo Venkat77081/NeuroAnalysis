@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture/contracts/quality-config.schema.json",
+  "title": "QualityConfig",
+  "description": "Thresholds for the positioning checks (DEV_PLAN §9.2) and the rule engine (§9.3). Per-test values (safe-zone margin, subject size, side view, face angle) stay in the test configs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "configVersion",
+    "ruleVersion",
+    "engine",
+    "guidance",
+    "critical",
+    "checks"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "configVersion": { "type": "string", "pattern": "^QUALITY@\\d+\\.\\d+\\.\\d+$" },
+    "ruleVersion": {
+      "description": "Version stamped on every rule ID (<name>@<ruleVersion>).",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "windowMs",
+        "minSamples",
+        "unknownFrac",
+        "warnEnterFrac",
+        "warnExitFrac",
+        "gateHoldS"
+      ],
+      "properties": {
+        "windowMs": {
+          "description": "Sliding window per rule.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "minSamples": {
+          "description": "Samples needed in a window before it has a state.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "unknownFrac": {
+          "description": "Window is UNKNOWN when more than this fraction is UNKNOWN.",
+          "$ref": "#/$defs/Fraction"
+        },
+        "warnEnterFrac": {
+          "description": "OK → WARN when the bad fraction is above this.",
+          "$ref": "#/$defs/Fraction"
+        },
+        "warnExitFrac": {
+          "description": "WARN → OK when the bad fraction is below this.",
+          "$ref": "#/$defs/Fraction"
+        },
+        "gateHoldS": {
+          "description": "Every gate rule OK continuously for this long enables Record.",
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["promptCooldownS", "promptPriority", "hapticOnGateOpen"],
+      "properties": {
+        "promptCooldownS": {
+          "description": "Minimum time before the same prompt is spoken again.",
+          "type": "number",
+          "minimum": 0
+        },
+        "promptPriority": {
+          "description": "Rule names, most important first. Only the first failing rule is prompted.",
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/RuleName" }
+        },
+        "hapticOnGateOpen": { "type": "boolean" }
+      }
+    },
+    "critical": {
+      "description": "During recording (used from M6): conditions that make a take invalid.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectMissingS",
+        "wrongSideS",
+        "secondPersonS",
+        "shakeS",
+        "minRecordingFps",
+        "lowFpsS"
+      ],
+      "properties": {
+        "subjectMissingS": { "type": "number", "minimum": 0 },
+        "wrongSideS": { "type": "number", "minimum": 0 },
+        "secondPersonS": { "type": "number", "minimum": 0 },
+        "shakeS": { "type": "number", "minimum": 0 },
+        "minRecordingFps": { "type": "number", "minimum": 0 },
+        "lowFpsS": { "type": "number", "minimum": 0 }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_landmarks_visible",
+        "brightness",
+        "face_light_balance",
+        "sharpness",
+        "tilt",
+        "shake",
+        "analysis_health"
+      ],
+      "properties": {
+        "required_landmarks_visible": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["poseMinVisibility", "handMinScore"],
+          "properties": {
+            "poseMinVisibility": { "$ref": "#/$defs/Fraction" },
+            "handMinScore": { "$ref": "#/$defs/Fraction" }
+          }
+        },
+        "brightness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lumaMin", "lumaMax", "maxClippedFrac"],
+          "properties": {
+            "lumaMin": { "type": "number", "minimum": 0, "maximum": 255 },
+            "lumaMax": { "type": "number", "minimum": 0, "maximum": 255 },
+            "maxClippedFrac": { "$ref": "#/$defs/Fraction" }
+          }
+        },
+        "face_light_balance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number", "exclusiveMinimum": 0 },
+            "max": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "sharpness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minFracOfBaseline"],
+          "properties": { "minFracOfBaseline": { "$ref": "#/$defs/Fraction" } }
+        },
+        "tilt": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxRollDeg", "maxPitchDeg"],
+          "properties": {
+            "maxRollDeg": { "type": "number", "exclusiveMinimum": 0 },
+            "maxPitchDeg": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "shake": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["windowMs", "maxRadPerS"],
+          "properties": {
+            "windowMs": { "type": "number", "exclusiveMinimum": 0 },
+            "maxRadPerS": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "analysis_health": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minFps", "maxLatencyMs"],
+          "properties": {
+            "minFps": { "type": "number", "exclusiveMinimum": 0 },
+            "maxLatencyMs": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+    "RuleName": {
+      "enum": [
+        "subject_present",
+        "required_landmarks_visible",
+        "in_safe_zone",
+        "subject_size",
+        "handedness_match",
+        "single_person",
+        "side_view",
+        "face_frontal",
+        "brightness",
+        "face_light_balance",
+        "sharpness",
+        "tilt",
+        "shake",
+        "analysis_health"
+      ]
+    }
+  }
+}

@@ -9,3 +9,4 @@ export type * from './biomarker-registry.ts';
 export type * from './benchmark-report.ts';
 export type * from './device-tiers.ts';
 export type * from './stream-header.ts';
+export type * from './quality-config.ts';

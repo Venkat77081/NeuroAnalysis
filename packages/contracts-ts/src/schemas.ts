@@ -6,6 +6,7 @@ import landmarksHeader from '../../../contracts/landmarks-header.schema.json' wi
 import biomarkerRegistry from '../../../contracts/biomarker-registry.schema.json' with { type: 'json' };
 import benchmarkReport from '../../../contracts/benchmark-report.schema.json' with { type: 'json' };
 import deviceTiers from '../../../contracts/device-tiers.schema.json' with { type: 'json' };
+import qualityConfig from '../../../contracts/quality-config.schema.json' with { type: 'json' };
 import streamHeader from '../../../contracts/stream-header.schema.json' with { type: 'json' };
 
 /** All contract schemas, keyed by the name used on the CLI and in contracts/tests/<name>/. */
@@ -19,6 +20,7 @@ export const schemas = {
   'benchmark-report': benchmarkReport,
   'device-tiers': deviceTiers,
   'stream-header': streamHeader,
+  'quality-config': qualityConfig,
 } as const;
 
 export type SchemaName = keyof typeof schemas;

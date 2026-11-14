@@ -13,5 +13,6 @@
   "benchmark-report/unknown-hardware-level.json": "/camera/hardwareLevel",
   "benchmark-report/dropped-frac-over-1.json": "/recording/droppedFrac",
   "device-tiers/tier-a-at-30fps.json": "/A/targetFps",
-  "stream-header/record-size-32.json": "/recordSize"
+  "stream-header/record-size-32.json": "/recordSize",
+  "quality-config/warn-frac-over-1.json": "/engine/warnEnterFrac"
 }

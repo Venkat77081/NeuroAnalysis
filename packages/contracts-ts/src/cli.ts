@@ -10,9 +10,10 @@ import { basename, join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isSchemaName, schemaNames, type SchemaName } from './schemas.ts';
 import { validate, formatIssues, type ValidationIssue } from './validate.ts';
-import { checkSessionConfig, checkTestConfig } from './semantic.ts';
+import { checkQualityConfig, checkSessionConfig, checkTestConfig } from './semantic.ts';
 import type { TestConfig } from './generated/test-config.ts';
 import type { SessionConfig } from './generated/session-config.ts';
+import type { QualityConfig } from './generated/quality-config.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -67,6 +68,11 @@ function runAll(): void {
   // 2b. Device tier thresholds
   const tiersFile = join(repoRoot, 'config/device-tiers.json');
   report(tiersFile, validateFile('device-tiers', tiersFile));
+  // 2c. Quality checks and rule engine
+  const qualityFile = join(repoRoot, 'config/quality.json');
+  const qIssues = validateFile('quality-config', qualityFile);
+  if (!qIssues.length) qIssues.push(...checkQualityConfig(readJson(qualityFile) as QualityConfig));
+  report(qualityFile, qIssues);
 
   // 3. Compatibility samples: valid must pass
   const samples = join(repoRoot, 'contracts/tests');

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
+  checkQualityConfig,
   validate,
   formatIssues,
   checkTestConfig,
@@ -9,7 +10,7 @@ import {
   schemaNames,
   isSchemaName,
 } from '../src/index.ts';
-import type { TestConfig, SessionConfig } from '../src/index.ts';
+import type { TestConfig, SessionConfig, QualityConfig } from '../src/index.ts';
 
 const root = resolve(import.meta.dirname, '../../..');
 const read = <T>(p: string): T => JSON.parse(readFileSync(join(root, p), 'utf8')) as T;
@@ -141,5 +142,22 @@ describe('validate()', () => {
     const res = validate('meta', 42);
     expect(res.valid).toBe(false);
     expect(res.issues[0]?.path).toBe('');
+  });
+});
+
+describe('checkQualityConfig', () => {
+  it('accepts the bundled config and flags inverted ranges', () => {
+    const q = read<QualityConfig>('config/quality.json');
+    expect(validate('quality-config', q).issues).toEqual([]);
+    expect(checkQualityConfig(q)).toEqual([]);
+    const bad = structuredClone(q);
+    bad.engine.warnExitFrac = 0.7;
+    bad.checks.brightness.lumaMin = 250;
+    bad.checks.face_light_balance.min = 2;
+    expect(checkQualityConfig(bad).map((i) => i.path)).toEqual([
+      '/engine/warnExitFrac',
+      '/checks/brightness',
+      '/checks/face_light_balance',
+    ]);
   });
 });

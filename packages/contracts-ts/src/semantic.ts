@@ -1,5 +1,6 @@
 import type { TestConfig } from './generated/test-config.ts';
 import type { SessionConfig } from './generated/session-config.ts';
+import type { QualityConfig } from './generated/quality-config.ts';
 import type { ValidationIssue } from './validate.ts';
 
 /**
@@ -80,5 +81,24 @@ export function checkSessionConfig(
       issues.push({ path: `/order/${i}/1`, message: `must be null; ${code} is not sided` });
     }
   });
+  return issues;
+}
+
+/** Cross-field rules for config/quality.json that JSON Schema cannot express. */
+export function checkQualityConfig(cfg: QualityConfig): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const e = cfg.engine;
+  if (e.warnExitFrac >= e.warnEnterFrac) {
+    issues.push({
+      path: '/engine/warnExitFrac',
+      message: 'must be below warnEnterFrac (hysteresis)',
+    });
+  }
+  const b = cfg.checks.brightness;
+  if (b.lumaMin >= b.lumaMax)
+    issues.push({ path: '/checks/brightness', message: 'lumaMin must be below lumaMax' });
+  const f = cfg.checks.face_light_balance;
+  if (f.min >= f.max)
+    issues.push({ path: '/checks/face_light_balance', message: 'min must be below max' });
   return issues;
 }

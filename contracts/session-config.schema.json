@@ -13,7 +13,8 @@
     "skipReasons",
     "overrideReasons",
     "medStates",
-    "countdownS"
+    "countdownS",
+    "consentVersion"
   ],
   "properties": {
     "schemaVersion": {
@@ -65,6 +66,11 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 10
+    },
+    "consentVersion": {
+      "description": "Version of the consent text shown on Session home; saved with every session.",
+      "type": "string",
+      "pattern": "^CONSENT@[0-9]+\\.[0-9]+$"
     }
   },
   "$defs": {

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openDeviceCheck } from './helpers.ts';
 
 test('M2 capture test records a mock take and checks it against the acceptance criteria', async ({
   page,
@@ -7,7 +8,7 @@ test('M2 capture test records a mock take and checks it against the acceptance c
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await page.getByTestId('open-device-check').click();
+  await openDeviceCheck(page);
   await page.getByTestId('open-capture-test').click();
   await expect(page.getByRole('heading', { name: 'Capture test (M2)' })).toBeVisible();
   await page.getByTestId('test-select').selectOption('FA'); // 15 s, 30 fps

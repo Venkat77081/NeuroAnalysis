@@ -2,6 +2,7 @@ import { validate } from '@neurocapture/contracts-ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MockCaptureKit,
+  scaledScheduler,
   sampleFixtures,
   decodeFloat32,
   encodeFloat32,
@@ -264,6 +265,25 @@ describe('MockCaptureKit', () => {
     await kit.enqueueUpload({ takeId: 't2', sessionId: 's', endpoint: 'https://x', token: 'tok' });
     expect(seen).toEqual(['queued']);
     await kit.removeAllListeners();
+  });
+});
+
+describe('scaledScheduler', () => {
+  it('runs time faster for mock/e2e', async () => {
+    vi.useFakeTimers();
+    const s = scaledScheduler(10);
+    const t0 = s.now();
+    let fired = 0;
+    s.setTimeout(() => fired++, 1000);
+    const h = s.setInterval(() => fired++, 1000);
+    vi.advanceTimersByTime(100);
+    expect(fired).toBe(2);
+    expect(s.now() - t0).toBe(1000);
+    s.clearInterval(h);
+    s.clearTimeout(s.setTimeout(() => fired++, 10));
+    vi.advanceTimersByTime(100);
+    expect(fired).toBe(2);
+    vi.useRealTimers();
   });
 });
 

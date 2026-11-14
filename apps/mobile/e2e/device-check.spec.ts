@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { openDeviceCheck } from './helpers.ts';
 
 test('device check runs the mock benchmark and assigns Tier W', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await page.getByTestId('open-device-check').click();
+  await openDeviceCheck(page);
   await expect(page.getByRole('heading', { name: 'Device check' })).toBeVisible();
   await expect(page.getByTestId('capabilities')).toContainText('MockCaptureKit');
   await page.getByTestId('run-benchmark').click();
@@ -25,7 +26,7 @@ test('device check runs the mock benchmark and assigns Tier W', async ({ page })
 
 test('camera preview test draws the overlay and shows analysis stats', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('open-device-check').click();
+  await openDeviceCheck(page);
   await page.getByRole('button', { name: 'Camera preview test' }).click();
   await expect(page.getByTestId('camera-test')).toBeVisible();
   await expect(page.getByTestId('camera-test-stats')).toContainText(/Analysis [1-9]\d* fps/, {

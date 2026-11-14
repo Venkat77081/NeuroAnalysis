@@ -20,5 +20,6 @@
   ],
   "overrideReasons": ["clinically_adequate", "patient_fatigue"],
   "medStates": ["ON", "OFF", "NA"],
-  "countdownS": 3
+  "countdownS": 3,
+  "consentVersion": "CONSENT@1.0"
 }

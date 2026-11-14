@@ -24,6 +24,18 @@ export interface Scheduler {
   clearTimeout(handle: unknown): void;
 }
 
+/** Real-time scheduler, optionally sped up (mock/e2e only): `speed` 20 runs a 15 s take in 0.75 s. */
+export function scaledScheduler(speed = 1): Scheduler {
+  const t0 = Date.now();
+  return {
+    now: () => t0 + (Date.now() - t0) * speed,
+    setInterval: (fn, ms) => globalThis.setInterval(fn, ms / speed),
+    clearInterval: (h) => globalThis.clearInterval(h as ReturnType<typeof setInterval>),
+    setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms / speed),
+    clearTimeout: (h) => globalThis.clearTimeout(h as ReturnType<typeof setTimeout>),
+  };
+}
+
 const realScheduler: Scheduler = {
   now: () => Date.now(),
   setInterval: (fn, ms) => globalThis.setInterval(fn, ms),

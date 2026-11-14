@@ -30,4 +30,8 @@ export interface SessionConfig {
    * Countdown before each recording starts (beep at each second).
    */
   countdownS: number;
+  /**
+   * Version of the consent text shown on Session home; saved with every session.
+   */
+  consentVersion: string;
 }

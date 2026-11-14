@@ -36,7 +36,8 @@
   "common": {
     "back": "Back",
     "close": "Close",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "continue": "Continue"
   },
   "deviceCheck": {
     "title": "Device check",
@@ -134,5 +135,206 @@
     "noResult": "no result",
     "unmatched": "{{n}} unmatched",
     "stopLead": "stop lead {{ms}} ms"
+  },
+  "session": {
+    "home": {
+      "title": "New session",
+      "operator": "Operator {{id}}",
+      "patient": "Patient",
+      "choosePatient": "Choose or add a patient",
+      "newPatient": "New patient",
+      "change": "Change",
+      "ref": "Patient reference",
+      "refHint": "Clinic ID, not the name",
+      "yob": "Year of birth",
+      "sex": "Sex",
+      "sexes": {
+        "M": "Male",
+        "F": "Female",
+        "O": "Other"
+      },
+      "savePatient": "Save patient",
+      "born": "Born {{year}}",
+      "medState": "Medication state",
+      "med": {
+        "ON": "ON",
+        "OFF": "OFF",
+        "NA": "Not known"
+      },
+      "consent": "Consent recorded",
+      "consentDetail": "Consent form {{version}}",
+      "plan": "Today’s tests",
+      "planMeta": "{{count}} takes · about {{min}} min",
+      "start": "Start session",
+      "resume": "Session in progress"
+    },
+    "intro": {
+      "testOf": "Test {{n}} of {{of}}",
+      "listen": "Listen",
+      "demo": "Play demo video",
+      "demoMissing": "Demo video coming soon",
+      "setup": "Camera setup",
+      "distance": "Distance",
+      "height": "Height",
+      "view": "View",
+      "checklist": "Before you record",
+      "skip": "Skip test",
+      "setUpCamera": "Set up camera"
+    },
+    "heightRef": {
+      "hand": "Hand level",
+      "chest": "Chest level",
+      "hip": "Hip level",
+      "eye": "Eye level"
+    },
+    "views": {
+      "front_offset_30deg": "30° to the side",
+      "front_centred": "Front, centred",
+      "side_90deg": "Side view",
+      "frontal_face": "Face-on"
+    },
+    "sides": {
+      "R": "Right",
+      "L": "Left"
+    },
+    "sideHand": {
+      "R": "Right hand",
+      "L": "Left hand"
+    },
+    "checklist": {
+      "sleeve_rolled": "Sleeve rolled up",
+      "phone_on_stand": "Phone on stand",
+      "light_in_front": "Light in front",
+      "seated_no_armrest": "Chair, no armrest",
+      "space_to_extend_arms": "Room to stretch arms",
+      "floor_tape_start": "Start mark on floor",
+      "floor_tape_5m": "5 m mark on floor",
+      "chair_no_armrest": "Chair, no armrest",
+      "clear_walkway": "Walkway clear",
+      "hair_off_face": "Hair off the face"
+    },
+    "steps": {
+      "ft": {
+        "step1": "Patient sits upright, forearm resting, hand raised to shoulder height.",
+        "step2": "Tap index finger against thumb, as wide and as fast as possible.",
+        "step3": "Keep tapping until the recording stops by itself."
+      },
+      "ftf": {
+        "step1": "Patient sits facing the camera with both arms free.",
+        "step2": "Stretch the arms out, then bring the index fingertips together in front of the chest.",
+        "step3": "Repeat until the recording stops by itself."
+      },
+      "fr": {
+        "step1": "Patient sits facing the camera, elbow bent, forearm forward.",
+        "step2": "Turn the forearm palm-up and palm-down, as wide and fast as possible.",
+        "step3": "Keep going until the recording stops by itself."
+      },
+      "saw": {
+        "step1": "Patient sits on the chair at the start mark, side-on to the camera.",
+        "step2": "Stand up without using the arms.",
+        "step3": "Walk to the 5 m mark, turn around and walk back.",
+        "step4": "Sit down again. The recording stops by itself."
+      },
+      "fa": {
+        "step1": "Patient looks straight at the camera, face fully visible.",
+        "step2": "Follow the spoken prompts for each expression."
+      }
+    },
+    "framing": {
+      "hint": {
+        "hand_outline": "Place the hand inside the outline",
+        "upper_body": "Fit head, shoulders and both arms inside the outline",
+        "full_body": "Seat the patient inside the start box, side-on",
+        "face_oval": "Fit the face inside the oval"
+      },
+      "mode": "{{res}} · {{fps}} fps · {{dur}} s take",
+      "record": "Start recording",
+      "interrupted": "The last take was interrupted. Record it again.",
+      "later": "Live positioning checks arrive in M5."
+    },
+    "recording": {
+      "left": "{{s}} s left of {{total}} s",
+      "auto": "Stops by itself at {{total}} s",
+      "stopEarly": "Stop early",
+      "starting": "Starting…"
+    },
+    "review": {
+      "takeOf": "Take {{n}}",
+      "passed": "Capture passed",
+      "retake": "Retake needed",
+      "retakeNone": "Retake needed · none left",
+      "allOk": "All capture checks met.",
+      "play": "Play recording",
+      "duration": "Duration",
+      "fps": "Frame rate",
+      "dropped": "Dropped frames",
+      "droppedLogged": "logged, not checked",
+      "accept": "Accept · next test",
+      "retakeLeft": "Retake ({{n}} left)",
+      "retakeBtn": "Retake",
+      "keep": "Keep this take…",
+      "skip": "Skip test…",
+      "allUsed": "All {{n}} retakes used for this test"
+    },
+    "verdict": {
+      "recording_error": "The recording failed.",
+      "stopped_early": "Stopped early at {{durationS}} s (needs {{targetS}} s).",
+      "duration_short": "Recording was {{durationS}} s (needs {{targetS}} s).",
+      "fps_low": "Frame rate {{fps}} fps (needs at least {{min}}).",
+      "dropped_high": "{{pct}} % of frames dropped (max {{maxPct}} %)."
+    },
+    "keep": {
+      "title": "Why keep this take?",
+      "failed": "This take failed because",
+      "reason": "Reason",
+      "note": "Describe the reason (required for Other)",
+      "flagNote": "The take is flagged for review. Your operator ID and the time are recorded.",
+      "confirm": "Keep and flag for review"
+    },
+    "skip": {
+      "title": "Why skip this test?",
+      "confirm": "Skip test"
+    },
+    "reasons": {
+      "override": {
+        "clinically_adequate": "Clinically adequate",
+        "patient_fatigue": "Patient fatigue",
+        "max_retakes_reached": "Maximum retakes reached",
+        "other": "Other"
+      },
+      "skip": {
+        "patient_unable": "Patient unable",
+        "patient_declined": "Patient declined",
+        "time_constraint": "Not enough time",
+        "equipment_issue": "Equipment problem",
+        "other": "Other"
+      }
+    },
+    "summary": {
+      "title": "Session complete",
+      "meta": "{{ref}} · Med {{med}} · {{min}} min",
+      "passed": "Passed",
+      "kept": "Kept · flagged",
+      "skipped": "Skipped",
+      "status": {
+        "accepted": "Passed",
+        "kept": "Kept · flagged",
+        "skipped": "Skipped",
+        "pending": "Not done"
+      },
+      "takes_one": "{{count}} take",
+      "takes_other": "{{count}} takes",
+      "reason": "Reason: {{reason}}",
+      "stored": "Takes are stored encrypted on this device. Upload arrives in M7.",
+      "end": "End session"
+    },
+    "engineering": {
+      "title": "Engineering",
+      "deviceCheck": "Device check and capture tests",
+      "operatorId": "Operator ID",
+      "language": "Language",
+      "save": "Save",
+      "hint": "Long-press the logo to open this menu."
+    }
   }
 }

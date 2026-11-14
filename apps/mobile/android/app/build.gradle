@@ -16,6 +16,10 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // MediaPipe models (assets/mediapipe/*.task, fetched by tools/models/fetch-models.mjs) are memory-mapped.
+    androidResources {
+        noCompress += ['task']
+    }
     buildTypes {
         release {
             minifyEnabled false

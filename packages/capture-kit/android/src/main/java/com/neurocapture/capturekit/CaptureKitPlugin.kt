@@ -67,7 +67,9 @@ class CaptureKitPlugin : Plugin() {
     @PluginMethod
     fun getCapabilities(call: PluginCall) {
         try {
-            call.resolve(DeviceInfo.capabilities(context, PLUGIN_VERSION))
+            call.resolve(DeviceInfo.capabilities(context, PLUGIN_VERSION).apply {
+                session.trackingGpu?.let { put("gpuDelegate", it) }
+            })
         } catch (e: Exception) {
             call.reject("capabilities failed: ${e.message}", e)
         }
@@ -89,6 +91,7 @@ class CaptureKitPlugin : Plugin() {
             analysisFps = (call.getInt("analysisFps", 30)!!).coerceIn(1, 60),
             fallbackFps = call.getInt("fallbackFps")?.takeIf { it == 30 },
             debugAnalysisDelayMs = (call.getInt("debugAnalysisDelayMs", 0)!!).coerceIn(0, 200),
+            trackers = try { call.getArray("trackers")?.toList<String>() ?: emptyList() } catch (_: Exception) { emptyList() },
         )
         session.open(cfg) { result, err -> if (err != null) call.reject(err) else call.resolve(result) }
     }
@@ -118,6 +121,9 @@ class CaptureKitPlugin : Plugin() {
                 TakeFinalizer.finalize(
                     vault, outcome, cfg.targetFps, session.isTimestampRealtime(), offset, session.sensors.clockOffsetMs(),
                     stopLeadMs = session.stopLeadNs / 1e6,
+                    trackers = cfg.trackers,
+                    orientation = cfg.orientation,
+                    mirrored = cfg.facing == "front",
                 )
             } catch (e: Exception) {
                 null.also { notifyListeners("recordingState", JSObject().apply {
@@ -370,6 +376,12 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** Canonical clock (elapsedRealtimeNanos) for JS latency measurement (DEV_PLAN §5.5). */
+    @PluginMethod
+    fun clockNow(call: PluginCall) {
+        call.resolve(JSObject().apply { put("elapsedRealtimeNs", android.os.SystemClock.elapsedRealtimeNanos().toString()) })
+    }
+
     @PluginMethod
     fun calibrateSharpness(call: PluginCall) {
         if (!session.isOpen) return call.reject("camera not open")
@@ -396,7 +408,7 @@ class CaptureKitPlugin : Plugin() {
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.5.0"
+        const val PLUGIN_VERSION = "0.6.0"
         private const val MASTER_KEY_URI = "android-keystore://neurocapture_master_v1"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")

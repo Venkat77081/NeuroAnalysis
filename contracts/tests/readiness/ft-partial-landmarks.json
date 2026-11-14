@@ -5,7 +5,10 @@
   "evidence": {
     "effectiveFps": 59.9,
     "durationS": 15,
-    "trackers": ["hand", "pose"],
+    "trackers": [
+      "hand",
+      "pose"
+    ],
     "movementWindow": null,
     "phases": [],
     "sensors": true,
@@ -15,79 +18,103 @@
     "startNs": "1000000000"
   },
   "expected": {
-    "registryVersion": "REG@0.2.0",
+    "registryVersion": "REG@0.3.0",
     "items": {
       "FT1": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT2": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT3": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT4": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT5": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT6": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT7": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT8": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT9": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT10": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT11": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FT12": {
         "status": "PARTIAL",
         "reason": "required landmarks visible in 66.7% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       }
     }
   }

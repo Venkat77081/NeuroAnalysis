@@ -5,8 +5,32 @@ Multi-Test Neurological Abnormality Detection and Documentation" (IEEE JBHI 2024
 user on 14 Nov 2026. The PDF is not stored in the repo (copyright). What we took from it:
 
 - **Table A-II:** the names of all 75 biomarkers. These are in `config/biomarker-registry.json`
-  (REG@0.2.0, `name`, `family`). The paper refers to its reference [12] for the detailed
-  definitions of FT, FTF, FR and SAW, so those `formula` fields stay null.
+  (REG@0.3.0, `name`, `family`, `formula`).
+- **Reference [12]:** Hoang et al. 2022, arXiv 2205.07209, Table III and Section V-D. It defines
+  the FT, FTF, FR and SAW biomarkers, now written as short formulas in the registry:
+  - **FT:** d_ft = ‖thumb tip − index tip‖ per hand (MediaPipe hand 4, 8; same 21-point layout
+    as OpenPose).
+    - amplitude = max − min per cycle;
+    - period = time between consecutive minima;
+    - max speed / acceleration = max |d′| / |d″| per cycle (mean over cycles);
+    - asymmetry = |R − L| / (R + L).
+  - **FTF:** the index finger's middle joint (more stable than the tip; MediaPipe hand 6).
+    - period and half-cycle average speed;
+    - path smoothness = path length ÷ length of a fitted 2nd-order polynomial curve;
+    - velocity angle θ = atan2(dy/dt, dx/dt), with the pairwise CC between cycles (mean / STD
+      per hand);
+    - horizontal / vertical symmetry = CC of the left and right x / y trajectories.
+  - **FR:** wrist vertical position (pose 15/16); amplitude, period, max speed and acceleration,
+    asymmetry. No hand points are needed.
+  - **SAW:** d_saw = ‖ankle_r − ankle_l‖ (3D), walking segments only.
+    - step time = time between maxima; step length = maxima; step width = minima;
+    - knee-angle symmetry = CC of the aligned left and right knee angles per walking segment;
+    - step symmetry = CC of the aligned left and right foot horizontal positions per stride;
+    - cadence = steps ÷ segment duration; walking speed = pelvis distance ÷ segment duration;
+    - turning time = duration of each turn segment.
+  - **Pre-processing:** truncate to the task; normalise by a reference length (median over
+    frames): the forearm for FT, FTF and FR, pelvis to neck for SAW. Then a median filter and
+    a Savitzky–Golay filter.
 - **Appendix B (Facial Activation):** the FA formulas are given in full, so FA1–FA18 carry a
   short formula.
   - Distances between groups of face mesh points (Eq. A-I: the root of the summed squared L2
@@ -60,3 +84,17 @@ user on 14 Nov 2026. The PDF is not stored in the repo (copyright). What we took
 
 All need ≥ 58 effective fps and the full take (14.9 s; SAW 44.9 s), with landmarks visible in
 90 % of the movement window (SAW 80 %).
+
+## Open points for the biomarker owner
+
+1. **FA speed:** the JBHI appendix takes the STD of the frame-to-frame difference v = d[i] − d[i−1],
+   while the user's summary says |d/dt d_m| (absolute value). The registry follows the appendix
+   (STD(diff(d))).
+2. **FA range of motion:** the JBHI appendix defines NIQR = (P90 − P10) / P90, while the user's
+   summary says IQR = Q3 − Q1 (P75 − P25). The registry follows the appendix.
+3. **SAW pose:** the papers use 3D pose (VideoPose3D) for SAW and OpenPose 2D for the rest. The
+   phone records MediaPipe pose (x, y, relative z). Biomarkers must be re-validated on whichever
+   keypoints the server extracts (decision 017).
+4. **Not in Table A-II but defined in [12]:** FT/FR frequency, tapping/rolling rate,
+   wrist/elbow stability, time to stand. These are not registered; add them if the client's
+   model uses them.

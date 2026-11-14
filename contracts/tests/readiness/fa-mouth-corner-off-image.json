@@ -5,7 +5,9 @@
   "evidence": {
     "effectiveFps": 59.9,
     "durationS": 15,
-    "trackers": ["face"],
+    "trackers": [
+      "face"
+    ],
     "movementWindow": null,
     "phases": [],
     "sensors": true,
@@ -15,7 +17,7 @@
     "startNs": "1000000000"
   },
   "expected": {
-    "registryVersion": "REG@0.2.0",
+    "registryVersion": "REG@0.3.0",
     "items": {
       "FA1": {
         "status": "COMPUTABLE"
@@ -30,7 +32,9 @@
         "status": "PARTIAL",
         "reason": "required landmarks visible in 50% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FA5": {
         "status": "COMPUTABLE"
@@ -63,7 +67,9 @@
         "status": "PARTIAL",
         "reason": "required landmarks visible in 50% of frames; needs 90%",
         "retakeFixable": true,
-        "missing": ["landmarks"]
+        "missing": [
+          "landmarks"
+        ]
       },
       "FA15": {
         "status": "COMPUTABLE"

@@ -914,3 +914,4 @@ Timings assume 1–2 developers with Claude Code. Every milestone also follows t
 - [ ] Backend hosting provider and India region; KMS choice
 - [ ] Clinical validation protocol and the ground-truth strategy for biomarkers
 - [ ] Ethics committee approval and consent text (needed before any patient recording)
+- [ ] Downstream DNE analysis (decision 017): clinical label vocabulary and who enters it; export format for pyDNE / the chosen model; whether biomarkers use server-side keypoints from the 60 fps MP4 or the on-device landmarks

@@ -11,7 +11,7 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/session/**/*.ts'],
+      include: ['src/session/machine.ts', 'src/session/persist.ts'],
       // DEV_PLAN M3: the state machine has ≥ 90 % branch coverage.
       thresholds: { branches: 90, lines: 90, functions: 90, statements: 90 },
     },

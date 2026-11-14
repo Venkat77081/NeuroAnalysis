@@ -123,6 +123,24 @@
           "minLength": 1
         }
       }
+    },
+    "storage": {
+      "description": "Free-space rules (DEV_PLAN \u00a715 StorageLow): no new take below minFreeGbToStart; a take in progress stops gracefully below stopBelowMb.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minFreeGbToStart", "stopBelowMb"],
+      "properties": {
+        "minFreeGbToStart": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 64
+        },
+        "stopBelowMb": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 10000
+        }
+      }
     }
   },
   "$defs": {

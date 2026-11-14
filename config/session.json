@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@2.2.0",
+  "configVersion": "SESSION@2.3.0",
   "order": [
     ["FT", null],
     ["FTF", null],
@@ -33,5 +33,9 @@
     "retentionHoursOptions": [24, 72, 168],
     "wifiOnlyDefault": true,
     "defaultEndpoint": "fake://api"
+  },
+  "storage": {
+    "minFreeGbToStart": 2,
+    "stopBelowMb": 500
   }
 }

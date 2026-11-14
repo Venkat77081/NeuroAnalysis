@@ -28,3 +28,21 @@ export function applyMockScenario(test: TestConfig, side: Side | null): void {
   const take = (params.get('take') ?? 'normal') as TakeVariant;
   capture.kit.setScenario({ test, name, side, take });
 }
+
+/** §15 StorageLow limits for startRecording, from session.json `storage`. */
+export function storageLimits(s?: { minFreeGbToStart: number; stopBelowMb: number }): {
+  minFreeBytes?: number;
+  stopBelowFreeBytes?: number;
+} {
+  return s
+    ? { minFreeBytes: s.minFreeGbToStart * 1e9, stopBelowFreeBytes: s.stopBelowMb * 1e6 }
+    : {};
+}
+
+/** `?freeGb=1.2` sets the mock's free storage (StorageLow e2e). */
+const freeGb = Number(params.get('freeGb'));
+if (capture.kit instanceof MockCaptureKit && freeGb > 0) capture.kit.freeBytes = freeGb * 1e9;
+
+// Mock mode only: e2e tests reach the mock (e.g. simulateBackground) through this handle.
+if (capture.implementation === 'mock')
+  (globalThis as { __ncMock?: unknown }).__ncMock = capture.kit;

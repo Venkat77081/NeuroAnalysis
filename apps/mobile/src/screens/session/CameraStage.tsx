@@ -4,7 +4,13 @@ import type { RecordingStateEvent } from '@neurocapture/capture-kit';
 import { useApp } from '../../app/AppContext.tsx';
 import { beep, speak } from '../../guidance/audio.ts';
 import { useGuidance } from '../../guidance/useGuidance.ts';
-import { applyMockScenario, camera, capture, clockSpeed } from '../../lib/capture.ts';
+import {
+  applyMockScenario,
+  camera,
+  capture,
+  clockSpeed,
+  storageLimits,
+} from '../../lib/capture.ts';
 import { buildMeta, buildQuality } from '../../lib/evidence.ts';
 import { TakeCollector, finishTake } from '../../lib/take-analysis.ts';
 import { loadQualification } from '../../lib/device-tier.ts';
@@ -52,6 +58,8 @@ export function CameraStage() {
       ? 'countdown'
       : 'framing';
   const [cameraError, setCameraError] = useState<string | null>(null);
+  /** Why the last take was cut short (§15), for the framing notice. */
+  const [interruptReason, setInterruptReason] = useState<string | null>(null);
   const [fps, setFps] = useState<number>(cfg.camera.targetFps);
   const [transform, setTransform] = useState<PreviewTransform | null>(null);
   const [showLm, setShowLm] = useState(landmarkOverlayEnabled);
@@ -218,8 +226,10 @@ export function CameraStage() {
       .addListener('recordingState', (e: RecordingStateEvent) => {
         if (e.takeId !== live.current.ctx.currentTakeId) return;
         if (e.state === 'completed' && e.result) void finish(e.result);
-        else if (e.state === 'error' || e.state === 'interrupted')
+        else if (e.state === 'error' || e.state === 'interrupted') {
+          setInterruptReason(e.state === 'interrupted' ? (e.reason ?? null) : null);
           live.current.send({ type: 'TAKE_FAILED' });
+        }
       })
       .then((h) => (cancelled ? void h.remove() : (handle = h)));
     return () => {
@@ -235,12 +245,38 @@ export function CameraStage() {
     started.add(id);
     collector.current = new TakeCollector(config.quality.ruleVersion);
     capture.kit
-      .startRecording({ takeId: id, durationS: cfg.task.durationS })
+      .startRecording({
+        takeId: id,
+        durationS: cfg.task.durationS,
+        ...storageLimits(config.session.storage),
+      })
       .catch((e: unknown) => {
-        logger.error('startRecording failed', { error: String(e) });
+        const code = (e as { code?: string }).code;
+        logger.error('startRecording failed', { error: String(e), code });
+        setInterruptReason(code === 'STORAGE_LOW' ? 'storage_low' : null);
         send({ type: 'TAKE_FAILED' });
       });
-  }, [phase, ctx.currentTakeId, cfg, send, config.quality.ruleVersion]);
+  }, [phase, ctx.currentTakeId, cfg, send, config.quality.ruleVersion, config.session.storage]);
+
+  // §15 StorageLow: no new take below the configured free space (checked while framing).
+  const [freeGb, setFreeGb] = useState<number | null>(null);
+  useEffect(() => {
+    if (phase !== 'framing') return;
+    let alive = true;
+    const check = () =>
+      capture.kit.getStorageStatus().then(
+        (s) => alive && setFreeGb(s.freeBytes / 1e9),
+        () => undefined,
+      );
+    void check();
+    const timer = setInterval(() => void check(), 10_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [phase]);
+  const needGb = config.session.storage?.minFreeGbToStart ?? 0;
+  const storageLow = freeGb !== null && freeGb < needGb;
 
   const overlay = cfg.framing.overlay as OverlayKind;
   const landscape = orientation === 'landscape';
@@ -317,7 +353,23 @@ export function CameraStage() {
               role="alert"
               data-testid="interrupted-notice"
             >
-              {t('session.framing.interrupted')}
+              {interruptReason
+                ? t(`session.framing.interruptedBy.${interruptReason}`, {
+                    defaultValue: t('session.framing.interrupted'),
+                  })
+                : t('session.framing.interrupted')}
+            </p>
+          )}
+          {storageLow && (
+            <p
+              className="m-0 rounded-2xl bg-[#E5484D] px-4 py-3 text-[15px] font-semibold text-white"
+              role="alert"
+              data-testid="storage-low"
+            >
+              {t('session.framing.storageLow', {
+                free: (freeGb ?? 0).toFixed(1),
+                need: needGb,
+              })}
             </p>
           )}
           <GuidancePrompt
@@ -383,7 +435,9 @@ export function CameraStage() {
             <button
               type="button"
               aria-label={t('session.framing.record')}
-              disabled={phase === 'countdown' || !!cameraError || !(gateOpen || advisory)}
+              disabled={
+                phase === 'countdown' || !!cameraError || storageLow || !(gateOpen || advisory)
+              }
               onClick={() => send({ type: 'RECORD', takeId: newId('tk') })}
               className="relative flex size-[76px] items-center justify-center rounded-full border-4 border-white disabled:opacity-40"
               data-testid="record"

@@ -266,7 +266,12 @@
       "orientation": {
         "portrait": "⟲ Portrait",
         "landscape": "⟲ Landscape"
-      }
+      },
+      "interruptedBy": {
+        "storage_low": "Storage ran low, so the take was stopped. Free up space, then record it again.",
+        "app_backgrounded": "The app left the screen (another app or a call), so the take was stopped. Record it again."
+      },
+      "storageLow": "Storage almost full: {{free}} GB free, {{need}} GB needed. Free up space to record."
     },
     "recording": {
       "left": "{{s}} s left of {{total}} s",

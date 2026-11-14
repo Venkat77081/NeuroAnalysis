@@ -62,4 +62,11 @@ export interface SessionConfig {
      */
     defaultEndpoint: string;
   };
+  /**
+   * Free-space rules (DEV_PLAN §15 StorageLow): no new take below minFreeGbToStart; a take in progress stops gracefully below stopBelowMb.
+   */
+  storage?: {
+    minFreeGbToStart: number;
+    stopBelowMb: number;
+  };
 }

@@ -53,6 +53,7 @@ function inputFor(config: LoadedConfig, operatorId: string): SessionInput {
     maxRetakes: config.session.maxRetakes,
     skipReasons: config.session.skipReasons,
     overrideReasons: config.session.overrideReasons,
+    abortReasons: config.session.abortReasons,
     consentVersion: config.session.consentVersion,
   };
 }

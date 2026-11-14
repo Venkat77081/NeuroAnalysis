@@ -19,6 +19,7 @@
     "other"
   ],
   "overrideReasons": ["clinically_adequate", "patient_fatigue", "max_retakes_reached", "other"],
+  "abortReasons": ["patient_unwell", "other"],
   "medStates": ["ON", "OFF", "NA"],
   "countdownS": 3,
   "consentVersion": "CONSENT@1.0"

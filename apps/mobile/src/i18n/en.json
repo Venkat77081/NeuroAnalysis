@@ -180,7 +180,11 @@
       "view": "View",
       "checklist": "Before you record",
       "skip": "Skip test",
-      "setUpCamera": "Set up camera"
+      "setUpCamera": "Set up camera",
+      "prev": "Previous test",
+      "end": "End session",
+      "done": "Already recorded: {{status}}. Record again, or go on.",
+      "next": "Next test"
     },
     "heightRef": {
       "hand": "Hand level",
@@ -309,6 +313,13 @@
         "time_constraint": "Not enough time",
         "equipment_issue": "Equipment problem",
         "other": "Other"
+      },
+      "abort": {
+        "patient_unwell": "Patient unwell",
+        "patient_withdrew": "Patient withdrew",
+        "time_constraint": "Out of time",
+        "equipment_issue": "Equipment problem",
+        "other": "Other"
       }
     },
     "summary": {
@@ -327,7 +338,8 @@
       "takes_other": "{{count}} takes",
       "reason": "Reason: {{reason}}",
       "stored": "Takes are stored encrypted on this device. Upload arrives in M7.",
-      "end": "End session"
+      "end": "End session",
+      "aborted": "Session ended early: {{reason}}. Tests not done are marked \"Not done\"."
     },
     "engineering": {
       "title": "Engineering",
@@ -337,6 +349,10 @@
       "save": "Save",
       "hint": "Long-press the logo to open this menu.",
       "landmarks": "Show landmark overlay (debug)"
+    },
+    "abort": {
+      "title": "End session early?",
+      "confirm": "End session"
     }
   },
   "trackingTest": {

@@ -117,3 +117,31 @@ test('M3: skipping a test needs a reason; "Other" needs a note', async ({ page }
   await page.getByTestId('confirm-skip').click();
   await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 7');
 });
+
+test('M3: go back to a previous test, keep its result, then end the session early', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await startSession(page);
+  await expect(page.getByTestId('prev-test')).toHaveCount(0);
+  await page.getByTestId('set-up-camera').click();
+  await expect(page.getByTestId('hand-guide-right')).toBeAttached();
+  await recordTake(page);
+  await page.getByTestId('accept').click();
+  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 7');
+  await page.getByTestId('set-up-camera').click();
+  await expect(page.getByTestId('hand-guide-left')).toBeAttached();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByTestId('prev-test').getByRole('button').click();
+  await expect(page.getByTestId('test-of')).toHaveText('Test 1 of 7');
+  await expect(page.getByTestId('step-done')).toContainText('Passed');
+  await page.getByTestId('next-test').click();
+  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 7');
+  await expect(page.getByTestId('step-done')).toHaveCount(0);
+  await page.getByTestId('end-early').click();
+  await expect(page.getByTestId('confirm-abort')).toBeDisabled();
+  await page.getByLabel('Patient unwell').check();
+  await page.getByTestId('confirm-abort').click();
+  await expect(page.getByTestId('aborted')).toContainText('Session ended early: Patient unwell');
+  await expect(page.getByTestId('summary-rows')).toContainText('Not done');
+});

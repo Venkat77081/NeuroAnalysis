@@ -37,6 +37,17 @@ export function Summary() {
         </span>
       </header>
       <main className="flex flex-1 flex-col gap-3 px-5 pt-1">
+        {ctx.aborted && (
+          <p
+            className="m-0 rounded-2xl bg-warn-soft px-4 py-3 text-sm text-warn"
+            data-testid="aborted"
+          >
+            {t('session.summary.aborted', {
+              reason: t(`session.reasons.abort.${ctx.aborted.reason}`),
+            })}
+            {ctx.aborted.note ? ` — ${ctx.aborted.note}` : ''}
+          </p>
+        )}
         <div className="grid grid-cols-3 gap-2" data-testid="summary-counts">
           <Card className="!p-3">
             <span className="block text-[22px] font-bold text-ok">{counts.passed}</span>

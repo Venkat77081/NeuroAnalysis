@@ -53,6 +53,8 @@ export interface SessionInput {
   maxRetakes: number;
   skipReasons: string[];
   overrideReasons: string[];
+  /** Reasons for ending a session before all tests are done (config `abortReasons`). */
+  abortReasons: string[];
   consentVersion: string;
 }
 
@@ -67,6 +69,8 @@ export interface SessionContext extends SessionInput {
   outcomes: StepOutcome[];
   currentTakeId: string | null;
   notice: 'take_interrupted' | null;
+  /** Set when the operator ended the session early; remaining tests stay "Not done". */
+  aborted: { reason: string; note: string | null; at: string } | null;
 }
 
 export type SessionEvent =
@@ -92,6 +96,9 @@ export type SessionEvent =
   | { type: 'CONFIRM_KEEP'; reason: string; note?: string; at: string }
   | { type: 'SKIP'; reason: string; note?: string; at: string }
   | { type: 'RESTORED' }
+  | { type: 'ABORT'; reason: string; note?: string; at: string }
+  | { type: 'PREV_STEP' }
+  | { type: 'NEXT_STEP' }
   | { type: 'FINISH'; at: string };
 
 /** All takes of a step (empty for an index outside the plan). */
@@ -168,6 +175,12 @@ export const sessionMachine = setup({
       return validReason(context.skipReasons, e.reason, e.note);
     },
     atEnd: ({ context }) => context.index >= context.plan.length,
+    validAbort: ({ context, event }) => {
+      const e = event as Ev<'ABORT'>;
+      return validReason(context.abortReasons ?? [], e.reason, e.note); // ?? : snapshots from before abort existed
+    },
+    hasPrev: ({ context }) => context.index > 0,
+    stepDone: ({ context }) => context.outcomes[context.index]?.status !== 'pending',
   },
   actions: {
     advance: assign({
@@ -190,6 +203,7 @@ export const sessionMachine = setup({
     outcomes: input.plan.map(() => ({ status: 'pending' }) as StepOutcome),
     currentTakeId: null,
     notice: null,
+    aborted: null,
   }),
   initial: 'setup',
   states: {
@@ -212,10 +226,35 @@ export const sessionMachine = setup({
     },
     test: {
       initial: 'intro',
+      on: {
+        // Allowed between takes only: countdown and recording do not handle ABORT.
+        ABORT: {
+          guard: 'validAbort',
+          target: '#session.summary',
+          actions: assign({
+            aborted: ({ event }) => ({
+              reason: event.reason,
+              note: cleanNote(event.note),
+              at: event.at,
+            }),
+            currentTakeId: null,
+            notice: null,
+          }),
+        },
+      },
       states: {
         intro: {
           on: {
             CONTINUE: 'framing',
+            // Back to an earlier test; its result stays until a new take replaces it.
+            PREV_STEP: {
+              guard: 'hasPrev',
+              target: 'intro',
+              reenter: true,
+              actions: assign({ index: ({ context }) => context.index - 1, notice: null }),
+            },
+            // After going back: keep that test's result and move on without a new take.
+            NEXT_STEP: { guard: 'stepDone', target: 'next' },
             SKIP: {
               guard: 'validSkip',
               target: 'next',
@@ -243,12 +282,14 @@ export const sessionMachine = setup({
         countdown: {
           on: {
             COUNTDOWN_DONE: 'recording',
+            ABORT: {},
             CANCEL: { target: 'framing', actions: assign({ currentTakeId: null }) },
             RESTORED: { target: 'framing', actions: assign({ currentTakeId: null }) },
           },
         },
         recording: {
           on: {
+            ABORT: {},
             TAKE_FINISHED: {
               target: 'review',
               actions: assign({

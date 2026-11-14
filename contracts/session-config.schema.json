@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://neurocapture.local/contracts/session-config.schema.json",
   "title": "SessionConfig",
-  "description": "Test order and session rules (DEV_PLAN §8.3). Schema version 1.0.0.",
+  "description": "Test order and session rules (DEV_PLAN \u00a78.3). Schema version 1.0.0.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,6 +12,7 @@
     "maxRetakes",
     "skipReasons",
     "overrideReasons",
+    "abortReasons",
     "medStates",
     "countdownS",
     "consentVersion"
@@ -52,6 +53,10 @@
     },
     "overrideReasons": {
       "$ref": "#/$defs/ReasonList"
+    },
+    "abortReasons": {
+      "$ref": "#/$defs/ReasonList",
+      "description": "Reasons for ending a session before all tests are done."
     },
     "medStates": {
       "type": "array",

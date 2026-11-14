@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { speak, stopSpeaking } from '../../guidance/audio.ts';
 import { useSession } from '../../session/useSession.ts';
-import { Button, Card, Check } from '../../ui/kit.tsx';
+import { BackButton, Button, Card, Check } from '../../ui/kit.tsx';
 import { SkipSheet } from './SkipSheet.tsx';
 
 export function stepTitle(t: (k: string) => string, code: string, side: 'R' | 'L' | null): string {
@@ -18,6 +18,8 @@ export function TestIntro() {
   const cfg = config.tests.get(step.code)!;
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [skipping, setSkipping] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const outcome = ctx.outcomes[ctx.index]!;
   const steps = cfg.instructions.stepKeys.map((k) => t(`session.steps.${k}`));
   const [dMin, dMax] = cfg.setup.distanceM;
 
@@ -25,11 +27,30 @@ export function TestIntro() {
     <div className="mx-auto flex min-h-full max-w-md flex-col bg-ground">
       <header className="flex flex-col gap-2.5 px-5 pt-3 pb-2">
         <div className="flex items-center justify-between">
-          <span className="w-11" />
+          {ctx.index > 0 ? (
+            <span data-testid="prev-test">
+              <BackButton
+                onClick={() => {
+                  void stopSpeaking();
+                  send({ type: 'PREV_STEP' });
+                }}
+                label={t('session.intro.prev')}
+              />
+            </span>
+          ) : (
+            <span className="w-11" />
+          )}
           <span className="text-[13px] font-semibold text-muted" data-testid="test-of">
             {t('session.intro.testOf', { n: ctx.index + 1, of: ctx.plan.length })}
           </span>
-          <span className="w-11" />
+          <button
+            type="button"
+            onClick={() => setEnding(true)}
+            className="h-11 rounded-full px-2 text-[13px] font-semibold text-bad"
+            data-testid="end-early"
+          >
+            {t('session.intro.end')}
+          </button>
         </div>
         <div className="h-1 rounded bg-line">
           <div
@@ -40,6 +61,26 @@ export function TestIntro() {
       </header>
 
       <main className="flex flex-1 flex-col gap-3.5 px-5 pt-1">
+        {outcome.status !== 'pending' && (
+          <div
+            className="flex items-center justify-between gap-3 rounded-2xl bg-brand-soft px-4 py-3"
+            data-testid="step-done"
+          >
+            <span className="text-sm">
+              {t('session.intro.done', { status: t(`session.summary.status.${outcome.status}`) })}
+            </span>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void stopSpeaking();
+                send({ type: 'NEXT_STEP' });
+              }}
+              data-testid="next-test"
+            >
+              {t('session.intro.next')}
+            </Button>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col gap-1.5">
             <h1 className="m-0 text-[26px] font-bold" data-testid="test-title">
@@ -157,6 +198,18 @@ export function TestIntro() {
         </Button>
       </footer>
 
+      {ending && (
+        <SkipSheet
+          kind="abort"
+          reasons={ctx.abortReasons ?? []}
+          onCancel={() => setEnding(false)}
+          onSkip={(reason, note) => {
+            setEnding(false);
+            void stopSpeaking();
+            send({ type: 'ABORT', reason, note, at: new Date().toISOString() });
+          }}
+        />
+      )}
       {skipping && (
         <SkipSheet
           reasons={ctx.skipReasons}

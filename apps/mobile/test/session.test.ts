@@ -22,6 +22,7 @@ const input: SessionInput = {
   maxRetakes: 3,
   skipReasons: ['patient_unable', 'other'],
   overrideReasons: ['patient_fatigue', 'other'],
+  abortReasons: ['patient_unwell', 'other'],
   consentVersion: 'CONSENT@1.0',
 };
 const at = '2026-11-13T10:00:00Z';
@@ -51,6 +52,62 @@ function take(a: SessionActor, id: string, verdict: 'PASS' | 'RETAKE') {
 }
 
 describe('session machine', () => {
+  it('goes back to an earlier test, keeps its result, and can move on or redo it', () => {
+    const a = started();
+    a.send({ type: 'PREV_STEP' }); // first test: nothing before it
+    a.send({ type: 'NEXT_STEP' }); // not done yet: cannot move on without a take
+    expect(a.getSnapshot().context.index).toBe(0);
+    a.send({ type: 'CONTINUE' });
+    take(a, 't1', 'PASS');
+    a.send({ type: 'ACCEPT' });
+    expect(a.getSnapshot().context.index).toBe(1);
+    a.send({ type: 'PREV_STEP' });
+    expect(state(a)).toBe('{"test":"intro"}');
+    expect(a.getSnapshot().context.index).toBe(0);
+    expect(a.getSnapshot().context.outcomes[0]).toEqual({ status: 'accepted', takeId: 't1' });
+    a.send({ type: 'NEXT_STEP' });
+    expect(a.getSnapshot().context.index).toBe(1);
+    // Redo: a new accepted take replaces the earlier result.
+    a.send({ type: 'PREV_STEP' });
+    a.send({ type: 'CONTINUE' });
+    take(a, 't2', 'PASS');
+    a.send({ type: 'ACCEPT' });
+    expect(a.getSnapshot().context.outcomes[0]).toEqual({ status: 'accepted', takeId: 't2' });
+    expect(stepTakes(a.getSnapshot().context, 0)).toHaveLength(2);
+  });
+
+  it('ends the session early with a reason, but never during countdown or recording', () => {
+    const a = started();
+    a.send({ type: 'ABORT', reason: 'nope', at }); // not a configured reason
+    a.send({ type: 'ABORT', reason: 'other', note: ' ', at }); // "other" needs a note
+    expect(state(a)).toBe('{"test":"intro"}');
+    a.send({ type: 'CONTINUE' });
+    a.send({ type: 'RECORD', takeId: 't1' });
+    a.send({ type: 'ABORT', reason: 'patient_unwell', at });
+    expect(state(a)).toBe('{"test":"countdown"}');
+    a.send({ type: 'COUNTDOWN_DONE' });
+    a.send({ type: 'ABORT', reason: 'patient_unwell', at });
+    expect(state(a)).toBe('{"test":"recording"}');
+    a.send({ type: 'TAKE_FINISHED', result: result('t1'), verdict: 'PASS', reasons: [] });
+    a.send({ type: 'ABORT', reason: 'other', note: ' felt dizzy ', at });
+    expect(state(a)).toBe('"summary"');
+    const ctx = a.getSnapshot().context;
+    expect(ctx.aborted).toEqual({ reason: 'other', note: 'felt dizzy', at });
+    expect(summarizeOutcomes(ctx).pending).toBe(2);
+    a.send({ type: 'FINISH', at });
+    expect(a.getSnapshot().status).toBe('done');
+  });
+
+  it('tolerates snapshots saved before abortReasons existed', () => {
+    const a = started();
+    const old = persist(a) as { context: Record<string, unknown> };
+    delete old.context.abortReasons;
+    delete old.context.aborted;
+    const b = startSession(input, old);
+    b.send({ type: 'ABORT', reason: 'patient_unwell', at });
+    expect(state(b)).toBe('{"test":"intro"}');
+  });
+
   it('needs patient, medication state and consent before starting', () => {
     const a = startSession(input);
     a.send({ type: 'START', at });

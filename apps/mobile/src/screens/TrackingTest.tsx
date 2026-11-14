@@ -277,7 +277,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
           {t('trackingTest.run')}
         </button>
         {status && (
-          <p className="m-0 text-sm text-danger" role="alert">
+          <p className="m-0 text-sm text-bad" role="alert">
             {status}
           </p>
         )}
@@ -302,7 +302,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
           >
             <span className="font-semibold">
               {t(`tests.${r.code}`)} · {r.trackers.join('+')} ·{' '}
-              <span className={pass ? 'text-ok' : 'text-danger'} data-testid="tracking-verdict">
+              <span className={pass ? 'text-ok' : 'text-bad'} data-testid="tracking-verdict">
                 {pass ? t('captureTest.pass') : t('captureTest.fail')}
               </span>
             </span>

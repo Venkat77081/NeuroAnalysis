@@ -267,10 +267,31 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const loop = BigInt(Math.floor(this.frameIdx / frames.length));
     const loopNs = BigInt(Math.round(this.fixture.durationS * 1e9)) * loop;
     this.frameIdx++;
+    // Like native: only trackers the camera was opened with produce data; the rest are 'off'.
+    const on = new Set(this.camera?.trackers ?? []);
+    const ts = this.startNs + loopNs + BigInt(src.tsNs);
+    const hands = on.has('hand') ? src.hands : undefined;
     this.emit('analysisFrame', {
-      ...src,
       seq: this.seq++,
-      tsNs: (this.startNs + loopNs + BigInt(src.tsNs)).toString(),
+      tsNs: ts.toString(),
+      imageW: src.imageW,
+      imageH: src.imageH,
+      ...(hands ? { hands } : {}),
+      ...(on.has('pose') && src.pose ? { pose: src.pose } : {}),
+      ...(on.has('face') && src.face ? { face: src.face } : {}),
+      stats: src.stats,
+      trackerStatus: {
+        hand: on.has('hand') ? (hands?.length ? 'ok' : 'no_result') : 'off',
+        pose: on.has('pose') ? (src.pose ? 'ok' : 'no_result') : 'off',
+        face: on.has('face') ? (src.face ? 'ok' : 'no_result') : 'off',
+      },
+      counts: {
+        hands: hands?.length ?? 0,
+        poses: on.has('pose') && src.pose ? 1 : 0,
+        faces: on.has('face') && src.face ? 1 : 0,
+      },
+      emitNs: (ts + 5_000_000n).toString(),
+      procMs: 5,
     });
     // Emit the sensor batch(es) belonging to this frame's time slot.
     const slot = this.fixture.sensorBatches.filter((b) => b.tsNs === src.tsNs);
@@ -353,6 +374,10 @@ export class MockCaptureKit implements CaptureKitPlugin {
         anchor: 'pattern',
       },
       sensorSamples: Math.round(durationS * 200),
+      landmarkFrames:
+        (this.camera?.trackers.length ?? 0) > 0
+          ? Math.round(durationS * (this.camera?.analysisFps ?? 30))
+          : null,
       sensorClockOffsetMs: 0,
       stopLeadMs: 110,
       encrypted: true,
@@ -453,6 +478,10 @@ export class MockCaptureKit implements CaptureKitPlugin {
 
   async secureKeys(opts: { prefix: string }): Promise<{ keys: string[] }> {
     return { keys: [...this.secure.keys()].filter((k) => k.startsWith(opts.prefix)).sort() };
+  }
+
+  async clockNow(): Promise<{ elapsedRealtimeNs: string }> {
+    return { elapsedRealtimeNs: (BigInt(Math.round(this.sched.now())) * 1_000_000n).toString() };
   }
 
   async debugArmCrash(_opts: { afterS: number }): Promise<void> {

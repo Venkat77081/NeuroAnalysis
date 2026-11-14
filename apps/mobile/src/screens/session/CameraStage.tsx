@@ -54,7 +54,7 @@ export function CameraStage() {
         targetFps: cfg.camera.targetFps,
         fallbackFps: cfg.camera.fallbackFps,
         orientation: cfg.camera.orientation,
-        trackers: [],
+        trackers: cfg.trackers,
         analysisFps: cfg.analysis.fps,
       })
       .then(

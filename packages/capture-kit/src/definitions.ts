@@ -109,6 +109,8 @@ export interface RecordingResult {
   framesInVideoSpan: number | null;
   mp4: Mp4Alignment | null;
   sensorSamples: number;
+  /** Analysis frames written to landmarks.bin (null when the test uses no trackers). */
+  landmarkFrames?: number | null;
   sensorClockOffsetMs: number | null;
   /** How early stop() was called before durationS for this take (learned per device, decision 010). */
   stopLeadMs?: number | null;
@@ -154,6 +156,16 @@ export interface AnalysisFrameEvent {
   face?: { lm: string; blendshapes?: string; yawDeg: number; pitchDeg: number; rollDeg: number };
   stats: { lumaMean: number; clippedFrac: number; sharpness: number; faceLumaRatio?: number };
   trackerStatus: Record<TrackerName, 'ok' | 'no_result' | 'error' | 'off'>;
+  /** People/hands detected (for single_person and both-hands checks, §9.2). */
+  counts?: { hands: number; poses: number; faces: number };
+  /** Canonical time when native emitted the event (latency = JS receipt − tsNs, §5.5). */
+  emitNs?: string;
+  /** Native processing time for this frame (analysis + tracking), ms. */
+  procMs?: number;
+}
+
+export interface TrackingErrorEvent {
+  message: string;
 }
 
 export interface SensorSample {
@@ -190,6 +202,7 @@ export interface CaptureKitEvents {
   thermal: ThermalEvent;
   uploadProgress: UploadProgressEvent;
   benchmarkProgress: BenchmarkProgressEvent;
+  trackingError: TrackingErrorEvent;
 }
 
 export type CaptureKitEventName = keyof CaptureKitEvents;
@@ -224,6 +237,8 @@ export interface CaptureKitPlugin {
   getRecoveredTakes(): Promise<{ takeIds: string[] }>;
   /** Median Laplacian-variance sharpness over durationS of a static target (device baseline, §9.2). */
   calibrateSharpness(opts: { durationS: number }): Promise<{ baseline: number; frames: number }>;
+  /** Canonical clock now (elapsedRealtimeNanos), to estimate camera → JS latency. */
+  clockNow(): Promise<{ elapsedRealtimeNs: string }>;
   /** Stored takes on this device, newest first (survives app restarts). */
   listTakes(): Promise<{ takes: StoredTake[] }>;
   /** Encrypted key–value store for app data (keys: [a-z0-9][a-z0-9._-]*, values: JSON text). Decision 011. */

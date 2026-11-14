@@ -207,6 +207,25 @@ describe('MockCaptureKit', () => {
     await expect(kit.calibrateSharpness({ durationS: 3 })).rejects.toThrow(/not open/);
   });
 
+  it('only sends data for the trackers the camera was opened with', async () => {
+    const frames: AnalysisFrameEvent[] = [];
+    await kit.addListener('analysisFrame', (f) => frames.push(f));
+    await kit.openCamera({ ...openOpts, trackers: ['pose'] });
+    vi.advanceTimersByTime(100);
+    expect(frames[0]!.hands).toBeUndefined();
+    expect(frames[0]!.trackerStatus).toEqual({ hand: 'off', pose: 'no_result', face: 'off' });
+    expect(frames[0]!.counts).toEqual({ hands: 0, poses: 0, faces: 0 });
+    await kit.closeCamera();
+    frames.length = 0;
+    await kit.openCamera({ ...openOpts, trackers: ['hand'] });
+    vi.advanceTimersByTime(100);
+    expect(frames[0]!.hands).toHaveLength(1);
+    expect(frames[0]!.trackerStatus.hand).toBe('ok');
+    expect(BigInt(frames[0]!.emitNs!)).toBeGreaterThan(BigInt(frames[0]!.tsNs));
+    expect((await kit.clockNow()).elapsedRealtimeNs).toMatch(/^\d+$/);
+    await kit.closeCamera();
+  });
+
   it('stores app data by key with a safe key format', async () => {
     expect(await kit.secureGet({ key: 'patient.p1' })).toEqual({ json: null });
     await kit.securePut({ key: 'patient.p1', json: '{"ref":"A1"}' });

@@ -38,12 +38,36 @@
     "lowFpsS": 1.0
   },
   "checks": {
-    "required_landmarks_visible": { "poseMinVisibility": 0.5, "handMinScore": 0.6 },
-    "brightness": { "lumaMin": 60, "lumaMax": 200, "maxClippedFrac": 0.05 },
-    "face_light_balance": { "min": 0.7, "max": 1.3 },
-    "sharpness": { "minFracOfBaseline": 0.6 },
-    "tilt": { "maxRollDeg": 5, "maxPitchDeg": 5 },
-    "shake": { "windowMs": 300, "maxRadPerS": 0.15 },
-    "analysis_health": { "minFps": 15, "maxLatencyMs": 150 }
+    "required_landmarks_visible": {
+      "poseMinVisibility": 0.5,
+      "handMinScore": 0.6
+    },
+    "brightness": {
+      "lumaMin": 60,
+      "lumaMax": 200,
+      "maxClippedFrac": 0.05
+    },
+    "face_light_balance": {
+      "min": 0.7,
+      "max": 1.3
+    },
+    "sharpness": {
+      "minFracOfBaseline": 0.6
+    },
+    "tilt": {
+      "maxRollDeg": 5,
+      "maxPitchDeg": 5
+    },
+    "shake": {
+      "windowMs": 300,
+      "maxRadPerS": 0.15
+    },
+    "analysis_health": {
+      "minFps": 15,
+      "maxLatencyMs": 150
+    }
+  },
+  "verdict": {
+    "maxUnknownS": 2
   }
 }

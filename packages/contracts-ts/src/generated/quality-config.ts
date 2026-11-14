@@ -108,4 +108,10 @@ export interface QualityConfig {
       maxLatencyMs: number;
     };
   };
+  verdict: {
+    /**
+     * An UNKNOWN (tracking…) window longer than this inside the movement window fails the take (§9.5).
+     */
+    maxUnknownS: number;
+  };
 }

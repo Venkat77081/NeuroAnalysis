@@ -18,7 +18,9 @@ export {
   type VerdictConfig,
   type VerdictReason,
   type VerdictReasonCode,
+  type AnalysisFacts,
 } from './verdict/capture.ts';
+export { SeverityLog, analyseTake, type TakeAnalysis, type TakeEvent } from './verdict/analysis.ts';
 export * from './checks/checks.ts';
 export {
   AnalysisHealth,

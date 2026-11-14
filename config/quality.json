@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "QUALITY@1.2.0",
+  "configVersion": "QUALITY@1.3.0",
   "ruleVersion": "1.0.0",
   "engine": {
     "windowMs": 700,
@@ -66,5 +66,8 @@
       "minFps": 10,
       "maxLatencyMs": 250
     }
+  },
+  "verdict": {
+    "maxUnknownS": 2
   }
 }

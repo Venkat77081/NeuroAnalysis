@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://neurocapture/contracts/quality-config.schema.json",
   "title": "QualityConfig",
-  "description": "Thresholds for the positioning checks (DEV_PLAN §9.2) and the rule engine (§9.3). Per-test values (safe-zone margin, subject size, side view, face angle) stay in the test configs.",
+  "description": "Thresholds for the positioning checks (DEV_PLAN \u00a79.2) and the rule engine (\u00a79.3). Per-test values (safe-zone margin, subject size, side view, face angle) stay in the test configs.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,11 +12,17 @@
     "engine",
     "guidance",
     "critical",
-    "checks"
+    "checks",
+    "verdict"
   ],
   "properties": {
-    "schemaVersion": { "const": "1.0.0" },
-    "configVersion": { "type": "string", "pattern": "^QUALITY@\\d+\\.\\d+\\.\\d+$" },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "configVersion": {
+      "type": "string",
+      "pattern": "^QUALITY@\\d+\\.\\d+\\.\\d+$"
+    },
     "ruleVersion": {
       "description": "Version stamped on every rule ID (<name>@<ruleVersion>).",
       "type": "string",
@@ -49,11 +55,11 @@
           "$ref": "#/$defs/Fraction"
         },
         "warnEnterFrac": {
-          "description": "OK → WARN when the bad fraction is above this.",
+          "description": "OK \u2192 WARN when the bad fraction is above this.",
           "$ref": "#/$defs/Fraction"
         },
         "warnExitFrac": {
-          "description": "WARN → OK when the bad fraction is below this.",
+          "description": "WARN \u2192 OK when the bad fraction is below this.",
           "$ref": "#/$defs/Fraction"
         },
         "gateHoldS": {
@@ -78,9 +84,13 @@
           "type": "array",
           "uniqueItems": true,
           "minItems": 1,
-          "items": { "$ref": "#/$defs/RuleName" }
+          "items": {
+            "$ref": "#/$defs/RuleName"
+          }
         },
-        "hapticOnGateOpen": { "type": "boolean" }
+        "hapticOnGateOpen": {
+          "type": "boolean"
+        }
       }
     },
     "critical": {
@@ -96,12 +106,30 @@
         "lowFpsS"
       ],
       "properties": {
-        "subjectMissingS": { "type": "number", "minimum": 0 },
-        "wrongSideS": { "type": "number", "minimum": 0 },
-        "secondPersonS": { "type": "number", "minimum": 0 },
-        "shakeS": { "type": "number", "minimum": 0 },
-        "minRecordingFps": { "type": "number", "minimum": 0 },
-        "lowFpsS": { "type": "number", "minimum": 0 }
+        "subjectMissingS": {
+          "type": "number",
+          "minimum": 0
+        },
+        "wrongSideS": {
+          "type": "number",
+          "minimum": 0
+        },
+        "secondPersonS": {
+          "type": "number",
+          "minimum": 0
+        },
+        "shakeS": {
+          "type": "number",
+          "minimum": 0
+        },
+        "minRecordingFps": {
+          "type": "number",
+          "minimum": 0
+        },
+        "lowFpsS": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "checks": {
@@ -122,8 +150,12 @@
           "additionalProperties": false,
           "required": ["poseMinVisibility", "handMinScore"],
           "properties": {
-            "poseMinVisibility": { "$ref": "#/$defs/Fraction" },
-            "handMinScore": { "$ref": "#/$defs/Fraction" }
+            "poseMinVisibility": {
+              "$ref": "#/$defs/Fraction"
+            },
+            "handMinScore": {
+              "$ref": "#/$defs/Fraction"
+            }
           }
         },
         "brightness": {
@@ -131,9 +163,19 @@
           "additionalProperties": false,
           "required": ["lumaMin", "lumaMax", "maxClippedFrac"],
           "properties": {
-            "lumaMin": { "type": "number", "minimum": 0, "maximum": 255 },
-            "lumaMax": { "type": "number", "minimum": 0, "maximum": 255 },
-            "maxClippedFrac": { "$ref": "#/$defs/Fraction" }
+            "lumaMin": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "lumaMax": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "maxClippedFrac": {
+              "$ref": "#/$defs/Fraction"
+            }
           }
         },
         "face_light_balance": {
@@ -141,23 +183,39 @@
           "additionalProperties": false,
           "required": ["min", "max"],
           "properties": {
-            "min": { "type": "number", "exclusiveMinimum": 0 },
-            "max": { "type": "number", "exclusiveMinimum": 0 }
+            "min": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "max": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
         },
         "sharpness": {
           "type": "object",
           "additionalProperties": false,
           "required": ["minFracOfBaseline"],
-          "properties": { "minFracOfBaseline": { "$ref": "#/$defs/Fraction" } }
+          "properties": {
+            "minFracOfBaseline": {
+              "$ref": "#/$defs/Fraction"
+            }
+          }
         },
         "tilt": {
           "type": "object",
           "additionalProperties": false,
           "required": ["maxRollDeg", "maxPitchDeg"],
           "properties": {
-            "maxRollDeg": { "type": "number", "exclusiveMinimum": 0 },
-            "maxPitchDeg": { "type": "number", "exclusiveMinimum": 0 }
+            "maxRollDeg": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "maxPitchDeg": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
         },
         "shake": {
@@ -165,8 +223,14 @@
           "additionalProperties": false,
           "required": ["windowMs", "maxRadPerS"],
           "properties": {
-            "windowMs": { "type": "number", "exclusiveMinimum": 0 },
-            "maxRadPerS": { "type": "number", "exclusiveMinimum": 0 }
+            "windowMs": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "maxRadPerS": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
         },
         "analysis_health": {
@@ -174,15 +238,37 @@
           "additionalProperties": false,
           "required": ["minFps", "maxLatencyMs"],
           "properties": {
-            "minFps": { "type": "number", "exclusiveMinimum": 0 },
-            "maxLatencyMs": { "type": "number", "exclusiveMinimum": 0 }
+            "minFps": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "maxLatencyMs": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxUnknownS"],
+      "properties": {
+        "maxUnknownS": {
+          "description": "An UNKNOWN (tracking\u2026) window longer than this inside the movement window fails the take (\u00a79.5).",
+          "type": "number",
+          "minimum": 0
         }
       }
     }
   },
   "$defs": {
-    "Fraction": { "type": "number", "minimum": 0, "maximum": 1 },
+    "Fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
     "RuleName": {
       "enum": [
         "subject_present",

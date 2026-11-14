@@ -66,5 +66,8 @@
       "minFps": 15,
       "maxLatencyMs": 150
     }
+  },
+  "verdict": {
+    "maxUnknownS": 2
   }
 }

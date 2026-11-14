@@ -44,3 +44,118 @@ describe('captureVerdict', () => {
     expect(captureVerdict({ ...ok, durationS: 14.91 }, cfg).verdict).toBe('PASS');
   });
 });
+
+describe('M6: severity log, take analysis and the extended verdict', () => {
+  it('logs WARN/CRITICAL intervals per rule and tracking windows', async () => {
+    const { SeverityLog } = await import('../src/index.ts');
+    const log = new SeverityLog('1.0.0');
+    log.update(0, [], false);
+    log.update(
+      1,
+      [
+        { rule: 'shake', severity: 'WARN' },
+        { rule: 'tilt', severity: 'INFO' },
+      ],
+      true,
+    );
+    log.update(2, [{ rule: 'shake', severity: 'CRITICAL' }], false);
+    log.update(3, [], true);
+    const out = log.finish(5);
+    expect(out.events).toEqual([
+      { tStartS: 1, tEndS: 3, ruleId: 'shake@1.0.0', severity: 'CRITICAL' },
+    ]);
+    expect(out.unknownWindows).toEqual([
+      { tStartS: 1, tEndS: 2 },
+      { tStartS: 3, tEndS: 5 },
+    ]);
+    const open = new SeverityLog('1.0.0');
+    open.update(1, [{ rule: 'tilt', severity: 'WARN' }], false);
+    expect(open.finish(4).events[0]).toMatchObject({ tStartS: 1, tEndS: 4 });
+  });
+
+  it('turns analysis facts into plain RETAKE reasons', async () => {
+    const { captureVerdict } = await import('../src/index.ts');
+    const facts = {
+      durationS: 15,
+      requestedDurationS: 15,
+      stoppedEarly: false,
+      effectiveFps: 60,
+      droppedFrac: 0,
+    };
+    const cfg = { durationToleranceS: 0.1, minEffectiveFps: 59, maxDroppedFrac: null };
+    const good = {
+      landmarkVisibleFrac: 0.99,
+      sharpnessMedian: 100,
+      brightnessMedian: 120,
+      complete: true,
+      noMotion: [],
+      movementWindow: { tStartS: 1, tEndS: 15 },
+      criticalEvents: 0,
+      longUnknown: [],
+    };
+    const lim = { minLandmarkVisibleFrac: 0.95, maxCriticalEvents: 0, minSharpness: 60 };
+    expect(captureVerdict(facts, cfg, { analysis: good, ...lim }).verdict).toBe('PASS');
+    const bad = {
+      ...good,
+      landmarkVisibleFrac: 0.5,
+      sharpnessMedian: 10,
+      complete: false,
+      noMotion: [{ tStartS: 8, tEndS: 15 }],
+      criticalEvents: 1,
+      longUnknown: [{ tStartS: 3, tEndS: 6 }],
+    };
+    const v = captureVerdict(facts, cfg, { analysis: bad, ...lim });
+    expect(v.verdict).toBe('RETAKE');
+    expect(v.reasons.map((r) => r.code)).toEqual([
+      'no_motion',
+      'protocol_incomplete',
+      'landmarks_low',
+      'critical_events',
+      'tracking_lost',
+      'sharpness_low',
+    ]);
+    expect(v.reasons[0]!.params).toEqual({ s: 7, from: 8, to: 15 });
+    expect(
+      captureVerdict(facts, cfg, { analysis: bad, ...lim, minSharpness: null }).reasons.map(
+        (r) => r.code,
+      ),
+    ).not.toContain('sharpness_low');
+  });
+
+  it('analyses a synthetic take end to end', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { analyseTake, runDetector, syntheticTake } = await import('../src/index.ts');
+    const root = resolve(import.meta.dirname, '../../..');
+    const test = JSON.parse(readFileSync(resolve(root, 'config/tests/FT.json'), 'utf8'));
+    const quality = JSON.parse(readFileSync(resolve(root, 'config/quality.json'), 'utf8'));
+    const take = syntheticTake(test, 'interrupted');
+    const det = runDetector(
+      test.task.detector,
+      take.frames,
+      take.t0Ns,
+      test.task.detectorParams,
+      test.task.noMotionTimeoutS,
+      take.durationS,
+    );
+    const a = analyseTake({
+      frames: take.frames,
+      test,
+      quality,
+      detector: det,
+      events: [],
+      unknownWindows: [
+        { tStartS: 2, tEndS: 5 },
+        { tStartS: 0, tEndS: 1 },
+      ],
+    });
+    expect(a.landmarkVisibleFrac).toBe(1);
+    expect(a.noMotion.length).toBe(1);
+    expect(a.longUnknown).toEqual([{ tStartS: 2, tEndS: 5 }]);
+    expect(a.sharpnessMedian).toBe(100);
+    expect(
+      analyseTake({ frames: [], test, quality, detector: det, events: [], unknownWindows: [] })
+        .landmarkVisibleFrac,
+    ).toBe(0);
+  });
+});

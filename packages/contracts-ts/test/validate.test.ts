@@ -109,6 +109,14 @@ describe('semantic checks', () => {
     expect(paths).toContain('/framing/handednessMustMatchSide');
   });
 
+  it('flags detector parameters missing for the test detector', () => {
+    const bad: TestConfig = structuredClone(ft);
+    bad.task.detectorParams = { minCutoff: 1 };
+    const issue = checkTestConfig(bad).find((i) => i.path === '/task/detectorParams');
+    expect(issue?.message).toMatch(/beta.*minEvents/);
+    expect(checkTestConfig(ft).find((i) => i.path === '/task/detectorParams')).toBeUndefined();
+  });
+
   it('flags allowed orientations that leave out the default', () => {
     const bad: TestConfig = structuredClone(ft);
     bad.camera.orientation = 'landscape';

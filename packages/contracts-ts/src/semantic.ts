@@ -23,6 +23,30 @@ export function checkTestConfig(cfg: TestConfig, fileStem?: string): ValidationI
   if (cfg.framing.subjectSize.min >= cfg.framing.subjectSize.max) {
     issues.push({ path: '/framing/subjectSize', message: 'min must be less than max' });
   }
+  const dp = cfg.task.detectorParams;
+  if (dp && dp !== 'TBD') {
+    const common = ['minCutoff', 'beta', 'motionThreshold', 'motionWindowS'];
+    const byDetector: Record<string, string[]> = {
+      tap_counter: ['minProminence', 'minDistanceS', 'minEvents'],
+      rotation_counter: ['minProminence', 'minDistanceS', 'minEvents'],
+      ftf_cycle_counter: ['minProminence', 'minDistanceS', 'minEvents'],
+      saw_phases: ['standRiseFrac', 'walkMinSpeed', 'minTurns'],
+      expression_sequence: [
+        'browKeys',
+        'smileKeys',
+        'minPeak',
+        'minProminence',
+        'minDistanceS',
+        'minEach',
+      ],
+    };
+    const missing = [...common, ...(byDetector[cfg.task.detector] ?? [])].filter((k) => !(k in dp));
+    if (missing.length)
+      issues.push({
+        path: '/task/detectorParams',
+        message: `missing for ${cfg.task.detector}: ${missing.join(', ')}`,
+      });
+  }
   const allowed = cfg.camera.allowedOrientations;
   if (allowed && !allowed.includes(cfg.camera.orientation)) {
     issues.push({

@@ -290,7 +290,7 @@
           "exclusiveMinimum": 0
         },
         "detectorParams": {
-          "description": "Detector-specific parameters, or \"TBD\" until the protocol is defined.",
+          "description": "Detector parameters (DEV_PLAN \u00a79.4, decision 018); keys depend on the detector and are checked by nc-validate. \"TBD\" until defined.",
           "oneOf": [
             {
               "const": "TBD"

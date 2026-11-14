@@ -112,7 +112,7 @@ export interface TestConfig {
     durationS: number;
     noMotionTimeoutS: number;
     /**
-     * Detector-specific parameters, or "TBD" until the protocol is defined.
+     * Detector parameters (DEV_PLAN §9.4, decision 018); keys depend on the detector and are checked by nc-validate. "TBD" until defined.
      */
     detectorParams?: 'TBD' | {};
   };

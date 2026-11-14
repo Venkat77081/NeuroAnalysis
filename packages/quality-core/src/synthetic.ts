@@ -106,11 +106,12 @@ function hand(wrist: P, mode: 'up' | 'fist'): P[] {
   const pts: P[] = [wrist];
   for (let f = 0; f < 5; f++) {
     const fx = (f - 2) * 0.025;
+    // Knuckles (MCP) a palm length above the wrist, then three finger joints.
     for (let k = 1; k <= 4; k++)
       pts.push(
         mode === 'up'
-          ? [wrist[0] + fx, wrist[1] - 0.03 * k]
-          : [wrist[0] + fx * 0.6, wrist[1] - 0.008 * k],
+          ? [wrist[0] + fx, wrist[1] - 0.07 - 0.025 * (k - 1)]
+          : [wrist[0] + fx * 0.6, wrist[1] - 0.05 - 0.008 * (k - 1)],
       );
   }
   return pts;

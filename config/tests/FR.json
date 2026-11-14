@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FR@2.2.0",
+  "configVersion": "FR@2.3.0",
   "code": "FR",
   "name": "Forearm Roll",
   "biomarkers": [
@@ -60,7 +60,16 @@
   "task": {
     "detector": "rotation_counter",
     "durationS": 15,
-    "noMotionTimeoutS": 3
+    "noMotionTimeoutS": 3,
+    "detectorParams": {
+      "minCutoff": 3,
+      "beta": 0.5,
+      "motionThreshold": 0.05,
+      "motionWindowS": 0.8,
+      "minProminence": 0.05,
+      "minDistanceS": 0.2,
+      "minEvents": 5
+    }
   },
   "verdict": {
     "minLandmarkVisibleFrac": 0.95,

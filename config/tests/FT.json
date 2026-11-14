@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FT@2.2.0",
+  "configVersion": "FT@2.3.0",
   "code": "FT",
   "name": "Finger Tapping",
   "biomarkers": [
@@ -60,7 +60,16 @@
   "task": {
     "detector": "tap_counter",
     "durationS": 15,
-    "noMotionTimeoutS": 3
+    "noMotionTimeoutS": 3,
+    "detectorParams": {
+      "minCutoff": 3,
+      "beta": 0.5,
+      "motionThreshold": 0.1,
+      "motionWindowS": 0.8,
+      "minProminence": 0.15,
+      "minDistanceS": 0.1,
+      "minEvents": 5
+    }
   },
   "verdict": {
     "minLandmarkVisibleFrac": 0.95,

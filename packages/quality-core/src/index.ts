@@ -45,3 +45,31 @@ export {
   type SyntheticOptions,
   type SyntheticSample,
 } from './synthetic.ts';
+export {
+  OneEuroFilter,
+  findPeaks,
+  motionWindows,
+  oneEuro,
+  rollingRange,
+  savitzkyGolay,
+  speed,
+  type Peak,
+  type Window,
+} from './detectors/signal.ts';
+export {
+  runDetector,
+  type DetectorEvent,
+  type DetectorEventKind,
+  type DetectorName,
+  type DetectorParams,
+  type DetectorResult,
+  type FaceParams,
+  type PeakParams,
+  type SawParams,
+} from './detectors/detectors.ts';
+export {
+  syntheticTake,
+  type SyntheticTake,
+  type TakeVariant,
+  type TruthEvent,
+} from './synthetic-takes.ts';

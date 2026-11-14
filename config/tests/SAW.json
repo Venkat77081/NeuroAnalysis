@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SAW@2.2.0",
+  "configVersion": "SAW@2.3.0",
   "code": "SAW",
   "name": "Stand and Walk",
   "biomarkers": [
@@ -71,7 +71,16 @@
   "task": {
     "detector": "saw_phases",
     "durationS": 45,
-    "noMotionTimeoutS": 5
+    "noMotionTimeoutS": 5,
+    "detectorParams": {
+      "minCutoff": 2,
+      "beta": 0.5,
+      "motionThreshold": 0.15,
+      "motionWindowS": 1,
+      "standRiseFrac": 0.3,
+      "walkMinSpeed": 0.3,
+      "minTurns": 1
+    }
   },
   "verdict": {
     "minLandmarkVisibleFrac": 0.9,

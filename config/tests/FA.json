@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FA@1.6.0",
+  "configVersion": "FA@1.7.0",
   "code": "FA",
   "name": "Facial Activation",
   "biomarkers": [
@@ -69,7 +69,19 @@
     "detector": "expression_sequence",
     "durationS": 15,
     "noMotionTimeoutS": 5,
-    "detectorParams": "TBD"
+    "detectorParams": {
+      "minCutoff": 3,
+      "beta": 0.5,
+      "motionThreshold": 0.1,
+      "motionWindowS": 0.8,
+      "browKeys": ["browInnerUp", "browOuterUpLeft", "browOuterUpRight"],
+      "smileKeys": ["mouthSmileLeft", "mouthSmileRight"],
+      "minPeak": 0.4,
+      "minProminence": 0.25,
+      "minDistanceS": 1,
+      "minEach": 2,
+      "restAfterComplete": true
+    }
   },
   "verdict": {
     "minLandmarkVisibleFrac": 0.98,

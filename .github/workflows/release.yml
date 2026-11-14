@@ -1,0 +1,79 @@
+# M9 pilot distribution: signed release build, optionally sent to Firebase App Distribution.
+# Manual only. Needs repository secrets (see docs/release.md); without them the job stops early.
+name: Release (pilot)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version name, e.g. 0.9.0'
+        required: true
+      firebase_groups:
+        description: 'Firebase App Distribution tester groups (empty = do not distribute)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    env:
+      NC_VERSION_NAME: ${{ inputs.version_name }}
+      NC_VERSION_CODE: ${{ github.run_number }}
+      VITE_PRODUCTION: '1'
+    steps:
+      - name: Check signing secrets
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: test -n "$KS" || { echo "ANDROID_KEYSTORE_BASE64 is not set (docs/release.md)"; exit 1; }
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm validate && pnpm test
+      - run: pnpm models
+      - run: pnpm build:web
+      - run: pnpm --filter @neurocapture/mobile exec cap sync android
+      - name: Keystore
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks"
+      - name: Signed AAB (Play) and APK (Firebase)
+        working-directory: apps/mobile/android
+        env:
+          NC_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          NC_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          NC_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          NC_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease assembleRelease --no-daemon
+      - run: rm -f "$RUNNER_TEMP/release.jks"
+        if: always()
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ inputs.version_name }}-${{ github.run_number }}
+          path: |
+            apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
+            apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+      - name: Firebase App Distribution
+        if: ${{ inputs.firebase_groups != '' }}
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          GROUPS: ${{ inputs.firebase_groups }}
+        run: |
+          test -n "$SA" && test -n "$APP_ID" || { echo "Firebase secrets missing (docs/release.md)"; exit 1; }
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" npx --yes firebase-tools@13.29.1 \
+            appdistribution:distribute apps/mobile/android/app/build/outputs/apk/release/app-release.apk \
+            --app "$APP_ID" --groups "$GROUPS" \
+            --release-notes "NeuroCapture $NC_VERSION_NAME (build $NC_VERSION_CODE)"
+          rm -f "$RUNNER_TEMP/sa.json"

@@ -23,7 +23,7 @@ async function recordTake(page: Page, opts: { stopEarly?: boolean } = {}) {
   await expect(page.getByTestId('verdict-card')).toBeVisible({ timeout: 15_000 });
 }
 
-test('M3: a full 7-take session in mock mode, including one "Keep this take" override', async ({
+test('M3: a full 8-take session in mock mode, including one "Keep this take" override', async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -37,11 +37,12 @@ test('M3: a full 7-take session in mock mode, including one "Keep this take" ove
     'Forearm Roll',
     'Forearm Roll',
     'Finger-to-Finger',
+    'Finger-to-Finger',
     'Facial Activation',
     'Stand and Walk',
   ];
-  for (let i = 0; i < 7; i++) {
-    await expect(page.getByTestId('test-of')).toHaveText(`Test ${i + 1} of 7`);
+  for (let i = 0; i < 8; i++) {
+    await expect(page.getByTestId('test-of')).toHaveText(`Test ${i + 1} of 8`);
     await expect(page.getByTestId('test-title')).toHaveText(titles[i]!);
     await page.getByTestId('set-up-camera').click();
     await expect(page.getByTestId('outline')).toBeVisible();
@@ -71,7 +72,7 @@ test('M3: a full 7-take session in mock mode, including one "Keep this take" ove
 
   await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
   const counts = page.getByTestId('summary-counts');
-  await expect(counts).toContainText('6Passed');
+  await expect(counts).toContainText('7Passed');
   await expect(counts).toContainText('1Kept · flagged');
   await expect(counts).toContainText('0Skipped');
   await expect(page.getByTestId('summary-rows')).toContainText('Reason: Patient fatigue');
@@ -115,7 +116,7 @@ test('M3: skipping a test needs a reason; "Other" needs a note', async ({ page }
   await expect(page.getByTestId('confirm-skip')).toBeDisabled();
   await page.getByRole('textbox').fill('Patient left early');
   await page.getByTestId('confirm-skip').click();
-  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 7');
+  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 8');
 });
 
 test('M3: go back to a previous test, keep its result, then end the session early', async ({
@@ -128,15 +129,15 @@ test('M3: go back to a previous test, keep its result, then end the session earl
   await expect(page.getByTestId('hand-guide-right')).toBeAttached();
   await recordTake(page);
   await page.getByTestId('accept').click();
-  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 7');
+  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 8');
   await page.getByTestId('set-up-camera').click();
   await expect(page.getByTestId('hand-guide-left')).toBeAttached();
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByTestId('prev-test').getByRole('button').click();
-  await expect(page.getByTestId('test-of')).toHaveText('Test 1 of 7');
+  await expect(page.getByTestId('test-of')).toHaveText('Test 1 of 8');
   await expect(page.getByTestId('step-done')).toContainText('Passed');
   await page.getByTestId('next-test').click();
-  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 7');
+  await expect(page.getByTestId('test-of')).toHaveText('Test 2 of 8');
   await expect(page.getByTestId('step-done')).toHaveCount(0);
   await page.getByTestId('end-early').click();
   await expect(page.getByTestId('confirm-abort')).toBeDisabled();

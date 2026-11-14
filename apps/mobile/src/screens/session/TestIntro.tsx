@@ -89,7 +89,7 @@ export function TestIntro() {
             {step.side && (
               <span className="self-start rounded-full bg-brand-soft px-2.5 py-1 text-[13px] font-semibold text-brand">
                 {t(
-                  step.code === 'FT' || step.code === 'FR'
+                  step.code === 'FT' || step.code === 'FR' || step.code === 'FTF'
                     ? `session.sideHand.${step.side}`
                     : `session.sides.${step.side}`,
                 )}

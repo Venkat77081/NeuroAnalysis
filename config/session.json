@@ -1,12 +1,13 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@1.2.0",
+  "configVersion": "SESSION@1.3.0",
   "order": [
     ["FT", "R"],
     ["FT", "L"],
     ["FR", "R"],
     ["FR", "L"],
-    ["FTF", null],
+    ["FTF", "R"],
+    ["FTF", "L"],
     ["FA", null],
     ["SAW", null]
   ],

@@ -226,7 +226,7 @@
         "step3": "Keep tapping until the recording stops by itself."
       },
       "ftf": {
-        "step1": "Patient sits side-on to the camera. The examiner stands facing the patient, at the far side of the picture.",
+        "step1": "Patient sits side-on to the camera, tested arm nearest the camera. The examiner stands facing the patient, at the far side of the picture.",
         "step2": "The examiner holds up an index finger within the patient's reach and moves it to a new position every few seconds.",
         "step3": "The patient touches the examiner's fingertip with the index finger each time. Continue until the recording stops by itself."
       },
@@ -253,7 +253,7 @@
         "full_body": "Seat the patient inside the start box, side-on",
         "face_oval": "Fit the face inside the oval",
         "one_arm": "Fit head, shoulders and the tested arm inside the outline",
-        "side_reach": "Patient side-on on the left; examiner's finger inside the box"
+        "side_reach": "Patient side-on, tested arm nearest the camera; examiner's finger inside the yellow box"
       },
       "mode": "{{res}} · {{fps}} fps · {{dur}} s take",
       "record": "Start recording",

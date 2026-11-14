@@ -78,8 +78,13 @@ export function Outline({
         </g>
       )}
       {kind === 'side_reach' && (
-        <g data-testid="reach-guide">
-          {/* Patient seated side-on, facing right, reaching towards the examiner's finger. */}
+        // Drawn for the right hand: patient on the left facing right, right side to the camera.
+        // Mirrored for the left hand (patient on the right, facing left).
+        <g
+          transform={side === 'L' ? 'translate(844 0) scale(-1 1)' : undefined}
+          data-testid={side === 'L' ? 'reach-guide-left' : 'reach-guide-right'}
+        >
+          {/* Patient seated side-on, reaching towards the examiner's finger. */}
           <rect
             x={60}
             y={40}

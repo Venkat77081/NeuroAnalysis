@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FTF@1.2.0",
+  "configVersion": "FTF@1.3.0",
   "code": "FTF",
   "name": "Finger-to-Finger",
   "biomarkers": [
@@ -23,7 +23,7 @@
     "FTF17",
     "FTF18"
   ],
-  "sides": [],
+  "sides": ["R", "L"],
   "minTier": "A",
   "trackers": ["pose", "hand"],
   "camera": {

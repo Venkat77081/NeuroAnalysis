@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app import __version__
 from app.config import get_settings
 from app.db import ping_database
-from app.storage import ping_storage
+from app.storage import ping_local_storage, ping_storage
 
 router = APIRouter()
 log = logging.getLogger("neurocapture.health")
@@ -28,7 +28,15 @@ def health(response: Response) -> Health:
     except Exception as exc:  # noqa: BLE001 - report any failure, never crash the probe
         log.warning("database check failed: %s", type(exc).__name__)
         checks["database"] = "error"
-    if get_settings().s3_endpoint:
+    settings = get_settings()
+    if settings.storage == "local":
+        try:
+            ping_local_storage()
+            checks["storage"] = "ok"
+        except Exception as exc:  # noqa: BLE001
+            log.warning("local storage check failed: %s", type(exc).__name__)
+            checks["storage"] = "error"
+    elif settings.s3_endpoint:
         try:
             ping_storage()
             checks["storage"] = "ok"

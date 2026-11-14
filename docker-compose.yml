@@ -42,6 +42,12 @@ services:
       NC_S3_ACCESS_KEY: neurocapture
       NC_S3_SECRET_KEY: dev-only-password
       NC_S3_BUCKET: neurocapture-takes
+      # Decision 019: local storage by default (signed part URLs served by this API).
+      NC_STORAGE: ${NC_STORAGE:-local}
+      NC_STORAGE_DIR: /data/storage
+      NC_PUBLIC_BASE_URL: ${NC_PUBLIC_BASE_URL:-http://localhost:8000}
+      NC_JWT_SECRET: ${NC_JWT_SECRET:-dev-only-change-me}
+    volumes: [takedata:/data/storage]
     ports: ['8000:8000']
     depends_on:
       postgres: { condition: service_healthy }
@@ -60,3 +66,4 @@ services:
 volumes:
   pgdata:
   miniodata:
+  takedata:

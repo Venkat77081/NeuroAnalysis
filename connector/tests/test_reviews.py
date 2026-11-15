@@ -1,6 +1,6 @@
 """M14: doctor reviews stay at the hospital; the dashboard's live name lookup by NCID."""
 
-from test_e2e import accept, ctoken, platform_dump
+from test_e2e import accept, assign, ctoken, platform_dump
 from test_readiness_api import _upload_take
 from test_tenancy import SESSION, hdr, sign_up, staff_login
 
@@ -26,6 +26,7 @@ def test_review_and_lookup(connector):
     )
     _, secret = sign_up(env["platform"], "dr@sunrise.example")
     doc = ctoken(env, staff_login(env["platform"], "dr@sunrise.example", secret)["access_token"])
+    assign(env, r["ncid"], "dr@sunrise.example")
     note = "Hands partly out of frame; Asha to retake on Friday"
     assert c.post(f"/v1/takes/{take_id}/review", headers=admin, json={"usable": False}).status_code == 403
     rv = c.post(f"/v1/takes/{take_id}/review", headers=doc, json={"usable": False, "note": note})

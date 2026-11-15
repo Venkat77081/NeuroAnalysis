@@ -34,6 +34,16 @@ def accept(env, link, pin="2580"):
     return r.json()
 
 
+def assign(env, ncid: str, doctor_email: str) -> None:
+    """The receptionist's job (M14), done here by the hospital admin."""
+    a = hdr(env["admin_tok"])
+    docs = {d["email"]: d["id"] for d in env["platform"].get("/hospital/doctors", headers=a).json()}
+    r = env["platform"].put(
+        f"/hospital/patients/{ncid}/doctor", headers=a, json={"doctor_id": docs[doctor_email]}
+    )
+    assert r.status_code == 200, r.text
+
+
 def platform_dump(env) -> str:
     """Every value in every platform table, plus the platform's own outbox and audit log."""
     from app.db import get_engine
@@ -135,6 +145,8 @@ def test_full_flow(connector):
     _, dr_secret = sign_up(env["platform"], "dr@sunrise.example")
     dr_tok = staff_login(env["platform"], "dr@sunrise.example", dr_secret)["access_token"]
     doc = ctoken(env, dr_tok)
+    assert c.get(f"/v1/patients/{ncid}", headers=doc).status_code == 404  # not assigned yet
+    assign(env, ncid, "dr@sunrise.example")
     view = c.get(f"/v1/patients/{ncid}", headers=doc).json()
     assert view["records_available"] and view["name"] == "Asha Testpatient" and view["mrn"] == "00012388"
     assert view["conditions"][0]["text"] == "Parkinson's disease"

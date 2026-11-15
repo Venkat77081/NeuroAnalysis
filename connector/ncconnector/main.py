@@ -43,8 +43,29 @@ app.add_middleware(
 
 doctor_or_admin = role("doctor", "hospital_admin")
 admin = role("hospital_admin")
-clinic_staff = role("doctor", "hospital_admin", "operator")
+desk = role("hospital_admin", "receptionist")
+listing = role("doctor", "hospital_admin", "receptionist")
+clinic_staff = role("hospital_admin", "receptionist", "operator")
 doctor = role("doctor")
+
+
+def allowed(s: Staff, ncids: list[str]) -> set[str]:
+    """M14: which of these patients this staff member may see. Doctors: only those assigned to them,
+    asked of the platform on every request (a reassignment takes effect at once)."""
+    if s.role in ("hospital_admin", "receptionist"):
+        return set(ncids)
+    if s.role != "doctor" or not ncids:
+        return set()
+    try:
+        out = platform.call("POST", "/connector/v1/access", {"user_id": s.user_id, "ncids": ncids})
+    except platform.PlatformError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "platform_unreachable"}) from exc
+    return set(out["allowed"])
+
+
+def require_access(s: Staff, ncid: str) -> None:
+    if ncid not in allowed(s, [ncid]):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown NCID")
 
 
 def _platform_error(exc: platform.PlatformError) -> HTTPException:
@@ -133,7 +154,7 @@ def _statuses(ncids: list[str]) -> dict[str, str]:
 def search_patients(
     q: str = Query(min_length=2, max_length=100),
     limit: int = Query(25, ge=1, le=100),
-    s: Staff = Depends(doctor_or_admin),
+    s: Staff = Depends(desk),
     db: DbSession = Depends(get_db),
 ) -> list[PatientRow]:
     try:
@@ -192,6 +213,7 @@ def patient_view(
 ) -> PatientViewOut:
     """Doctor view: identity and history read live for this request (never stored)."""
     mrn = _mrn_for(db, ncid)
+    require_access(s, ncid)
     activity.write(db, s.role, s.user_id, "history_viewed", ncid)
     try:
         rec = records().get(mrn)
@@ -232,12 +254,11 @@ class LookupRow(BaseModel):
 
 
 @app.post("/v1/patients/lookup", response_model=list[LookupRow])
-def lookup(
-    body: LookupIn, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)
-) -> list[LookupRow]:
+def lookup(body: LookupIn, s: Staff = Depends(listing), db: DbSession = Depends(get_db)) -> list[LookupRow]:
     """M14: names for a list of NCIDs (the platform lists NCIDs; the browser joins identity here,
     live, never stored). Unknown NCIDs are left out."""
-    rows = list(db.scalars(select(NcidMap).where(NcidMap.ncid.in_(body.ncids))))
+    may = allowed(s, list(dict.fromkeys(body.ncids)))
+    rows = list(db.scalars(select(NcidMap).where(NcidMap.ncid.in_(may))))
     out = []
     for m in rows:
         try:
@@ -380,6 +401,7 @@ def invite(body: InviteIn, s: Staff = Depends(admin), db: DbSession = Depends(ge
 @app.get("/v1/patients/{ncid}/recordings")
 def recordings(ncid: str, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)) -> list[dict]:
     _mrn_for(db, ncid)
+    require_access(s, ncid)
     try:
         return platform.call("GET", f"/connector/v1/patients/{ncid}/takes")
     except platform.PlatformError as exc:
@@ -398,7 +420,7 @@ def take_file(
         info = platform.call("GET", f"/connector/v1/takes/{take_id}")
     except platform.PlatformError as exc:
         raise _platform_error(exc) from exc
-    if db.get(NcidMap, info["ncid"]) is None:
+    if db.get(NcidMap, info["ncid"]) is None or info["ncid"] not in allowed(s, [info["ncid"]]):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
     key = take_private_key(info["key_id"])
     if key is None:
@@ -478,7 +500,7 @@ def review_take(
         info = platform.call("GET", f"/connector/v1/takes/{take_id}")
     except platform.PlatformError as exc:
         raise _platform_error(exc) from exc
-    if db.get(NcidMap, info["ncid"]) is None:
+    if db.get(NcidMap, info["ncid"]) is None or info["ncid"] not in allowed(s, [info["ncid"]]):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
     r = Review(
         take_id=take_id,
@@ -498,6 +520,7 @@ def reviews(
     ncid: str, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)
 ) -> list[ReviewOut]:
     _mrn_for(db, ncid)
+    require_access(s, ncid)
     q = select(Review).where(Review.ncid == ncid).order_by(Review.at.desc())
     return [_review_out(r) for r in db.scalars(q)]
 

@@ -765,8 +765,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
     servers: *id001
+  /connector/v1/access:
+    post:
+      tags:
+      - connector
+      summary: Connector Access
+      description: 'M14: the connector asks which patients a doctor may see before
+        showing identity, history or
+
+        recordings. Unknown or inactive users, and other hospitals'' staff, may see
+        none.'
+      operationId: connector_access_connector_v1_access_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
 components:
   schemas:
+    AccessIn:
+      properties:
+        user_id:
+          type: string
+          maxLength: 32
+          title: User Id
+        ncids:
+          items:
+            type: string
+          type: array
+          maxItems: 500
+          title: Ncids
+      type: object
+      required:
+      - user_id
+      - ncids
+      title: AccessIn
+    AccessOut:
+      properties:
+        allowed:
+          items:
+            type: string
+          type: array
+          title: Allowed
+      type: object
+      required:
+      - allowed
+      title: AccessOut
     ActivityIn:
       properties:
         actor_type:

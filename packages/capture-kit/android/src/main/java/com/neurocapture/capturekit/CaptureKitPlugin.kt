@@ -439,7 +439,7 @@ class CaptureKitPlugin : Plugin() {
         val path = call.getString("path") ?: return call.reject("path required")
         io.execute {
             try {
-                val body = uploads.api(UrlConnectionHttp(), method, path, call.getString("body"))
+                val body = uploads.api(UrlConnectionHttp(), method, path, call.getString("body"), profileOf(call))
                 call.resolve(JSObject().apply { put("json", body.ifBlank { "null" }) })
             } catch (e: UploadError) {
                 val code = when (e.kind) {
@@ -489,6 +489,9 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** v3: the upload profile named by the app (one per hospital); "default" when left out. */
+    private fun profileOf(call: PluginCall): String = call.getString("profile") ?: UploadQueue.DEFAULT_PROFILE
+
     private fun refreshPath(p: String?): String =
         if (p == "/patient/refresh") p else "/auth/refresh" // only the two server paths are allowed
 
@@ -523,7 +526,7 @@ class CaptureKitPlugin : Plugin() {
                     endpoint.trimEnd('/'), call.getString("accessToken"), call.getString("refreshToken"), keyId, pem,
                     call.getBoolean("wifiOnly", true)!!, call.getDouble("retentionHours") ?: 24.0,
                     refreshPath(call.getString("refreshPath")),
-                ))
+                ), profileOf(call))
                 Services.kickUploads(context)
                 call.resolve()
             } catch (e: Exception) {
@@ -534,7 +537,10 @@ class CaptureKitPlugin : Plugin() {
 
     @PluginMethod
     fun clearUploadCredentials(call: PluginCall) {
-        io.execute { uploads.clearCredentials(); call.resolve() }
+        io.execute {
+            try { uploads.clearCredentials(profileOf(call)); call.resolve() }
+            catch (e: IllegalArgumentException) { call.reject("invalid profile") }
+        }
     }
 
     @PluginMethod
@@ -549,7 +555,10 @@ class CaptureKitPlugin : Plugin() {
                 org.json.JSONObject(sessionBody); org.json.JSONObject(takeBody)
                 val files = VaultTakeFiles(vault, takeId)
                 if (files.kinds.isEmpty()) return@execute call.reject("unknown take")
-                uploads.enqueue(UploadJob(takeId, sid, sessionBody, takeBody), files.kinds.sumOf { files.size(it) })
+                uploads.enqueue(
+                    UploadJob(takeId, sid, sessionBody, takeBody, profile = profileOf(call)),
+                    files.kinds.sumOf { files.size(it) },
+                )
                 Services.kickUploads(context)
                 call.resolve()
             } catch (e: Exception) {

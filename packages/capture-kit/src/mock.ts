@@ -19,6 +19,7 @@ import type {
   UploadConfig,
   UploadStatus,
 } from './definitions.ts';
+import { DEFAULT_UPLOAD_PROFILE } from './definitions.ts';
 import type { CaptureFixture } from './fixture.ts';
 import { PLUGIN_VERSION } from './version.ts';
 import type { TestConfig } from '@neurocapture/contracts-ts';
@@ -86,6 +87,15 @@ export interface MockOptions {
  * MockCaptureKit replays a recorded/synthetic fixture on a timer (DEV_PLAN §5.3).
  * Never valid for clinical data: capabilities report implementation "mock" and tier "W".
  */
+type UploadCfg = UploadConfig & { accessToken: string; refreshToken: string };
+
+const PROFILE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+function profileOf(p: string | undefined): string {
+  const v = p ?? DEFAULT_UPLOAD_PROFILE;
+  if (!PROFILE.test(v)) throw new Error('invalid profile');
+  return v;
+}
+
 export class MockCaptureKit implements CaptureKitPlugin {
   private readonly fixture: CaptureFixture;
   private readonly sched: Scheduler;
@@ -723,12 +733,13 @@ export class MockCaptureKit implements CaptureKitPlugin {
     method: 'GET' | 'POST';
     path: string;
     body?: string;
+    profile?: string;
   }): Promise<{ json: string }> {
     const allowed =
-      /^\/(patient\/(plan|sessions|me|consent\/withdraw)|auth\/(connector-token|change-password))$/;
+      /^\/(patient\/(plan|sessions|me|requests|consent\/withdraw)|auth\/(connector-token|change-password))$/;
     if ((opts.method !== 'GET' && opts.method !== 'POST') || !allowed.test(opts.path))
       throw new Error('not_allowed');
-    const cfg = this.uploadCfg;
+    const cfg = this.uploadCfgs.get(profileOf(opts.profile));
     if (!cfg) throw new Error('login_required');
     const send = () =>
       this.fakeServer.http(`${cfg.endpoint}${opts.path}`, {
@@ -792,7 +803,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
   async resetDevice(): Promise<void> {
     this.appModeStore().removeItem('nc.kit.app_mode');
     this.secure.clear();
-    this.uploadCfg = null;
+    this.uploadCfgs.clear();
     this.jobs.clear();
     this.closes.clear();
     this.diagnostics = [];
@@ -859,27 +870,33 @@ export class MockCaptureKit implements CaptureKitPlugin {
 
   /** Mock only: the fake API the uploads talk to (tests can drop the network or corrupt a part). */
   readonly fakeServer = new FakeServer();
-  private uploadCfg: (UploadConfig & { accessToken: string; refreshToken: string }) | null = null;
-  private jobs = new Map<string, { job: UploadJob; status: UploadStatus; attempts: number }>();
+  /** v3: one configuration per upload profile (hospital). */
+  private uploadCfgs = new Map<string, UploadCfg>();
+  private jobs = new Map<
+    string,
+    { job: UploadJob; status: UploadStatus; attempts: number; profile: string }
+  >();
   private closes = new Map<string, string>();
   private uploading = false;
   private retryTimer: unknown = null;
 
   async configureUploads(opts: UploadConfig): Promise<void> {
-    const accessToken = opts.accessToken ?? this.uploadCfg?.accessToken;
-    const refreshToken = opts.refreshToken ?? this.uploadCfg?.refreshToken;
+    const profile = profileOf(opts.profile);
+    const old = this.uploadCfgs.get(profile);
+    const accessToken = opts.accessToken ?? old?.accessToken;
+    const refreshToken = opts.refreshToken ?? old?.refreshToken;
     if (!accessToken || !refreshToken) {
       return; // no sign-in yet: uploads keep waiting for login
     }
-    this.uploadCfg = { ...opts, accessToken, refreshToken };
+    this.uploadCfgs.set(profile, { ...opts, accessToken, refreshToken });
     for (const j of this.jobs.values())
-      if (j.status.reason === 'login_required')
+      if (j.profile === profile && j.status.reason === 'login_required')
         this.setUpload(j, { state: 'queued', reason: undefined });
     this.kickUploads();
   }
 
-  async clearUploadCredentials(): Promise<void> {
-    this.uploadCfg = null;
+  async clearUploadCredentials(opts?: { profile?: string }): Promise<void> {
+    this.uploadCfgs.delete(profileOf(opts?.profile));
   }
 
   async enqueueUpload(opts: {
@@ -887,7 +904,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
     clientSessionId: string;
     session: string;
     take: string;
+    profile?: string;
   }): Promise<void> {
+    const profile = profileOf(opts.profile);
     if (!this.takes.has(opts.takeId)) throw new Error('unknown take');
     if (this.jobs.has(opts.takeId)) return; // idempotent
     const files = this.mockFiles(opts.takeId);
@@ -898,10 +917,12 @@ export class MockCaptureKit implements CaptureKitPlugin {
         session: opts.session,
         take: opts.take,
         wrappedDataKey: 'bW9jay13cmFwcGVkLWtleQ==',
-        keyId: this.uploadCfg?.serverKeyId ?? 'mock',
+        keyId: this.uploadCfgs.get(profile)?.serverKeyId ?? 'mock',
       },
+      profile,
       status: {
         takeId: opts.takeId,
+        profile,
         state: 'queued',
         bytesSent: 0,
         bytesTotal: files.kinds.reduce((a, k) => a + files.size(k), 0),
@@ -994,9 +1015,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
 
   private async runUploads(): Promise<void> {
     try {
-      const cfg = this.uploadCfg;
       for (const j of this.jobs.values()) {
         if (j.status.state === 'completed' || j.status.state === 'failed_permanent') continue;
+        const cfg = this.uploadCfgs.get(j.profile);
         if (!cfg) {
           this.setUpload(j, { state: 'paused', reason: 'login_required' });
           continue;
@@ -1014,7 +1035,10 @@ export class MockCaptureKit implements CaptureKitPlugin {
         if (!j.job.serverSessionId) {
           // Another take of the same session already created it (and learned its key).
           const known = [...this.jobs.values()].find(
-            (o) => o.job.serverSessionId && o.job.clientSessionId === j.job.clientSessionId,
+            (o) =>
+              o.job.serverSessionId &&
+              o.job.clientSessionId === j.job.clientSessionId &&
+              o.profile === j.profile,
           )?.job;
           if (known)
             j.job = {
@@ -1048,14 +1072,15 @@ export class MockCaptureKit implements CaptureKitPlugin {
           }
         }
       }
-      // Close sessions whose takes are all uploaded.
-      if (cfg)
-        for (const [clientSessionId, body] of this.closes) {
-          const mine = [...this.jobs.values()].filter(
-            (j) => j.job.clientSessionId === clientSessionId,
-          );
-          const sid = mine.find((j) => j.job.serverSessionId)?.job.serverSessionId;
-          if (!sid || mine.some((j) => j.status.state !== 'completed')) continue;
+      // Close sessions whose takes are all uploaded (with the session's own profile).
+      for (const [clientSessionId, body] of this.closes) {
+        const mine = [...this.jobs.values()].filter(
+          (j) => j.job.clientSessionId === clientSessionId,
+        );
+        const sid = mine.find((j) => j.job.serverSessionId)?.job.serverSessionId;
+        if (!sid || mine.some((j) => j.status.state !== 'completed')) continue;
+        const cfg = this.uploadCfgs.get(mine[0]!.profile);
+        if (cfg)
           try {
             await new UploadClient(
               this.fakeServer.http,
@@ -1067,8 +1092,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
           } catch {
             /* retried on the next run */
           }
-        }
-      // Crash reports go once the operator is signed in.
+      }
+      // Crash reports go once someone is signed in (they carry no patient data).
+      const cfg = [...this.uploadCfgs.values()][0];
       if (cfg)
         while (this.diagnostics.length) {
           try {
@@ -1101,9 +1127,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
 
   /** Delete local copies retentionHours after server confirmation (§14). */
   private applyRetention(): void {
-    const hours = this.uploadCfg?.retentionHours;
-    if (hours === undefined) return;
     for (const j of this.jobs.values()) {
+      const hours = this.uploadCfgs.get(j.profile)?.retentionHours;
+      if (hours === undefined) continue;
       if (j.status.state !== 'completed' || j.status.localDeleted || !j.status.confirmedAt)
         continue;
       if (Date.parse(j.status.confirmedAt) + hours * 3600_000 <= Date.now()) {

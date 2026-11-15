@@ -145,6 +145,46 @@ describe('uploads (M7)', () => {
     expect((await kit.listTakes()).takes.some((t) => t.takeId === 'tk-a')).toBe(false);
   });
 
+  it('v3: one profile per hospital; each take waits for its own hospital sign-in', async () => {
+    const { kit, cfg } = await setup();
+    await kit.configureUploads(cfg); // default profile
+    await kit.enqueueUpload({
+      takeId: 'tk-a',
+      clientSessionId: 's-1',
+      session,
+      take: take('tk-a'),
+    });
+    await kit.enqueueUpload({
+      takeId: 'tk-b',
+      clientSessionId: 's-2',
+      session: session.replace('s-1', 's-2'),
+      take: take('tk-b'),
+      profile: 'h-lakeview',
+    });
+    await until(async () => (await kit.getUploadStatus({ takeId: 'tk-a' })).state === 'completed');
+    const b = await kit.getUploadStatus({ takeId: 'tk-b' });
+    expect([b.profile, b.reason]).toEqual(['h-lakeview', 'login_required']);
+    await expect(
+      kit.apiRequest({ method: 'GET', path: '/patient/requests', profile: 'h-lakeview' }),
+    ).rejects.toThrow('login_required');
+    await kit.configureUploads({ ...cfg, profile: 'h-lakeview' });
+    await until(async () => (await kit.getUploadStatus({ takeId: 'tk-b' })).state === 'completed');
+    // Signing one hospital out leaves the other.
+    await kit.clearUploadCredentials({ profile: 'h-lakeview' });
+    await expect(
+      kit.apiRequest({ method: 'GET', path: '/patient/sessions', profile: 'h-lakeview' }),
+    ).rejects.toThrow('login_required');
+    await expect(
+      kit.enqueueUpload({
+        takeId: 'tk-a',
+        clientSessionId: 's-1',
+        session,
+        take: take('tk-a'),
+        profile: 'Bad!',
+      }),
+    ).rejects.toThrow('invalid profile');
+  });
+
   it('refreshes an expired access token once; a revoked login pauses the queue', async () => {
     const { kit, cfg } = await setup();
     await kit.configureUploads({ ...cfg, accessToken: 'expired' });

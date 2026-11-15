@@ -60,6 +60,7 @@ data class UploadRecord(
     /** The JS-facing status (no job bodies, no keys). */
     fun status(): JSONObject = JSONObject().apply {
         put("takeId", job.takeId); put("state", state); put("bytesSent", bytesSent); put("bytesTotal", bytesTotal)
+        put("profile", job.profile)
         if (reason != null) put("reason", reason)
         if (confirmedAt != null) put("confirmedAt", confirmedAt)
         if (localDeleted) put("localDeleted", true)
@@ -94,44 +95,63 @@ class UploadQueue(
 ) {
     private val lock = Any()
 
-    fun settings(): UploadSettings? = kv.get(CONFIG)?.let { UploadSettings.fromJson(JSONObject(it)) }
+    /**
+     * v3: settings of one upload profile. A patient who joined several hospitals has one profile per
+     * hospital (its own tokens, NCID and take key); a clinic phone uses [DEFAULT_PROFILE] only.
+     */
+    fun settings(profile: String = DEFAULT_PROFILE): UploadSettings? =
+        kv.get(configKey(profile))?.let { UploadSettings.fromJson(JSONObject(it)) }
+
+    /** Every profile that has settings (default first). */
+    fun profiles(): List<String> =
+        kv.keys(CONFIG).map { if (it == CONFIG) DEFAULT_PROFILE else it.removePrefix("$CONFIG.") }
+            .sortedBy { if (it == DEFAULT_PROFILE) "" else it }
 
     /** Saves settings; tokens left out keep the ones already stored (the plugin rotates them). */
-    fun configure(s: UploadSettings) = synchronized(lock) {
-        val old = settings()
+    fun configure(s: UploadSettings, profile: String = DEFAULT_PROFILE) = synchronized(lock) {
+        requireProfile(profile)
+        val old = settings(profile)
         val merged = if (s.signedIn) s else s.copy(accessToken = old?.accessToken, refreshToken = old?.refreshToken)
-        kv.put(CONFIG, merged.toJson().toString())
+        kv.put(configKey(profile), merged.toJson().toString())
         if (merged.signedIn)
-            records().filter { it.reason == LOGIN_REQUIRED }.forEach { save(it.copy(state = UploadRecord.QUEUED, reason = null)) }
+            records().filter { it.job.profile == profile && it.reason == LOGIN_REQUIRED }
+                .forEach { save(it.copy(state = UploadRecord.QUEUED, reason = null)) }
     }
 
     /** M13: a signed-in call for the app, only to [API_PATHS]. Throws [UploadError]. */
-    fun api(http: Http, method: String, path: String, body: String?): String {
+    fun api(http: Http, method: String, path: String, body: String?, profile: String = DEFAULT_PROFILE): String {
         require(method == "GET" || method == "POST") { "method" }
         require(API_PATHS.matches(path)) { "path not allowed" }
-        val cfg = settings()
+        requireProfile(profile)
+        val cfg = settings(profile)
         if (cfg == null || !cfg.signedIn) throw UploadError(UploadError.Kind.AUTH, "login_required")
-        return UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
-            .api(method, path, body)
+        return client(http, cfg, profile).api(method, path, body)
     }
+
+    private fun client(http: Http, cfg: UploadSettings, profile: String) =
+        UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), { t -> saveTokens(t, profile) }, cfg.refreshPath)
 
     /** resetDevice: forget the server, every queued upload, close and crash report. */
     fun clearAll() = synchronized(lock) {
         kv.keys("").forEach { kv.delete(it) }
     }
 
-    fun clearCredentials() = synchronized(lock) {
-        settings()?.let { kv.put(CONFIG, it.copy(accessToken = null, refreshToken = null).toJson().toString()) }
+    fun clearCredentials(profile: String = DEFAULT_PROFILE) = synchronized(lock) {
+        requireProfile(profile)
+        settings(profile)?.let { kv.put(configKey(profile), it.copy(accessToken = null, refreshToken = null).toJson().toString()) }
         Unit
     }
 
-    private fun saveTokens(t: Tokens) = synchronized(lock) {
-        settings()?.let { kv.put(CONFIG, it.copy(accessToken = t.access, refreshToken = t.refresh).toJson().toString()) }
+    private fun saveTokens(t: Tokens, profile: String) = synchronized(lock) {
+        settings(profile)?.let {
+            kv.put(configKey(profile), it.copy(accessToken = t.access, refreshToken = t.refresh).toJson().toString())
+        }
         Unit
     }
 
     /** Idempotent: a take already queued keeps its record. */
     fun enqueue(job: UploadJob, bytesTotal: Long) = synchronized(lock) {
+        requireProfile(job.profile)
         if (record(job.takeId) == null) save(UploadRecord(job, bytesTotal = bytesTotal))
     }
 
@@ -142,6 +162,7 @@ class UploadQueue(
 
     fun enqueueClose(clientSessionId: String, body: String) = synchronized(lock) {
         kv.put(closeKey(clientSessionId), JSONObject().put("clientSessionId", clientSessionId).put("body", body).toString())
+        Unit
     }
 
     fun record(takeId: String): UploadRecord? = kv.get(jobKey(takeId))?.let { UploadRecord.fromJson(JSONObject(it)) }
@@ -180,9 +201,10 @@ class UploadQueue(
         deleteTake: (takeId: String) -> Boolean,
     ): RunResult {
         var retry = false
-        val cfg = settings()
+        val cfgs = profiles().associateWith { settings(it) }
         for (r0 in records()) {
             if (r0.state == UploadRecord.COMPLETED || r0.state == UploadRecord.FAILED_PERMANENT) continue
+            val cfg = cfgs[r0.job.profile]
             if (cfg == null || !cfg.signedIn) {
                 save(r0.copy(state = UploadRecord.PAUSED, reason = LOGIN_REQUIRED))
                 continue
@@ -196,7 +218,8 @@ class UploadQueue(
             if (r.job.serverSessionId == null) {
                 // Another take of the same session already created it on the server.
                 val known = records().firstOrNull { o ->
-                    o.job.serverSessionId != null && o.job.clientSessionId == r.job.clientSessionId
+                    o.job.serverSessionId != null && o.job.clientSessionId == r.job.clientSessionId &&
+                        o.job.profile == r.job.profile
                 }?.job
                 if (known != null)
                     r = r.copy(job = r.job.copy(
@@ -216,7 +239,7 @@ class UploadQueue(
                 r = r.copy(job = r.job.copy(wrappedDataKey = wrapped, keyId = cfg.serverKeyId))
             }
             save(r)
-            val client = UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
+            val client = client(http, cfg, r.job.profile)
             try {
                 val confirmedAt = client.run(
                     r.job, takeFiles,
@@ -240,14 +263,15 @@ class UploadQueue(
                 retry = true
             }
         }
-        if (cfg != null && cfg.signedIn) {
-            retry = closeSessions(http, cfg) || retry
-            retry = sendDiagnostics(http, cfg) || retry
+        retry = closeSessions(http, cfgs) || retry
+        // Crash reports go with the first signed-in profile (they carry no patient data).
+        cfgs.entries.firstOrNull { it.value?.signedIn == true }?.let { (profile, cfg) ->
+            retry = sendDiagnostics(http, cfg!!, profile) || retry
         }
         return RunResult(retry, applyRetention(deleteTake))
     }
 
-    private fun closeSessions(http: Http, cfg: UploadSettings): Boolean {
+    private fun closeSessions(http: Http, cfgs: Map<String, UploadSettings?>): Boolean {
         var retry = false
         val all = records()
         for (key in kv.keys(CLOSE_PREFIX)) {
@@ -255,9 +279,10 @@ class UploadQueue(
             val mine = all.filter { it.job.clientSessionId == c.getString("clientSessionId") }
             val sid = mine.firstNotNullOfOrNull { it.job.serverSessionId }
             if (sid == null || mine.any { it.state != UploadRecord.COMPLETED }) continue
+            val profile = mine.first().job.profile
+            val cfg = cfgs[profile]?.takeIf { it.signedIn } ?: continue
             try {
-                UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
-                    .closeSession(sid, c.getString("body"))
+                client(http, cfg, profile).closeSession(sid, c.getString("body"))
                 kv.delete(key)
             } catch (e: UploadError) {
                 if (e.kind == UploadError.Kind.PERMANENT) kv.delete(key) else retry = true
@@ -266,12 +291,11 @@ class UploadQueue(
         return retry
     }
 
-    private fun sendDiagnostics(http: Http, cfg: UploadSettings): Boolean {
+    private fun sendDiagnostics(http: Http, cfg: UploadSettings, profile: String): Boolean {
         for (key in kv.keys(DIAG_PREFIX)) {
             val body = kv.get(key)?.let { JSONObject(it).getString("body") } ?: continue
             try {
-                UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
-                    .sendDiagnostic(body)
+                client(http, cfg, profile).sendDiagnostic(body)
                 kv.delete(key)
             } catch (e: UploadError) {
                 if (e.kind == UploadError.Kind.PERMANENT) kv.delete(key) else return true
@@ -285,10 +309,11 @@ class UploadQueue(
      * has passed. Returns when the next deletion is due, or null when none is waiting.
      */
     fun applyRetention(deleteTake: (takeId: String) -> Boolean): Long? = synchronized(lock) {
-        val hours = settings()?.retentionHours ?: return@synchronized null
+        val hoursBy = profiles().associateWith { settings(it)?.retentionHours }
         var next: Long? = null
         for (r in records()) {
             if (r.state != UploadRecord.COMPLETED || r.localDeleted || r.confirmedAtMs == null) continue
+            val hours = hoursBy[r.job.profile] ?: continue
             val due = r.confirmedAtMs + (hours * 3_600_000).toLong()
             if (clock() >= due) {
                 deleteTake(r.job.takeId)
@@ -309,7 +334,10 @@ class UploadQueue(
 
     companion object {
         /** Paths the app may call through [api] (M13); nothing that uploads or changes takes. */
-        val API_PATHS = Regex("^/(patient/(plan|sessions|me|consent/withdraw)|auth/(connector-token|change-password))$")
+        val API_PATHS = Regex("^/(patient/(plan|sessions|me|requests|consent/withdraw)|auth/(connector-token|change-password))$")
+        const val DEFAULT_PROFILE = "default"
+        private val PROFILE = Regex("^[a-z0-9][a-z0-9_-]{0,39}$")
+        fun requireProfile(p: String) = require(PROFILE.matches(p)) { "invalid profile" }
         const val LOGIN_REQUIRED = "login_required"
         const val WIFI_REQUIRED = "wifi_required"
         private const val CONFIG = "upload.config"
@@ -317,6 +345,7 @@ class UploadQueue(
         private const val CLOSE_PREFIX = "upload.close."
         private const val DIAG_PREFIX = "upload.diag."
         /** SecureStore keys are lower case; IDs are hex/ASCII so this stays unique in practice. */
+        private fun configKey(profile: String) = if (profile == DEFAULT_PROFILE) CONFIG else "$CONFIG.$profile"
         private fun jobKey(takeId: String) = JOB_PREFIX + takeId.lowercase()
         private fun closeKey(sid: String) = CLOSE_PREFIX + sid.lowercase()
     }

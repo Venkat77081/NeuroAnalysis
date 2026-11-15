@@ -57,7 +57,7 @@ object Services {
      */
     fun kickUploads(context: Context) {
         val q = queue(context)
-        val wifiOnly = q.settings()?.wifiOnly ?: true
+        val wifiOnly = q.profiles().map { q.settings(it)?.wifiOnly ?: true }.ifEmpty { listOf(true) }.any { it }
         if (wifiOnly && !onUnmetered(context)) q.markWaiting(UploadQueue.WIFI_REQUIRED)
         val req = OneTimeWorkRequest.Builder(UploadWorker::class.java)
             .setConstraints(

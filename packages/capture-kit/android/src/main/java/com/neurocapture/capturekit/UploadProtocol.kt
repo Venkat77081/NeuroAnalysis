@@ -56,6 +56,8 @@ data class UploadJob(
      */
     val sessionKeyId: String? = null,
     val sessionKeyPem: String? = null,
+    /** v3: the upload profile (one per hospital the patient joined); "default" for clinic phones. */
+    val profile: String = UploadQueue.DEFAULT_PROFILE,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("takeId", takeId); put("clientSessionId", clientSessionId)
@@ -65,6 +67,7 @@ data class UploadJob(
         put("serverTakeId", serverTakeId ?: JSONObject.NULL)
         put("sessionKeyId", sessionKeyId ?: JSONObject.NULL)
         put("sessionKeyPem", sessionKeyPem ?: JSONObject.NULL)
+        put("profile", profile)
     }
 
     companion object {
@@ -79,6 +82,7 @@ data class UploadJob(
             serverTakeId = o.optStringOrNull("serverTakeId"),
             sessionKeyId = o.optStringOrNull("sessionKeyId"),
             sessionKeyPem = o.optStringOrNull("sessionKeyPem"),
+            profile = o.optString("profile", UploadQueue.DEFAULT_PROFILE),
         )
     }
 }

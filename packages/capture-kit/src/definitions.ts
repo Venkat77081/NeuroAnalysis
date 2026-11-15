@@ -144,6 +144,8 @@ export interface UploadStatus {
   bytesSent: number;
   bytesTotal: number;
   reason?: string;
+  /** v3: the upload profile (hospital) this take goes to. */
+  profile?: string;
   /** Server confirmation time (ISO); local files are deleted retentionHours after it. */
   confirmedAt?: string;
   /** Local files deleted after confirmation + retention. */
@@ -167,7 +169,15 @@ export interface UploadConfig {
   retentionHours: number;
   /** M13: where tokens are refreshed. Operators: /auth/refresh (default); patients: /patient/refresh. */
   refreshPath?: '/auth/refresh' | '/patient/refresh';
+  /**
+   * v3: the upload profile these settings belong to: one per hospital a patient joined (its own
+   * tokens and take key). Clinic phones use the default profile. Pattern: [a-z0-9][a-z0-9_-]{0,39}.
+   */
+  profile?: string;
 }
+
+/** v3: the profile used when none is given (clinic phones, and pre-v3 patient installs). */
+export const DEFAULT_UPLOAD_PROFILE = 'default';
 
 /** M13: which app this phone is. */
 export type AppMode = 'clinic' | 'patient';
@@ -313,14 +323,15 @@ export interface CaptureKitPlugin {
   configureUploads(opts: UploadConfig): Promise<void>;
   /**
    * M13: one signed-in API call made with the tokens the plugin holds (the app never sees them).
-   * Allowed paths only: /patient/{plan,sessions,me,consent/withdraw}, /auth/{connector-token,
+   * Allowed paths only: /patient/{plan,sessions,me,requests,consent/withdraw}, /auth/{connector-token,
    * change-password}. Resolves with the response body; rejects with "login_required", "network",
-   * "not_allowed" or the server's error code.
+   * "not_allowed" or the server's error code. v3: `profile` picks the hospital's sign-in.
    */
   apiRequest(opts: {
     method: 'GET' | 'POST';
     path: string;
     body?: string;
+    profile?: string;
   }): Promise<{ json: string }>;
   /** M13: the app mode set on this phone, or null before the first set-up. */
   getAppMode(): Promise<{ mode: AppMode | null }>;
@@ -333,7 +344,7 @@ export interface CaptureKitPlugin {
   /** M13: wipes the app on this phone (secure store and app mode, upload queue, local takes). */
   resetDevice(): Promise<void>;
   /** Forget server credentials (operator logout); queued uploads pause until configured again. */
-  clearUploadCredentials(): Promise<void>;
+  clearUploadCredentials(opts?: { profile?: string }): Promise<void>;
   /**
    * Queue a stored take for upload. `session` and `take` are the JSON bodies for POST /sessions and
    * POST /takes (without files, checksums and the wrapped key, which native adds). Idempotent.
@@ -343,6 +354,8 @@ export interface CaptureKitPlugin {
     clientSessionId: string;
     session: string;
     take: string;
+    /** v3: the hospital's upload profile (default when left out). */
+    profile?: string;
   }): Promise<void>;
   /** PATCH /sessions/{id} once the session's takes are queued (ended_at, aborted). */
   enqueueSessionClose(opts: { clientSessionId: string; body: string }): Promise<void>;

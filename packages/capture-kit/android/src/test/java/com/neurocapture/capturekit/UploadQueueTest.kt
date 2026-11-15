@@ -18,7 +18,7 @@ import javax.crypto.spec.OAEPParameterSpec
 import javax.crypto.spec.PSource
 
 /** In-memory copy of the server's upload API (backend/app/api) for JVM tests. */
-private class FakeServer(private val partSize: Int = 1000) : Http {
+private class FakeServer(private val partSize: Int = 1000, private val api: String = "fake://api", private val parts: String = "fake://part/") : Http {
     var online = true
     var corruptNextPart = false
     /** Network drops after this many successful part PUTs (then stays offline). */
@@ -50,7 +50,7 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
             val total = maxOf(1, (f.size + partSize - 1) / partSize)
             put(JSONObject().put("kind", f.kind).put("part_size", partSize).put("parts_total", total).put("verified", f.verified)
                 .put("parts", JSONArray().apply {
-                    if (!f.verified) for (n in 1..total) if (n !in f.parts) put(JSONObject().put("number", n).put("url", "fake://part/${t.id}/${f.kind}/${f.uploadId}/$n"))
+                    if (!f.verified) for (n in 1..total) if (n !in f.parts) put(JSONObject().put("number", n).put("url", "$parts${t.id}/${f.kind}/${f.uploadId}/$n"))
                 })
                 .put("uploaded_parts", JSONArray().apply {
                     if (!f.verified) for (n in f.parts.keys.sorted()) put(JSONObject().put("number", n).put("etag", "e$n"))
@@ -60,8 +60,8 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
 
     override fun request(url: String, method: String, headers: Map<String, String>, body: ByteArray?): HttpResult {
         if (!online) throw IOException("offline")
-        if (url.startsWith("fake://part/")) {
-            val (_, takeId, kind, uploadId, n) = url.removePrefix("fake://").split("/")
+        if (url.startsWith(parts)) {
+            val (takeId, kind, uploadId, n) = url.removePrefix(parts).split("/")
             val f = takes.values.first { it.id == takeId }.files.first { it.kind == kind }
             if (f.uploadId != uploadId.toInt()) return err(404)
             val data = body!!.copyOf()
@@ -70,7 +70,7 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
             if (dropAfterParts >= 0 && ++puts >= dropAfterParts) online = false
             return ok("{}", "\"e$n\"")
         }
-        val path = url.removePrefix("fake://api")
+        val path = url.removePrefix(api)
         log.add("$method $path")
         if (path == "/auth/refresh") {
             val j = JSONObject(String(body!!))
@@ -230,6 +230,45 @@ class UploadQueueTest {
         assertEquals(UploadQueue.LOGIN_REQUIRED, q.record("tk-b")!!.reason)
         q.clearCredentials()
         assertFalse(q.settings()!!.signedIn)
+    }
+
+    @Test
+    fun oneProfilePerHospitalUploadsEachTakeToItsOwnServerWithItsOwnTokens() {
+        val a = FakeServer()
+        val b = FakeServer(api = "fake://hb", parts = "fake://pb/")
+        val router = object : Http {
+            override fun request(url: String, method: String, headers: Map<String, String>, body: ByteArray?) =
+                if (url.startsWith("fake://hb") || url.startsWith("fake://pb/")) b.request(url, method, headers, body)
+                else a.request(url, method, headers, body)
+        }
+        val q = UploadQueue(MapKv(), { now })
+        q.configure(settings())
+        q.configure(settings().copy(endpoint = "fake://hb", retentionHours = 1.0), "h-lakeview")
+        assertEquals(listOf(UploadQueue.DEFAULT_PROFILE, "h-lakeview"), q.profiles())
+        q.enqueue(job("tk-a"), 5540)
+        q.enqueue(job("tk-b").copy(clientSessionId = "s-2", profile = "h-lakeview"), 2330)
+        q.enqueueClose("s-2", """{"ended_at":"2026-11-14T10:20:00Z"}""")
+        // Only the hospital's own profile signs out; the other keeps uploading.
+        q.clearCredentials("h-lakeview")
+        q.runOnce(router, { files[it] }, { _, p -> KeyWrap.wrap(ByteArray(100) { 3 }, p) }, { deleted.add(it); true })
+        assertEquals(UploadRecord.COMPLETED, q.record("tk-a")!!.state)
+        assertEquals(UploadQueue.LOGIN_REQUIRED, q.record("tk-b")!!.reason)
+        assertEquals("h-lakeview", q.record("tk-b")!!.status().getString("profile"))
+        q.configure(settings().copy(endpoint = "fake://hb", retentionHours = 1.0), "h-lakeview")
+        q.runOnce(router, { files[it] }, { _, p -> KeyWrap.wrap(ByteArray(100) { 3 }, p) }, { deleted.add(it); true })
+        assertEquals(UploadRecord.COMPLETED, q.record("tk-b")!!.state)
+        assertEquals(1, a.log.count { it == "POST /takes" })
+        assertEquals(1, b.log.count { it == "POST /takes" })
+        assertTrue(b.closed.contains("S1"))
+        // Each profile keeps its own retention.
+        now += 3_600_000L
+        q.applyRetention { deleted.add(it); true }
+        assertEquals(listOf("tk-b"), deleted)
+        assertThrows(IllegalArgumentException::class.java) { q.configure(settings(), "Bad Profile!") }
+        assertThrows(IllegalArgumentException::class.java) {
+            q.api(router, "GET", "/patient/requests", null, "../x")
+        }
+        assertEquals("[]", q.api(router, "GET", "/patient/sessions", null, "h-lakeview"))
     }
 
     @Test

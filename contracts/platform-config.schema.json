@@ -15,7 +15,8 @@
     "consentVersion",
     "defaultPlan",
     "app",
-    "operators"
+    "operators",
+    "requests"
   ],
   "properties": {
     "schemaVersion": {
@@ -166,6 +167,39 @@
           "type": "integer",
           "minimum": 3,
           "maximum": 20
+        }
+      }
+    },
+    "requests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultDueDaysBefore",
+        "rerecordDueDays",
+        "reminderHoursBefore",
+        "appointmentWindowDays"
+      ],
+      "description": "Recording requests for appointments (v3): when they are due, re-record deadline, reminder lead time, how far ahead reception sees appointments.",
+      "properties": {
+        "defaultDueDaysBefore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 14
+        },
+        "rerecordDueDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "reminderHoursBefore": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168
+        },
+        "appointmentWindowDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
         }
       }
     }

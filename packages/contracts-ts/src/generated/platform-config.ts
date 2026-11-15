@@ -52,4 +52,13 @@ export interface PlatformConfig {
   operators: {
     maxFailedLogins: number;
   };
+  /**
+   * Recording requests for appointments (v3): when they are due, re-record deadline, reminder lead time, how far ahead reception sees appointments.
+   */
+  requests: {
+    defaultDueDaysBefore: number;
+    rerecordDueDays: number;
+    reminderHoursBefore: number;
+    appointmentWindowDays: number;
+  };
 }

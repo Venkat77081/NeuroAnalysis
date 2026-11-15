@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "PLATFORM@1.2.0",
+  "configVersion": "PLATFORM@1.3.0",
   "invites": {
     "patientTtlDays": 7,
     "staffTtlDays": 7,
@@ -33,5 +33,11 @@
   },
   "operators": {
     "maxFailedLogins": 10
+  },
+  "requests": {
+    "defaultDueDaysBefore": 1,
+    "rerecordDueDays": 3,
+    "reminderHoursBefore": 24,
+    "appointmentWindowDays": 7
   }
 }

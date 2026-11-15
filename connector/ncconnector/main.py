@@ -47,6 +47,9 @@ desk = role("hospital_admin", "receptionist")
 listing = role("doctor", "hospital_admin", "receptionist")
 clinic_staff = role("hospital_admin", "receptionist", "operator")
 doctor = role("doctor")
+#: Medical history, recordings, decrypted videos and review notes: assigned doctors only (user,
+#: 15 Nov 2026). Hospital admins and receptionists see names, never clinical data.
+clinical = doctor
 
 
 def allowed(s: Staff, ncids: list[str]) -> set[str]:
@@ -208,9 +211,7 @@ def _mrn_for(db: DbSession, ncid: str) -> str:
 
 
 @app.get("/v1/patients/{ncid}", response_model=PatientViewOut)
-def patient_view(
-    ncid: str, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)
-) -> PatientViewOut:
+def patient_view(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(get_db)) -> PatientViewOut:
     """Doctor view: identity and history read live for this request (never stored)."""
     mrn = _mrn_for(db, ncid)
     require_access(s, ncid)
@@ -399,7 +400,7 @@ def invite(body: InviteIn, s: Staff = Depends(admin), db: DbSession = Depends(ge
 
 
 @app.get("/v1/patients/{ncid}/recordings")
-def recordings(ncid: str, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)) -> list[dict]:
+def recordings(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(get_db)) -> list[dict]:
     _mrn_for(db, ncid)
     require_access(s, ncid)
     try:
@@ -412,7 +413,7 @@ def recordings(ncid: str, s: Staff = Depends(doctor_or_admin), db: DbSession = D
 def take_file(
     take_id: str,
     kind: Literal["video", "frames", "landmarks", "sensors", "quality", "meta"],
-    s: Staff = Depends(doctor_or_admin),
+    s: Staff = Depends(clinical),
     db: DbSession = Depends(get_db),
 ) -> Response:
     """Decrypts one file of a take for the doctor's browser (only this connector holds the key)."""
@@ -516,9 +517,7 @@ def review_take(
 
 
 @app.get("/v1/patients/{ncid}/reviews", response_model=list[ReviewOut])
-def reviews(
-    ncid: str, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)
-) -> list[ReviewOut]:
+def reviews(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(get_db)) -> list[ReviewOut]:
     _mrn_for(db, ncid)
     require_access(s, ncid)
     q = select(Review).where(Review.ncid == ncid).order_by(Review.at.desc())

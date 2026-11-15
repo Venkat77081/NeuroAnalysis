@@ -6,6 +6,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from test_e2e import doctor_for
 from test_readiness_api import _upload_take
 from test_tenancy import SESSION, hdr, onboard, sign_up
 
@@ -26,9 +27,11 @@ def env(connector, tmp_path, monkeypatch):
 
 
 def ctoken(env) -> dict:
-    return hdr(
-        env["platform"].post("/hospital/connector-token", headers=hdr(env["admin_tok"])).json()["token"]
-    )
+    """A doctor assigned to every patient of the hospital (clinical data is doctors-only)."""
+    ncids = [
+        p["ncid"] for p in env["platform"].get("/hospital/patients", headers=hdr(env["admin_tok"])).json()
+    ]
+    return doctor_for(env, *ncids)
 
 
 def patient_session(env, admin_tok, client_session_id="home-1"):

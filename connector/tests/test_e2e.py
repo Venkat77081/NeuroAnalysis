@@ -44,6 +44,22 @@ def assign(env, ncid: str, doctor_email: str) -> None:
     assert r.status_code == 200, r.text
 
 
+def doctor_for(env, *ncids: str, email: str = "dr.reader@sunrise.example") -> dict:
+    """A doctor's connector token, with these patients assigned (clinical data is doctors-only)."""
+    from test_tenancy import sign_up, staff_login
+
+    if "readers" not in env:
+        env["readers"] = {}
+    if email not in env["readers"]:
+        env["platform"].post("/hospital/staff", headers=hdr(env["admin_tok"]), json={"email": email})
+        _, secret = sign_up(env["platform"], email)
+        env["readers"][email] = secret
+    for ncid in ncids:
+        assign(env, ncid, email)
+    tok = staff_login(env["platform"], email, env["readers"][email])["access_token"]
+    return ctoken(env, tok)
+
+
 def platform_dump(env) -> str:
     """Every value in every platform table, plus the platform's own outbox and audit log."""
     from app.db import get_engine
@@ -225,13 +241,18 @@ def test_print_invite_reinvite_and_clinic_ncid(connector):
 def test_records_down_doctor_view_says_so(connector):
     c, admin = connector["client"], ctoken(connector)
     ncid = c.post("/v1/ncid", headers=admin, json={"mrn": "00012388"}).json()["ncid"]
+    # Clinical data is for the assigned doctor only, not the hospital admin.
+    assert c.get(f"/v1/patients/{ncid}", headers=admin).status_code == 403
+    assert c.get(f"/v1/patients/{ncid}/recordings", headers=admin).status_code == 403
+    desk = admin
+    admin = doctor_for(connector, ncid)
     fake_fhir.DOWN["value"] = True
     view = c.get(f"/v1/patients/{ncid}", headers=admin)
     assert (
         view.status_code == 200 and view.json()["records_available"] is False and view.json()["name"] is None
     )
     assert c.get(f"/v1/patients/{ncid}/recordings", headers=admin).status_code == 200  # recordings still open
-    assert c.get("/v1/patients", params={"q": "asha"}, headers=admin).status_code == 503
+    assert c.get("/v1/patients", params={"q": "asha"}, headers=desk).status_code == 503
 
 
 def test_tokens_and_signatures_are_enforced(connector):
@@ -275,5 +296,6 @@ def test_tokens_and_signatures_are_enforced(connector):
 
 def test_take_of_another_hospital_is_not_served(connector):
     """The platform only returns takes of the signing hospital; the connector only of its NCIDs."""
-    c, admin = connector["client"], ctoken(connector)
-    assert c.get("/v1/takes/doesnotexist/files/video", headers=admin).status_code == 404
+    c = connector["client"]
+    assert c.get("/v1/takes/doesnotexist/files/video", headers=ctoken(connector)).status_code == 403  # admin
+    assert c.get("/v1/takes/doesnotexist/files/video", headers=doctor_for(connector)).status_code == 404

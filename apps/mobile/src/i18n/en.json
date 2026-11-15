@@ -608,7 +608,8 @@
       "settings": "Settings",
       "selfRecorded": "Self-recorded",
       "offline": "You are offline. You can still record; uploads wait for a connection.",
-      "consent": "I agree to record this session and share it with my hospital"
+      "consent": "I agree to record this session and share it with my hospital",
+      "until": "Until your appointment on {{date}}"
     },
     "saw": {
       "title": "Someone to help?",

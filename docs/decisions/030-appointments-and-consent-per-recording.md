@@ -33,6 +33,10 @@
   - "Also repeat every N days" when sending a record link;
   - the plan's "Also record every N days" box on the patient page.
   - Otherwise the patient records only for appointments.
+  - **It runs until the next appointment** (user, 15 Nov 2026): it starts when the doctor turns it
+    on and ends at the patient's first booked appointment after that. The end follows a
+    reschedule or a cancellation. If no appointment is booked, it runs until one is. The platform
+    works out the end (`periodic_until`); the app and dashboard show it.
 - **Reminders** are sent by the connector the day before the record-by date
   (`requests.reminderHoursBefore`). It asks the platform which reminders are due, then reads the
   contact details from the hospital's records. The platform still never holds contact details.

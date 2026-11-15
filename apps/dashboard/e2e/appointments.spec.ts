@@ -76,6 +76,9 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   await expect(page.getByTestId('timeline')).toContainText('Doctor sent record link');
   await expect(page.getByTestId('plan-periodic')).toBeChecked();
   await expect(page.getByTestId('plan-days')).toHaveValue('7');
+  await expect(page.getByTestId('plan-until')).toContainText(
+    'Repeats stop at the next appointment',
+  );
   await page.getByTestId('sign-out').click();
 
   // Reception sees the link went out.

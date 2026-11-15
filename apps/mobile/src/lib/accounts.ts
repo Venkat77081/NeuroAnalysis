@@ -263,6 +263,9 @@ export interface HomePlan {
   every_days: number;
   med_state: 'OFF' | 'ON' | 'ANY';
   default: boolean;
+  /** v3: true while the doctor's "every N days" runs; it stops at the next appointment. */
+  periodic?: boolean;
+  periodic_until?: string | null;
   last_session_at: string | null;
   next_due: string | null;
   due_now: boolean;

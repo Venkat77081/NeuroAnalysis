@@ -507,6 +507,7 @@ export class FakeServer {
       return res(200, {
         ...this.homePlan,
         last_session_at: last,
+        periodic_until: null,
         next_due: due?.toISOString() ?? null,
         due_now: !!due && due.getTime() <= Date.now(),
       });

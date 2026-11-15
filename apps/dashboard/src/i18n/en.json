@@ -209,7 +209,9 @@
     "planned": "Planned",
     "biomarkerHint": "Computed at your hospital from the 60 fps videos; results written to your database under the NCID. Decision support only, not a diagnosis.",
     "noPatients": "No patients are assigned to you yet. The reception desk assigns patients to doctors.",
-    "periodic": "Also record at home every N days (only if you want it)"
+    "periodic": "Also record at home every N days until the next appointment (only if you want it)",
+    "periodicUntil": "Repeats stop at the next appointment, {{date}}.",
+    "periodicNoAppt": "No appointment booked yet: repeats stop at the next one reception books."
   },
   "tests": {
     "FT": "Finger Tapping",

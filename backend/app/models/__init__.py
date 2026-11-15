@@ -228,6 +228,9 @@ class RecordingPlan(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     #: v3: the doctor asked for recording every `every_days` days (otherwise appointments only).
     periodic: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: v3: when the doctor turned periodic recording on. It ends at the patient's first booked
+    #: appointment after this time ("until the next appointment").
+    periodic_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     #: M14: the doctor asked for a new recording (due at once until the patient records again).
     rerecord_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rerecord_tests: Mapped[list | None] = mapped_column(Json)

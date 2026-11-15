@@ -382,13 +382,15 @@ def _new_request(
 
 
 def _set_periodic(db: DbSession, p: Principal, pt: Patient, tests: list[str], med: str, days: int) -> None:
-    """The doctor asked for recordings every `days` days as well (v3: only when asked)."""
+    """The doctor asked for recordings every `days` days as well (v3: only when asked), until the
+    patient's next appointment from now."""
     plan = db.get(RecordingPlan, pt.id)
     if plan is None:
         plan = RecordingPlan(patient_id=pt.id)
         db.add(plan)
     plan.tests, plan.med_state, plan.every_days, plan.periodic = tests, med, days, True
     plan.updated_by, plan.updated_at = p.actor_id, datetime.now(UTC)
+    plan.periodic_since = plan.updated_at
     audit(
         db,
         p.actor_type,

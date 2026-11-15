@@ -126,6 +126,8 @@ interface Plan {
   default: boolean;
   /** v3: also record every `every_days` days between appointments (only when asked). */
   periodic: boolean;
+  /** v3: the next appointment, where the repeats stop (null while none is booked). */
+  periodic_until: string | null;
   rerecord_requested_at: string | null;
 }
 interface PlatformHistory {
@@ -413,6 +415,13 @@ function PlanEditor({ ncid }: { ncid: string }) {
         />
         {t('doctor.periodic')}
       </label>
+      {plan.periodic && (
+        <span className="text-[13px] text-muted" data-testid="plan-until">
+          {plan.periodic_until
+            ? t('doctor.periodicUntil', { date: fmtDate(plan.periodic_until) })
+            : t('doctor.periodicNoAppt')}
+        </span>
+      )}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
           {t('doctor.everyDays')}

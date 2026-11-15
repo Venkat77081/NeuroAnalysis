@@ -406,6 +406,9 @@ function HospitalView({
           <span className="text-[13px] text-muted">
             {t('modes.home.every', { count: plan.every_days })} ·{' '}
             {t('modes.home.minutes', { n: testsMinutes(config, plan.tests).minutes })}
+            {plan.periodic_until
+              ? ` · ${t('modes.home.until', { date: fmtDate(plan.periodic_until, i18n.language) })}`
+              : ''}
           </span>
           <p className="text-[14px] leading-5" data-testid="home-med">
             {t(`modes.home.med${plan.med_state}`)}

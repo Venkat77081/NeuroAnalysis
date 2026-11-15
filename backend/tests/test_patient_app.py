@@ -374,6 +374,37 @@ def test_doctor_can_add_repeat_every_n_days(api, two_hospitals):
     assert r.json()["tests"] == ["FT", "FA"]
     plan = api.get(f"/hospital/patients/{ncid}/plan", headers=dr).json()
     assert plan["periodic"] and plan["every_days"] == 7 and plan["tests"] == ["FT", "FA"]
+    # Until the next appointment: it ends at the appointment (5 days away), not after it.
+    assert plan["periodic_until"].startswith(at[:16])
+    mine = api.get("/patient/plan", headers=ptok).json()
+    assert mine["due_now"] and mine["periodic_until"]
+    # Rescheduling moves the end; once the appointment has passed, the repeats stop.
+    later = (datetime.now(UTC) + timedelta(days=20)).isoformat()
+    api.put(f"/hospital/appointments/{appt['id']}", headers=desk, json={"at": later})
+    assert (
+        api.get(f"/hospital/patients/{ncid}/plan", headers=dr).json()["periodic_until"].startswith(later[:16])
+    )
+    from app.db import _factory
+    from app.models import Appointment, RecordingPlan
+
+    with _factory()() as db:  # time passes: turned on 3 days ago, the appointment was an hour ago
+        pt_id = db.get(Appointment, appt["id"]).patient_id
+        db.get(RecordingPlan, pt_id).periodic_since = datetime.now(UTC) - timedelta(days=3)
+        db.get(Appointment, appt["id"]).at = datetime.now(UTC) - timedelta(hours=1)
+        db.commit()
+    plan = api.get(f"/hospital/patients/{ncid}/plan", headers=dr).json()
+    assert plan["periodic"] is False and plan["periodic_until"] is None
+    mine = api.get("/patient/plan", headers=ptok).json()
+    assert mine["next_due"] is None and mine["due_now"] is False
+    # Turned on again from the plan with no appointment booked: runs until one is booked.
+    body = {"tests": ["FT"], "every_days": 3, "med_state": "OFF", "periodic": True}
+    plan = api.put(f"/hospital/patients/{ncid}/plan", headers=dr, json=body).json()
+    assert plan["periodic"] and plan["periodic_until"] is None
+    soon = (datetime.now(UTC) + timedelta(days=4)).isoformat()
+    api.post("/hospital/appointments", headers=desk, json={"ncid": ncid, "at": soon, "doctor_id": dr_id})
+    assert (
+        api.get(f"/hospital/patients/{ncid}/plan", headers=dr).json()["periodic_until"].startswith(soon[:16])
+    )
 
 
 def test_request_needs_a_joined_patient(api, two_hospitals):

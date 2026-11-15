@@ -61,6 +61,7 @@ def upgrade() -> None:
         t.add_column(sa.Column("withdrawn_at", TS))
     with op.batch_alter_table("recording_plans") as t:
         t.add_column(sa.Column("periodic", sa.Boolean(), nullable=False, server_default=sa.false()))
+        t.add_column(sa.Column("periodic_since", TS))
     # Plans a doctor set before v3 had a cadence: keep them periodic.
     plans = sa.table("recording_plans", sa.column("periodic", sa.Boolean), sa.column("updated_by", sa.String))
     op.get_bind().execute(plans.update().where(plans.c.updated_by != "default").values(periodic=True))
@@ -68,6 +69,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     with op.batch_alter_table("recording_plans") as t:
+        t.drop_column("periodic_since")
         t.drop_column("periodic")
     with op.batch_alter_table("patient_accounts") as t:
         t.drop_column("withdrawn_at")

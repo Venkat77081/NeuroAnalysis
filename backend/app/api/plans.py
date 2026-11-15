@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.audit import audit
 from app.db import get_db
 from app.models import (
+    Appointment,
     DeletionRequest,
     Device,
     Patient,
@@ -34,7 +35,7 @@ class PlanIn(BaseModel):
     tests: list[TestCode] = Field(min_length=1, max_length=5)
     every_days: int = Field(ge=1, le=90)
     med_state: Literal["OFF", "ON", "ANY"]
-    #: v3: record every `every_days` days between appointments (only when the doctor asks).
+    #: v3: record every `every_days` days until the next appointment (only when the doctor asks).
     periodic: bool = False
 
 
@@ -44,22 +45,48 @@ class PlanOut(BaseModel):
     med_state: str
     #: True: the hospital's default (config/platform.json), not set by a doctor yet.
     default: bool
+    #: v3: recording every `every_days` days is on now (it ends at the next appointment).
     periodic: bool = False
+    #: v3: the appointment that ends it; null while none is booked (then it runs until one is).
+    periodic_until: datetime | None = None
     updated_at: datetime | None = None
     #: M14: the doctor's re-record request, if any (tests asked for again).
     rerecord_requested_at: datetime | None = None
     rerecord_tests: list[str] | None = None
 
 
+def _aware(dt: datetime | None) -> datetime | None:
+    return dt if dt is None or dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def periodic_window(db: DbSession, plan: RecordingPlan) -> tuple[bool, datetime | None]:
+    """(on now, ends at): periodic recording runs from when the doctor turned it on until the
+    patient's first booked appointment after that (rescheduling or cancelling it moves the end)."""
+    if not plan.periodic:
+        return False, None
+    since = _aware(plan.periodic_since or plan.updated_at)
+    until = db.scalar(
+        select(func.min(Appointment.at)).where(
+            Appointment.patient_id == plan.patient_id,
+            Appointment.status == "booked",
+            Appointment.at > since,
+        )
+    )
+    until = _aware(until)
+    return (until is None or datetime.now(UTC) < until), until
+
+
 def plan_for(db: DbSession, patient_id: str) -> PlanOut:
     plan = db.get(RecordingPlan, patient_id)
     if plan:
+        on, until = periodic_window(db, plan)
         return PlanOut(
             tests=list(plan.tests),
             every_days=plan.every_days,
             med_state=plan.med_state,
             default=plan.updated_by == "default",
-            periodic=plan.periodic,
+            periodic=on,
+            periodic_until=until if on else None,
             updated_at=plan.updated_at,
             rerecord_requested_at=plan.rerecord_requested_at,
             rerecord_tests=list(plan.rerecord_tests) if plan.rerecord_tests else None,
@@ -96,7 +123,10 @@ def set_plan(
     pt = _patient(db, p, ncid)
     tests = list(dict.fromkeys(body.tests))
     plan = db.get(RecordingPlan, pt.id) or RecordingPlan(patient_id=pt.id)
+    was_on = periodic_window(db, plan)[0]
     plan.tests, plan.every_days, plan.med_state = tests, body.every_days, body.med_state
+    if body.periodic and not was_on:
+        plan.periodic_since = datetime.now(UTC)  # until the next appointment from now
     plan.periodic = body.periodic
     plan.updated_by, plan.updated_at = p.actor_id, datetime.now(UTC)
     db.add(plan)
@@ -145,6 +175,8 @@ def patient_plan(
     # v3: only a periodic plan (the doctor asked for it) makes recording due between appointments;
     # appointments come as recording requests (/patient/requests).
     nxt = (last + timedelta(days=plan.every_days) if last else datetime.now(UTC)) if plan.periodic else None
+    if nxt is not None and plan.periodic_until is not None and nxt >= plan.periodic_until:
+        nxt = None  # the next appointment comes first: nothing more is due before it
     return PatientPlanOut(
         **plan.model_dump(),
         last_session_at=last,

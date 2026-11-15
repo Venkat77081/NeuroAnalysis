@@ -1,15 +1,31 @@
-/** M13 patient app: accept the hospital's invite (link, SMS code or QR), choose a PIN, consent. */
+/**
+ * Patient app: join a hospital with its invite (link, SMS code or QR) and a PIN. v3: no consent
+ * here (only a notice of how data is used); consent is asked before each recording. Also used to
+ * join another hospital, or to come back to one after withdrawing (the hospital sends a new invite).
+ */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
 import { acceptInvite, inviteToken, lookupInvite, type InviteInfo } from '../../lib/accounts.ts';
 import { uploadPrefs } from '../../lib/uploads.ts';
-import { Button, Card } from '../../ui/kit.tsx';
+import { hospitalsOf, profileFor, withHospital } from '../../lib/hospitals.ts';
+import { BackButton, Button, Card } from '../../ui/kit.tsx';
 import { QrScanner } from './QrScanner.tsx';
 import { attempt, ErrorText, Field, Screen } from '../modes/Common.tsx';
 
-export function InviteFlow({ initialToken }: { initialToken: string | null }) {
+export function InviteFlow({
+  initialToken,
+  adding = false,
+  onDone,
+  onCancel,
+}: {
+  initialToken: string | null;
+  /** v3: the patient already joined a hospital and adds another one. */
+  adding?: boolean;
+  onDone?: () => void;
+  onCancel?: () => void;
+}) {
   const { t } = useTranslation();
   const { config, settings, saveSettings, caps } = useApp();
   const [endpoint, setEndpoint] = useState(
@@ -20,7 +36,6 @@ export function InviteFlow({ initialToken }: { initialToken: string | null }) {
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [pin, setPin] = useState('');
   const [pin2, setPin2] = useState('');
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -45,33 +60,54 @@ export function InviteFlow({ initialToken }: { initialToken: string | null }) {
   const accept = () =>
     attempt(setBusy, setError, async () => {
       if (pin !== pin2) throw new Error('pin_mismatch');
+      const known = hospitalsOf(settings);
       const out = await acceptInvite(
         capture.kit,
         endpoint,
         token!,
         pin,
-        info!.consentVersion,
         { model: caps?.device.model ?? 'unknown', osVersion: caps?.device.osVersion ?? 'unknown' },
         uploadPrefs(settings, config),
+        (siteId) => profileFor(known, siteId),
       );
       await capture.kit.lockAppMode({ mode: 'patient' }); // this phone can never become a clinic phone
-      await saveSettings({
-        ...settings,
-        server: out.link,
-        signedIn: { operatorId: 'patient', operatorCode: 'patient', role: 'patient' },
-        operatorId: 'patient',
-        patient: {
-          hospital: out.hospital,
-          ncid: out.ncid,
-          consentVersion: info!.consentVersion,
-          consentAt: new Date().toISOString(),
-        },
-      });
+      const now = new Date().toISOString();
+      // The invite is used: tell the caller first, so it is not offered again on the next render.
+      onDone?.();
+      await saveSettings(
+        withHospital(
+          {
+            ...settings,
+            hospitals: known,
+            signedIn: { operatorId: 'patient', operatorCode: 'patient', role: 'patient' },
+            operatorId: 'patient',
+            patient: settings.patient ?? {
+              hospital: out.hospital,
+              ncid: out.ncid,
+              consentVersion: info!.consentVersion,
+              consentAt: now,
+            },
+          },
+          {
+            profile: out.profile,
+            hospital: out.hospital,
+            ncid: out.ncid,
+            link: out.link,
+            joinedAt: now,
+            withdrawnAt: null,
+          },
+        ),
+      );
     });
 
   if (!info)
     return (
-      <Screen title={t('modes.invite.title')}>
+      <Screen title={t(adding ? 'modes.hospitals.joinTitle' : 'modes.invite.title')}>
+        {onCancel && (
+          <div className="-mt-2">
+            <BackButton onClick={onCancel} label={t('common.back')} />
+          </div>
+        )}
         {scanning && (
           <QrScanner
             onResult={(text) => {
@@ -124,7 +160,9 @@ export function InviteFlow({ initialToken }: { initialToken: string | null }) {
         <span className="text-[16px] font-bold">{info.hospital}</span>
       </div>
       <h1 className="text-[26px] leading-8 font-bold">{t('modes.invite.pinTitle')}</h1>
-      <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('modes.invite.pinHint')}</p>
+      <p className="text-[15px] leading-[22px] text-[#3D4552]">
+        {t(adding ? 'modes.hospitals.samePin' : 'modes.invite.pinHint')}
+      </p>
       <Field
         id="pin1"
         label={t('modes.invite.pin', { min: info.pinMin, max: info.pinMax })}
@@ -143,21 +181,11 @@ export function InviteFlow({ initialToken }: { initialToken: string | null }) {
         onChange={(e) => setPin2(e.target.value)}
         data-testid="pin2"
       />
-      <Card className="flex flex-col gap-2">
-        <h2 className="text-[15px] font-bold">{t('modes.invite.consentTitle')}</h2>
+      <Card className="flex flex-col gap-2" data-testid="invite-notice">
+        <h2 className="text-[15px] font-bold">{t('modes.invite.noticeTitle')}</h2>
         <p className="text-[13px] leading-[19px] text-[#3D4552]">
-          {t('modes.invite.consentBody', { hospital: info.hospital })}
+          {t('modes.invite.noticeBody', { hospital: info.hospital })}
         </p>
-        <label className="flex min-h-12 items-center gap-2.5 text-[14px]">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            className="size-[22px] accent-brand"
-            data-testid="invite-consent"
-          />
-          {t('modes.invite.consentCheck')}
-        </label>
       </Card>
       {error === 'pin_mismatch' ? (
         <p role="alert" className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad">
@@ -171,11 +199,7 @@ export function InviteFlow({ initialToken }: { initialToken: string | null }) {
           {t('modes.invite.pinFormat', { min: info.pinMin, max: info.pinMax })}
         </p>
       )}
-      <Button
-        disabled={busy || !pinOk || !consent}
-        onClick={() => void accept()}
-        data-testid="invite-accept"
-      >
+      <Button disabled={busy || !pinOk} onClick={() => void accept()} data-testid="invite-accept">
         {t('modes.invite.accept')}
       </Button>
     </div>

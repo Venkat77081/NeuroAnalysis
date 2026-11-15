@@ -62,18 +62,47 @@ describe('fake server patient path (M13)', () => {
       method: 'GET',
       headers: { Authorization: `Bearer ${at}` },
     });
-    expect(await plan.json()).toMatchObject({
+    // v3: appointments only (nothing due) until the doctor asks for periodic recording.
+    expect(await plan.json()).toMatchObject({ due_now: false, next_due: null });
+    srv.homePlan.periodic = true;
+    const plan2 = await srv.http('fake://api/patient/plan', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${at}` },
+    });
+    expect(await plan2.json()).toMatchObject({
       due_now: true,
       tests: ['FT', 'FTF', 'FR', 'SAW', 'FA'],
     });
+    // v3: the doctor's record link; recording for it marks it recorded.
+    const rq = srv.sendRequest(acc.ncid, { tests: ['FT'] });
+    const reqs = async () =>
+      (await (
+        await srv.http('fake://api/patient/requests', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${at}` },
+        })
+      ).json()) as { id: string; state: string; tests: string[] }[];
+    expect(await reqs()).toMatchObject([{ id: rq, state: 'open', tests: ['FT'] }]);
     const s = await post(
       srv,
       '/sessions',
-      { client_session_id: 'h1', med_state: 'OFF', started_at: new Date().toISOString() },
+      {
+        client_session_id: 'h1',
+        med_state: 'OFF',
+        started_at: new Date().toISOString(),
+        request_id: rq,
+      },
       at,
     );
     expect(await s.json()).toMatchObject({ encryption_key: { key_id: 'hk-fake-1' } });
     expect(srv.homeSessions()).toHaveLength(1);
+    // Another hospital: its own name and NCID; the first hospital's requests stay there.
+    const t3 = srv.issueInvite(undefined, { hospital: 'Lakeview Hospital', siteId: 'site2' });
+    const other = (await (
+      await post(srv, '/patient/invite/accept', { token: t3.split('t=')[1], pin: '2580' })
+    ).json()) as { hospital: string; site_id: string; ncid: string };
+    expect([other.hospital, other.site_id]).toEqual(['Lakeview Hospital', 'site2']);
+    expect(other.ncid).not.toBe(acc.ncid);
     // Patients refresh at /patient/refresh only.
     expect(
       (await post(srv, '/auth/refresh', { refresh_token: acc.tokens.refresh_token })).status,

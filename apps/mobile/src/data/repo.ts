@@ -1,6 +1,7 @@
 import type { Patient } from '../session/machine.ts';
 import type { ServerLink, SignedIn } from '../lib/uploads.ts';
 import type { AppStore } from './store.ts';
+import type { PatientHospital } from '../lib/hospitals.ts';
 
 const SESSION_KEY = 'session.current';
 
@@ -22,6 +23,8 @@ export interface Settings {
   patient: { hospital: string; ncid: string; consentVersion: string; consentAt: string } | null;
   /** M13: the operator must choose a new password before recording. */
   mustChangePassword: boolean;
+  /** v3 patient app: every hospital joined (the first active one is also `server`/`patient`). */
+  hospitals: PatientHospital[];
 }
 
 export const defaultSettings: Settings = {
@@ -35,6 +38,7 @@ export const defaultSettings: Settings = {
   localDev: false,
   patient: null,
   mustChangePassword: false,
+  hospitals: [],
 };
 
 /** Patients, session snapshot and settings on top of an AppStore. */

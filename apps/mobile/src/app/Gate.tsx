@@ -8,7 +8,8 @@ import type { AppMode } from '@neurocapture/capture-kit';
 import { useApp } from './AppContext.tsx';
 import { useSession } from '../session/useSession.ts';
 import { capture } from '../lib/capture.ts';
-import { inviteToken, operatorSignIn, patientSignIn } from '../lib/accounts.ts';
+import { inviteToken, operatorSignIn, unlockHospitals } from '../lib/accounts.ts';
+import { activeHospitals, hospitalsOf } from '../lib/hospitals.ts';
 import { uploadPrefs } from '../lib/uploads.ts';
 import { onInviteLink } from '../lib/deeplink.ts';
 import { RoleChooser } from '../screens/modes/RoleChooser.tsx';
@@ -20,7 +21,7 @@ import {
   OperatorSignIn,
 } from '../screens/modes/ClinicScreens.tsx';
 import { InviteFlow } from '../screens/patient/InviteFlow.tsx';
-import { PatientApp, WithdrawnScreen } from '../screens/patient/PatientApp.tsx';
+import { PatientApp } from '../screens/patient/PatientApp.tsx';
 
 const params = new URLSearchParams(globalThis.location?.search ?? '');
 /** Mock only: `?mode=clinic-local` = a clinic phone with a local operator, no server (older e2e). */
@@ -73,7 +74,6 @@ export function Gate({
   const [invite, setInvite] = useState<string | null>(null);
   /** An invite dismissed on a clinic phone (it stays refused). */
   const [dismissed, setDismissed] = useState<string | null>(null);
-  const [withdrawn, setWithdrawn] = useState(false);
   // Signed in → the app opens locked; unlocking signs in again with the server.
   const [locked, setLocked] = useState(!!settings.signedIn && !settings.localDev);
   useEffect(() => {
@@ -123,18 +123,6 @@ export function Gate({
 
   if (mode === undefined) return <>{loading}</>;
   if (blocked) return <ClinicBlocked onOk={() => setDismissed(invite)} />;
-  if (withdrawn)
-    return (
-      <WithdrawnScreen
-        onOk={() => {
-          setWithdrawn(false);
-          setChoice(null);
-          setInvite(null);
-          setMode(null);
-          setLocked(false);
-        }}
-      />
-    );
   const prefs = uploadPrefs(settings, config);
   const unlockOperator = async (password: string) => {
     const who = await operatorSignIn(
@@ -146,7 +134,8 @@ export function Gate({
     );
     if (who.mustChangePassword) await saveSettings({ ...settings, mustChangePassword: true });
   };
-  const unlockPatient = (pin: string) => patientSignIn(capture.kit, settings.server!, pin, prefs);
+  const unlockPatient = (pin: string) =>
+    unlockHospitals(capture.kit, activeHospitals(settings), pin, prefs);
 
   if (effective === null) return <RoleChooser onPick={setChoice} />;
 
@@ -174,10 +163,26 @@ export function Gate({
   }
 
   // Patient app
-  if (!settings.patient) return <InviteFlow initialToken={invite} />;
-  if (locked)
+  if (hospitalsOf(settings).length === 0)
+    return (
+      <InviteFlow
+        initialToken={invite}
+        onDone={() => {
+          setMode('patient'); // locked natively by the invite flow
+          setInvite(null);
+        }}
+      />
+    );
+  // After withdrawing from every hospital only the read-only history is left: nothing to unlock.
+  if (locked && activeHospitals(settings).length > 0)
     return <LockScreen kind="patient" unlock={unlockPatient} onUnlock={() => setLocked(false)} />;
   if (snapshot.matches('setup'))
-    return <PatientApp onLock={() => setLocked(true)} onSignedOut={() => setWithdrawn(true)} />;
+    return (
+      <PatientApp
+        onLock={() => setLocked(true)}
+        invite={invite}
+        onInviteUsed={() => setInvite(null)}
+      />
+    );
   return <>{sessionScreens()}</>;
 }

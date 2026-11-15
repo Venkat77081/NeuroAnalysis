@@ -73,6 +73,9 @@ export interface SessionInput {
   /** Reasons for ending a session before all tests are done (config `abortReasons`). */
   abortReasons: string[];
   consentVersion: string;
+  /** v3 patient app: the hospital's upload profile and the record link this session answers. */
+  uploadProfile?: string;
+  requestId?: string | null;
 }
 
 export interface SessionContext extends SessionInput {

@@ -161,20 +161,23 @@ export async function lookupInvite(
   };
 }
 
+/**
+ * Joins a hospital (v3: no consent here; it is asked before each recording). `profile` picks the
+ * CaptureKit upload profile from the site ID the server returns (see lib/hospitals.ts).
+ */
 export async function acceptInvite(
   kit: CaptureKitPlugin,
   endpoint: string,
   token: string,
   pin: string,
-  consentVersion: string,
   device: { model: string; osVersion: string },
   prefs: { wifiOnly: boolean; retentionHours: number },
-): Promise<{ link: ServerLink; hospital: string; ncid: string }> {
+  profile: (siteId: string) => string,
+): Promise<{ link: ServerLink; hospital: string; ncid: string; profile: string }> {
   const base = trimSlash(endpoint);
   const r = await postJson(kit, base, '/patient/invite/accept', {
     token,
     pin,
-    consent_version: consentVersion,
     model: device.model.slice(0, 100),
     os_version: device.osVersion.slice(0, 50),
   });
@@ -199,13 +202,15 @@ export async function acceptInvite(
     serverKeyId: b.server_key.key_id,
     serverPublicKeyPem: b.server_key.public_key_pem,
   };
+  const p = profile(b.site_id);
   await kit.configureUploads({
     ...uploadConfig(link, prefs),
     accessToken: b.tokens.access_token,
     refreshToken: b.tokens.refresh_token,
     refreshPath: '/patient/refresh',
+    profile: p,
   });
-  return { link, hospital: b.hospital, ncid: b.ncid };
+  return { link, hospital: b.hospital, ncid: b.ncid, profile: p };
 }
 
 /** When the stored tokens no longer work: sign in again with the PIN (server-checked). */
@@ -214,6 +219,7 @@ export async function patientSignIn(
   link: ServerLink,
   pin: string,
   prefs: { wifiOnly: boolean; retentionHours: number },
+  profile?: string,
 ): Promise<void> {
   const r = await postJson(kit, link.endpoint, '/patient/login', {
     device_id: link.deviceId,
@@ -229,7 +235,27 @@ export async function patientSignIn(
     accessToken: b.access_token,
     refreshToken: b.refresh_token,
     refreshPath: '/patient/refresh',
+    ...(profile ? { profile } : {}),
   });
+}
+
+/**
+ * v3 unlock: the PIN is checked by the first hospital still joined (its wrong attempts count
+ * towards its lockout); the other hospitals are signed in with it too, best effort (the patient
+ * uses one PIN for every hospital on this phone).
+ */
+export async function unlockHospitals(
+  kit: CaptureKitPlugin,
+  hospitals: { link: ServerLink; profile: string }[],
+  pin: string,
+  prefs: { wifiOnly: boolean; retentionHours: number },
+): Promise<void> {
+  const [first, ...rest] = hospitals;
+  if (!first) return;
+  await patientSignIn(kit, first.link, pin, prefs, first.profile);
+  await Promise.all(
+    rest.map((h) => patientSignIn(kit, h.link, pin, prefs, h.profile).catch(() => undefined)),
+  );
 }
 
 export interface HomePlan {

@@ -3,6 +3,7 @@ import type { UploadStatus } from '@neurocapture/capture-kit';
 import { capture } from '../../lib/capture.ts';
 import { logger } from '../../lib/logger.ts';
 import { queueSession, uploadPrefs } from '../../lib/uploads.ts';
+import { hospitalsOf } from '../../lib/hospitals.ts';
 import { UploadSetup } from '../UploadSetup.tsx';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
@@ -204,7 +205,9 @@ function useSessionUploads(): Record<string, UploadStatus> {
   const { config, settings } = useApp();
   const { ctx } = useSession();
   const [byTake, setByTake] = useState<Record<string, UploadStatus>>({});
-  const server = settings.server;
+  // v3: a patient session uploads to the hospital it was recorded for.
+  const server =
+    hospitalsOf(settings).find((h) => h.profile === ctx.uploadProfile)?.link ?? settings.server;
   const signedIn = !!settings.signedIn;
 
   const training = ctx.training;

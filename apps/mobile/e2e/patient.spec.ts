@@ -1,22 +1,24 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * M13 acceptance (mock mode): a patient accepts an e-mail invite, chooses a PIN, consents, and
- * uploads a full home session with the doctor's plan. The take keys are wrapped with the hospital
- * key of the session. Then: the PIN lock, recordings, and withdrawing consent.
+ * v3 acceptance (mock mode): a patient joins a hospital with an e-mail invite and a PIN (no
+ * consent at joining). Nothing to record until the doctor sends a record link; then consent on its
+ * own screen right before the camera, a full home session for that request, uploaded with the
+ * hospital's key. History, the PIN lock, joining a second hospital, and withdrawing from one
+ * (its history stays readable; the other hospital is not affected).
  */
 const URL = '/?mockSpeed=20';
 
 interface Fake {
-  issueInvite(): string;
-  homeSessions(): unknown[];
+  issueInvite(token?: string, opts?: { hospital?: string; siteId?: string }): string;
+  sendRequest(ncid: string, opts?: { tests?: string[] }): string;
+  joinedNcids(): string[];
+  homeSessions(): { requestId: string | null }[];
   takeKeyIds: string[];
 }
+type W = { __ncMock: { fakeServer: Fake } };
 const fake = (page: Page) =>
-  page.evaluate(() => {
-    const f = (globalThis as unknown as { __ncMock: { fakeServer: Fake } }).__ncMock.fakeServer;
-    return { link: f.issueInvite() };
-  });
+  page.evaluate(() => ({ link: (globalThis as unknown as W).__ncMock.fakeServer.issueInvite() }));
 
 async function recordAndAccept(page: Page) {
   await page.getByTestId('set-up-camera').click();
@@ -26,8 +28,10 @@ async function recordAndAccept(page: Page) {
   await page.getByTestId('accept').click();
 }
 
-test('M13: e-mail invite → PIN → consent → full home session uploaded', async ({ page }) => {
-  test.setTimeout(150_000);
+test('v3: join → record link → consent → home session; second hospital; withdraw one', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
@@ -41,23 +45,44 @@ test('M13: e-mail invite → PIN → consent → full home session uploaded', as
   await page.getByTestId('invite-text').fill(link);
   await page.getByTestId('invite-continue').click();
   await expect(page.getByTestId('invite-hospital')).toContainText('Demo Hospital');
+  await expect(page.getByTestId('invite-notice')).toBeVisible(); // a notice, no consent box
   await page.getByTestId('pin1').fill('2580');
   await page.getByTestId('pin2').fill('9999');
-  await expect(page.getByTestId('invite-accept')).toBeDisabled(); // consent not given yet
-  await page.getByTestId('invite-consent').check();
   await page.getByTestId('invite-accept').click();
   await expect(page.getByRole('alert')).toContainText('do not match');
   await page.getByTestId('pin2').fill('2580');
   await page.getByTestId('invite-accept').click();
 
-  // Home: the doctor's plan.
-  await expect(page.getByTestId('home-plan')).toBeVisible();
-  await expect(page.getByTestId('home-due')).toBeVisible();
-  await expect(page.getByTestId('home-med')).toContainText('medicine OFF');
-  await page.screenshot({ path: 'test-results/patient-home.png', fullPage: true });
-  await expect(page.getByTestId('home-start')).toBeDisabled(); // consent for this session first
-  await page.getByTestId('home-consent').check();
-  await page.getByTestId('home-start').click();
+  // My hospitals: joined, nothing to record yet.
+  await expect(page.getByTestId('hospital-card')).toHaveCount(1);
+  await expect(page.getByTestId('hospital-badge')).toHaveText('Joined');
+  await page.getByTestId('hospital-card').click();
+  await expect(page.getByTestId('no-requests')).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+
+  // The doctor chooses the tests and sends the record link.
+  const rq = await page.evaluate(() => {
+    const f = (globalThis as unknown as W).__ncMock.fakeServer;
+    return f.sendRequest(f.joinedNcids()[0]!);
+  });
+  // (The fake server lives in the page: no reload here.) Opening the hospital fetches it live.
+  await page.getByTestId('hospital-card').click();
+  await expect(page.getByTestId('request-card')).toContainText('Dr. Rao asks for 5 tests');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('hospital-badge')).toHaveText('1 request');
+  await page.getByTestId('hospital-card').click();
+  await page.screenshot({ path: 'test-results/patient-hospital.png', fullPage: true });
+  await page.getByTestId('request-start').click();
+
+  // Consent right before the camera: no tick, no recording.
+  await expect(page.getByTestId('consent-for')).toContainText('Demo Hospital');
+  await expect(page.getByTestId('consent-start')).toBeDisabled();
+  await page.getByTestId('consent-cancel').click();
+  await expect(page.getByTestId('request-card')).toBeVisible();
+  await page.getByTestId('request-start').click();
+  await page.getByTestId('consent-check').check();
+  await page.screenshot({ path: 'test-results/patient-consent.png', fullPage: true });
+  await page.getByTestId('consent-start').click();
 
   for (let i = 0; i < 5; i++) {
     await expect(page.getByTestId('test-of')).toHaveText(`Test ${i + 1} of 5`);
@@ -75,41 +100,63 @@ test('M13: e-mail invite → PIN → consent → full home session uploaded', as
     timeout: 30_000,
   });
   const srv = await page.evaluate(() => {
-    const f = (globalThis as unknown as { __ncMock: { fakeServer: Fake } }).__ncMock.fakeServer;
-    return { sessions: f.homeSessions().length, keys: f.takeKeyIds };
+    const f = (globalThis as unknown as W).__ncMock.fakeServer;
+    return { sessions: f.homeSessions(), keys: f.takeKeyIds };
   });
-  expect(srv.sessions).toBe(1); // recorded as the patient's own (home) session
+  expect(srv.sessions).toMatchObject([{ requestId: rq }]); // the session answers the request
   expect(srv.keys).toEqual(Array(5).fill('hk-fake-1')); // only the hospital's key, never the platform's
 
-  // Back home; recordings list; lock and unlock with the PIN.
+  // Back home: the request is now history.
   await page.getByTestId('end-session').click();
-  await expect(page.getByTestId('home-plan')).toBeVisible();
-  await page.getByTestId('home-recordings').click();
-  await expect(page.getByTestId('rec-session')).toHaveCount(1);
+  await expect(page.getByTestId('hospital-badge')).toHaveText('Joined');
+  await page.getByTestId('hospital-card').click();
+  await expect(page.getByTestId('history-request')).toContainText('Recorded · uploaded');
   await expect(page.getByTestId('rec-session')).toContainText('5 tests uploaded');
   await page.getByRole('button', { name: 'Back' }).click();
+
+  // Lock and unlock with the PIN.
   await page.getByTestId('lock-now').click();
   await page.getByTestId('unlock-secret').fill('1111');
   await page.getByTestId('unlock').click();
   await expect(page.getByRole('alert')).toContainText('not right');
   await page.getByTestId('unlock-secret').fill('2580');
   await page.getByTestId('unlock').click();
-  await expect(page.getByTestId('home-plan')).toBeVisible();
 
-  // Withdraw consent: the phone is signed out and wiped, back to the first screen.
-  await page.getByTestId('home-settings').click();
-  await page.getByTestId('withdraw-delete').check();
+  // A second hospital, with the same PIN.
+  const second = await page.evaluate(() =>
+    (globalThis as unknown as W).__ncMock.fakeServer.issueInvite(undefined, {
+      hospital: 'Lakeview Hospital',
+      siteId: 'site2',
+    }),
+  );
+  await page.getByTestId('join-hospital').click();
+  await page.getByTestId('invite-text').fill(second);
+  await page.getByTestId('invite-continue').click();
+  await expect(page.getByTestId('invite-hospital')).toContainText('Lakeview Hospital');
+  await page.getByTestId('pin1').fill('2580');
+  await page.getByTestId('pin2').fill('2580');
+  await page.getByTestId('invite-accept').click();
+  await expect(page.getByTestId('hospital-card')).toHaveCount(2);
+  await page.screenshot({ path: 'test-results/patient-hospitals.png', fullPage: true });
+
+  // Withdraw from the first: history stays, read only; the other hospital is not affected.
+  await page.getByTestId('hospital-card').filter({ hasText: 'Demo Hospital' }).click();
   await page.getByTestId('withdraw').click();
   await page.getByTestId('withdraw-yes').click();
-  await expect(page.getByTestId('withdrawn')).toBeVisible();
-  await page.getByRole('button', { name: 'OK' }).click();
-  await expect(page.getByTestId('role-patient')).toBeVisible();
+  await expect(page.getByTestId('hospital-withdrawn')).toBeVisible();
+  await expect(page.getByTestId('history-request')).toContainText('Recorded · uploaded');
+  await expect(page.getByTestId('request-start')).toBeHidden();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(
+    page.getByTestId('hospital-card').filter({ hasText: 'Demo Hospital' }),
+  ).toContainText('Withdrawn');
+  await expect(
+    page.getByTestId('hospital-card').filter({ hasText: 'Lakeview Hospital' }),
+  ).toContainText('Joined');
   expect(errors).toEqual([]);
 });
 
-test('M13: an invite link opens straight to the PIN screen; the app opens locked', async ({
-  page,
-}) => {
+test('an invite link opens straight to the PIN screen; the app opens locked', async ({ page }) => {
   await page.goto(URL);
   const { link } = await fake(page);
   await page.evaluate(
@@ -119,9 +166,8 @@ test('M13: an invite link opens straight to the PIN screen; the app opens locked
   await expect(page.getByTestId('invite-hospital')).toContainText('Demo Hospital');
   await page.getByTestId('pin1').fill('135790');
   await page.getByTestId('pin2').fill('135790');
-  await page.getByTestId('invite-consent').check();
-  await page.getByTestId('invite-accept').click();
-  await expect(page.getByTestId('home-plan')).toBeVisible();
+  await page.getByTestId('invite-accept').click(); // v3: no consent box at joining
+  await expect(page.getByTestId('hospital-card')).toBeVisible();
   await page.reload();
   await expect(page.getByTestId('unlock-secret')).toBeVisible();
   await expect(page.getByTestId('role-patient')).toBeHidden();

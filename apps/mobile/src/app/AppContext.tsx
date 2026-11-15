@@ -33,8 +33,15 @@ export interface AppServices {
   caps: DeviceCapabilities | null;
   /** Archive the finished session and start a new one. */
   newSession(): Promise<void>;
-  /** M13 patient app: a home session with the doctor's plan (tests in protocol order). */
-  startHomeSession(tests: string[], medState: 'ON' | 'OFF'): Promise<void>;
+  /**
+   * Patient app: a home session for one hospital (tests in protocol order). v3: consent was
+   * ticked on the consent screen just before (`consentAt`); `requestId` is the record link.
+   */
+  startHomeSession(
+    tests: string[],
+    medState: 'ON' | 'OFF',
+    opts?: { profile: string; requestId: string | null; consentVersion: string; consentAt: string },
+  ): Promise<void>;
   /** M13: wipe this phone (after withdrawing consent): CaptureKit data, app data, app mode. */
   resetApp(): Promise<void>;
 }
@@ -165,13 +172,17 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         await r.clearSession();
         setActor(watch(startSession(inputFor(config, settings.operatorId))));
       },
-      async startHomeSession(tests: string[], medState: 'ON' | 'OFF') {
+      async startHomeSession(tests, medState, opts) {
         await saving.current;
         actor.stop();
         await r.clearSession();
         const input = {
           ...inputFor(config, 'patient', tests),
-          consentVersion: settings.patient?.consentVersion ?? config.platform.consentVersion,
+          consentVersion:
+            opts?.consentVersion ||
+            settings.patient?.consentVersion ||
+            config.platform.consentVersion,
+          ...(opts ? { uploadProfile: opts.profile, requestId: opts.requestId } : {}),
         };
         const a = watch(startSession(input));
         a.send({
@@ -182,7 +193,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         a.send({
           type: 'SET_CONSENT',
           given: true,
-          at: new Date().toISOString(), // ticked on the home screen for this session
+          at: opts?.consentAt ?? new Date().toISOString(), // ticked for this session
         });
         a.send({ type: 'START', at: new Date().toISOString() });
         setActor(a);

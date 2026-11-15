@@ -16,6 +16,8 @@ const HOSPITAL_KEY = {
 
 interface FakePatient {
   ncid: string;
+  hospital: string;
+  siteId: string;
   pin: string;
   deviceId: string;
   deviceSecret: string;
@@ -43,8 +45,27 @@ export class FakeServer {
   private refresh = new Map<string, string>();
   private sessions = new Map<
     string,
-    { id: string; closed: boolean; patient: string | null; startedAt: string; medState: string }
+    {
+      id: string;
+      closed: boolean;
+      patient: string | null;
+      startedAt: string;
+      medState: string;
+      requestId: string | null;
+    }
   >();
+  /** v3: recording requests the (fake) doctor sent, by NCID. */
+  readonly requests: {
+    id: string;
+    ncid: string;
+    kind: 'appointment' | 'rerecord';
+    appointment_at: string | null;
+    doctor_name: string | null;
+    tests: string[];
+    med_state: string;
+    due_at: string;
+    cancelled?: boolean;
+  }[] = [];
   /** Operators: ID → password (M13). OP-07 keeps the pre-M13 PIN; OP-NEW must change its temporary one. */
   readonly operators = new Map<string, { password: string; mustChange: boolean; failed?: number }>([
     ['OP-07', { password: '2468', mustChange: false }],
@@ -57,9 +78,14 @@ export class FakeServer {
     every_days: 7,
     med_state: 'OFF',
     default: true,
+    /** v3: recording between appointments only when the doctor asked for it. */
+    periodic: false,
   };
   private principals = new Map<string, { kind: 'operator' | 'patient'; id: string }>();
-  private invites = new Map<string, { used: boolean; ncid: string }>();
+  private invites = new Map<
+    string,
+    { used: boolean; ncid: string; hospital: string; siteId: string }
+  >();
   readonly patients = new Map<string, FakePatient>();
   /** The hospital connector's NCID map (fake://connector): MRN → NCID. */
   readonly connectorMap = new Map<string, string>();
@@ -105,11 +131,55 @@ export class FakeServer {
     return `nc_${hex}`;
   }
 
-  /** Test hook: a hospital admin sends a home-recording invite; returns the link in the e-mail. */
-  issueInvite(fixedToken?: string): string {
+  /**
+   * Test hook: a hospital's reception sends a join invite; returns the link in the e-mail.
+   * v3: `hospital`/`siteId` for a second hospital; `ncid` to invite a patient back after withdrawing.
+   */
+  issueInvite(
+    fixedToken?: string,
+    opts: { hospital?: string; siteId?: string; ncid?: string } = {},
+  ): string {
     const token = fixedToken ?? `inv${++this.seq}${Math.random().toString(36).slice(2, 10)}`;
-    this.invites.set(token, { used: false, ncid: this.ncid() });
+    this.invites.set(token, {
+      used: false,
+      ncid: opts.ncid ?? this.ncid(),
+      hospital: opts.hospital ?? this.hospital,
+      siteId: opts.siteId ?? 'site1',
+    });
     return `neurocapture://invite?t=${token}`;
+  }
+
+  /** v3 test hook: the doctor sends a record link (due in `dueDays`) to the patient with this NCID. */
+  sendRequest(
+    ncid: string,
+    opts: {
+      tests?: string[];
+      dueDays?: number;
+      appointmentDays?: number | null;
+      doctor?: string;
+    } = {},
+  ): string {
+    const id = this.id('rq');
+    const day = 86_400_000;
+    this.requests.push({
+      id,
+      ncid,
+      kind: opts.appointmentDays === null ? 'rerecord' : 'appointment',
+      appointment_at:
+        opts.appointmentDays === null
+          ? null
+          : new Date(Date.now() + (opts.appointmentDays ?? 3) * day).toISOString(),
+      doctor_name: opts.doctor ?? 'Dr. Rao',
+      tests: opts.tests ?? ['FT', 'FTF', 'FR', 'SAW', 'FA'],
+      med_state: 'OFF',
+      due_at: new Date(Date.now() + (opts.dueDays ?? 2) * day).toISOString(),
+    });
+    return id;
+  }
+
+  /** v3 test hook: the NCIDs of the patients who joined, newest last. */
+  joinedNcids(): string[] {
+    return [...this.patients.values()].map((p) => p.ncid);
   }
 
   /** Sessions recorded by a patient (home) — for tests. */
@@ -239,6 +309,7 @@ export class FakeServer {
           patient: who,
           startedAt: String(body.started_at),
           medState: String(body.med_state),
+          requestId: typeof body.request_id === 'string' ? body.request_id : null,
         });
       const s = this.sessions.get(key)!;
       return res(201, { id: s.id, client_session_id: key, encryption_key: HOSPITAL_KEY });
@@ -328,7 +399,7 @@ export class FakeServer {
       if (!inv || inv.used) return res(403, { detail: { code: 'invite_invalid' } });
       if (path === '/patient/invite/lookup')
         return res(200, {
-          hospital: this.hospital,
+          hospital: inv.hospital,
           kind: 'hospital',
           consent_version: 'home-consent@1',
           pin_min_digits: 4,
@@ -336,14 +407,15 @@ export class FakeServer {
         });
       const pin = String(body.pin);
       if (!/^\d{4,6}$/.test(pin)) return res(422, { detail: { code: 'pin_format' } });
-      if (body.consent_version !== 'home-consent@1')
-        return res(422, { detail: { code: 'consent_version' } });
+      // v3: no consent at joining (consent is asked for each recording session).
       inv.used = true;
       const acc = this.id('pa');
       const deviceId = this.id('pdev');
       const deviceSecret = this.id('psecret');
       this.patients.set(acc, {
         ncid: inv.ncid,
+        hospital: inv.hospital,
+        siteId: inv.siteId,
         pin,
         deviceId,
         deviceSecret,
@@ -353,8 +425,8 @@ export class FakeServer {
       return res(201, {
         device_id: deviceId,
         device_secret: deviceSecret,
-        site_id: 'site1',
-        hospital: this.hospital,
+        site_id: inv.siteId,
+        hospital: inv.hospital,
         ncid: inv.ncid,
         server_key: { key_id: 'fake-key-1', public_key_pem: DEV_PEM },
         tokens: this.tokens(acc, 'patient'),
@@ -392,7 +464,37 @@ export class FakeServer {
     const patient = me.kind === 'patient' ? this.patients.get(me.id) : undefined;
     if (path.startsWith('/patient/') && !patient) return res(403);
     if (path === '/patient/me' && init.method === 'GET')
-      return res(200, { ncid: patient!.ncid, hospital: this.hospital, status: patient!.status });
+      return res(200, {
+        ncid: patient!.ncid,
+        hospital: patient!.hospital,
+        status: patient!.status,
+      });
+    if (path === '/patient/requests' && init.method === 'GET') {
+      const now = Date.now();
+      return res(
+        200,
+        this.requests
+          .filter((r) => r.ncid === patient!.ncid)
+          .reverse()
+          .map(({ ncid: _n, cancelled, ...r }) => {
+            const done = [...this.sessions.values()].some(
+              (s) =>
+                s.requestId === r.id &&
+                [...this.takes.values()].some(
+                  (t) => t.sessionId === s.id && t.status === 'complete',
+                ),
+            );
+            const state = cancelled
+              ? 'cancelled'
+              : done
+                ? 'recorded'
+                : Date.parse(r.due_at) < now
+                  ? 'missed'
+                  : 'open';
+            return { ...r, state };
+          }),
+      );
+    }
     if (path === '/patient/plan' && init.method === 'GET') {
       const mine = this.homeSessions().filter((s) => s.patient === me.id);
       const last =
@@ -401,11 +503,12 @@ export class FakeServer {
           .sort()
           .pop() ?? null;
       const next = last ? new Date(Date.parse(last) + this.homePlan.every_days * 86_400_000) : null;
+      const due = this.homePlan.periodic ? (next ?? new Date()) : null;
       return res(200, {
         ...this.homePlan,
         last_session_at: last,
-        next_due: next?.toISOString() ?? null,
-        due_now: !next || next.getTime() <= Date.now(),
+        next_due: due?.toISOString() ?? null,
+        due_now: !!due && due.getTime() <= Date.now(),
       });
     }
     if (path === '/patient/sessions' && init.method === 'GET') {

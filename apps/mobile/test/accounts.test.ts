@@ -35,14 +35,14 @@ describe('accounts (M13)', () => {
       'fake://api',
       token,
       '2580',
-      info.consentVersion,
       { model: 'm', osVersion: '1' },
       prefs,
+      () => 'default',
     );
     expect(out.ncid).toMatch(/^nc_/);
     expect(JSON.stringify(out)).not.toContain('at-'); // no access token handed to the app
     const plan = await api<HomePlan>(kit, 'GET', '/patient/plan');
-    expect(plan.due_now).toBe(true);
+    expect(plan.due_now).toBe(false); // v3: appointments only until the doctor asks
     await expect(api(kit, 'POST', '/takes', {})).rejects.toThrow('not_allowed');
     await expect(lookupInvite(kit, 'fake://api', token)).rejects.toMatchObject({
       code: 'bad_code',

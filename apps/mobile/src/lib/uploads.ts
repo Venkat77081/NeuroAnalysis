@@ -212,6 +212,7 @@ export async function sessionBody(
     started_at: ctx.startedAt,
     consent_version: ctx.consent.version,
     consent_at: ctx.consent.at,
+    ...(ctx.requestId ? { request_id: ctx.requestId } : {}),
     app_version: APP_VERSION,
     config_versions: configVersions(config),
   };
@@ -290,6 +291,7 @@ export async function queueSession(
       clientSessionId: ctx.sessionId,
       session,
       take: JSON.stringify(takeBody(ctx, index, take, outcome)),
+      ...(ctx.uploadProfile ? { profile: ctx.uploadProfile } : {}),
     });
   await kit.enqueueSessionClose({
     clientSessionId: ctx.sessionId,

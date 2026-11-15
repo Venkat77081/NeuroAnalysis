@@ -582,7 +582,9 @@
       "scanTitle": "Camera view for the QR code",
       "scanHint": "Point the camera at the QR code in your invite e-mail or letter.",
       "scanNoCamera": "The camera could not be opened. Allow camera access, or paste the link instead.",
-      "scanClose": "Close"
+      "scanClose": "Close",
+      "noticeTitle": "How your recordings are used",
+      "noticeBody": "{{hospital}} will ask you to record short movement tests before appointments. Each time, you decide whether to record: we ask for your consent just before the camera opens. Videos are encrypted and only your doctor can watch them."
     },
     "home": {
       "hello": "Your movement tests",
@@ -647,6 +649,56 @@
       "no_hospital_key": "Your hospital has not finished setting up recordings yet.",
       "generic": "Something went wrong. Try again.",
       "account_locked": "Too many wrong passwords. Ask your hospital admin to unlock your account."
+    },
+    "hospitals": {
+      "title": "My hospitals and clinics",
+      "join": "Join another hospital (scan invite)",
+      "joinTitle": "Join another hospital",
+      "samePin": "Use the same PIN as for your other hospitals on this phone.",
+      "separate": "Each hospital knows you separately. NeuroCapture does not link them; only this phone shows them together.",
+      "withdrawn": "Withdrawn",
+      "joined": "Joined",
+      "requests_one": "{{count}} request",
+      "requests_other": "{{count}} requests",
+      "recordBefore": "Record before your visit on {{visit}} (by {{due}})",
+      "recordBy": "Please record by {{due}}",
+      "noRequests": "No recording requests",
+      "readOnly": "History only (read only)",
+      "requestDue": "Recording request · due by {{date}}",
+      "beforeVisit": "Before your appointment on {{date}}",
+      "again": "Your doctor asks you to record again",
+      "yourDoctor": "Your doctor",
+      "asks_one": "{{doctor}} asks for {{count}} test · about {{minutes}} minutes",
+      "asks_other": "{{doctor}} asks for {{count}} tests · about {{minutes}} minutes",
+      "nothingToRecord": "Nothing to record now. Your hospital sends a request before your next appointment.",
+      "history": "Appointment history",
+      "atClinic": "Recorded at the clinic",
+      "state": {
+        "recorded": "Recorded · uploaded",
+        "missed": "Request not recorded",
+        "cancelled": "Request cancelled",
+        "open": "Waiting for your recording"
+      },
+      "withdrawBody": "You stop recording for {{hospital}}. Your past recordings stay with {{hospital}} as part of your hospital record. Other hospitals are not affected.",
+      "withdraw": "Leave this hospital (withdraw)",
+      "withdrawConfirm": "Leave {{hospital}}? Only the hospital can invite you back.",
+      "withdrawnOn": "Withdrawn · {{date}}",
+      "withdrawnBody": "You stopped recording for {{hospital}}. They will not send you new requests.",
+      "withdrawnBack": "Your past recordings stay with {{hospital}} as part of your hospital record. To start again, ask the hospital's reception: they send you a new join invite.",
+      "othersUnaffected": "Read only. Other hospitals you joined are not affected.",
+      "withdrawWhere": "To leave a hospital, open it from My hospitals and choose ‘Leave this hospital’."
+    },
+    "consent": {
+      "forVisit": "{{hospital}} · request for {{date}}",
+      "title": "Before we start",
+      "whatTitle": "What will be recorded",
+      "what_one": "Short videos of your movements ({{count}} test, about {{minutes}} minutes). They are encrypted on this phone and sent only to {{hospital}}. Only {{doctor}} and your care team there can watch them.",
+      "what_other": "Short videos of your movements ({{count}} tests, about {{minutes}} minutes). They are encrypted on this phone and sent only to {{hospital}}. Only {{doctor}} and your care team there can watch them.",
+      "agree": "I agree to record this session and share it with {{hospital}}.",
+      "without": "Without your consent nothing is recorded. You can come back to this request later.",
+      "open": "Open the camera",
+      "notNow": "Not now",
+      "every": "Asked every session. Ticking it is saved with this session only."
     }
   }
 }

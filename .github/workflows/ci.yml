@@ -115,6 +115,34 @@ jobs:
         env:
           NC_DATABASE_URL: postgresql+psycopg://neurocapture:ci-only-password@localhost:5432/neurocapture
 
+  dashboard:
+    name: Dashboards e2e (real platform + connector + FHIR stand-in)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e "backend[dev]" -e "connector[dev]"
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm --filter @neurocapture/dashboard exec playwright install --with-deps chromium
+      - name: Dashboards e2e and the no-identity scan (M14 acceptance)
+        run: pnpm e2e:dashboard
+        env:
+          NC_E2E_PYTHON: python
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-e2e
+          path: apps/dashboard/test-results
+          if-no-files-found: ignore
+
   connector:
     name: Connector (ruff, pytest with the platform, contract)
     runs-on: ubuntu-latest

@@ -1,0 +1,62 @@
+import { expect, test } from '@playwright/test';
+import { signIn, stack } from './support.ts';
+
+test('M14: hospital admin — connector health, live patient search, invites, team, phones, activity', async ({
+  page,
+}) => {
+  const s = stack();
+  await signIn(page, s.admin_email, s.admin_totp);
+  await page.getByTestId('nav-connections').click();
+  await expect(page.getByTestId('connector-card')).toContainText('registered');
+  await expect(page.getByTestId('platform-key-sha')).toHaveText(/^[0-9a-f]{64}$/);
+  await expect(page.getByTestId('keys')).toContainText('active');
+  await page.getByTestId('c-sample').fill(s.patient_mrn);
+  await page.getByTestId('c-check').click();
+  const checks = page.getByTestId('check-results');
+  for (const k of ['reachable', 'records', 'ncid_map', 'activity_log', 'decrypt_key'])
+    await expect(checks).toContainText(`${k}: pass`);
+
+  await page.getByTestId('nav-patients').click();
+  await page.getByTestId('p-search').fill('ravi');
+  await page.getByTestId('p-search-btn').click();
+  await expect(page.getByTestId('p-results')).toContainText('Ravi Samplename');
+  await expect(page.getByTestId('p-results')).toContainText('Missing'); // no e-mail on file
+  await page.getByTestId('p-sel-00012401').check();
+  await page.getByTestId('via-print').check();
+  await page.getByTestId('p-send').click();
+  await expect(page.getByTestId('p-invite-results')).toContainText('QR ready to print');
+
+  await page.getByTestId('nav-team').click();
+  await page.getByTestId('op-code').fill('OP-E2E');
+  await page.getByTestId('op-add').click();
+  await expect(page.getByTestId('temp-password')).toContainText('OP-E2E');
+  await expect(page.getByTestId('operators')).toContainText('must change password');
+
+  await page.getByTestId('nav-phones').click();
+  await page.getByTestId('d-new').click();
+  await expect(page.getByTestId('d-code-text')).toHaveText(/^[A-Z2-9]{10}$/);
+
+  await page.getByTestId('nav-activity').click();
+  await expect(page.getByTestId('clinical-log')).toContainText('patients_searched');
+  await expect(page.getByTestId('hospital-log')).toContainText('operator_created');
+});
+
+test('M14: platform admin — hospitals, set-up status, onboarding, platform log', async ({
+  page,
+}) => {
+  const s = stack();
+  await signIn(page, s.root_email, s.root_totp);
+  await expect(page.getByTestId('hospitals')).toContainText('Sunrise Neuro Clinic');
+  await page.getByTestId('setup-Sunrise Neuro Clinic').click();
+  const steps = page.getByTestId('setup-steps');
+  await expect(steps).toContainText('Connector registered');
+  await expect(steps.locator('li', { hasText: 'Hospital take key registered' })).toContainText(
+    'pass',
+  );
+  await page.getByTestId('h-name').fill('Lakeview Hospital');
+  await page.getByTestId('h-email').fill('admin@lakeview.example');
+  await page.getByTestId('h-create').click();
+  await expect(page.getByTestId('hospitals')).toContainText('Lakeview Hospital');
+  await page.getByTestId('nav-platformLog').click();
+  await expect(page.getByTestId('platform-log')).toContainText('hospital_onboarded');
+});

@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.api.auth import router as auth_router
+from app.api.connector_link import router as connector_router
 from app.api.devices import router as devices_router
 from app.api.diagnostics import router as diagnostics_router
 from app.api.health import router as health_router
@@ -45,3 +46,4 @@ app.include_router(staff_router)
 app.include_router(platform_router)
 app.include_router(hospital_router)
 app.include_router(patient_router)
+app.include_router(connector_router)

@@ -405,6 +405,25 @@ def _new_patient_invite(acc: PatientAccount, channel: str) -> tuple[str, datetim
     return get_settings().invite_link_base + token, exp
 
 
+def end_patient_phone(db: DbSession, acc: PatientAccount) -> None:
+    """Before a re-invite: the old PIN, phone and refresh tokens stop working."""
+    acc.pin_hash = None
+    acc.failed_pins = 0
+    if acc.device_id:
+        dev = db.get(Device, acc.device_id)
+        if dev and dev.revoked_at is None:
+            dev.revoked_at = datetime.now(UTC)
+        acc.device_id = None
+    for prt in db.scalars(select(PatientRefreshToken).where(PatientRefreshToken.account_id == acc.id)):
+        prt.revoked = True
+
+
+def _no_identity_with_connector(site: Site, body) -> None:
+    """With a registered connector the hospital sends invites; the platform never takes contacts."""
+    if site.connector_public_key and (body.contact or getattr(body, "mrn", None)):
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "use_connector"})
+
+
 def _deliver(site: Site, channel: str, contact: str | None, link: str) -> None:
     if channel == "print":
         return
@@ -428,6 +447,7 @@ def invite_patient(
 ) -> PatientInviteOut:
     site = site_of(db, p)
     _check_channel(site, body.channel)
+    _no_identity_with_connector(site, body)
     if body.channel != "print" and not body.contact:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "contact_required"})
     if body.mrn and CONNECTOR.ncid_for_mrn(site.id, body.mrn.strip()):
@@ -487,6 +507,7 @@ def reinvite_patient(
     """New invite (new phone, lost PIN, expired link). The old link and phone stop working."""
     site = site_of(db, p)
     _check_channel(site, body.channel)
+    _no_identity_with_connector(site, body)
     if body.channel != "print" and not body.contact:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "contact_required"})
     patient, acc = _account(db, p, ncid)
@@ -494,15 +515,7 @@ def reinvite_patient(
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "account_closed"})
     link, exp = _new_patient_invite(acc, body.channel)
     acc.status = "invited"
-    acc.pin_hash = None
-    acc.failed_pins = 0
-    if acc.device_id:
-        dev = db.get(Device, acc.device_id)
-        if dev and dev.revoked_at is None:
-            dev.revoked_at = datetime.now(UTC)
-        acc.device_id = None
-    for prt in db.scalars(select(PatientRefreshToken).where(PatientRefreshToken.account_id == acc.id)):
-        prt.revoked = True
+    end_patient_phone(db, acc)
     audit(
         db,
         p.actor_type,

@@ -8,7 +8,7 @@ they are accounts, not patient data.
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -44,6 +44,11 @@ class Site(Base):
     modules: Mapped[dict] = mapped_column(Json, default=dict)  # {"clinic": true, "home": true, ...}
     city: Mapped[str | None] = mapped_column(String(100))
     connector_url: Mapped[str | None] = mapped_column(String(300))
+    #: M11: the connector's Ed25519 public key (PEM). Public, not a secret.
+    connector_public_key: Mapped[str | None] = mapped_column(Text)
+    #: Last health check: {"records": "pass", ...} — pass/fail only, never data.
+    connector_check: Mapped[dict | None] = mapped_column(Json)
+    connector_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

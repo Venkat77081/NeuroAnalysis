@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     invite_link_base: str = "neurocapture://invite?t="
     #: Web dashboard address used in staff invite e-mails.
     dashboard_url: str = "http://localhost:5174"
+    # M11: Ed25519 key the platform signs connector requests and connector tokens with. Dev/tests:
+    # ephemeral (connectors must re-fetch the public key after a restart).
+    platform_signing_key_path: str | None = None
+    platform_key_id: str = "platform-1"
+    connector_token_ttl_s: int = 600
+    connector_timeout_s: float = 10.0
+    #: Signed request clock window (seconds).
+    signature_window_s: int = 300
     # Repo config/ (test configs, quality.json, biomarker-registry.json, platform.json and
     # messages/). Docker: mounted read-only.
     config_dir: str = str(Path(__file__).resolve().parents[2] / "config")

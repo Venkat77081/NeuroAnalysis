@@ -38,6 +38,7 @@ class Storage(Protocol):
     def sha256(self, key: str) -> str: ...
     def size(self, key: str) -> int: ...
     def read(self, key: str) -> bytes: ...
+    def download_url(self, key: str, ttl_s: int) -> str: ...
 
 
 def _safe(name: str) -> str:
@@ -125,6 +126,19 @@ class LocalStorage:
     def read(self, key: str) -> bytes:
         return (self.root / "objects" / key).read_bytes()
 
+    def _dl_sig(self, key: str, exp: int) -> str:
+        return hmac.new(self.secret, f"get:{key}:{exp}".encode(), hashlib.sha256).hexdigest()
+
+    def download_url(self, key: str, ttl_s: int) -> str:
+        """Short-lived signed GET (M11: the hospital connector fetches encrypted files)."""
+        exp = int(time.time()) + ttl_s
+        return f"{self.base}/storage/object/{key}?exp={exp}&sig={self._dl_sig(key, exp)}"
+
+    def verify_download(self, key: str, exp: int, sig: str) -> bool:
+        if ".." in key.split("/"):
+            return False
+        return exp >= int(time.time()) and hmac.compare_digest(self._dl_sig(key, exp), sig)
+
 
 class S3Storage:
     def __init__(self, client, bucket: str, ttl_s: int):
@@ -175,6 +189,11 @@ class S3Storage:
 
     def read(self, key: str) -> bytes:
         return self.s3.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+
+    def download_url(self, key: str, ttl_s: int) -> str:
+        return self.s3.generate_presigned_url(
+            "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=ttl_s
+        )
 
 
 @lru_cache

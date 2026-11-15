@@ -9,7 +9,8 @@
     "preview": "vite preview --port 5174 --strictPort",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "e2e": "playwright test --trace off"
+    "e2e": "playwright test --trace off",
+    "dev:stack": "vite --port 5174 --strictPort --mode stack"
   },
   "dependencies": {
     "i18next": "27.1.1",

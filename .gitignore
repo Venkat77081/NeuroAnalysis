@@ -26,3 +26,4 @@ apps/mobile/android/capacitor-cordova-android-plugins/build/
 tools/models/.cache/
 apps/mobile/android/app/src/main/assets/mediapipe/
 apps/mobile/public/mediapipe/
+!apps/dashboard/.env.stack

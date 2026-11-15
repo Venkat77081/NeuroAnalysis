@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { scanPlatform, signIn, stack } from './support.ts';
+import { assignPatient, scanPlatform, signIn, stack } from './support.ts';
 
 /**
  * M14 acceptance: a doctor views a patient's live history and a recording, while NeuroCapture's
@@ -11,6 +11,7 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   const s = stack();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  await assignPatient(s.doctor_email); // doctors see only their assigned patients
   await signIn(page, s.doctor_email, s.doctor_totp);
   await expect(page.getByTestId('my-patients')).toContainText('Asha Testpatient');
   await page.getByTestId(`open-${s.patient_mrn}`).click();

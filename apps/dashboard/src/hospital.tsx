@@ -375,6 +375,7 @@ export function Team() {
               className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 text-[14px]"
             >
               <option value="doctor">{t('roles.doctor')}</option>
+              <option value="receptionist">{t('roles.receptionist')}</option>
               <option value="hospital_admin">{t('roles.hospital_admin')}</option>
             </select>
           </label>

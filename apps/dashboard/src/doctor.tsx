@@ -48,6 +48,11 @@ export function MyPatients({ onOpen }: { onOpen: (ncid: string) => void }) {
     <Page title={t('doctor.patientsTitle')}>
       <Notice>{t('app.notStored')}</Notice>
       <ErrorNote error={error} />
+      {rows?.length === 0 && (
+        <Notice tone="warn" testId="no-patients">
+          {t('doctor.noPatients')}
+        </Notice>
+      )}
       <Table head={['', t('hospital.mrn'), '', '']} testId="my-patients">
         {(rows ?? []).map((p) => {
           const i = ident[p.ncid];

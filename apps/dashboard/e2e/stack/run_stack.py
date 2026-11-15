@@ -3,7 +3,9 @@
 server, each in its own process, seeded with one hospital, its staff, a patient and an encrypted
 home recording. Writes stack.json for the Playwright tests; stays up until killed.
 
-    python run_stack.py --dir <work dir>      (needs backend and connector installed)
+    python run_stack.py --dir <work dir>                 (needs backend and connector installed)
+    python run_stack.py --dir <work dir> --lan 192.168.1.20
+        listen on the network too, so a phone on the same Wi-Fi can use it (debug APK, http).
 
 Seeding goes through the database only for accounts (passwords and two-step secrets are set
 directly so tests can sign in); the patient, invite, session and recording go through the APIs
@@ -41,10 +43,45 @@ def wait(url: str, timeout: float = 30) -> None:
     raise RuntimeError(f"{url} did not start")
 
 
+def summary(o: dict) -> str:
+    """Who can sign in where (all accounts use the same password)."""
+    rows = [
+        ("Platform admin", o["root_email"], o["root_totp"]),
+        ("Hospital admin", o["admin_email"], o["admin_totp"]),
+        ("Receptionist", o["desk_email"], o["desk_totp"]),
+        ("Doctor (Dr. Rao)", o["doctor_email"], o["doctor_totp"]),
+        ("Doctor (Dr. Iyer)", o["doctor2_email"], o["doctor2_totp"]),
+        ("Doctor, first sign-in", o["new_doctor_email"], "(set up on first sign-in)"),
+    ]
+    lines = [
+        "",
+        "NeuroCapture test stack",
+        f"  Platform API : {o['platform_url']}    Connector: {o['connector_url']}",
+        "  Dashboard    : pnpm --filter @neurocapture/dashboard dev  ->  http://localhost:5174",
+        f"  Password for every account: {o['password']}",
+        "  Two-step codes: add the key to an authenticator app, or run: python codes.py <dir>/stack.json",
+        "",
+    ]
+    lines += [f"  {r:<22} {e:<30} key {k}" for r, e, k in rows]
+    lines += [
+        "",
+        f"  Patient in the records: Asha Testpatient, MRN {o['patient_mrn']} (one home recording uploaded)",
+        "  Other record: Ravi Samplename, MRN 00012401 (no e-mail on file)",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", required=True)
-    work = Path(ap.parse_args().dir).resolve()
+    ap.add_argument("--lan", help="this computer's address on the Wi-Fi (for a phone)")
+    args = ap.parse_args()
+    work = Path(args.dir).resolve()
+    host = args.lan or "127.0.0.1"
+    bind = "0.0.0.0" if args.lan else "127.0.0.1"  # noqa: S104 - opt-in, for a phone on the LAN
+    # The dashboard (localhost:5174) and the phone app's WebView (https://localhost) call from a browser.
+    origins = f"{ORIGIN},https://localhost,http://localhost"
     work.mkdir(parents=True, exist_ok=True)
     for f in work.glob("*"):
         if f.is_file():
@@ -79,8 +116,8 @@ def main() -> None:
         "NC_DATABASE_URL": f"sqlite+pysqlite:///{work / 'platform.db'}",
         "NC_STORAGE": "local",
         "NC_STORAGE_DIR": str(work / "store"),
-        "NC_PUBLIC_BASE_URL": f"http://127.0.0.1:{P_PORT}",
-        "NC_CORS_ORIGINS": ORIGIN,
+        "NC_PUBLIC_BASE_URL": f"http://{host}:{P_PORT}",
+        "NC_CORS_ORIGINS": origins,
         "NC_DASHBOARD_URL": ORIGIN,
         "NC_PLATFORM_SIGNING_KEY_PATH": str(work / "platform-signing.pem"),
         "NC_JWT_SECRET": "e2e-only-jwt-secret",
@@ -91,7 +128,7 @@ def main() -> None:
         [sys.executable, str(Path(__file__).with_name("seed_accounts.py"))],
         env={
             **platform_env,
-            "E2E_CONNECTOR_URL": f"http://127.0.0.1:{C_PORT}",
+            "E2E_CONNECTOR_URL": f"http://{host}:{C_PORT}",
             "E2E_CONNECTOR_PUBLIC": pem_public(connector_key),
             "E2E_PASSWORD": PW,
         },
@@ -105,7 +142,7 @@ def main() -> None:
     logs = {name: open(work / f"{name}.log", "w") for name in ("platform", "connector", "fhir")}  # noqa: SIM115
     procs = [
         subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(P_PORT)],
+            [sys.executable, "-m", "uvicorn", "app.main:app", "--host", bind, "--port", str(P_PORT)],
             cwd=ROOT / "backend",
             env=platform_env,
             stdout=logs["platform"],
@@ -142,7 +179,7 @@ def main() -> None:
                 "NCC_FHIR_BASE_URL": f"http://127.0.0.1:{F_PORT}/fhir",
                 "NCC_FHIR_MRN_SYSTEM": "urn:test-hospital:mrn",
                 "NCC_HOSPITAL_NAME": "Sunrise Neuro Clinic",
-                "NCC_CORS_ORIGINS": ORIGIN,
+                "NCC_CORS_ORIGINS": origins,
             },
             stdout=logs["connector"],
             stderr=subprocess.STDOUT,
@@ -261,8 +298,8 @@ def main() -> None:
     out = {
         **accounts,
         "password": PW,
-        "platform_url": f"http://127.0.0.1:{P_PORT}",
-        "connector_url": f"http://127.0.0.1:{C_PORT}",
+        "platform_url": f"http://{host}:{P_PORT}",
+        "connector_url": f"http://{host}:{C_PORT}",
         "patient_ncid": inv["ncid"],
         "patient_mrn": PATIENT_MRN,
         "take_id": plan["take_id"],
@@ -272,6 +309,7 @@ def main() -> None:
         "store": str(work / "store"),
     }
     (work / "stack.json").write_text(json.dumps(out, indent=2))
+    print(summary(out), flush=True)  # noqa: T201
     print("ready", flush=True)  # noqa: T201
     while all(p.poll() is None for p in procs):
         time.sleep(0.5)

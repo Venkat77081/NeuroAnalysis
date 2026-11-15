@@ -23,6 +23,12 @@ let connector: { token: string; url: string; until: number } | null = null;
 const REFRESH = 'nc.dash.refresh';
 
 export async function loadConfig(): Promise<void> {
+  // `pnpm dev:stack` (.env.stack) points at the local test stack; built files use config.json.
+  const fromEnv = import.meta.env.VITE_API_URL as string | undefined;
+  if (fromEnv) {
+    apiUrl = fromEnv.replace(/\/+$/, '');
+    return;
+  }
   try {
     const r = await fetch('./config.json', { cache: 'no-store' });
     if (r.ok)

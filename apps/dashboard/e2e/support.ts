@@ -16,6 +16,11 @@ export interface Stack {
   doctor_email: string;
   doctor_totp: string;
   new_doctor_email: string;
+  desk_email: string;
+  desk_totp: string;
+  doctor2_email: string;
+  doctor2_totp: string;
+  platform_url: string;
   patient_ncid: string;
   patient_mrn: string;
   take_id: string;
@@ -69,4 +74,38 @@ export function scanPlatform(needles: string[]): { found: string[]; audit_rows: 
   } catch (e) {
     return JSON.parse((e as { stdout: string }).stdout) as { found: string[]; audit_rows: number };
   }
+}
+
+/** Signs in to the platform API directly (no browser) and returns an access token. */
+export async function apiToken(email: string, secret: string): Promise<string> {
+  const s = stack();
+  const post = async (path: string, body: unknown) =>
+    (await fetch(`${s.platform_url}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => r.json())) as Record<string, string>;
+  const { challenge_token } = await post('/staff/login', { email, password: s.password });
+  return (await post('/staff/login/two-step', { challenge_token, code: totp(secret) }))
+    .access_token!;
+}
+
+/** The receptionist assigns the seeded patient to a doctor (API, for tests that need it). */
+export async function assignPatient(doctorEmail: string): Promise<void> {
+  const s = stack();
+  const tok = await apiToken(s.desk_email, s.desk_totp);
+  const h = { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' };
+  const docs = (await fetch(`${s.platform_url}/hospital/doctors`, { headers: h }).then((r) =>
+    r.json(),
+  )) as {
+    id: string;
+    email: string;
+  }[];
+  const id = docs.find((d) => d.email === doctorEmail)!.id;
+  const r = await fetch(`${s.platform_url}/hospital/patients/${s.patient_ncid}/doctor`, {
+    method: 'PUT',
+    headers: h,
+    body: JSON.stringify({ doctor_id: id }),
+  });
+  if (!r.ok) throw new Error(`assign failed: ${r.status}`);
 }

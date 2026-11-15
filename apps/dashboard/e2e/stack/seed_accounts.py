@@ -66,7 +66,25 @@ with _factory()() as db:
         password_hash=hash_password(pw),
         display_name="Dr. New",
     )
-    db.add_all([admin, doctor, newdoc])
+    desk = StaffUser(
+        site_id=site.id,
+        role="receptionist",
+        email="desk@sunrise.example",
+        password_hash=hash_password(pw),
+        totp_secret=new_totp_secret(),
+        totp_enabled=True,
+        display_name="Front desk",
+    )
+    doctor2 = StaffUser(
+        site_id=site.id,
+        role="doctor",
+        email="dr.iyer@sunrise.example",
+        password_hash=hash_password(pw),
+        totp_secret=new_totp_secret(),
+        totp_enabled=True,
+        display_name="Dr. Iyer",
+    )
+    db.add_all([admin, doctor, newdoc, desk, doctor2])
     db.commit()
     print(
         json.dumps(
@@ -79,6 +97,10 @@ with _factory()() as db:
                 "doctor_email": doctor.email,
                 "doctor_totp": doctor.totp_secret,
                 "new_doctor_email": newdoc.email,
+                "desk_email": desk.email,
+                "desk_totp": desk.totp_secret,
+                "doctor2_email": doctor2.email,
+                "doctor2_totp": doctor2.totp_secret,
             }
         )
     )

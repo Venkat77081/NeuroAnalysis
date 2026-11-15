@@ -21,7 +21,8 @@
     "build:dashboard": "pnpm --filter @neurocapture/dashboard build",
     "e2e:dashboard": "pnpm --filter @neurocapture/dashboard e2e",
     "replay": "pnpm --filter @neurocapture/replay replay",
-    "models": "node tools/models/fetch-models.mjs"
+    "models": "node tools/models/fetch-models.mjs",
+    "dev:dashboard": "pnpm --filter @neurocapture/dashboard dev:stack"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

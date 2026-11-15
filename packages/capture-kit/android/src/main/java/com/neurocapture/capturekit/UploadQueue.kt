@@ -18,12 +18,13 @@ data class UploadSettings(
     val serverPublicKeyPem: String,
     val wifiOnly: Boolean,
     val retentionHours: Double,
+    val refreshPath: String = "/auth/refresh",
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("endpoint", endpoint)
         put("accessToken", accessToken ?: JSONObject.NULL); put("refreshToken", refreshToken ?: JSONObject.NULL)
         put("serverKeyId", serverKeyId); put("serverPublicKeyPem", serverPublicKeyPem)
-        put("wifiOnly", wifiOnly); put("retentionHours", retentionHours)
+        put("wifiOnly", wifiOnly); put("retentionHours", retentionHours); put("refreshPath", refreshPath)
     }
 
     val signedIn get() = accessToken != null && refreshToken != null
@@ -33,6 +34,7 @@ data class UploadSettings(
             o.getString("endpoint"), o.optStringOrNull("accessToken"), o.optStringOrNull("refreshToken"),
             o.getString("serverKeyId"), o.getString("serverPublicKeyPem"),
             o.optBoolean("wifiOnly", true), o.optDouble("retentionHours", 24.0),
+            o.optString("refreshPath", "/auth/refresh"),
         )
     }
 }
@@ -101,6 +103,11 @@ class UploadQueue(
         kv.put(CONFIG, merged.toJson().toString())
         if (merged.signedIn)
             records().filter { it.reason == LOGIN_REQUIRED }.forEach { save(it.copy(state = UploadRecord.QUEUED, reason = null)) }
+    }
+
+    /** resetDevice: forget the server, every queued upload, close and crash report. */
+    fun clearAll() = synchronized(lock) {
+        kv.keys("").forEach { kv.delete(it) }
     }
 
     fun clearCredentials() = synchronized(lock) {
@@ -178,13 +185,19 @@ class UploadQueue(
             var r = r0.copy(state = UploadRecord.UPLOADING, reason = null, bytesTotal = takeFiles.kinds.sumOf { takeFiles.size(it) })
             if (r.job.serverSessionId == null) {
                 // Another take of the same session already created it on the server.
-                val known = records().firstNotNullOfOrNull { o ->
-                    o.job.serverSessionId.takeIf { o.job.clientSessionId == r.job.clientSessionId }
-                }
-                if (known != null) r = r.copy(job = r.job.copy(serverSessionId = known))
+                val known = records().firstOrNull { o ->
+                    o.job.serverSessionId != null && o.job.clientSessionId == r.job.clientSessionId
+                }?.job
+                if (known != null)
+                    r = r.copy(job = r.job.copy(
+                        serverSessionId = known.serverSessionId,
+                        sessionKeyId = known.sessionKeyId,
+                        sessionKeyPem = known.sessionKeyPem,
+                    ))
             }
-            if (r.job.wrappedDataKey.isEmpty() || r.job.keyId != cfg.serverKeyId) {
-                // Wrapped at upload time with the current server key (key rotation, §14).
+            if (r.job.sessionKeyId.isNullOrEmpty() && (r.job.wrappedDataKey.isEmpty() || r.job.keyId != cfg.serverKeyId)) {
+                // Pre-M12 servers: wrapped with the configured server key. From M12 the upload client
+                // re-wraps with the hospital key the server gives the session.
                 val wrapped = try { wrapKey(r.job.takeId, cfg.serverPublicKeyPem) } catch (_: Exception) { null }
                 if (wrapped == null) {
                     save(r.copy(state = UploadRecord.FAILED_PERMANENT, reason = "key_wrap_failed"))
@@ -193,12 +206,13 @@ class UploadQueue(
                 r = r.copy(job = r.job.copy(wrappedDataKey = wrapped, keyId = cfg.serverKeyId))
             }
             save(r)
-            val client = UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens)
+            val client = UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
             try {
                 val confirmedAt = client.run(
                     r.job, takeFiles,
                     onJob = { j -> r = r.copy(job = j); save(r) },
                     onProgress = { sent, total -> r = r.copy(bytesSent = sent, bytesTotal = total); save(r) },
+                    wrapKey = { pem -> wrapKey(r.job.takeId, pem) },
                 )
                 save(r.copy(state = UploadRecord.COMPLETED, confirmedAt = confirmedAt, confirmedAtMs = clock(), attempts = 0))
             } catch (e: UploadError) {
@@ -232,7 +246,7 @@ class UploadQueue(
             val sid = mine.firstNotNullOfOrNull { it.job.serverSessionId }
             if (sid == null || mine.any { it.state != UploadRecord.COMPLETED }) continue
             try {
-                UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens)
+                UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
                     .closeSession(sid, c.getString("body"))
                 kv.delete(key)
             } catch (e: UploadError) {
@@ -246,7 +260,7 @@ class UploadQueue(
         for (key in kv.keys(DIAG_PREFIX)) {
             val body = kv.get(key)?.let { JSONObject(it).getString("body") } ?: continue
             try {
-                UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens)
+                UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
                     .sendDiagnostic(body)
                 kv.delete(key)
             } catch (e: UploadError) {

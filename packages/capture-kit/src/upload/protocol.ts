@@ -40,6 +40,12 @@ export interface UploadJob {
   keyId: string;
   serverSessionId?: string;
   serverTakeId?: string;
+  /**
+   * M12/M13: the hospital key the server gave this session (POST /sessions `encryption_key`).
+   * undefined = not known yet; '' = the server gave none (pre-M12: the configured key is used).
+   */
+  sessionKeyId?: string;
+  sessionKeyPem?: string;
 }
 
 export interface Tokens {
@@ -80,6 +86,8 @@ export class UploadClient {
     private readonly endpoint: string,
     private tokens: Tokens,
     private readonly onTokens: (t: Tokens) => void,
+    /** Operators refresh at /auth/refresh, patients at /patient/refresh (M13). */
+    private readonly refreshPath: string = '/auth/refresh',
   ) {}
 
   private async call(
@@ -120,7 +128,7 @@ export class UploadClient {
   private async refresh(): Promise<void> {
     let res: HttpResponse;
     try {
-      res = await this.http(`${this.endpoint}/auth/refresh`, {
+      res = await this.http(`${this.endpoint}${this.refreshPath}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: this.tokens.refresh }),
@@ -139,11 +147,37 @@ export class UploadClient {
     job: UploadJob,
     files: TakeFiles,
     onProgress: (sent: number, total: number) => void,
+    /** Wraps the take's data key with a PEM public key (the session's hospital key). */
+    wrapKey?: (pem: string) => Promise<string>,
+    onJob?: (job: UploadJob) => void,
   ): Promise<{ confirmedAt: string; job: UploadJob }> {
     const total = files.kinds.reduce((s, k) => s + files.size(k), 0);
-    if (!job.serverSessionId) {
-      const s = (await this.call('POST', '/sessions', JSON.parse(job.session))) as { id: string };
-      job = { ...job, serverSessionId: s.id };
+    if (!job.serverSessionId || (wrapKey && job.sessionKeyId === undefined)) {
+      // Idempotent: also how a resumed job learns its session's key.
+      const s = (await this.call('POST', '/sessions', JSON.parse(job.session))) as {
+        id: string;
+        encryption_key?: { key_id: string; public_key_pem: string } | null;
+      };
+      job = {
+        ...job,
+        serverSessionId: s.id,
+        sessionKeyId: s.encryption_key?.key_id ?? '',
+        sessionKeyPem: s.encryption_key?.public_key_pem,
+      };
+      onJob?.(job);
+    }
+    if (wrapKey && job.sessionKeyId && job.keyId !== job.sessionKeyId) {
+      // Only the hospital's connector can unwrap it; any other key is refused (wrong_key).
+      let wrapped: string;
+      try {
+        wrapped = await wrapKey(job.sessionKeyPem!);
+      } catch {
+        const err = new UploadError('permanent', 'key_wrap_failed');
+        (err as UploadError & { code?: string }).code = 'key_wrap_failed';
+        throw err;
+      }
+      job = { ...job, wrappedDataKey: wrapped, keyId: job.sessionKeyId };
+      onJob?.(job);
     }
     const meta = await Promise.all(
       files.kinds.map(async (kind) => ({

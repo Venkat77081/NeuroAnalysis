@@ -5,6 +5,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -27,6 +28,9 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
     private var refresh = "rt-1"
     var revoked = false
     private val sessions = HashMap<String, String>() // client id → server id
+    /** M12: the hospital key the server gives each session (null = pre-M12 server). */
+    var sessionKey: Pair<String, String>? = null
+    val takeKeyIds = ArrayList<String>()
     val closed = HashSet<String>()
     val diagnostics = ArrayList<JSONObject>()
     private class F(val kind: String, val size: Int, val sha: String, var uploadId: Int, val parts: HashMap<Int, ByteArray> = HashMap(), var verified: Boolean = false)
@@ -79,12 +83,18 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
         return when {
             method == "POST" && path == "/sessions" -> {
                 val id = sessions.getOrPut(j!!.getString("client_session_id")) { "S${sessions.size + 1}" }
-                ok(JSONObject().put("id", id).put("client_session_id", j.getString("client_session_id")))
+                val out = JSONObject().put("id", id).put("client_session_id", j.getString("client_session_id"))
+                sessionKey?.let { (kid, pem) ->
+                    out.put("encryption_key", JSONObject().put("key_id", kid).put("public_key_pem", pem).put("owner", "hospital"))
+                }
+                ok(out)
             }
             method == "POST" && path.matches(Regex("/sessions/[^/]+/close")) -> { closed.add(path.split("/")[2]); ok("{}") }
             method == "POST" && path == "/diagnostics" -> { diagnostics.add(j!!); ok("{}") }
             method == "POST" && path == "/takes" -> {
                 require(j!!.getString("wrapped_data_key").isNotEmpty())
+                sessionKey?.let { (kid, _) -> if (j.getString("key_id") != kid) return err(422, "wrong_key") }
+                takeKeyIds.add(j.getString("key_id"))
                 require(j.has("quality") && j.has("meta"))
                 val files = j.getJSONArray("files")
                 val t = takes.getOrPut(j.getString("client_take_id")) {
@@ -250,6 +260,35 @@ class UploadQueueTest {
         c.init(Cipher.DECRYPT_MODE, keys.private, OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT))
         assertTrue(secret.contentEquals(c.doFinal(wrapped)))
         assertNotNull(KeyWrap.publicKey(pem))
+    }
+
+    @Test
+    fun takeKeysAreWrappedWithTheHospitalKeyOfTheirSession() {
+        val hospital = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+        val hpem = "-----BEGIN PUBLIC KEY-----\n" + Base64.getMimeEncoder().encodeToString(hospital.public.encoded) + "\n-----END PUBLIC KEY-----\n"
+        val srv = FakeServer().apply { sessionKey = "hk-1" to hpem }
+        val q = UploadQueue(MapKv(), { now })
+        q.configure(settings())
+        q.enqueue(job("tk-a"), 5540)
+        q.enqueue(job("tk-b"), 2330)
+        val wrappedWith = ArrayList<String>()
+        q.runOnce(srv, { files[it] }, { _, p -> wrappedWith.add(p); KeyWrap.wrap(ByteArray(100) { 3 }, p) }, { true })
+        assertEquals(listOf(UploadRecord.COMPLETED, UploadRecord.COMPLETED), q.records().map { it.state })
+        assertEquals(listOf("hk-1", "hk-1"), srv.takeKeyIds) // never the configured platform key k1
+        assertTrue(wrappedWith.contains(hpem))
+        assertEquals(1, srv.log.count { it == "POST /sessions" })
+        assertEquals("hk-1", q.record("tk-b")!!.job.sessionKeyId) // reused from tk-a's session
+    }
+
+    @Test
+    fun appModeIsSetOnceAndCannotBeChanged() {
+        val kv = MapKv()
+        assertEquals(null, AppMode.get(kv))
+        assertEquals("clinic", AppMode.lock(kv, "clinic"))
+        assertEquals("clinic", AppMode.lock(kv, "clinic")) // same mode: fine
+        assertThrows(AppMode.LockedException::class.java) { AppMode.lock(kv, "patient") }
+        assertThrows(IllegalArgumentException::class.java) { AppMode.lock(MapKv(), "admin") }
+        assertEquals("clinic", AppMode.get(kv))
     }
 
     @Test

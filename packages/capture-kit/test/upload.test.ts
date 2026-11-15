@@ -76,7 +76,7 @@ async function setup() {
 
 const session = JSON.stringify({
   client_session_id: 's-1',
-  patient: { ref_hash: 'a'.repeat(64) },
+  patient: { ncid: 'nc_' + 'a'.repeat(32) },
   med_state: 'ON',
 });
 const take = (id: string) =>
@@ -171,10 +171,22 @@ describe('uploads (M7)', () => {
 
   it('protocol client: permanent errors and sha256', async () => {
     const srv = new FakeServer();
+    const reg = (await (
+      await srv.http('fake://api/auth/device-register', {
+        method: 'POST',
+        body: JSON.stringify({ enrollment_code: srv.enrollmentCode, model: 'x', os_version: '1' }),
+      })
+    ).json()) as { device_id: string; device_secret: string };
+    const login = (await (
+      await srv.http('fake://api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ ...reg, operator_code: 'OP-07', password: '2468' }),
+      })
+    ).json()) as { access_token: string };
     const c = new UploadClient(
       srv.http,
       'fake://api',
-      { access: 'at-x', refresh: 'none' },
+      { access: login.access_token, refresh: 'none' },
       () => undefined,
     );
     const files = {
@@ -193,11 +205,31 @@ describe('uploads (M7)', () => {
           wrappedDataKey: 'k',
           keyId: 'k',
           serverSessionId: 'nope',
+          sessionKeyId: '',
         },
         files,
         () => undefined,
       ),
-    ).resolves.toBeTruthy(); // fake server accepts any session id; real server would 404
+    ).rejects.toMatchObject({ kind: 'permanent', code: 'wrong_key' }); // not the session's key
+    // M13: wrapped with the hospital key the server gives the session.
+    const wrappedWith: string[] = [];
+    const out = await c.run(
+      {
+        takeId: 't2',
+        clientSessionId: 's2',
+        session: '{"client_session_id":"s2"}',
+        take: '{}',
+        wrappedDataKey: 'k',
+        keyId: 'k',
+      },
+      files,
+      () => undefined,
+      async (pem) => (wrappedWith.push(pem), 'wrapped-for-hospital'),
+    );
+    expect(out.job.keyId).toBe('hk-fake-1');
+    expect(out.job.wrappedDataKey).toBe('wrapped-for-hospital');
+    expect(wrappedWith[0]).toContain('FAKE-HOSPITAL-KEY');
+    expect(srv.takeKeyIds).toEqual(['hk-fake-1']);
     srv.online = false;
     await expect(c.closeSession('S1', '{}')).rejects.toMatchObject({ kind: 'network' });
     expect(await sha256Hex(new TextEncoder().encode('abc'))).toBe(

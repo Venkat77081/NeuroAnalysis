@@ -91,6 +91,10 @@ class TakeVault(private val root: File, private val master: Aead) {
 
     fun delete(takeId: String): Boolean = takeDir(takeId).deleteRecursively()
 
+    /** Every take directory on this phone (resetDevice). */
+    fun listTakeIds(): List<String> =
+        root.listFiles()?.filter { it.isDirectory && TAKE_ID.matches(it.name) }?.map { it.name } ?: emptyList()
+
     /**
      * After a crash or process kill: encrypt any plaintext left in take directories and mark the take
      * RetainedForRecovery. Returns the affected take IDs. Never leaves plaintext behind.

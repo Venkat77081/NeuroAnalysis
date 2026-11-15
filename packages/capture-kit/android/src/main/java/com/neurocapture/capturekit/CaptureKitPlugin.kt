@@ -397,6 +397,7 @@ class CaptureKitPlugin : Plugin() {
     @PluginMethod
     fun securePut(call: PluginCall) {
         val key = call.getString("key") ?: return call.reject("key required")
+        if (key.startsWith(AppMode.RESERVED)) return call.reject("reserved key")
         val json = call.getString("json") ?: return call.reject("json required")
         io.execute {
             try {
@@ -412,6 +413,7 @@ class CaptureKitPlugin : Plugin() {
     @PluginMethod
     fun secureDelete(call: PluginCall) {
         val key = call.getString("key") ?: return call.reject("key required")
+        if (key.startsWith(AppMode.RESERVED)) return call.reject("reserved key")
         io.execute {
             try {
                 store.delete(key)
@@ -429,6 +431,44 @@ class CaptureKitPlugin : Plugin() {
             call.resolve(JSObject().apply { put("keys", com.getcapacitor.JSArray().apply { store.keys(prefix).forEach { put(it) } }) })
         }
     }
+
+    /** M13: clinic or patient mode, set once natively; JS cannot change it (AppMode). */
+    @PluginMethod
+    fun getAppMode(call: PluginCall) {
+        io.execute { call.resolve(JSObject().apply { put("mode", AppMode.get(store) ?: org.json.JSONObject.NULL) }) }
+    }
+
+    @PluginMethod
+    fun lockAppMode(call: PluginCall) {
+        val mode = call.getString("mode") ?: return call.reject("mode required")
+        io.execute {
+            try {
+                call.resolve(JSObject().apply { put("mode", AppMode.lock(store, mode)) })
+            } catch (e: AppMode.LockedException) {
+                call.reject("mode_locked", "mode_locked")
+            } catch (e: IllegalArgumentException) {
+                call.reject("invalid mode")
+            }
+        }
+    }
+
+    /** Wipes the app on this phone: secure store (with the app mode), upload queue, local takes. */
+    @PluginMethod
+    fun resetDevice(call: PluginCall) {
+        io.execute {
+            try {
+                uploads.clearAll()
+                vault.listTakeIds().forEach { vault.delete(it) }
+                store.keys("").forEach { store.delete(it) }
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("resetDevice failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    private fun refreshPath(p: String?): String =
+        if (p == "/patient/refresh") p else "/auth/refresh" // only the two server paths are allowed
 
     /** Canonical clock (elapsedRealtimeNanos) for JS latency measurement (DEV_PLAN §5.5). */
     @PluginMethod
@@ -460,6 +500,7 @@ class CaptureKitPlugin : Plugin() {
                 uploads.configure(UploadSettings(
                     endpoint.trimEnd('/'), call.getString("accessToken"), call.getString("refreshToken"), keyId, pem,
                     call.getBoolean("wifiOnly", true)!!, call.getDouble("retentionHours") ?: 24.0,
+                    refreshPath(call.getString("refreshPath")),
                 ))
                 Services.kickUploads(context)
                 call.resolve()

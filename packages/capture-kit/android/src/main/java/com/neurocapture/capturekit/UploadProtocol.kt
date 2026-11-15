@@ -50,6 +50,12 @@ data class UploadJob(
     val keyId: String = "",
     val serverSessionId: String? = null,
     val serverTakeId: String? = null,
+    /**
+     * M12/M13: the hospital key the server gave this session (POST /sessions `encryption_key`).
+     * null = not known yet; "" = the server gave none (pre-M12 server: the configured key is used).
+     */
+    val sessionKeyId: String? = null,
+    val sessionKeyPem: String? = null,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("takeId", takeId); put("clientSessionId", clientSessionId)
@@ -57,6 +63,8 @@ data class UploadJob(
         put("wrappedDataKey", wrappedDataKey); put("keyId", keyId)
         put("serverSessionId", serverSessionId ?: JSONObject.NULL)
         put("serverTakeId", serverTakeId ?: JSONObject.NULL)
+        put("sessionKeyId", sessionKeyId ?: JSONObject.NULL)
+        put("sessionKeyPem", sessionKeyPem ?: JSONObject.NULL)
     }
 
     companion object {
@@ -69,6 +77,8 @@ data class UploadJob(
             keyId = o.optString("keyId", ""),
             serverSessionId = o.optStringOrNull("serverSessionId"),
             serverTakeId = o.optStringOrNull("serverTakeId"),
+            sessionKeyId = o.optStringOrNull("sessionKeyId"),
+            sessionKeyPem = o.optStringOrNull("sessionKeyPem"),
         )
     }
 }
@@ -81,6 +91,8 @@ class UploadClient(
     private val endpoint: String,
     private var tokens: Tokens,
     private val onTokens: (Tokens) -> Unit,
+    /** Operators refresh at /auth/refresh, patients at /patient/refresh (M13). */
+    private val refreshPath: String = "/auth/refresh",
 ) {
     private fun call(method: String, path: String, body: JSONObject? = null, retried: Boolean = false): JSONObject {
         val res = try {
@@ -109,7 +121,7 @@ class UploadClient(
     private fun refresh() {
         val res = try {
             http.request(
-                "$endpoint/auth/refresh", "POST", mapOf("Content-Type" to "application/json"),
+                "$endpoint$refreshPath", "POST", mapOf("Content-Type" to "application/json"),
                 JSONObject().put("refresh_token", tokens.refresh).toString().toByteArray(Charsets.UTF_8),
             )
         } catch (e: IOException) {
@@ -130,12 +142,29 @@ class UploadClient(
         files: TakeFiles,
         onJob: (UploadJob) -> Unit,
         onProgress: (sent: Long, total: Long) -> Unit,
+        wrapKey: ((pem: String) -> String)? = null,
     ): String {
         var job = start
         val total = files.kinds.sumOf { files.size(it) }
-        if (job.serverSessionId == null) {
+        if (job.serverSessionId == null || (wrapKey != null && job.sessionKeyId == null)) {
+            // Idempotent: also how a resumed job learns its session's key.
             val s = call("POST", "/sessions", JSONObject(job.session))
-            job = job.copy(serverSessionId = s.getString("id"))
+            val k = s.optJSONObject("encryption_key")
+            job = job.copy(
+                serverSessionId = s.getString("id"),
+                sessionKeyId = k?.getString("key_id") ?: "",
+                sessionKeyPem = k?.getString("public_key_pem"),
+            )
+            onJob(job)
+        }
+        val sk = job.sessionKeyId
+        if (wrapKey != null && !sk.isNullOrEmpty() && job.keyId != sk) {
+            // Wrap the take's data key with the hospital key of this session (only its connector can
+            // unwrap it). Never with any other key: the server would refuse it (wrong_key).
+            val wrapped = try { wrapKey(job.sessionKeyPem!!) } catch (e: Exception) {
+                throw UploadError(UploadError.Kind.PERMANENT, "key_wrap_failed", "key_wrap_failed")
+            }
+            job = job.copy(wrappedDataKey = wrapped, keyId = sk)
             onJob(job)
         }
         val take = JSONObject(job.take)

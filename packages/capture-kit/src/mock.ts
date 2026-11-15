@@ -1,5 +1,6 @@
 import type {
   AnalysisFrameEvent,
+  AppMode,
   BenchmarkOpts,
   BenchmarkProgressEvent,
   BenchmarkReport,
@@ -713,19 +714,64 @@ export class MockCaptureKit implements CaptureKitPlugin {
     if (!/^[a-z0-9][a-z0-9._-]{0,99}$/.test(key)) throw new Error('invalid key');
   }
 
+  private checkWritable(key: string): void {
+    this.checkKey(key);
+    if (key.startsWith('sys.')) throw new Error('reserved key'); // app mode (M13): native only
+  }
+
+  // ── App mode (M13): set once; a clinic phone never opens patient mode ────────────────────
+  private appModeStore(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+    try {
+      if (globalThis.localStorage) return globalThis.localStorage;
+    } catch {
+      /* no storage (private mode, tests) */
+    }
+    const m = this.memAppMode;
+    return {
+      getItem: (k) => m.get(k) ?? null,
+      setItem: (k, v) => void m.set(k, v),
+      removeItem: (k) => void m.delete(k),
+    };
+  }
+  private memAppMode = new Map<string, string>();
+
+  async getAppMode(): Promise<{ mode: AppMode | null }> {
+    const v = this.appModeStore().getItem('nc.kit.app_mode');
+    return { mode: v === 'clinic' || v === 'patient' ? v : null };
+  }
+
+  async lockAppMode(opts: { mode: AppMode }): Promise<{ mode: AppMode }> {
+    if (opts.mode !== 'clinic' && opts.mode !== 'patient') throw new Error('invalid mode');
+    const { mode } = await this.getAppMode();
+    if (mode && mode !== opts.mode) throw new Error('mode_locked');
+    this.appModeStore().setItem('nc.kit.app_mode', opts.mode);
+    return { mode: opts.mode };
+  }
+
+  async resetDevice(): Promise<void> {
+    this.appModeStore().removeItem('nc.kit.app_mode');
+    this.secure.clear();
+    this.uploadCfg = null;
+    this.jobs.clear();
+    this.closes.clear();
+    this.diagnostics = [];
+    for (const id of [...this.takes.keys()])
+      await this.deleteTake({ takeId: id, reason: 'reset' }).catch(() => undefined);
+  }
+
   async secureGet(opts: { key: string }): Promise<{ json: string | null }> {
     this.checkKey(opts.key);
     return { json: this.secure.get(opts.key) ?? null };
   }
 
   async securePut(opts: { key: string; json: string }): Promise<void> {
-    this.checkKey(opts.key);
+    this.checkWritable(opts.key);
     JSON.parse(opts.json);
     this.secure.set(opts.key, opts.json);
   }
 
   async secureDelete(opts: { key: string }): Promise<void> {
-    this.checkKey(opts.key);
+    this.checkWritable(opts.key);
     this.secure.delete(opts.key);
   }
 
@@ -922,13 +968,31 @@ export class MockCaptureKit implements CaptureKitPlugin {
             cfg.accessToken = t.access;
             cfg.refreshToken = t.refresh;
           },
+          cfg.refreshPath ?? '/auth/refresh',
         );
+        if (!j.job.serverSessionId) {
+          // Another take of the same session already created it (and learned its key).
+          const known = [...this.jobs.values()].find(
+            (o) => o.job.serverSessionId && o.job.clientSessionId === j.job.clientSessionId,
+          )?.job;
+          if (known)
+            j.job = {
+              ...j.job,
+              serverSessionId: known.serverSessionId,
+              sessionKeyId: known.sessionKeyId,
+              sessionKeyPem: known.sessionKeyPem,
+            };
+        }
         this.setUpload(j, { state: 'uploading', reason: undefined });
         try {
           const { confirmedAt, job } = await client.run(
             j.job,
             this.mockFiles(j.job.takeId),
             (sent, total) => this.setUpload(j, { bytesSent: sent, bytesTotal: total }),
+            // Mock: a recognisable stand-in for RSA-OAEP of the take key with this public key.
+            async (pem) =>
+              btoa(`mock-wrap:${(await sha256Hex(new TextEncoder().encode(pem))).slice(0, 16)}`),
+            (next) => (j.job = next),
           );
           j.job = job;
           this.setUpload(j, { state: 'completed', confirmedAt });

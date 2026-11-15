@@ -165,7 +165,12 @@ export interface UploadConfig {
   wifiOnly: boolean;
   /** Local copies are deleted this long after the server confirms all checksums (§14). */
   retentionHours: number;
+  /** M13: where tokens are refreshed. Operators: /auth/refresh (default); patients: /patient/refresh. */
+  refreshPath?: '/auth/refresh' | '/patient/refresh';
 }
+
+/** M13: which app this phone is. */
+export type AppMode = 'clinic' | 'patient';
 
 export interface AnalysisFrameEvent {
   seq: number;
@@ -306,6 +311,16 @@ export interface CaptureKitPlugin {
    * uploads continue without the WebView; the worker refreshes the access token itself.
    */
   configureUploads(opts: UploadConfig): Promise<void>;
+  /** M13: the app mode set on this phone, or null before the first set-up. */
+  getAppMode(): Promise<{ mode: AppMode | null }>;
+  /**
+   * M13: sets the app mode once, natively (JS cannot write it). Rejects with "mode_locked" when a
+   * different mode is already set: a clinic phone can never open patient mode, nor the reverse,
+   * unless the phone is reset.
+   */
+  lockAppMode(opts: { mode: AppMode }): Promise<{ mode: AppMode }>;
+  /** M13: wipes the app on this phone (secure store and app mode, upload queue, local takes). */
+  resetDevice(): Promise<void>;
   /** Forget server credentials (operator logout); queued uploads pause until configured again. */
   clearUploadCredentials(): Promise<void>;
   /**

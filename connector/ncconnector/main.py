@@ -18,9 +18,10 @@ from ncconnector import __version__, activity, platform
 from ncconnector.auth import Staff, platform_signed, role
 from ncconnector.config import get_settings
 from ncconnector.db import ActivityLog, NcidMap, get_db, init_db
-from ncconnector.keys import take_private_key
+from ncconnector.keys import has_take_key, take_private_key
 from ncconnector.providers import send_invite
 from ncconnector.records import RecordsUnavailableError, records
+from ncconnector.storage import read_object
 from ncconnector.takecrypto import FILE_NAMES, decrypt_file, unwrap_data_key
 
 log = logging.getLogger("ncconnector")
@@ -97,7 +98,7 @@ def health_check(body: CheckIn, db: DbSession = Depends(get_db)) -> CheckOut:
         log_ok = True
     except Exception:  # noqa: BLE001
         log_ok = False
-    key_ok = take_private_key() is not None
+    key_ok = has_take_key()
     p = {True: "pass", False: "fail"}
     return CheckOut(records=p[records_ok], ncid_map=p[map_ok], activity_log=p[log_ok], decrypt_key=p[key_ok])
 
@@ -349,23 +350,32 @@ def take_file(
     db: DbSession = Depends(get_db),
 ) -> Response:
     """Decrypts one file of a take for the doctor's browser (only this connector holds the key)."""
-    key = take_private_key()
-    if key is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "no_take_key"})
     try:
         info = platform.call("GET", f"/connector/v1/takes/{take_id}")
     except platform.PlatformError as exc:
         raise _platform_error(exc) from exc
     if db.get(NcidMap, info["ncid"]) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
+    key = take_private_key(info["key_id"])
+    if key is None:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "no_take_key", "key_id": info["key_id"]}
+        )
     f = next((x for x in info["files"] if x["kind"] == kind), None)
     if not f:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "file not in this take")
     try:
-        ciphertext = platform.download(f["url"])
+        ciphertext = read_object(f["location"]) if f.get("location") else platform.download(f["url"])
     except platform.PlatformError as exc:
         raise _platform_error(exc) from exc
-    if hashlib.sha256(ciphertext).hexdigest() != f["sha256"]:
+    ok = hashlib.sha256(ciphertext).hexdigest() == f["sha256"]
+    if f.get("checksum_verified") is None:
+        # Hospital bucket: the platform could not read the file; report the check (M12).
+        try:
+            platform.call("POST", f"/connector/v1/takes/{take_id}/files/{kind}/verified", {"ok": ok})
+        except platform.PlatformError:
+            log.warning("could not report checksum result")
+    if not ok:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, {"code": "checksum_mismatch"})
     try:
         plain = decrypt_file(

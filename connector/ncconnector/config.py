@@ -15,9 +15,15 @@ class Settings(BaseSettings):
     platform_public_key_path: str | None = None
     #: This connector's Ed25519 private key (python -m ncconnector keygen). Dev: ephemeral.
     signing_key_path: str | None = None
-    #: The hospital's RSA private key that unwraps take data keys (PEM). M12 moves phones to it;
-    #: until then it is the key the platform gave the phones.
+    #: M12: directory of the hospital's RSA take keys, one "<key_id>.pem" per key (python -m
+    #: ncconnector rotate-take-key). Old keys stay for earlier recordings.
+    take_keys_dir: str = "./take-keys"
+    #: Pre-M12 recordings: the platform key the phones used (optional, legacy).
     take_private_key_path: str | None = None
+    #: The hospital's own bucket (M12, storage "s3"): read with the connector's own AWS credentials
+    #: (standard AWS environment / instance role). Endpoint only for S3-compatible stores.
+    s3_endpoint: str | None = None
+    s3_region: str = "ap-south-1"
 
     #: The connector's own database: NCID <-> MRN map, clinical activity log, log spool.
     database_url: str = "sqlite+pysqlite:///./connector.db"

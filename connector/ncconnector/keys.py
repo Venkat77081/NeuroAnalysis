@@ -67,11 +67,12 @@ def platform_public_key() -> Ed25519PublicKey:
     return PLATFORM_KEY_OVERRIDE or _platform_key_from_config()
 
 
+#: Tests: legacy platform key used for pre-M12 recordings.
 TAKE_KEY_OVERRIDE: rsa.RSAPrivateKey | None = None
 
 
 @lru_cache
-def _take_key_from_config() -> rsa.RSAPrivateKey | None:
+def _legacy_take_key() -> rsa.RSAPrivateKey | None:
     path = get_settings().take_private_key_path
     if not path:
         return None
@@ -79,5 +80,51 @@ def _take_key_from_config() -> rsa.RSAPrivateKey | None:
     return key if isinstance(key, rsa.RSAPrivateKey) else None
 
 
-def take_private_key() -> rsa.RSAPrivateKey | None:
-    return TAKE_KEY_OVERRIDE or _take_key_from_config()
+def _keyring() -> Path:
+    return Path(get_settings().take_keys_dir)
+
+
+def keyring_ids() -> list[str]:
+    d = _keyring()
+    return sorted(p.stem for p in d.glob("hk-*.pem")) if d.is_dir() else []
+
+
+def take_private_key(key_id: str | None = None) -> rsa.RSAPrivateKey | None:
+    """Hospital key `key_id` from the keyring; for other IDs (pre-M12) the legacy platform key."""
+    if key_id and key_id.startswith("hk-"):
+        p = _keyring() / f"{key_id}.pem"
+        if not p.is_file() or "/" in key_id:
+            return None
+        key = serialization.load_pem_private_key(p.read_bytes(), password=None)
+        return key if isinstance(key, rsa.RSAPrivateKey) else None
+    return TAKE_KEY_OVERRIDE or _legacy_take_key()
+
+
+def has_take_key() -> bool:
+    return bool(keyring_ids()) or (TAKE_KEY_OVERRIDE or _legacy_take_key()) is not None
+
+
+def rotate_take_key(bits: int = 3072) -> dict:
+    """New RSA take key: registered with the platform first, then saved as <key_id>.pem (0600).
+    The private key never leaves this machine; the previous key is retired but kept."""
+    from ncconnector import platform
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=bits)
+    pub = key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    pem = key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    )
+    d = _keyring()
+    d.mkdir(parents=True, exist_ok=True)
+    tmp = d / ".pending.pem"
+    tmp.write_bytes(pem)
+    tmp.chmod(0o600)
+    try:
+        out = platform.call("POST", "/connector/v1/keys", {"public_key_pem": pub.decode()})
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+    tmp.rename(d / f"{out['key_id']}.pem")
+    return out

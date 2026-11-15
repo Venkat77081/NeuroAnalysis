@@ -565,6 +565,88 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
     servers: *id001
+  /connector/v1/keys:
+    get:
+      tags:
+      - connector
+      summary: Connector Keys
+      operationId: connector_keys_connector_v1_keys_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/KeyOut'
+                type: array
+                title: Response Connector Keys Connector V1 Keys Get
+    post:
+      tags:
+      - connector
+      summary: Connector Register Key
+      description: 'Register (or rotate to) a new hospital take key. New sessions
+        get it at once; sessions that
+
+        already started keep theirs.'
+      operationId: connector_register_key_connector_v1_keys_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeyIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+  /connector/v1/takes/{take_id}/files/{kind}/verified:
+    post:
+      tags:
+      - connector
+      summary: Connector Verified
+      description: The connector read a file from the hospital bucket and checked
+        its SHA-256.
+      operationId: connector_verified_connector_v1_takes__take_id__files__kind__verified_post
+      parameters:
+      - name: take_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Take Id
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Kind
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifiedIn'
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
 components:
   schemas:
     ActivityIn:
@@ -839,6 +921,51 @@ components:
       - mrn
       - result
       title: InviteResult
+    KeyIn:
+      properties:
+        public_key_pem:
+          type: string
+          maxLength: 4000
+          minLength: 100
+          title: Public Key Pem
+      type: object
+      required:
+      - public_key_pem
+      title: KeyIn
+    KeyOut:
+      properties:
+        key_id:
+          type: string
+          title: Key Id
+        fingerprint:
+          type: string
+          title: Fingerprint
+        status:
+          type: string
+          title: Status
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        retired_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Retired At
+        retired_key_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Retired Key Id
+      type: object
+      required:
+      - key_id
+      - fingerprint
+      - status
+      - created_at
+      - retired_at
+      title: KeyOut
     NcidIn:
       properties:
         mrn:
@@ -901,6 +1028,35 @@ components:
       required:
       - ncid
       title: NewPatientOut
+    ObjectLocation:
+      properties:
+        kind:
+          type: string
+          title: Kind
+          default: s3
+        bucket:
+          type: string
+          title: Bucket
+        key:
+          type: string
+          title: Key
+        region:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Region
+        endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Endpoint
+      type: object
+      required:
+      - bucket
+      - key
+      title: ObjectLocation
+      description: 'A file in the hospital''s own bucket: the connector reads it with
+        the hospital''s credentials.'
     PatientRow:
       properties:
         mrn:
@@ -1104,18 +1260,28 @@ components:
           type: string
           title: Kind
         url:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Url
+        location:
+          anyOf:
+          - $ref: '#/components/schemas/ObjectLocation'
+          - type: 'null'
         sha256:
           type: string
           title: Sha256
         size_bytes:
           type: integer
           title: Size Bytes
+        checksum_verified:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Checksum Verified
       type: object
       required:
       - kind
-      - url
       - sha256
       - size_bytes
       title: TakeFileOut
@@ -1145,6 +1311,15 @@ components:
       - msg
       - type
       title: ValidationError
+    VerifiedIn:
+      properties:
+        ok:
+          type: boolean
+          title: Ok
+      type: object
+      required:
+      - ok
+      title: VerifiedIn
     app__api__connector_link__StatusIn:
       properties:
         ncids:

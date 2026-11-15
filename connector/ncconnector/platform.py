@@ -40,7 +40,7 @@ def call(method: str, path: str, payload: dict | None = None):
         except ValueError:
             detail = None
         raise PlatformError(r.status_code, detail)
-    return r.json()
+    return r.json() if r.content else None
 
 
 def download(url: str) -> bytes:

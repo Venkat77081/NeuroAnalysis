@@ -118,6 +118,33 @@ class UploadClient(
         return json
     }
 
+    /**
+     * M13: one signed-in API call for the app (UploadQueue allow-lists the paths). Returns the
+     * response body as text (an object or an array); the app never holds the tokens.
+     */
+    fun api(method: String, path: String, body: String?, retried: Boolean = false): String {
+        val res = try {
+            http.request(
+                "$endpoint$path", method,
+                mapOf("Authorization" to "Bearer ${tokens.access}", "Content-Type" to "application/json"),
+                body?.toByteArray(Charsets.UTF_8),
+            )
+        } catch (e: IOException) {
+            throw UploadError(UploadError.Kind.NETWORK, e.javaClass.simpleName)
+        }
+        if (res.status == 401 && !retried) {
+            refresh()
+            return api(method, path, body, true)
+        }
+        if (res.status == 401) throw UploadError(UploadError.Kind.AUTH, "login_required")
+        if (res.status >= 500) throw UploadError(UploadError.Kind.NETWORK, "server ${res.status}")
+        if (res.status >= 400) {
+            val code = try { JSONObject(res.body).optJSONObject("detail")?.optStringOrNull("code") } catch (_: Exception) { null }
+            throw UploadError(UploadError.Kind.PERMANENT, "http ${res.status}", code ?: "http_${res.status}")
+        }
+        return res.body
+    }
+
     private fun refresh() {
         val res = try {
             http.request(

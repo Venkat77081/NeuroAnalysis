@@ -311,6 +311,17 @@ export interface CaptureKitPlugin {
    * uploads continue without the WebView; the worker refreshes the access token itself.
    */
   configureUploads(opts: UploadConfig): Promise<void>;
+  /**
+   * M13: one signed-in API call made with the tokens the plugin holds (the app never sees them).
+   * Allowed paths only: /patient/{plan,sessions,me,consent/withdraw}, /auth/{connector-token,
+   * change-password}. Resolves with the response body; rejects with "login_required", "network",
+   * "not_allowed" or the server's error code.
+   */
+  apiRequest(opts: {
+    method: 'GET' | 'POST';
+    path: string;
+    body?: string;
+  }): Promise<{ json: string }>;
   /** M13: the app mode set on this phone, or null before the first set-up. */
   getAppMode(): Promise<{ mode: AppMode | null }>;
   /**

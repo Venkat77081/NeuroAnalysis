@@ -91,6 +91,7 @@ private class FakeServer(private val partSize: Int = 1000) : Http {
             }
             method == "POST" && path.matches(Regex("/sessions/[^/]+/close")) -> { closed.add(path.split("/")[2]); ok("{}") }
             method == "POST" && path == "/diagnostics" -> { diagnostics.add(j!!); ok("{}") }
+            method == "GET" && path == "/patient/sessions" -> HttpResult(200, null, "[]")
             method == "POST" && path == "/takes" -> {
                 require(j!!.getString("wrapped_data_key").isNotEmpty())
                 sessionKey?.let { (kid, _) -> if (j.getString("key_id") != kid) return err(422, "wrong_key") }
@@ -278,6 +279,18 @@ class UploadQueueTest {
         assertTrue(wrappedWith.contains(hpem))
         assertEquals(1, srv.log.count { it == "POST /sessions" })
         assertEquals("hk-1", q.record("tk-b")!!.job.sessionKeyId) // reused from tk-a's session
+    }
+
+    @Test
+    fun apiCallsAreAllowListedAndUseTheStoredTokens() {
+        val srv = FakeServer()
+        val q = UploadQueue(MapKv(), { now })
+        assertThrows(UploadError::class.java) { q.api(srv, "GET", "/patient/plan", null) } // not signed in
+        q.configure(settings())
+        assertThrows(IllegalArgumentException::class.java) { q.api(srv, "POST", "/takes", "{}") }
+        assertThrows(IllegalArgumentException::class.java) { q.api(srv, "DELETE", "/patient/plan", null) }
+        assertThrows(IllegalArgumentException::class.java) { q.api(srv, "GET", "/patient/../takes", null) }
+        assertEquals("[]", q.api(srv, "GET", "/patient/sessions", null))
     }
 
     @Test

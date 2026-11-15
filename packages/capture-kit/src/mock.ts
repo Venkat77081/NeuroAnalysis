@@ -719,6 +719,47 @@ export class MockCaptureKit implements CaptureKitPlugin {
     if (key.startsWith('sys.')) throw new Error('reserved key'); // app mode (M13): native only
   }
 
+  async apiRequest(opts: {
+    method: 'GET' | 'POST';
+    path: string;
+    body?: string;
+  }): Promise<{ json: string }> {
+    const allowed =
+      /^\/(patient\/(plan|sessions|me|consent\/withdraw)|auth\/(connector-token|change-password))$/;
+    if ((opts.method !== 'GET' && opts.method !== 'POST') || !allowed.test(opts.path))
+      throw new Error('not_allowed');
+    const cfg = this.uploadCfg;
+    if (!cfg) throw new Error('login_required');
+    const send = () =>
+      this.fakeServer.http(`${cfg.endpoint}${opts.path}`, {
+        method: opts.method,
+        headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' },
+        ...(opts.body !== undefined ? { body: opts.body } : {}),
+      });
+    let res = await send().catch(() => {
+      throw new Error('network');
+    });
+    if (res.status === 401) {
+      const r = await this.fakeServer.http(`${cfg.endpoint}${cfg.refreshPath ?? '/auth/refresh'}`, {
+        method: 'POST',
+        body: JSON.stringify({ refresh_token: cfg.refreshToken }),
+      });
+      if (r.status !== 200) throw new Error('login_required');
+      const t = (await r.json()) as { access_token: string; refresh_token: string };
+      cfg.accessToken = t.access_token;
+      cfg.refreshToken = t.refresh_token;
+      res = await send();
+      if (res.status === 401) throw new Error('login_required');
+    }
+    if (res.status >= 500) throw new Error('network');
+    const json = (await res.json().catch(() => null)) as unknown;
+    if (res.status >= 400)
+      throw new Error(
+        (json as { detail?: { code?: string } } | null)?.detail?.code ?? `http_${res.status}`,
+      );
+    return { json: JSON.stringify(json ?? null) };
+  }
+
   // ── App mode (M13): set once; a clinic phone never opens patient mode ────────────────────
   private appModeStore(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
     try {

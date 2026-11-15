@@ -105,6 +105,16 @@ class UploadQueue(
             records().filter { it.reason == LOGIN_REQUIRED }.forEach { save(it.copy(state = UploadRecord.QUEUED, reason = null)) }
     }
 
+    /** M13: a signed-in call for the app, only to [API_PATHS]. Throws [UploadError]. */
+    fun api(http: Http, method: String, path: String, body: String?): String {
+        require(method == "GET" || method == "POST") { "method" }
+        require(API_PATHS.matches(path)) { "path not allowed" }
+        val cfg = settings()
+        if (cfg == null || !cfg.signedIn) throw UploadError(UploadError.Kind.AUTH, "login_required")
+        return UploadClient(http, cfg.endpoint, Tokens(cfg.accessToken!!, cfg.refreshToken!!), ::saveTokens, cfg.refreshPath)
+            .api(method, path, body)
+    }
+
     /** resetDevice: forget the server, every queued upload, close and crash report. */
     fun clearAll() = synchronized(lock) {
         kv.keys("").forEach { kv.delete(it) }
@@ -298,6 +308,8 @@ class UploadQueue(
     }
 
     companion object {
+        /** Paths the app may call through [api] (M13); nothing that uploads or changes takes. */
+        val API_PATHS = Regex("^/(patient/(plan|sessions|me|consent/withdraw)|auth/(connector-token|change-password))$")
         const val LOGIN_REQUIRED = "login_required"
         const val WIFI_REQUIRED = "wifi_required"
         private const val CONFIG = "upload.config"

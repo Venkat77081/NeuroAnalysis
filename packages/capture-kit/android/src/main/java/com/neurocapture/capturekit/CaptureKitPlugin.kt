@@ -432,6 +432,28 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** M13: one signed-in API call with the tokens the plugin holds (allow-listed paths only). */
+    @PluginMethod
+    fun apiRequest(call: PluginCall) {
+        val method = call.getString("method") ?: return call.reject("method required")
+        val path = call.getString("path") ?: return call.reject("path required")
+        io.execute {
+            try {
+                val body = uploads.api(UrlConnectionHttp(), method, path, call.getString("body"))
+                call.resolve(JSObject().apply { put("json", body.ifBlank { "null" }) })
+            } catch (e: UploadError) {
+                val code = when (e.kind) {
+                    UploadError.Kind.AUTH -> "login_required"
+                    UploadError.Kind.NETWORK -> "network"
+                    UploadError.Kind.PERMANENT -> e.code ?: "error"
+                }
+                call.reject(code, code)
+            } catch (e: IllegalArgumentException) {
+                call.reject("not_allowed", "not_allowed")
+            }
+        }
+    }
+
     /** M13: clinic or patient mode, set once natively; JS cannot change it (AppMode). */
     @PluginMethod
     fun getAppMode(call: PluginCall) {

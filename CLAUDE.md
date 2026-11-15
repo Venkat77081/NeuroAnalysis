@@ -27,6 +27,13 @@ The full plan is in `DEV_PLAN.md` (v3.1). The agreed UI mockups are linked from 
 - Biomarker readiness is **never shown to operators**. Retake-fixable readiness failures become plain RETAKE reasons.
 - Override = **"Keep this take…"** → reason required → "Keep and flag for review" → shown as "Kept · flagged".
 
+## Agreed platform decisions (mockup review, 15 Nov 2026; `docs/PLATFORM_PLAN.md`, decision 023)
+
+- The app has two modes: **patients** (home recording by invite → PIN) and **operators** (ID + password on hospital-registered phones).
+- **Hospital-owned data**: NeuroCapture stores patients only by a random **NCID**. Names, MRNs, records, videos, clinical logs and biomarker results stay in the hospital's systems, reached through the **hospital connector**. Never store patient identity on the platform.
+- Biomarkers are computed on the server from the 60 fps video; phone landmarks are only for guidance and capture quality.
+- FA biomarker formulas follow the JBHI 2024 appendix.
+
 ## Commands
 
 ```bash

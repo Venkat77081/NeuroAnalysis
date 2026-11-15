@@ -838,7 +838,10 @@ Timings assume 1–2 developers with Claude Code. Every milestone also follows t
 - 20 consecutive sessions with no crash.
 - Every Tier A device meets the M2 and M4 criteria in a 30-minute session.
 
-### M10 — iOS plugin (later, after the pilot)
+### M10–M15 — Platform: tenancy, hospital connector, storage, app modes, dashboards, analysis
+See `docs/PLATFORM_PLAN.md` (v3.2 addendum, decision 023).
+
+### M16 — iOS plugin (later, after the pilot; was M10)
 - [ ] CaptureKit Swift implementation (AVFoundation, MediaPipe iOS, CoreMotion), same TS interface and contracts
 - [ ] iOS device qualification and tiers
 

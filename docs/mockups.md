@@ -15,3 +15,14 @@ https://claude.ai/artifact/QYZxafDLLUSV47nhC5a9VH
 | 7   | Session summary               | Passed / Kept · flagged / Skipped, upload status                                               |
 
 Decisions from the mockup review are recorded in `DEV_PLAN.md` ("Changes from v3") and `docs/decisions/002-fixed-duration-takes.md`, `003-readiness-not-shown-to-operators.md`.
+
+## Platform mockups (15 Nov 2026)
+
+Canvas: https://claude.ai/artifact/1G8hAap1unUqHbomhA1XA1
+
+- **v1 · First mockups:** app role chooser, patient sign-in and home, operator sign-in;
+  platform admin; hospital team, devices and patients; doctor patient history and recording
+  review.
+- **v2 · Hospital-owned data (agreed):** data-flow diagram, onboarding data connections,
+  invite patients from hospital records, patient invite acceptance with a PIN, doctor live
+  history. All suggestions accepted (decision 023, docs/PLATFORM_PLAN.md).

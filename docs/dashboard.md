@@ -28,6 +28,17 @@ pnpm --filter @neurocapture/dashboard build     # → apps/dashboard/dist (stati
   `sessionStorage`, so closing the tab signs out. Decrypted videos exist only as in-memory blob
   URLs while they are open.
 
+## Appointments and record links (v3, decision 030)
+
+- **Reception → Appointments** lists the next 7 days. Appointments come live from the hospital
+  system (through the connector) or are added by hand. Reception assigns the doctor and sends join
+  invites to patients who have not joined the app.
+- **Doctor → Choose tests** lists the appointments waiting for that doctor. The doctor chooses the
+  tests, the medicine state, the record-by date and, if wanted, "repeat every N days", then sends
+  the record link. The patient gets nothing before that.
+- **Doctor → patient page → Appointments and record links** shows each appointment, the links sent
+  for it and what was recorded.
+
 ## Local run
 
 ```bash

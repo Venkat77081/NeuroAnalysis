@@ -32,10 +32,9 @@ def test_reception_sees_fhir_appointments(connector):
 
 
 def test_reminder_sent_once_with_hospital_contacts(connector):
+    from ncconnector.db import factory
     from ncconnector.providers import OUTBOX
     from ncconnector.reminders import send_due
-
-    from ncconnector.db import factory
 
     env, c, api = connector, connector["client"], connector["platform"]
     desk_pt = _staff(env, "desk2@sunrise.example", "receptionist")

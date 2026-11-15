@@ -300,8 +300,7 @@ def connector_invite(
     _check_channel(site, body.channel)
     patient = _patient(db, site, ncid)
     acc = db.scalar(select(PatientAccount).where(PatientAccount.patient_id == patient.id))
-    if acc and acc.status == "closed":
-        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "account_closed"})
+    # v3: a patient who withdrew can join again (a fresh invite; the history is kept).
     if not acc:
         acc = PatientAccount(site_id=site.id, patient_id=patient.id, created_by="connector")
         db.add(acc)

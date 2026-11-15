@@ -20,6 +20,7 @@ def api(tmp_path, monkeypatch):
     # Pre-M12 tests record without a hospital take key (the platform key); M12 tests turn it on.
     monkeypatch.setattr(s, "require_hospital_key", False)
     monkeypatch.setattr(s, "allow_legacy_ref_hash", True)
+    monkeypatch.setattr(s, "purge_interval_s", 0)
     for f in (dbmod.get_engine, dbmod._factory, storage.get_storage, keys.server_public_key):
         f.cache_clear()
     Base.metadata.create_all(dbmod.get_engine())

@@ -34,6 +34,8 @@ class PlanIn(BaseModel):
     tests: list[TestCode] = Field(min_length=1, max_length=5)
     every_days: int = Field(ge=1, le=90)
     med_state: Literal["OFF", "ON", "ANY"]
+    #: v3: record every `every_days` days between appointments (only when the doctor asks).
+    periodic: bool = False
 
 
 class PlanOut(BaseModel):
@@ -42,6 +44,7 @@ class PlanOut(BaseModel):
     med_state: str
     #: True: the hospital's default (config/platform.json), not set by a doctor yet.
     default: bool
+    periodic: bool = False
     updated_at: datetime | None = None
     #: M14: the doctor's re-record request, if any (tests asked for again).
     rerecord_requested_at: datetime | None = None
@@ -56,6 +59,7 @@ def plan_for(db: DbSession, patient_id: str) -> PlanOut:
             every_days=plan.every_days,
             med_state=plan.med_state,
             default=plan.updated_by == "default",
+            periodic=plan.periodic,
             updated_at=plan.updated_at,
             rerecord_requested_at=plan.rerecord_requested_at,
             rerecord_tests=list(plan.rerecord_tests) if plan.rerecord_tests else None,
@@ -93,6 +97,7 @@ def set_plan(
     tests = list(dict.fromkeys(body.tests))
     plan = db.get(RecordingPlan, pt.id) or RecordingPlan(patient_id=pt.id)
     plan.tests, plan.every_days, plan.med_state = tests, body.every_days, body.med_state
+    plan.periodic = body.periodic
     plan.updated_by, plan.updated_at = p.actor_id, datetime.now(UTC)
     db.add(plan)
     audit(
@@ -111,49 +116,6 @@ def set_plan(
     return plan_for(db, pt.id)
 
 
-class RerecordIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    #: Tests to record again; empty = the whole plan.
-    tests: list[TestCode] = Field(default_factory=list, max_length=5)
-
-
-@router.post("/hospital/patients/{ncid}/rerecord", response_model=PlanOut)
-def rerecord(
-    ncid: str,
-    body: RerecordIn,
-    p: Principal = Depends(require_role("doctor")),  # noqa: B008
-    db: DbSession = Depends(get_db),  # noqa: B008
-) -> PlanOut:
-    """The doctor asks for a new recording: the patient's app shows it due now."""
-    pt = _patient(db, p, ncid)
-    plan = db.get(RecordingPlan, pt.id)
-    if plan is None:
-        d = policy()["defaultPlan"]
-        plan = RecordingPlan(
-            patient_id=pt.id,
-            tests=list(d["tests"]),
-            every_days=d["everyDays"],
-            med_state=d["medState"],
-            updated_by="default",
-            updated_at=datetime.now(UTC),
-        )
-        db.add(plan)
-    plan.rerecord_requested_at = datetime.now(UTC)
-    plan.rerecord_tests = list(dict.fromkeys(body.tests)) or None
-    audit(
-        db,
-        p.actor_type,
-        p.actor_id,
-        "rerecord_requested",
-        "patient",
-        pt.id,
-        site_id=p.site_id,
-        tests=plan.rerecord_tests,
-    )
-    db.commit()
-    return plan_for(db, pt.id)
-
-
 def _me(p: Principal) -> PatientAccount:
     if p.patient is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "patient sign-in required")
@@ -165,8 +127,6 @@ class PatientPlanOut(PlanOut):
     next_due: datetime | None
     #: True when no session yet, the interval has passed, or the doctor asked to record again.
     due_now: bool
-    #: True while a re-record request is open (tests: the ones asked for).
-    rerecord: bool = False
 
 
 @router.get("/patient/plan", response_model=PatientPlanOut)
@@ -182,21 +142,14 @@ def patient_plan(
     )
     if last is not None and last.tzinfo is None:
         last = last.replace(tzinfo=UTC)
-    nxt = last + timedelta(days=plan.every_days) if last else None
-    req = plan.rerecord_requested_at
-    if req is not None and req.tzinfo is None:
-        req = req.replace(tzinfo=UTC)
-    # A re-record request stays open until the patient records again.
-    rerecord = req is not None and (last is None or last < req)
-    out = plan.model_dump()
-    if rerecord and plan.rerecord_tests:
-        out["tests"] = [t for t in plan.tests if t in plan.rerecord_tests] or list(plan.rerecord_tests)
+    # v3: only a periodic plan (the doctor asked for it) makes recording due between appointments;
+    # appointments come as recording requests (/patient/requests).
+    nxt = (last + timedelta(days=plan.every_days) if last else datetime.now(UTC)) if plan.periodic else None
     return PatientPlanOut(
-        **out,
+        **plan.model_dump(),
         last_session_at=last,
         next_due=nxt,
-        due_now=rerecord or nxt is None or nxt <= datetime.now(UTC),
-        rerecord=rerecord,
+        due_now=nxt is not None and nxt <= datetime.now(UTC),
     )
 
 
@@ -264,6 +217,7 @@ def withdraw(
     """Stops home recording at once: the account closes and this phone is signed out for good."""
     acc = _me(p)
     acc.status = "closed"
+    acc.withdrawn_at = datetime.now(UTC)  # v3: history stays; recordings follow the hospital's retention
     acc.invite_token_hash = None
     if acc.device_id:
         dev = db.get(Device, acc.device_id)

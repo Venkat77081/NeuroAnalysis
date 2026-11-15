@@ -489,8 +489,6 @@ def reinvite_patient(
     site = site_of(db, p)
     _check_channel(site, body.channel)
     patient, acc = _account(db, p, ncid)
-    if acc.status == "closed":
-        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "account_closed"})
     link, exp = _new_patient_invite(acc, body.channel)
     acc.status = "invited"
     end_patient_phone(db, acc)

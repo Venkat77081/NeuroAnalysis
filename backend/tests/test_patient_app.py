@@ -18,38 +18,6 @@ def home_patient(api, tok):
     return inv["ncid"], accept_patient(api, inv["invite_link"])
 
 
-def test_plan_default_set_and_due(api, two_hospitals):
-    t = two_hospitals
-    ncid, acc = home_patient(api, t["a_tok"])
-    ptok = hdr(acc["tokens"]["access_token"])
-    plan = api.get("/patient/plan", headers=ptok).json()
-    assert plan["default"] and plan["tests"] == ["FT", "FTF", "FR", "SAW", "FA"] and plan["every_days"] == 7
-    assert plan["med_state"] == "OFF" and plan["due_now"] and plan["next_due"] is None
-
-    body = {"tests": ["FT", "FA", "FT"], "every_days": 3, "med_state": "ON"}
-    r = api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json=body)
-    assert r.status_code == 200 and r.json()["tests"] == ["FT", "FA"] and not r.json()["default"]
-    assert (
-        api.put(
-            f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json={**body, "note": "free text"}
-        ).status_code
-        == 422
-    )  # no free text
-    # Another hospital cannot see or set it; the patient cannot set it.
-    assert api.get(f"/hospital/patients/{ncid}/plan", headers=hdr(t["b_tok"])).status_code == 404
-    assert api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["b_tok"]), json=body).status_code == 404
-    assert api.put(f"/hospital/patients/{ncid}/plan", headers=ptok, json=body).status_code == 403
-
-    started = (datetime.now(UTC) - timedelta(days=1)).isoformat()
-    s = api.post("/sessions", headers=ptok, json={**SESSION, "started_at": started})
-    assert s.status_code == 201
-    plan = api.get("/patient/plan", headers=ptok).json()
-    assert plan["tests"] == ["FT", "FA"] and plan["med_state"] == "ON"
-    assert not plan["due_now"] and plan["next_due"].startswith(
-        (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
-    )
-
-
 def test_patient_history_and_withdraw_with_deletion(api, two_hospitals):
     t = two_hospitals
     ncid, acc = home_patient(api, t["a_tok"])
@@ -143,46 +111,6 @@ def test_operator_locks_after_wrong_passwords_and_admin_unlocks(api, two_hospita
     assert listed[op["id"]]["locked"]
     api.post(f"/hospital/operators/{op['id']}/active", headers=hdr(t["a_tok"]), json={"active": True})
     assert api.post("/auth/login", json={**creds, "password": op["temporary_password"]}).status_code == 200
-
-
-def test_rerecord_request_makes_the_plan_due(api, two_hospitals):
-    from test_tenancy import sign_up, staff_login
-
-    t = two_hospitals
-    ncid, acc = home_patient(api, t["a_tok"])
-    ptok = hdr(acc["tokens"]["access_token"])
-    yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
-    api.post("/sessions", headers=ptok, json={**SESSION, "started_at": yesterday})
-    assert not api.get("/patient/plan", headers=ptok).json()["due_now"]
-    api.post("/hospital/staff", headers=hdr(t["a_tok"]), json={"email": "dr@sunrise.example"})
-    _, secret = sign_up(api, "dr@sunrise.example")
-    dr = hdr(staff_login(api, "dr@sunrise.example", secret)["access_token"])
-    doc_id = api.get("/hospital/doctors", headers=hdr(t["a_tok"])).json()[0]["id"]
-    assert (
-        api.put(
-            f"/hospital/patients/{ncid}/doctor", headers=hdr(t["a_tok"]), json={"doctor_id": doc_id}
-        ).status_code
-        == 200
-    )
-    # Only doctors ask for re-recording; only for their hospital's patients.
-    assert (
-        api.post(f"/hospital/patients/{ncid}/rerecord", headers=hdr(t["a_tok"]), json={}).status_code == 403
-    )
-    assert api.post(f"/hospital/patients/{ncid}/rerecord", headers=hdr(t["b_tok"]), json={}).status_code in (
-        403,
-        404,
-    )
-    r = api.post(f"/hospital/patients/{ncid}/rerecord", headers=dr, json={"tests": ["FA"]})
-    assert r.status_code == 200 and r.json()["rerecord_tests"] == ["FA"] and r.json()["default"]
-    plan = api.get("/patient/plan", headers=ptok).json()
-    assert plan["due_now"] and plan["rerecord"] and plan["tests"] == ["FA"]
-    api.post(
-        "/sessions",
-        headers=ptok,
-        json={**SESSION, "client_session_id": "home-2", "started_at": datetime.now(UTC).isoformat()},
-    )
-    plan = api.get("/patient/plan", headers=ptok).json()
-    assert not plan["rerecord"] and plan["tests"] == ["FT", "FTF", "FR", "SAW", "FA"]
 
 
 def test_patient_list_counts_sessions_and_platform_setup_status(api, two_hospitals):
@@ -281,3 +209,192 @@ def test_receptionist_assigns_and_doctors_see_only_their_patients(api, two_hospi
     )
     actions = [e["action"] for e in api.get("/hospital/audit", headers=a).json()]
     assert {"patient_assigned", "patient_reassigned", "patient_unassigned"} <= set(actions)
+
+
+def test_periodic_plan_only_when_the_doctor_asks(api, two_hospitals):
+    t = two_hospitals
+    ncid, acc = home_patient(api, t["a_tok"])
+    ptok = hdr(acc["tokens"]["access_token"])
+    plan = api.get("/patient/plan", headers=ptok).json()
+    assert plan["default"] and not plan["periodic"] and not plan["due_now"] and plan["next_due"] is None
+    body = {"tests": ["FT", "FA", "FT"], "every_days": 3, "med_state": "ON", "periodic": True}
+    r = api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json=body)
+    assert r.status_code == 200 and r.json()["tests"] == ["FT", "FA"] and r.json()["periodic"]
+    assert (
+        api.put(
+            f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json={**body, "note": "x"}
+        ).status_code
+        == 422
+    )
+    assert api.get("/patient/plan", headers=ptok).json()["due_now"]  # periodic, never recorded
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    api.post("/sessions", headers=ptok, json={**SESSION, "started_at": yesterday})
+    plan = api.get("/patient/plan", headers=ptok).json()
+    assert not plan["due_now"] and plan["next_due"].startswith(
+        (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
+    )
+    api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json={**body, "periodic": False})
+    assert api.get("/patient/plan", headers=ptok).json()["next_due"] is None
+
+
+def _staff(api, t, email, role):
+    from test_tenancy import sign_up, staff_login
+
+    api.post("/hospital/staff", headers=hdr(t["a_tok"]), json={"email": email, "role": role})
+    _, secret = sign_up(api, email)
+    return hdr(staff_login(api, email, secret)["access_token"])
+
+
+def test_appointment_request_record_and_history(api, two_hospitals):
+    t = two_hospitals
+    desk = _staff(api, t, "desk@sunrise.example", "receptionist")
+    dr = _staff(api, t, "dr@sunrise.example", "doctor")
+    dr_id = api.get("/hospital/doctors", headers=desk).json()[0]["id"]
+    ncid, acc = home_patient(api, t["a_tok"])
+    ptok = hdr(acc["tokens"]["access_token"])
+    at = (datetime.now(UTC) + timedelta(days=3)).replace(microsecond=0)
+
+    # Manual appointment with a doctor (assigns the patient); a FHIR one is deduplicated.
+    r = api.post(
+        "/hospital/appointments", headers=desk, json={"ncid": ncid, "at": at.isoformat(), "doctor_id": dr_id}
+    )
+    assert r.status_code == 201, r.text
+    appt = r.json()
+    assert appt["source"] == "manual" and appt["doctor_name"]
+    assert [x["ncid"] for x in api.get("/hospital/patients", headers=dr).json()] == [
+        ncid
+    ]  # assigned by booking
+    f1 = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={
+            "ncid": ncid,
+            "at": (at + timedelta(days=7)).isoformat(),
+            "source": "fhir",
+            "external_id": "Appointment/77",
+        },
+    )
+    f2 = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={
+            "ncid": ncid,
+            "at": (at + timedelta(days=7)).isoformat(),
+            "source": "fhir",
+            "external_id": "Appointment/77",
+        },
+    )
+    assert f1.json()["id"] == f2.json()["id"]
+    from app.db import _factory
+    from app.models import Appointment
+
+    with _factory()() as db:
+        stored = db.get(Appointment, f1.json()["id"])
+        assert stored.external_ref_hash and "Appointment/77" not in stored.external_ref_hash
+    assert len(api.get("/hospital/appointments", headers=desk).json()) == 1  # 7-day window
+    assert len(api.get("/hospital/appointments?days=14", headers=desk).json()) == 2
+    assert (
+        api.post("/hospital/appointments", headers=dr, json={"ncid": ncid, "at": at.isoformat()}).status_code
+        == 403
+    )
+
+    # Recording request: tests from the plan, due a day before.
+    rq = api.post(f"/hospital/appointments/{appt['id']}/request", headers=desk, json={})
+    assert rq.status_code == 201, rq.text
+    req = rq.json()
+    assert req["tests"] == ["FT", "FTF", "FR", "SAW", "FA"] and req["state"] == "open"
+    assert req["due_at"].startswith((at - timedelta(days=1)).date().isoformat())
+    mine = api.get("/patient/requests", headers=ptok).json()
+    assert [(m["id"], m["state"], m["kind"]) for m in mine] == [(req["id"], "open", "appointment")]
+    assert mine[0]["doctor_name"] and mine[0]["appointment_at"]
+
+    # The patient records for it (consent per session); the request becomes "recorded".
+    sid = api.post("/sessions", headers=ptok, json={**SESSION, "request_id": req["id"]}).json()["id"]
+    assert (
+        api.post(
+            "/sessions", headers=ptok, json={**SESSION, "client_session_id": "x", "request_id": "nope"}
+        ).status_code
+        == 422
+    )
+    take_id = _upload_take(api, acc["tokens"], sid, acc["server_key"], "tk-req")
+    api.post(f"/takes/{take_id}/complete", headers=ptok)
+    assert api.get("/patient/requests", headers=ptok).json()[0]["state"] == "recorded"
+
+    # The doctor asks to record again: a second request (re-record).
+    rr = api.post(f"/hospital/patients/{ncid}/rerecord", headers=dr, json={"tests": ["FA"]})
+    assert rr.status_code == 201 and rr.json()["kind"] == "rerecord" and rr.json()["tests"] == ["FA"]
+    hist = api.get(f"/hospital/patients/{ncid}/history", headers=dr).json()
+    assert [a["requests"][0]["state"] for a in hist["appointments"] if a["requests"]] == ["recorded"]
+    assert [r["kind"] for r in hist["other_requests"]] == ["rerecord"]
+    assert hist["sessions"][0]["request_id"] == req["id"] and hist["sessions"][0]["takes_uploaded"] == 1
+    # Another hospital sees nothing.
+    assert api.get(f"/hospital/patients/{ncid}/history", headers=hdr(t["b_tok"])).status_code == 404
+
+    # Cancelling the appointment cancels its request.
+    api.put(f"/hospital/appointments/{appt['id']}", headers=desk, json={"status": "cancelled"})
+    hist = api.get(f"/hospital/patients/{ncid}/history", headers=desk).json()
+    assert [a["status"] for a in hist["appointments"] if a["id"] == appt["id"]] == ["cancelled"]
+
+
+def test_request_needs_a_joined_patient(api, two_hospitals):
+    t = two_hospitals
+    desk = _staff(api, t, "desk2@sunrise.example", "receptionist")
+    inv = api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "print"}).json()
+    at = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    appt = api.post("/hospital/appointments", headers=desk, json={"ncid": inv["ncid"], "at": at}).json()
+    r = api.post(f"/hospital/appointments/{appt['id']}/request", headers=desk, json={})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "not_joined"
+
+
+def test_withdraw_keeps_history_rejoin_and_retention(api, two_hospitals, monkeypatch):
+    t = two_hospitals
+    ncid, acc = home_patient(api, t["a_tok"])
+    ptok = hdr(acc["tokens"]["access_token"])
+    sid = api.post("/sessions", headers=ptok, json=SESSION).json()["id"]
+    take_id = _upload_take(api, acc["tokens"], sid, acc["server_key"], "tk-w")
+    api.post(f"/takes/{take_id}/complete", headers=ptok)
+    assert (
+        api.post("/patient/consent/withdraw", headers=ptok, json={"delete_recordings": False}).status_code
+        == 200
+    )
+    hist = api.get(f"/hospital/patients/{ncid}/history", headers=hdr(t["a_tok"])).json()
+    assert (
+        hist["app_status"] == "closed" and hist["withdrawn_at"] and hist["sessions"][0]["takes_uploaded"] == 1
+    )
+
+    # Retention: kept with no setting; deleted once the hospital's days have passed.
+    from app.db import _factory
+    from app.jobs import purge_withdrawn
+    from app.models import Take
+
+    with _factory()() as db:
+        assert purge_withdrawn(db) == 0
+    assert api.put(
+        "/hospital/settings", headers=hdr(t["a_tok"]), json={"withdrawn_retention_days": 30}
+    ).json() == {"withdrawn_retention_days": 30}
+    with _factory()() as db:
+        assert purge_withdrawn(db) == 0  # not yet
+        assert purge_withdrawn(db, datetime.now(UTC) + timedelta(days=31)) == 1
+        assert db.get(Take, take_id) is None
+    hist = api.get(f"/hospital/patients/{ncid}/history", headers=hdr(t["a_tok"])).json()
+    assert hist["sessions"][0]["recordings_deleted"] and hist["sessions"][0]["takes_uploaded"] == 0
+
+    # Joining again: a fresh invite for the same NCID; the history stays.
+    r = api.post(f"/hospital/patients/{ncid}/reinvite", headers=hdr(t["a_tok"]), json={"channel": "print"})
+    assert r.status_code == 200, r.text
+    again = accept_patient(api, r.json()["invite_link"])
+    assert again["ncid"] == ncid
+    hist = api.get(f"/hospital/patients/{ncid}/history", headers=hdr(t["a_tok"])).json()
+    assert hist["app_status"] == "active" and hist["withdrawn_at"] is None and len(hist["sessions"]) == 1
+    assert api.get("/hospital/settings", headers=hdr(t["b_tok"])).json()["withdrawn_retention_days"] is None
+
+
+def test_joining_needs_no_consent(api, two_hospitals):
+    inv = api.post(
+        "/hospital/patients/invite", headers=hdr(two_hospitals["a_tok"]), json={"channel": "print"}
+    ).json()
+    r = api.post(
+        "/patient/invite/accept",
+        json={"token": inv["invite_link"].split("t=", 1)[1], "pin": "2580", "model": "m", "os_version": "1"},
+    )
+    assert r.status_code == 201, r.text

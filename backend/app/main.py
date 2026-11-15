@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,7 @@ from app.api.patient import router as patient_router
 from app.api.plans import router as plans_router
 from app.api.platform import router as platform_router
 from app.api.readiness import router as readiness_router
+from app.api.requests import router as requests_router
 from app.api.sessions import router as sessions_router
 from app.api.staff import router as staff_router
 from app.api.storage_local import router as storage_router
@@ -27,6 +29,23 @@ from app.storage import ensure_bucket
 log = logging.getLogger("neurocapture")
 
 
+async def _purge_loop(every_s: int) -> None:
+    """v3: deletes withdrawn patients' recordings after each hospital's retention days."""
+    from app.db import _factory
+    from app.jobs import purge_withdrawn
+
+    def run() -> None:
+        with _factory()() as db:
+            purge_withdrawn(db)
+
+    while True:
+        try:
+            await asyncio.to_thread(run)
+        except Exception as exc:  # noqa: BLE001 - try again next round
+            log.warning("purge failed: %s", type(exc).__name__)
+        await asyncio.sleep(every_s)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if get_settings().storage == "s3" and get_settings().s3_endpoint:
@@ -34,7 +53,14 @@ async def lifespan(_: FastAPI):
             ensure_bucket()
         except Exception as exc:  # noqa: BLE001 - /health reports storage problems
             log.warning("could not ensure bucket: %s", type(exc).__name__)
+    task = (
+        asyncio.create_task(_purge_loop(get_settings().purge_interval_s))
+        if get_settings().purge_interval_s
+        else None
+    )
     yield
+    if task:
+        task.cancel()
 
 
 app = FastAPI(title="NeuroCapture API", version=__version__, lifespan=lifespan)
@@ -61,3 +87,4 @@ app.include_router(connector_router)
 app.include_router(hospital_storage_router)
 app.include_router(plans_router)
 app.include_router(assignments_router)
+app.include_router(requests_router)

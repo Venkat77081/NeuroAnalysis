@@ -58,6 +58,9 @@ class Site(Base):
     storage_external_id: Mapped[str | None] = mapped_column(String(64))
     storage_check: Mapped[dict | None] = mapped_column(Json)
     storage_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: v3: recordings of a patient who withdrew from this hospital are deleted after this many
+    #: days (null = kept). The appointment history stays.
+    withdrawn_retention_days: Mapped[int | None] = mapped_column(Integer)
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -141,6 +144,10 @@ class Session(Base):
     consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     #: M12: the hospital key the phone must wrap this session's take keys with (null = pre-M12).
     key_id: Mapped[str | None] = mapped_column(String(50))
+    #: v3: the recording request this session answers (home recording before an appointment).
+    request_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    #: v3: set when the recordings were deleted (withdrawal retention); the session row stays.
+    recordings_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (UniqueConstraint("device_id", "client_session_id"),)
 
 
@@ -224,6 +231,8 @@ class RecordingPlan(Base):
     med_state: Mapped[str] = mapped_column(String(3))  # OFF | ON | ANY
     updated_by: Mapped[str] = mapped_column(String(32))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    #: v3: the doctor asked for recording every `every_days` days (otherwise appointments only).
+    periodic: Mapped[bool] = mapped_column(Boolean, default=False)
     #: M14: the doctor asked for a new recording (due at once until the patient records again).
     rerecord_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rerecord_tests: Mapped[list | None] = mapped_column(Json)
@@ -327,6 +336,47 @@ class PatientAccount(Base):
     consent_version: Mapped[str | None] = mapped_column(String(50))
     consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    #: v3: when the patient withdrew from this hospital (status closed). Cleared on re-joining.
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Appointment(Base):
+    """v3: an appointment the hospital booked (read from its FHIR system, or entered by reception).
+    Only the time, doctor and source are kept here; the details stay in the hospital's system."""
+
+    __tablename__ = "appointments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    doctor_id: Mapped[str | None] = mapped_column(ForeignKey("staff_users.id"))
+    source: Mapped[str] = mapped_column(String(6))  # fhir | manual
+    #: SHA-256 of the hospital's appointment ID (FHIR), to avoid duplicates.
+    external_ref_hash: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(10), default="booked")  # booked | cancelled
+    created_by: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (UniqueConstraint("site_id", "external_ref_hash"),)
+
+
+class RecordingRequest(Base):
+    """v3: "please record these tests by this date", sent to a patient's app (usually for an
+    appointment, or a doctor's re-record request)."""
+
+    __tablename__ = "recording_requests"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id"))
+    kind: Mapped[str] = mapped_column(String(10), default="appointment")  # appointment | rerecord
+    tests: Mapped[list] = mapped_column(Json)
+    med_state: Mapped[str] = mapped_column(String(3))  # OFF | ON | ANY
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    remind: Mapped[bool] = mapped_column(Boolean, default=True)
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(10), default="open")  # open | cancelled
+    created_by: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 

@@ -36,6 +36,8 @@ class SessionIn(BaseModel):
     consent_at: datetime
     app_version: str = Field(max_length=20)
     config_versions: dict[str, str]
+    #: v3: the recording request this session answers (patient app).
+    request_id: str | None = Field(default=None, max_length=32)
 
 
 class EncryptionKey(BaseModel):
@@ -132,6 +134,7 @@ def create_session(
         consent_version=body.consent_version,
         consent_at=body.consent_at,
         key_id=key_id,
+        request_id=_request_for(db, p, patient, body.request_id),
     )
     db.add(s)
     db.flush()
@@ -144,6 +147,18 @@ def create_session(
         client_session_id=s.client_session_id,
         encryption_key=EncryptionKey(key_id=key_id, public_key_pem=pem, owner=owner),
     )
+
+
+def _request_for(db: DbSession, p: Principal, patient: Patient, request_id: str | None) -> str | None:
+    """A request of this patient that is not cancelled (late recordings still count)."""
+    if request_id is None:
+        return None
+    from app.models import RecordingRequest
+
+    r = db.get(RecordingRequest, request_id)
+    if not r or r.patient_id != patient.id or r.status == "cancelled":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "unknown_request"})
+    return r.id
 
 
 class AbortIn(BaseModel):

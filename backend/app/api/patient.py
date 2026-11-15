@@ -97,7 +97,9 @@ def invite_lookup(body: InviteLookupIn, db: DbSession = Depends(get_db)) -> Invi
 class AcceptIn(BaseModel):
     token: str = Field(min_length=10, max_length=200)
     pin: str = Field(min_length=1, max_length=12)
-    consent_version: str = Field(max_length=50)
+    #: v3: no consent when joining (consent is asked before each recording session). Older apps
+    #: still send the notice version; it is checked if present.
+    consent_version: str | None = Field(default=None, max_length=50)
     model: str = Field(max_length=100)
     os_version: str = Field(max_length=50)
 
@@ -117,7 +119,7 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
     acc, site = _invited(db, body.token)
     if not _pin_ok(body.pin):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "pin_format"})
-    if body.consent_version != policy()["consentVersion"]:
+    if body.consent_version is not None and body.consent_version != policy()["consentVersion"]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "consent_version"})
     secret = new_secret()
     dev = Device(
@@ -129,13 +131,13 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
     )
     db.add(dev)
     db.flush()
-    now_ = datetime.now(UTC)
     acc.status = "active"
     acc.pin_hash = hash_pin(body.pin)
     acc.failed_pins = 0
     acc.device_id = dev.id
-    acc.consent_version = body.consent_version
-    acc.consent_at = now_
+    acc.consent_version = None  # consent is per recording session (v3)
+    acc.consent_at = None
+    acc.withdrawn_at = None
     acc.invite_token_hash = None
     acc.invite_expires_at = None
     tokens = _issue(db, acc, dev)

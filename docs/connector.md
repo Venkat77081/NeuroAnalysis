@@ -51,6 +51,26 @@ docker exec nc-connector python -m ncconnector keygen --out /data/signing.pem
 The command prints a public key. In the hospital dashboard → Data connections, enter the
 connector's address and paste that key. The private key never leaves the connector.
 
+### 2b. Create the hospital's take key
+
+```bash
+docker exec nc-connector python -m ncconnector rotate-take-key
+docker exec nc-connector python -m ncconnector take-keys   # compare fingerprints with Data connections → Keys
+```
+
+Phones wrap every recording key with this public key, from the next session on. Run the command
+again to rotate. Old keys stay in the folder so earlier recordings still open.
+
+### 2c. Optional: store recordings in the hospital's own S3 bucket
+
+In Data connections → Storage, the dashboard shows an ExternalId and two policies:
+
+1. Create an IAM role that trusts the NeuroCapture principal with that ExternalId (trust policy).
+2. Allow only `s3:PutObject`, `s3:AbortMultipartUpload` and `s3:ListMultipartUploadParts`
+   under the chosen prefix (permissions policy). NeuroCapture can upload but not read.
+3. Enter the bucket, region, prefix and role ARN. The platform tests the role before switching.
+4. Give the connector read access to the same prefix, with its own AWS credentials.
+
 ## 3. Test it
 
 In Data connections → Test, enter one sample MRN. The connector:

@@ -71,7 +71,9 @@
     "patients": "Patients",
     "activity": "Activity log",
     "myPatients": "My patients",
-    "assign": "Assign patients"
+    "assign": "Assign patients",
+    "appointments": "Appointments",
+    "chooseTests": "Choose tests"
   },
   "platform": {
     "hospitalsTitle": "Hospitals and clinics",
@@ -199,14 +201,15 @@
     "reviewed": "Reviewed: {{v}}",
     "rerecord": "Ask to record again",
     "rerecordDone": "The patient's app now shows a new recording as due.",
-    "planTitle": "Home recording plan",
+    "planTitle": "Recording at home between appointments",
     "everyDays": "Every … days",
     "medState": "Medicine state",
     "planSaved": "Plan saved.",
     "biomarkerTitle": "Biomarker report",
     "planned": "Planned",
     "biomarkerHint": "Computed at your hospital from the 60 fps videos; results written to your database under the NCID. Decision support only, not a diagnosis.",
-    "noPatients": "No patients are assigned to you yet. The reception desk assigns patients to doctors."
+    "noPatients": "No patients are assigned to you yet. The reception desk assigns patients to doctors.",
+    "periodic": "Also record at home every N days (only if you want it)"
   },
   "tests": {
     "FT": "Finger Tapping",
@@ -238,5 +241,93 @@
     "reassign": "Reassign",
     "unassign": "Unassign",
     "saved": "Saved"
+  },
+  "appts": {
+    "title": "Appointments",
+    "window": "From yesterday to the next 7 days",
+    "live": {
+      "ok": "From your hospital system · live",
+      "off": "Your hospital system does not send appointments: add them by hand",
+      "down": "Your hospital system cannot be reached: showing appointments already known"
+    },
+    "when": "Appointment",
+    "patient": "Patient",
+    "app": "App",
+    "doctor": "Doctor",
+    "status": "Status",
+    "source": {
+      "fhir": "From the hospital system",
+      "manual": "Added by hand"
+    },
+    "joined": "Joined",
+    "notJoined": "Not joined",
+    "assign": "Assign doctor",
+    "assigned": "Doctor assigned. The appointment now waits for the doctor's tests.",
+    "sendInvite": "Send join invite",
+    "invite": {
+      "sent": "Join invite sent.",
+      "printed": "Join invite ready to print.",
+      "skipped_no_email": "No e-mail or mobile number in the records.",
+      "skipped_no_phone": "No e-mail or mobile number in the records.",
+      "not_found": "Patient not found in the records.",
+      "failed": "The invite could not be sent."
+    },
+    "stage": {
+      "needs_doctor": "Needs a doctor",
+      "needs_tests": "Waiting for doctor's tests",
+      "sent": "Doctor sent record link",
+      "sentDue": "Doctor sent record link · due {{date}}",
+      "recorded": "Recorded · uploaded",
+      "missed": "Not recorded in time",
+      "cancelled": "Cancelled"
+    },
+    "none": "No appointments in the next 7 days.",
+    "manualTitle": "Add an appointment by hand",
+    "manualHint": "For appointments your hospital system does not send (or if it is not connected).",
+    "findPatient": "Patient (name or MRN)",
+    "search": "Find",
+    "dateTime": "Date and time",
+    "afterAssign": "After you assign a doctor, the appointment goes to that doctor to choose the tests. The patient gets the record link only when the doctor sends it.",
+    "addAndAssign": "Add appointment and assign",
+    "added": "Appointment added."
+  },
+  "choose": {
+    "title": "Choose tests for upcoming appointments",
+    "hint": "Reception assigned these appointments to you. The patient gets the record link only after you send it.",
+    "empty": "Nothing waiting: every appointment assigned to you has its tests.",
+    "waiting": "Waiting for your tests",
+    "fromHistory": "From the medical history",
+    "lastTime": "Last time ({{date}}): {{tests}} · {{med}}",
+    "firstTime": "No earlier recording requests.",
+    "testsFor": "Tests for {{date}}",
+    "same": "Same as last time",
+    "hands": "Hands only (FT, FTF, FR)",
+    "all": "All 5 tests",
+    "med": {
+      "OFF": "OFF (before morning dose)",
+      "ON": "ON",
+      "ANY": "Either"
+    },
+    "recordBy": "Record by",
+    "repeatA": "Also repeat at home every",
+    "days": "days",
+    "repeatB": "days until the next appointment",
+    "reminder": "The patient is reminded by e-mail or SMS from your hospital the day before the record-by date.",
+    "send": "Send record link to the patient",
+    "sent": "Record link sent to the patient."
+  },
+  "timeline": {
+    "title": "Appointments and record links",
+    "none": "No appointments yet.",
+    "link": "Record link",
+    "rerecord": "Record again",
+    "state": {
+      "open": "Due {{date}}",
+      "recorded": "Recorded",
+      "missed": "Not recorded by {{date}}",
+      "cancelled": "Cancelled"
+    },
+    "uploaded": "{{n}} tests uploaded {{date}}",
+    "withdrawn": "The patient withdrew from home recording on {{date}}. Everything recorded stays here."
   }
 }

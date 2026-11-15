@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, hospital, hospitalFile } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
+import { StageBadge, type Appointment } from './appointments.tsx';
 
 interface PlatformPatient {
   ncid: string;
@@ -123,7 +124,23 @@ interface Plan {
   every_days: number;
   med_state: 'OFF' | 'ON' | 'ANY';
   default: boolean;
+  /** v3: also record every `every_days` days between appointments (only when asked). */
+  periodic: boolean;
   rerecord_requested_at: string | null;
+}
+interface PlatformHistory {
+  app_status: string;
+  withdrawn_at: string | null;
+  appointments: Appointment[];
+  other_requests: Appointment['requests'];
+  sessions: {
+    id: string;
+    started_at: string;
+    recorded_by: string;
+    med_state: string;
+    request_id: string | null;
+    takes_uploaded: number;
+  }[];
 }
 
 const TESTS = ['FT', 'FTF', 'FR', 'SAW', 'FA'];
@@ -272,6 +289,7 @@ export function PatientView({ ncid, onBack }: { ncid: string; onBack: () => void
               {t('doctor.rerecord')}
             </Button>
           </Card>
+          <Timeline ncid={ncid} />
           <PlanEditor ncid={ncid} />
           <Card title={t('doctor.biomarkerTitle')} className="border-dashed">
             <Badge>{t('doctor.planned')}</Badge>
@@ -350,6 +368,7 @@ function PlanEditor({ ncid }: { ncid: string }) {
           tests: plan.tests,
           every_days: plan.every_days,
           med_state: plan.med_state,
+          periodic: plan.periodic,
         }),
       );
       setSaved(true);
@@ -381,6 +400,19 @@ function PlanEditor({ ncid }: { ncid: string }) {
           </label>
         ))}
       </div>
+      <label className="flex min-h-11 items-center gap-2 text-[14px]">
+        <input
+          type="checkbox"
+          checked={plan.periodic}
+          onChange={(e) => {
+            setSaved(false);
+            setPlan({ ...plan, periodic: e.target.checked });
+          }}
+          className="size-5 accent-brand"
+          data-testid="plan-periodic"
+        />
+        {t('doctor.periodic')}
+      </label>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
           {t('doctor.everyDays')}
@@ -389,6 +421,7 @@ function PlanEditor({ ncid }: { ncid: string }) {
             min={1}
             max={90}
             value={plan.every_days}
+            disabled={!plan.periodic}
             onChange={(e) => {
               setSaved(false);
               setPlan({ ...plan, every_days: Number(e.target.value) });
@@ -425,6 +458,65 @@ function PlanEditor({ ncid }: { ncid: string }) {
       </div>
       {saved && <Notice testId="plan-saved">{t('doctor.planSaved')}</Notice>}
       <ErrorNote error={error} />
+    </Card>
+  );
+}
+
+/** v3: the patient's appointments with the record links sent for them and what was recorded. */
+function Timeline({ ncid }: { ncid: string }) {
+  const { t } = useTranslation();
+  const [h, setH] = useState<PlatformHistory | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(
+    () =>
+      void call<PlatformHistory>('GET', `/hospital/patients/${ncid}/history`).then(setH, setError),
+    [ncid],
+  );
+  const recorded = (requestId: string) =>
+    (h?.sessions ?? []).filter((s) => s.request_id === requestId);
+  const req = (r: Appointment['requests'][number]) => (
+    <li key={r.id} className="flex flex-col gap-0.5 text-[13px]" data-testid="timeline-request">
+      <span>
+        {r.kind === 'rerecord' ? t('timeline.rerecord') : t('timeline.link')} ·{' '}
+        {r.tests.map((c) => t(`tests.${c}`)).join(', ')} · {t(`med.${r.med_state}`)}
+      </span>
+      <span className="text-muted">
+        {t(`timeline.state.${r.state}`, { date: fmtDate(r.due_at) })}
+        {recorded(r.id).map(
+          (s) =>
+            ` · ${t('timeline.uploaded', { n: s.takes_uploaded, date: fmtDate(s.started_at) })}`,
+        )}
+      </span>
+    </li>
+  );
+  return (
+    <Card title={t('timeline.title')} testId="timeline">
+      <ErrorNote error={error} />
+      {h?.withdrawn_at && (
+        <Notice tone="warn" testId="timeline-withdrawn">
+          {t('timeline.withdrawn', { date: fmtDate(h.withdrawn_at) })}
+        </Notice>
+      )}
+      {h && h.appointments.length === 0 && h.other_requests.length === 0 && (
+        <span className="text-[14px] text-muted">{t('timeline.none')}</span>
+      )}
+      <ol className="flex flex-col divide-y divide-[#EDF0F3]">
+        {(h?.appointments ?? []).map((a) => (
+          <li key={a.id} className="flex flex-col gap-1.5 py-3" data-testid="timeline-appt">
+            <div className="flex flex-wrap items-center gap-2 text-[14px]">
+              <span className="font-semibold">{fmt(a.at)}</span>
+              {a.doctor_name && <span className="text-muted">{a.doctor_name}</span>}
+              <StageBadge a={a} />
+            </div>
+            <ul className="flex flex-col gap-1 pl-3">{a.requests.map(req)}</ul>
+          </li>
+        ))}
+        {(h?.other_requests ?? []).length > 0 && (
+          <li className="py-3">
+            <ul className="flex flex-col gap-1">{h!.other_requests.map(req)}</ul>
+          </li>
+        )}
+      </ol>
     </Card>
   );
 }

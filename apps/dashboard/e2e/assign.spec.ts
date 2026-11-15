@@ -8,12 +8,14 @@ test('M14: receptionist assigns and reassigns; each doctor sees only their patie
   const s = stack();
   // A doctor with no assignment sees nobody.
   await signIn(page, s.doctor2_email, s.doctor2_totp);
+  await page.getByTestId('nav-myPatients').click();
   await expect(page.getByTestId('no-patients')).toBeVisible();
   await page.getByTestId('sign-out').click();
 
   await signIn(page, s.desk_email, s.desk_totp);
   await expect(page.getByTestId('who')).toContainText('Receptionist');
   await expect(page.getByTestId('nav-team')).toHaveCount(0); // the desk does not manage the team
+  await page.getByTestId('nav-assign').click(); // v3: the desk lands on Appointments
   // Add a hospital patient who has no NCID yet, from the live records.
   await page.getByTestId('a-search').fill('ravi');
   await page.getByTestId('a-search-btn').click();
@@ -33,11 +35,13 @@ test('M14: receptionist assigns and reassigns; each doctor sees only their patie
   await page.getByTestId('sign-out').click();
 
   await signIn(page, s.doctor2_email, s.doctor2_totp);
+  await page.getByTestId('nav-myPatients').click();
   await expect(page.getByTestId('my-patients')).toContainText('Asha Testpatient');
   await expect(page.getByTestId('my-patients')).not.toContainText('Ravi');
   await page.getByTestId('sign-out').click();
 
   await signIn(page, s.desk_email, s.desk_totp);
+  await page.getByTestId('nav-assign').click();
   await asha.getByTestId('a-doctor').selectOption({ label: 'Dr. Rao' });
   await expect(asha.getByTestId('a-save')).toHaveText('Reassign');
   await asha.getByTestId('a-save').click();
@@ -46,8 +50,10 @@ test('M14: receptionist assigns and reassigns; each doctor sees only their patie
 
   // Dr. Iyer lost access at once; Dr. Rao has it.
   await signIn(page, s.doctor2_email, s.doctor2_totp);
+  await page.getByTestId('nav-myPatients').click();
   await expect(page.getByTestId('no-patients')).toBeVisible();
   await page.getByTestId('sign-out').click();
   await signIn(page, s.doctor_email, s.doctor_totp);
+  await page.getByTestId('nav-myPatients').click();
   await expect(page.getByTestId('my-patients')).toContainText('Asha Testpatient');
 });

@@ -7,8 +7,11 @@ import { Hospitals, PlatformLog } from './platform.tsx';
 import { Activity, Connections, Overview, Patients, Phones, Team } from './hospital.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
 import { Assign } from './assign.tsx';
+import { Appointments } from './appointments.tsx';
+import { ChooseTests, waitingForTests } from './choose.tsx';
 
 interface Me {
+  id: string;
   role: 'platform_admin' | 'hospital_admin' | 'doctor' | 'receptionist';
   site_name: string | null;
   email: string;
@@ -17,9 +20,18 @@ interface Me {
 
 const NAV: Record<Me['role'], string[]> = {
   platform_admin: ['hospitals', 'platformLog'],
-  hospital_admin: ['overview', 'connections', 'team', 'phones', 'patients', 'assign', 'activity'],
-  doctor: ['myPatients'],
-  receptionist: ['assign'],
+  hospital_admin: [
+    'overview',
+    'connections',
+    'team',
+    'phones',
+    'patients',
+    'appointments',
+    'assign',
+    'activity',
+  ],
+  doctor: ['chooseTests', 'myPatients'],
+  receptionist: ['appointments', 'assign'],
 };
 
 function inviteFromUrl(): string | null {
@@ -34,11 +46,18 @@ export function App() {
   const [notice, setNotice] = useState<string | undefined>();
   const [page, setPage] = useState<string>('');
   const [patient, setPatient] = useState<string | null>(null);
+  /** v3: appointments waiting for this doctor's tests (count in the menu). */
+  const [waiting, setWaiting] = useState<number | null>(null);
 
   const loadMe = async () => {
     const m = await call<Me>('GET', '/staff/me');
     setMe(m);
     setPage(NAV[m.role][0]!);
+    if (m.role === 'doctor')
+      waitingForTests(m.id).then(
+        (l) => setWaiting(l.length),
+        () => undefined,
+      );
   };
   useEffect(() => {
     void resume().then(
@@ -75,6 +94,8 @@ export function App() {
   else if (page === 'patients') body = <Patients />;
   else if (page === 'activity') body = <Activity />;
   else if (page === 'assign') body = <Assign />;
+  else if (page === 'appointments') body = <Appointments />;
+  else if (page === 'chooseTests') body = <ChooseTests meId={me.id} onCount={setWaiting} />;
   else if (patient) body = <PatientView ncid={patient} onBack={() => setPatient(null)} />;
   else body = <MyPatients onOpen={setPatient} />;
 
@@ -99,7 +120,15 @@ export function App() {
             className={`flex min-h-11 items-center rounded-xl px-3 text-left text-[14px] ${page === p ? 'bg-brand-soft font-semibold text-brand' : ''}`}
             data-testid={`nav-${p}`}
           >
-            {t(`nav.${p}`)}
+            <span className="flex-1">{t(`nav.${p}`)}</span>
+            {p === 'chooseTests' && !!waiting && (
+              <span
+                className="rounded-[10px] bg-brand px-2 text-[12px] text-white"
+                data-testid="choose-count"
+              >
+                {waiting}
+              </span>
+            )}
           </button>
         ))}
         <span className="flex-1" />

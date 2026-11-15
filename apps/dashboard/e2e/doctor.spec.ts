@@ -13,6 +13,7 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   page.on('pageerror', (e) => errors.push(e.message));
   await assignPatient(s.doctor_email); // doctors see only their assigned patients
   await signIn(page, s.doctor_email, s.doctor_totp);
+  await page.getByTestId('nav-myPatients').click(); // v3: doctors land on "Choose tests"
   await expect(page.getByTestId('my-patients')).toContainText('Asha Testpatient');
   await page.getByTestId(`open-${s.patient_mrn}`).click();
 
@@ -40,6 +41,7 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   await review.getByTestId('review-save').click();
   await expect(page.getByTestId('recordings')).toContainText('Reviewed: Not usable');
   await page.getByTestId('plan-SAW').uncheck();
+  await page.getByTestId('plan-periodic').check(); // v3: every N days only when the doctor asks
   await page.getByTestId('plan-days').fill('3');
   await page.getByTestId('plan-save').click();
   await expect(page.getByTestId('plan-saved')).toBeVisible();
@@ -73,5 +75,7 @@ test('M14: first sign-in sets up two-step with an authenticator app', async ({ p
   await expect(page.getByRole('alert')).toBeVisible();
   await page.getByTestId('setup-code').fill(totp(secret));
   await page.getByTestId('setup-confirm').click();
+  await expect(page.getByTestId('nav-chooseTests')).toBeVisible();
+  await page.getByTestId('nav-myPatients').click();
   await expect(page.getByTestId('my-patients')).toBeVisible();
 });

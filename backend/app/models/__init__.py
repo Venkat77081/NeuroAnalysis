@@ -224,6 +224,9 @@ class RecordingPlan(Base):
     med_state: Mapped[str] = mapped_column(String(3))  # OFF | ON | ANY
     updated_by: Mapped[str] = mapped_column(String(32))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    #: M14: the doctor asked for a new recording (due at once until the patient records again).
+    rerecord_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rerecord_tests: Mapped[list | None] = mapped_column(Json)
 
 
 class DeletionRequest(Base):

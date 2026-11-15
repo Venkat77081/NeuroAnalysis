@@ -242,3 +242,42 @@ def platform_audit(
     """Platform admin activity and hospital onboarding events. Clinical activity logs belong to
     the hospital (their database once the connector is configured)."""
     return audit_rows(db, site_id, limit)
+
+
+class SetupOut(BaseModel):
+    """Onboarding wizard status for one hospital: pass / fail facts only, never data."""
+
+    admin_accepted: bool
+    connector_registered: bool
+    connector_check: dict | None
+    storage_kind: str
+    storage_check: dict | None
+    take_key: bool
+    devices: int
+    operators: int
+    doctors: int
+
+
+@router.get("/hospitals/{site_id}/setup", response_model=SetupOut)
+def hospital_setup(
+    site_id: str,
+    _: Principal = Depends(admin_only),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> SetupOut:
+    from app.models import SiteKey
+
+    site = _site(db, site_id)
+    staff = list(db.scalars(select(StaffUser).where(StaffUser.site_id == site.id)))
+    out = _out(db, site)
+    return SetupOut(
+        admin_accepted=any(u.role == "hospital_admin" and u.password_hash for u in staff),
+        connector_registered=bool(site.connector_public_key),
+        connector_check=site.connector_check,
+        storage_kind=site.storage_kind,
+        storage_check=site.storage_check,
+        take_key=db.scalar(select(SiteKey).where(SiteKey.site_id == site.id, SiteKey.status == "active"))
+        is not None,
+        devices=out.devices,
+        operators=out.operators,
+        doctors=sum(1 for u in staff if u.role == "doctor" and u.active),
+    )

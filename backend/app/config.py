@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     invite_link_base: str = "neurocapture://invite?t="
     #: Web dashboard address used in staff invite e-mails.
     dashboard_url: str = "http://localhost:5174"
+    #: Browser origins allowed to call this API (M14 dashboard), comma-separated.
+    cors_origins: str = "http://localhost:5174"
     # M11: Ed25519 key the platform signs connector requests and connector tokens with. Dev/tests:
     # ephemeral (connectors must re-fetch the public key after a restart).
     platform_signing_key_path: str | None = None

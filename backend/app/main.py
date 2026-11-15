@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api.auth import router as auth_router
@@ -36,6 +37,13 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="NeuroCapture API", version=__version__, lifespan=lifespan)
+# M14: the web dashboards (static files on their own origin) call this API from the browser.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(devices_router)

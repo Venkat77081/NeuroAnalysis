@@ -536,11 +536,14 @@ def close_patient(
 
 class PatientOut(BaseModel):
     ncid: str
+    #: invited | active | locked | closed (home app) or clinic (no app account)
     status: str
     invite_channel: str | None
     invite_expires_at: datetime | None
     consent_version: str | None
-    created_at: datetime
+    created_at: datetime | None
+    sessions: int = 0
+    last_session_at: datetime | None = None
 
 
 @router.get("/patients", response_model=list[PatientOut])
@@ -548,23 +551,36 @@ def list_patients(
     p: Principal = Depends(require_role("hospital_admin", "doctor")),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> list[PatientOut]:
-    """NCIDs and app status only; the dashboard joins names and MRNs from the hospital's records."""
+    """NCIDs, app status and session counts only; the dashboard joins names and MRNs live from the
+    hospital's records through the connector."""
+    from sqlalchemy import func
+
+    from app.models import Session
+
+    stats = (
+        select(Session.patient_id, func.count().label("n"), func.max(Session.started_at).label("last"))
+        .group_by(Session.patient_id)
+        .subquery()
+    )
     q = (
-        select(Patient, PatientAccount)
-        .join(PatientAccount, PatientAccount.patient_id == Patient.id)
+        select(Patient, PatientAccount, stats.c.n, stats.c.last)
+        .outerjoin(PatientAccount, PatientAccount.patient_id == Patient.id)
+        .outerjoin(stats, stats.c.patient_id == Patient.id)
         .where(Patient.site_id == p.site_id)
-        .order_by(PatientAccount.created_at.desc())
+        .order_by(stats.c.last.desc().nulls_last(), PatientAccount.created_at.desc().nulls_last())
     )
     return [
         PatientOut(
             ncid=pt.ncid,
-            status=acc.status,
-            invite_channel=acc.invite_channel,
-            invite_expires_at=acc.invite_expires_at,
-            consent_version=acc.consent_version,
-            created_at=acc.created_at,
+            status=acc.status if acc else "clinic",
+            invite_channel=acc.invite_channel if acc else None,
+            invite_expires_at=acc.invite_expires_at if acc else None,
+            consent_version=acc.consent_version if acc else None,
+            created_at=acc.created_at if acc else None,
+            sessions=n or 0,
+            last_session_at=last,
         )
-        for pt, acc in db.execute(q)
+        for pt, acc, n, last in db.execute(q)
     ]
 
 

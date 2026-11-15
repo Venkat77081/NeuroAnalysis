@@ -143,3 +143,59 @@ def test_operator_locks_after_wrong_passwords_and_admin_unlocks(api, two_hospita
     assert listed[op["id"]]["locked"]
     api.post(f"/hospital/operators/{op['id']}/active", headers=hdr(t["a_tok"]), json={"active": True})
     assert api.post("/auth/login", json={**creds, "password": op["temporary_password"]}).status_code == 200
+
+
+def test_rerecord_request_makes_the_plan_due(api, two_hospitals):
+    from test_tenancy import sign_up, staff_login
+
+    t = two_hospitals
+    ncid, acc = home_patient(api, t["a_tok"])
+    ptok = hdr(acc["tokens"]["access_token"])
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    api.post("/sessions", headers=ptok, json={**SESSION, "started_at": yesterday})
+    assert not api.get("/patient/plan", headers=ptok).json()["due_now"]
+    api.post("/hospital/staff", headers=hdr(t["a_tok"]), json={"email": "dr@sunrise.example"})
+    _, secret = sign_up(api, "dr@sunrise.example")
+    dr = hdr(staff_login(api, "dr@sunrise.example", secret)["access_token"])
+    # Only doctors ask for re-recording; only for their hospital's patients.
+    assert (
+        api.post(f"/hospital/patients/{ncid}/rerecord", headers=hdr(t["a_tok"]), json={}).status_code == 403
+    )
+    assert api.post(f"/hospital/patients/{ncid}/rerecord", headers=hdr(t["b_tok"]), json={}).status_code in (
+        403,
+        404,
+    )
+    r = api.post(f"/hospital/patients/{ncid}/rerecord", headers=dr, json={"tests": ["FA"]})
+    assert r.status_code == 200 and r.json()["rerecord_tests"] == ["FA"] and r.json()["default"]
+    plan = api.get("/patient/plan", headers=ptok).json()
+    assert plan["due_now"] and plan["rerecord"] and plan["tests"] == ["FA"]
+    api.post(
+        "/sessions",
+        headers=ptok,
+        json={**SESSION, "client_session_id": "home-2", "started_at": datetime.now(UTC).isoformat()},
+    )
+    plan = api.get("/patient/plan", headers=ptok).json()
+    assert not plan["rerecord"] and plan["tests"] == ["FT", "FTF", "FR", "SAW", "FA"]
+
+
+def test_patient_list_counts_sessions_and_platform_setup_status(api, two_hospitals):
+    t = two_hospitals
+    ncid, acc = home_patient(api, t["a_tok"])
+    api.post("/sessions", headers=hdr(acc["tokens"]["access_token"]), json=SESSION)
+    rows = {r["ncid"]: r for r in api.get("/hospital/patients", headers=hdr(t["a_tok"])).json()}
+    assert rows[ncid]["sessions"] == 1 and rows[ncid]["status"] == "active" and rows[ncid]["last_session_at"]
+    setup = api.get(f"/platform/hospitals/{t['a']}/setup", headers=hdr(t["platform"])).json()
+    assert setup["admin_accepted"] and not setup["connector_registered"] and not setup["take_key"]
+    assert setup["storage_kind"] == "managed"
+    assert api.get(f"/platform/hospitals/{t['a']}/setup", headers=hdr(t["a_tok"])).status_code == 403
+
+
+def test_cors_allows_the_dashboard_origin(api):
+    r = api.options(
+        "/staff/login", headers={"Origin": "http://localhost:5174", "Access-Control-Request-Method": "POST"}
+    )
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:5174"
+    r = api.options(
+        "/staff/login", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"}
+    )
+    assert "access-control-allow-origin" not in r.headers

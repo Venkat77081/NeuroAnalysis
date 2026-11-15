@@ -14,6 +14,8 @@ test('M9: a practice session records without a patient and leaves nothing behind
   await page.goto('/?mode=clinic-local&mockSpeed=20');
   await expect(page.getByTestId('start-session')).toBeDisabled();
   await page.getByTestId('practice-toggle').check();
+  await expect(page.getByTestId('start-session')).toBeDisabled(); // consent first, practice too
+  await page.getByTestId('consent').check();
   await expect(page.getByTestId('choose-patient')).toHaveCount(0);
   await expect(page.getByTestId('start-session')).toHaveText('Start practice');
   await page.getByTestId('start-session').click();

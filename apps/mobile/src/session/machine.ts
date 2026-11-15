@@ -183,8 +183,10 @@ export const sessionMachine = setup({
     input: {} as SessionInput,
   },
   guards: {
+    // No recording without consent, practice included (user, 15 Nov 2026).
     readyToStart: ({ context }) =>
-      context.training || (!!context.patient && !!context.medState && !!context.consent),
+      !!context.consent && (context.training || (!!context.patient && !!context.medState)),
+    hasConsent: ({ context }) => !!context.consent,
     lastVerdictPass: ({ context }) => lastTake(context)?.verdict === 'PASS',
     lastVerdictRetake: ({ context }) => lastTake(context)?.verdict === 'RETAKE',
     canRetake: ({ context }) => retakesLeft(context) > 0,
@@ -298,6 +300,7 @@ export const sessionMachine = setup({
           on: {
             BACK: 'intro',
             RECORD: {
+              guard: 'hasConsent',
               target: 'countdown',
               actions: assign({ currentTakeId: ({ event }) => event.takeId, notice: null }),
             },

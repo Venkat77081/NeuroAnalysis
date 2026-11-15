@@ -73,7 +73,7 @@ export function SessionHome({
   const totalS = ctx.plan.reduce((s, p) => s + (config.tests.get(p.code)?.task.durationS ?? 0), 0);
   const minutes = Math.round(totalS / 60 + ctx.plan.length * 1.5);
   const training = ctx.training;
-  const ready = training || (!!ctx.patient && !!ctx.medState && !!ctx.consent);
+  const ready = !!ctx.consent && (training || (!!ctx.patient && !!ctx.medState));
   const yob = Number(draft.yob);
   const draftOk = draft.ref.trim().length >= 3 && (!draft.yob || (yob >= 1900 && yob <= 2030));
 
@@ -215,30 +215,30 @@ export function SessionHome({
                 ))}
               </div>
             </section>
-
-            <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
-              <input
-                type="checkbox"
-                checked={!!ctx.consent}
-                onChange={(e) =>
-                  send({
-                    type: 'SET_CONSENT',
-                    given: e.target.checked,
-                    at: new Date().toISOString(),
-                  })
-                }
-                className="size-6 accent-brand"
-                data-testid="consent"
-              />
-              <span className="flex flex-col">
-                <span className="font-semibold">{t('session.home.consent')}</span>
-                <span className="text-xs text-muted">
-                  {t('session.home.consentDetail', { version: config.session.consentVersion })}
-                </span>
-              </span>
-            </label>
           </>
         )}
+
+        <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            checked={!!ctx.consent}
+            onChange={(e) =>
+              send({
+                type: 'SET_CONSENT',
+                given: e.target.checked,
+                at: new Date().toISOString(),
+              })
+            }
+            className="size-6 accent-brand"
+            data-testid="consent"
+          />
+          <span className="flex flex-col">
+            <span className="font-semibold">{t('session.home.consent')}</span>
+            <span className="text-xs text-muted">
+              {t('session.home.consentDetail', { version: config.session.consentVersion })}
+            </span>
+          </span>
+        </label>
 
         <section className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between">

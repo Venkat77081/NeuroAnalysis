@@ -110,23 +110,23 @@ means it can be done in the browser; the rest need a real phone (L3).
 
 ### C. Patient (home), v3
 
-| #   | Test                                                        | Expected                                                                                                          | Level  |
-| --- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------ |
-| C1  | Scan the join invite QR with the in-app scanner             | "Choose a PIN" with the hospital name                                                                             | L3     |
-| C2  | Paste the invite link or SMS code                           | Same as C1                                                                                                        | L1     |
-| C3  | A used or expired invite                                    | "not accepted … used or expired"                                                                                  | L1     |
-| C4  | PINs that don't match / too short                           | Clear message. There is no consent box at joining, only "How your recordings are used"                            | L1     |
-| C5  | My hospitals, right after joining                           | One card, "Joined", "No recording requests"; opening it says there is nothing to record now                       | L1     |
-| C6  | Doctor sends a record link (dashboard I9)                   | Card shows "1 request" and "Record before your visit on … (by …)"; the hospital page lists the tests              | L1, L3 |
-| C7  | Start recording, then "Not now" / no tick                   | The consent screen comes first; "Open the camera" is disabled until ticked                                        | L1     |
-| C8  | Walking test at home                                        | "Someone to help?": Yes records, No skips it with "No helper"                                                     | L1, L3 |
-| C9  | Full session for the request                                | "Session complete" and "All takes uploaded" (on Wi-Fi); the request moves to the history as "Recorded · uploaded" | L1, L3 |
-| C10 | Lock, then reopen the app                                   | PIN needed; 5 wrong PINs locks the account (a new invite fixes it)                                                | L1, L3 |
-| C11 | Join a second hospital ("Join another hospital")            | Same PIN; two cards; each hospital shows only its own requests                                                    | L1, L3 |
-| C12 | Leave one hospital (withdraw)                               | That hospital shows "Withdrawn", its history read only; the other hospital is not affected                        | L1, L3 |
-| C13 | Reception sends a new join invite to a withdrawn patient    | Joining again brings the same hospital back, history kept                                                         | L3     |
-| C14 | Doctor asked "repeat every N days"                          | The hospital page shows the plan with "Due now" or the next date                                                  | L3     |
-| C15 | Reminder (connector `python -m ncconnector send-reminders`) | The patient gets "please record by …" the day before the record-by date (dummy outbox)                            | L2     |
+| #   | Test                                                        | Expected                                                                                                                                        | Level  |
+| --- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| C1  | Scan the join invite QR with the in-app scanner             | "Choose a PIN" with the hospital name                                                                                                           | L3     |
+| C2  | Paste the invite link or SMS code                           | Same as C1                                                                                                                                      | L1     |
+| C3  | A used or expired invite                                    | "not accepted … used or expired"                                                                                                                | L1     |
+| C4  | PINs that don't match / too short                           | Clear message. There is no consent box at joining, only "How your recordings are used"                                                          | L1     |
+| C5  | My hospitals, right after joining                           | One card, "Joined", "No recording requests"; opening it says there is nothing to record now                                                     | L1     |
+| C6  | Doctor sends a record link (dashboard I9)                   | Card shows "1 request" and "Record before your visit on … (by …)"; the hospital page lists the tests                                            | L1, L3 |
+| C7  | Start recording, then "Not now" / no tick                   | The consent screen comes first; "Open the camera" is disabled until ticked                                                                      | L1     |
+| C8  | Walking test at home                                        | "Someone to help?": Yes records, No skips it with "No helper"                                                                                   | L1, L3 |
+| C9  | Full session for the request                                | "Session complete" and "All takes uploaded" (on Wi-Fi); the request moves to the history as "Recorded · uploaded"                               | L1, L3 |
+| C10 | Lock, then reopen the app                                   | PIN needed; 5 wrong PINs locks the account (a new invite fixes it)                                                                              | L1, L3 |
+| C11 | Join a second hospital ("Join another hospital")            | Same PIN; two cards; each hospital shows only its own requests                                                                                  | L1, L3 |
+| C12 | Leave one hospital (withdraw)                               | That hospital shows "Withdrawn", its history read only; the other hospital is not affected                                                      | L1, L3 |
+| C13 | Reception sends a new join invite to a withdrawn patient    | Joining again brings the same hospital back, history kept                                                                                       | L3     |
+| C14 | Doctor asked "repeat every N days"                          | The hospital page shows the plan with "Due now" or the next date, and "Until your appointment on …"; nothing more is due after that appointment | L3     |
+| C15 | Reminder (connector `python -m ncconnector send-reminders`) | The patient gets "please record by …" the day before the record-by date (dummy outbox)                                                          | L2     |
 
 ### D. Recording quality (real phone only; see also `docs/qa/pre-pilot-test-plan.md`)
 
@@ -203,7 +203,7 @@ Run at L2. Sign in with the accounts the stack prints.
 | I7  | Stop the FHIR stand-in (`pkill -f "port 8180"`), then open Asha           | "Your hospital system is not answering"; recordings still open                                                                     |
 | I8  | A patient assigned to another doctor                                      | Not in My patients; the connector refuses it (covered by the automated tests)                                                      |
 | I9  | Choose tests (v3)                                                         | The menu shows the count; the history is next to the choice; "Same as last time", "Hands only", "All 5"; Send → "Record link sent" |
-| I10 | "Also repeat every 7 days" when sending                                   | The patient page plan shows "Also record every N days" ticked with 7                                                               |
+| I10 | "Also repeat every 7 days" when sending                                   | The patient page plan shows it ticked with 7 and "Repeats stop at the next appointment, …"                                         |
 | I11 | Patient page: "Appointments and record links"                             | Each appointment with its link, the tests, and what was recorded                                                                   |
 | I12 | Try to send a link for another doctor's appointment (API)                 | Refused (covered by the backend tests)                                                                                             |
 

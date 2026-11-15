@@ -41,6 +41,9 @@
     connector asks the platform (`POST /connector/v1/access`, signed) on every request, without
     caching, so a reassignment takes effect on the very next request.
 - Doctors can no longer search the hospital's records; the receptionist finds patients.
+- **Clinical data is for the assigned doctor only** (user, 15 Nov 2026). Medical history,
+  recordings, decrypted videos and review notes are refused for hospital admins and
+  receptionists on the connector. They see names (to invite and assign) and the activity log.
 - A patient has one assigned doctor at a time. Assignment changes are kept in the activity log.
 - The dashboard stays English only (user, 15 Nov 2026). Doctors need network access to their
   hospital's connector, as designed.

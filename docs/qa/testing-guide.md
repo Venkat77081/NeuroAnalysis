@@ -161,17 +161,18 @@ Run at L2. Sign in with the accounts the stack prints.
 
 ### G. Hospital admin
 
-| #   | Test                                      | Expected                                                                 |
-| --- | ----------------------------------------- | ------------------------------------------------------------------------ |
-| G1  | Data connections → Test with MRN 00012388 | All checks "pass"                                                        |
-| G2  | Recording keys                            | One active key                                                           |
-| G3  | Team: add operator                        | Temporary password shown once; "must change password"                    |
-| G4  | Team: invite a receptionist and a doctor  | Listed as invited                                                        |
-| G5  | Phones: new registration code             | 10-character code and QR; it registers one phone (A3)                    |
-| G6  | Patients: search "ravi"                   | Live result; "Missing" e-mail                                            |
-| G7  | Invite by e-mail (Asha) / print (Ravi)    | Sent / QR ready to print; Ravi's e-mail is skipped                       |
-| G8  | Deletion requests                         | Shows the C11 request; Mark done                                         |
-| G9  | Activity                                  | Clinical events (searches, views) and platform events (accounts, phones) |
+| #   | Test                                                                  | Expected                                                                               |
+| --- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| G1  | Data connections → Test with MRN 00012388                             | All checks "pass"                                                                      |
+| G2  | Recording keys                                                        | One active key                                                                         |
+| G3  | Team: add operator                                                    | Temporary password shown once; "must change password"                                  |
+| G4  | Team: invite a receptionist and a doctor                              | Listed as invited                                                                      |
+| G5  | Phones: new registration code                                         | 10-character code and QR; it registers one phone (A3)                                  |
+| G6  | Patients: search "ravi"                                               | Live result; "Missing" e-mail                                                          |
+| G7  | Invite by e-mail (Asha) / print (Ravi)                                | Sent / QR ready to print; Ravi's e-mail is skipped                                     |
+| G8  | Deletion requests                                                     | Shows the C11 request; Mark done                                                       |
+| G9  | Activity                                                              | Clinical events (searches, views) and platform events (accounts, phones)               |
+| G10 | Hospital admin or receptionist tries a patient's history or recording | Refused: medical history, recordings and review notes are for the assigned doctor only |
 
 ### H. Receptionist
 

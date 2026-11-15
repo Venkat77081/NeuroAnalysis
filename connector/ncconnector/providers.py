@@ -77,7 +77,7 @@ def send_reminder(channel: str, to: str, due: str, appointment: str | None) -> N
     """v3: "please record by …" for an open recording request."""
     s = get_settings()
     hospital = s.hospital_name
-    appt = f", before your appointment on {appointment}" if appointment else ""
+    appt = text("reminderAppointment", "suffix", appointment=appointment) if appointment else ""
     if channel == "email":
         if s.email_provider != "dummy":
             raise ProviderNotConfiguredError(f"e-mail provider {s.email_provider!r} is not available yet")

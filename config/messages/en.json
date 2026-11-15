@@ -23,5 +23,8 @@
   },
   "reminderSms": {
     "body": "{hospital}: please record your movement tests in the NeuroCapture app by {due}{appointment}."
+  },
+  "reminderAppointment": {
+    "suffix": ", before your appointment on {appointment}"
   }
 }

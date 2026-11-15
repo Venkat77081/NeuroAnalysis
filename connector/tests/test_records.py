@@ -110,3 +110,19 @@ def test_sql_unreachable():
     eng = create_engine("sqlite+pysqlite:////nonexistent-dir/x.db")
     with pytest.raises(RecordsUnavailableError):
         SqlRecords("unused", engine=eng).get("1")
+
+
+def test_sql_appointments(sql):
+    from datetime import UTC, datetime, timedelta
+
+    with sql.engine.begin() as c:
+        c.execute(
+            text(
+                "INSERT INTO his_appointment VALUES ('A1','M-1','2026-11-20 10:30:00','Dr. Rao'),"
+                "('A2','M-2','2027-01-20 10:30:00','Dr. Rao')"
+            )
+        )
+    start = datetime(2026, 11, 15, tzinfo=UTC)
+    found = sql.appointments(start, start + timedelta(days=7))
+    assert [(a.external_id, a.mrn, a.practitioner) for a in found] == [("sql:A1", "M-1", "Dr. Rao")]
+    assert found[0].at.tzinfo is not None

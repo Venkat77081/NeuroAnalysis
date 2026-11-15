@@ -16,9 +16,12 @@ from ncconnector.takecrypto import unwrap_data_key
 
 @pytest.fixture
 def env(connector, tmp_path, monkeypatch):
+    from app.config import get_settings as platform_settings
+
     from ncconnector.config import get_settings
 
     monkeypatch.setattr(get_settings(), "take_keys_dir", str(tmp_path / "keys"))
+    monkeypatch.setattr(platform_settings(), "require_hospital_key", True)
     return connector
 
 
@@ -198,16 +201,14 @@ def test_rotation(env):
     assert e.value.status_code == 422
 
 
-def test_byo_hospital_needs_a_key(env):
-    api = env["platform"]
-    b_site = onboard(api, env["root_tok"], "BYO Hospital", "admin@byo.example")
-    from app.db import _factory
-    from app.models import Site
+def test_every_hospital_needs_a_key(env, monkeypatch):
+    """Decision 027: no platform-key fallback, managed or not."""
+    from app.config import get_settings as platform_settings
 
-    with _factory()() as db:
-        db.get(Site, b_site).data_mode = "byo"
-        db.commit()
-    b_tok, _ = sign_up(api, "admin@byo.example")
+    monkeypatch.setattr(platform_settings(), "require_hospital_key", True)
+    api = env["platform"]
+    onboard(api, env["root_tok"], "Managed Clinic", "admin@managed.example")
+    b_tok, _ = sign_up(api, "admin@managed.example")
     inv = api.post("/hospital/patients/invite", headers=hdr(b_tok), json={"channel": "print"}).json()
     acc = api.post(
         "/patient/invite/accept",

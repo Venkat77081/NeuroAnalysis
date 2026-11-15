@@ -23,21 +23,21 @@ docker run -d --name nc-connector -p 8100:8100 -v nc-connector:/data --env-file 
 
 `connector.env` (all variables start with `NCC_`):
 
-| Variable                                                            | Meaning                                                                                                     |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `NCC_SITE_ID`                                                       | The hospital's ID, shown in the hospital dashboard (Data connections)                                       |
-| `NCC_PLATFORM_URL`                                                  | NeuroCapture API address                                                                                    |
-| `NCC_SIGNING_KEY_PATH`                                              | This connector's Ed25519 key (step 2)                                                                       |
-| `NCC_PLATFORM_PUBLIC_KEY_PATH`                                      | Optional. Without it the key is fetched once from `<platform>/.well-known/neurocapture-platform-key`        |
-| `NCC_TAKE_PRIVATE_KEY_PATH`                                         | RSA private key that unwraps recordings (M12 makes this the hospital's own key)                             |
-| `NCC_DATABASE_URL`                                                  | The connector's database (Postgres or SQLite file); tables `nc_ncid_map`, `nc_activity_log`, `nc_log_spool` |
-| `NCC_RECORDS`                                                       | `fhir` or `sql`                                                                                             |
-| `NCC_FHIR_BASE_URL`, `NCC_FHIR_MRN_SYSTEM`, `NCC_FHIR_BEARER_TOKEN` | FHIR server, the identifier system that holds the MRN, and an optional token                                |
-| `NCC_RECORDS_SQL_URL`                                               | Read-only database URL with the views from `connector/sql/sample_views.sql`                                 |
-| `NCC_ACTIVITY_SINK`, `NCC_ACTIVITY_HTTP_URL`                        | `db` (default) or `http` (the hospital's log server; entries are queued while it is down)                   |
-| `NCC_HOSPITAL_NAME`                                                 | Name used in invite messages                                                                                |
-| `NCC_CORS_ORIGINS`                                                  | Dashboard address(es) allowed to call the connector from the browser                                        |
-| `NCC_EMAIL_PROVIDER`, `NCC_SMS_PROVIDER`                            | `dummy` for now (decision 024)                                                                              |
+| Variable                                                            | Meaning                                                                                                                                                                                  |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NCC_SITE_ID`                                                       | The hospital's ID, shown in the hospital dashboard (Data connections)                                                                                                                    |
+| `NCC_PLATFORM_URL`                                                  | NeuroCapture API address                                                                                                                                                                 |
+| `NCC_SIGNING_KEY_PATH`                                              | This connector's Ed25519 key (step 2)                                                                                                                                                    |
+| `NCC_PLATFORM_PUBLIC_KEY_PATH` or `NCC_PLATFORM_KEY_SHA256`         | **One is required.** The platform's public key file, or its SHA-256 from Data connections, to pin the key fetched from `<platform>/.well-known/neurocapture-platform-key` (decision 027) |
+| `NCC_TAKE_PRIVATE_KEY_PATH`                                         | RSA private key that unwraps recordings (M12 makes this the hospital's own key)                                                                                                          |
+| `NCC_DATABASE_URL`                                                  | The connector's database (Postgres or SQLite file); tables `nc_ncid_map`, `nc_activity_log`, `nc_log_spool`                                                                              |
+| `NCC_RECORDS`                                                       | `fhir` or `sql`                                                                                                                                                                          |
+| `NCC_FHIR_BASE_URL`, `NCC_FHIR_MRN_SYSTEM`, `NCC_FHIR_BEARER_TOKEN` | FHIR server, the identifier system that holds the MRN, and an optional token                                                                                                             |
+| `NCC_RECORDS_SQL_URL`                                               | Read-only database URL with the views from `connector/sql/sample_views.sql`                                                                                                              |
+| `NCC_ACTIVITY_SINK`, `NCC_ACTIVITY_HTTP_URL`                        | `db` (default) or `http` (the hospital's log server; entries are queued while it is down)                                                                                                |
+| `NCC_HOSPITAL_NAME`                                                 | Name used in invite messages                                                                                                                                                             |
+| `NCC_CORS_ORIGINS`                                                  | Dashboard address(es) allowed to call the connector from the browser                                                                                                                     |
+| `NCC_EMAIL_PROVIDER`, `NCC_SMS_PROVIDER`                            | `dummy` for now (decision 024)                                                                                                                                                           |
 
 The connector must be reachable over HTTPS from the doctors' browsers (hospital network, VPN or
 a hospital-controlled endpoint) and from the NeuroCapture platform (for health checks).

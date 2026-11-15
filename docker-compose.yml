@@ -81,6 +81,8 @@ services:
     environment:
       NCC_SITE_ID: ${NCC_SITE_ID:-dev-site}
       NCC_PLATFORM_URL: http://api:8000
+      # Required (decision 027): the SHA-256 shown in the hospital dashboard → Data connections.
+      NCC_PLATFORM_KEY_SHA256: ${NCC_PLATFORM_KEY_SHA256:-}
       NCC_SIGNING_KEY_PATH: /data/signing.pem
       NCC_DATABASE_URL: sqlite+pysqlite:////data/connector.db
       NCC_RECORDS: ${NCC_RECORDS:-fhir}

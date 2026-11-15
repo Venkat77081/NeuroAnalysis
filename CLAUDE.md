@@ -31,7 +31,8 @@ The full plan is in `DEV_PLAN.md` (v3.1). The agreed UI mockups are linked from 
 
 - The app has two modes: **patients** (home recording by invite → PIN) and **operators** (ID + password on hospital-registered phones).
 - **Hospital-owned data**: NeuroCapture stores patients only by a random **NCID**. Names, MRNs, records, videos, clinical logs and biomarker results stay in the hospital's systems, reached through the **hospital connector**. Never store patient identity on the platform.
-- Biomarkers are computed on the server from the 60 fps video; phone landmarks are only for guidance and capture quality.
+- Biomarkers are computed **at the hospital** (next to the connector) from the 60 fps video; NeuroCapture servers never hold a decryptable recording (decision 027). Phone landmarks are only for guidance and capture quality.
+- Every hospital has its own take key; the platform never accepts a patient's contact details or MRN; connectors pin the platform key (decision 027).
 - FA biomarker formulas follow the JBHI 2024 appendix.
 
 ## Commands

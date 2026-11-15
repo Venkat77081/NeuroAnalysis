@@ -53,14 +53,24 @@ def _platform_key_from_config() -> Ed25519PublicKey:
     s = get_settings()
     if s.platform_public_key_path:
         pem = Path(s.platform_public_key_path).read_text()
+    elif s.platform_key_sha256:
+        url = f"{s.platform_url}/.well-known/neurocapture-platform-key"
+        pem = httpx.get(url, timeout=10).json()["public_key_pem"]
     else:
-        pem = httpx.get(f"{s.platform_url}/.well-known/neurocapture-platform-key", timeout=10).json()[
-            "public_key_pem"
-        ]
+        raise RuntimeError("set NCC_PLATFORM_PUBLIC_KEY_PATH or NCC_PLATFORM_KEY_SHA256")
     key = serialization.load_pem_public_key(pem.encode())
     if not isinstance(key, Ed25519PublicKey):
         raise ValueError("platform key must be Ed25519")
+    if s.platform_key_sha256 and key_sha256(key) != s.platform_key_sha256.strip().lower():
+        raise ValueError("platform key does not match NCC_PLATFORM_KEY_SHA256")
     return key
+
+
+def key_sha256(key: Ed25519PublicKey) -> str:
+    import hashlib
+
+    der = key.public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+    return hashlib.sha256(der).hexdigest()
 
 
 def platform_public_key() -> Ed25519PublicKey:

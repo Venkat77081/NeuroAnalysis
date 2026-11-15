@@ -53,14 +53,3 @@ def staff_invite(to: str, hospital: str, role: str, link: str, days: int) -> Non
         message("staffInvite", "subject", hospital=hospital),
         message("staffInvite", "body", hospital=hospital, role=role_text, link=link, days=days),
     )
-
-
-def patient_invite(channel: str, to: str, hospital: str, link: str, days: int) -> None:
-    if channel == "email":
-        send_email(
-            to,
-            message("patientInviteEmail", "subject", hospital=hospital),
-            message("patientInviteEmail", "body", hospital=hospital, link=link, days=days),
-        )
-    elif channel == "sms":
-        send_sms(to, message("patientInviteSms", "body", hospital=hospital, link=link, days=days))

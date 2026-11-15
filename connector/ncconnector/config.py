@@ -11,8 +11,11 @@ class Settings(BaseSettings):
     #: The hospital's site ID on the platform (shown in the hospital dashboard).
     site_id: str = "dev-site"
     platform_url: str = "http://localhost:8000"
-    #: Platform Ed25519 public key (PEM file). Without it the key is fetched from the platform.
+    #: Platform Ed25519 public key (PEM file), or its SHA-256 (shown in the hospital dashboard) to
+    #: pin a key fetched from the platform. One of the two is required: a fetched key is never
+    #: trusted on its own (decision 027).
     platform_public_key_path: str | None = None
+    platform_key_sha256: str | None = None
     #: This connector's Ed25519 private key (python -m ncconnector keygen). Dev: ephemeral.
     signing_key_path: str | None = None
     #: M12: directory of the hospital's RSA take keys, one "<key_id>.pem" per key (python -m

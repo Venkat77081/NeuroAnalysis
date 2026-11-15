@@ -252,13 +252,13 @@ def test_tokens_and_signatures_are_enforced(connector):
     hh = {**h, "Content-Type": "application/json"}
     assert env["platform"].post("/connector/v1/patients", content=body, headers=hh).status_code == 201
     assert env["platform"].post("/connector/v1/patients", content=body, headers=hh).status_code == 401
-    # With a connector registered, the platform refuses contact details and MRNs.
+    # The platform refuses contact details and MRNs.
     r = env["platform"].post(
         "/hospital/patients/invite",
         headers=hdr(env["admin_tok"]),
         json={"channel": "email", "contact": "a@b.example", "mrn": "1"},
     )
-    assert r.status_code == 409 and r.json()["detail"]["code"] == "use_connector"
+    assert r.status_code == 422  # decision 027: the platform never takes contacts or MRNs
 
 
 def test_take_of_another_hospital_is_not_served(connector):

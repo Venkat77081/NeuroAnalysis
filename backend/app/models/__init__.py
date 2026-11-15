@@ -211,6 +211,15 @@ class SiteKey(Base):
     retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class UsedNonce(Base):
+    """Signed-request nonces seen within the window (replay protection shared by all API replicas)."""
+
+    __tablename__ = "used_nonces"
+    nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
+    signer: Mapped[str] = mapped_column(String(64))
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
 class StaffUser(Base):
     """Web dashboard accounts (M10): platform admins (no site), hospital admins and doctors."""
 

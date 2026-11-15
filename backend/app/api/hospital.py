@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
@@ -15,7 +15,6 @@ from app.api.platform import AuditOut, Email, audit_rows
 from app.api.staff import new_staff_invite
 from app.audit import audit
 from app.config import get_settings
-from app.connector import CONNECTOR
 from app.db import get_db
 from app.models import (
     Device,
@@ -30,7 +29,7 @@ from app.models import (
     StaffUser,
 )
 from app.policy import policy
-from app.providers import patient_invite, staff_invite
+from app.providers import staff_invite
 from app.security import Principal, hash_password, new_secret, require_role, sha256_hex, temporary_password
 
 router = APIRouter(prefix="/hospital", tags=["hospital"])
@@ -376,13 +375,12 @@ def revoke_device(
 
 
 class PatientInviteIn(BaseModel):
-    channel: Literal["email", "sms", "print"] = "email"
-    #: E-mail address or mobile number for this one delivery. Passed to the provider, never stored.
-    #: With a configured connector (M11) the hospital sends it and this stays empty.
-    contact: str | None = Field(default=None, max_length=254)
-    #: The hospital's MRN, handed to the hospital connector for the NCID <-> MRN link. Never stored
-    #: by NeuroCapture.
-    mrn: str | None = Field(default=None, max_length=64)
+    """Printed QR invite from the dashboard. E-mail and SMS invites go through the hospital
+    connector (it holds the contact details); the platform never accepts a patient's contact or
+    MRN (decision 027). Unknown fields are refused."""
+
+    model_config = ConfigDict(extra="forbid")
+    channel: Literal["print"] = "print"
     year_of_birth: int | None = Field(default=None, ge=1900, le=2100)
     sex: Literal["F", "M", "X"] | None = None
 
@@ -418,20 +416,6 @@ def end_patient_phone(db: DbSession, acc: PatientAccount) -> None:
         prt.revoked = True
 
 
-def _no_identity_with_connector(site: Site, body) -> None:
-    """With a registered connector the hospital sends invites; the platform never takes contacts."""
-    if site.connector_public_key and (body.contact or getattr(body, "mrn", None)):
-        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "use_connector"})
-
-
-def _deliver(site: Site, channel: str, contact: str | None, link: str) -> None:
-    if channel == "print":
-        return
-    if not contact:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "contact_required"})
-    patient_invite(channel, contact.strip(), site.name, link, policy()["invites"]["patientTtlDays"])
-
-
 def _check_channel(site: Site, channel: str) -> None:
     if not (site.modules or {}).get("home", True):
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "home_recording_off"})
@@ -447,11 +431,6 @@ def invite_patient(
 ) -> PatientInviteOut:
     site = site_of(db, p)
     _check_channel(site, body.channel)
-    _no_identity_with_connector(site, body)
-    if body.channel != "print" and not body.contact:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "contact_required"})
-    if body.mrn and CONNECTOR.ncid_for_mrn(site.id, body.mrn.strip()):
-        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "already_invited"})
     patient = Patient(site_id=site.id, year_of_birth=body.year_of_birth, sex=body.sex)
     db.add(patient)
     db.flush()
@@ -470,15 +449,12 @@ def invite_patient(
         channel=body.channel,
     )
     db.commit()
-    if body.mrn:
-        CONNECTOR.link_patient(site.id, patient.ncid, body.mrn.strip())
-    _deliver(site, body.channel, body.contact, link)
     return PatientInviteOut(
         ncid=patient.ncid,
         status=acc.status,
         channel=body.channel,
         expires_at=exp,
-        invite_link=link if body.channel == "print" else None,
+        invite_link=link,
     )
 
 
@@ -493,8 +469,8 @@ def _account(db: DbSession, p: Principal, ncid: str) -> tuple[Patient, PatientAc
 
 
 class ReinviteIn(BaseModel):
-    channel: Literal["email", "sms", "print"] = "email"
-    contact: str | None = Field(default=None, max_length=254)
+    model_config = ConfigDict(extra="forbid")
+    channel: Literal["print"] = "print"
 
 
 @router.post("/patients/{ncid}/reinvite", response_model=PatientInviteOut)
@@ -507,9 +483,6 @@ def reinvite_patient(
     """New invite (new phone, lost PIN, expired link). The old link and phone stop working."""
     site = site_of(db, p)
     _check_channel(site, body.channel)
-    _no_identity_with_connector(site, body)
-    if body.channel != "print" and not body.contact:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "contact_required"})
     patient, acc = _account(db, p, ncid)
     if acc.status == "closed":
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "account_closed"})
@@ -527,13 +500,12 @@ def reinvite_patient(
         channel=body.channel,
     )
     db.commit()
-    _deliver(site, body.channel, body.contact, link)
     return PatientInviteOut(
         ncid=patient.ncid,
         status=acc.status,
         channel=body.channel,
         expires_at=exp,
-        invite_link=link if body.channel == "print" else None,
+        invite_link=link,
     )
 
 

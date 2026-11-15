@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.connector import CONNECTOR
 from app.providers import OUTBOX
 from app.security import totp_code
 
@@ -32,10 +31,8 @@ def hdr(tok):
 @pytest.fixture(autouse=True)
 def _clean():
     OUTBOX.clear()
-    CONNECTOR.clear()
     yield
     OUTBOX.clear()
-    CONNECTOR.clear()
 
 
 def last_link(prefix: str) -> str:
@@ -243,34 +240,22 @@ def accept_patient(api, link, pin="2580"):
 
 def test_patient_invite_pin_and_home_session(api, two_hospitals):
     t = two_hospitals
-    r = api.post(
-        "/hospital/patients/invite",
-        headers=hdr(t["a_tok"]),
-        json={"channel": "email", "contact": "patient@example.org", "mrn": "00012388"},
-    )
+    r = api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "print"})
     assert r.status_code == 201, r.text
     ncid = r.json()["ncid"]
-    assert re.fullmatch(r"nc_[0-9a-f]{32}", ncid) and r.json()["invite_link"] is None
-    assert OUTBOX[-1].to == "patient@example.org" and "MRN" in OUTBOX[-1].body  # "You do not need your MRN"
-    assert "00012388" not in OUTBOX[-1].body
-    assert CONNECTOR.ncid_for_mrn(t["a"], "00012388") == ncid  # link kept by the (dummy) connector only
-    dup = api.post(
-        "/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "print", "mrn": "00012388"}
-    )
-    assert dup.status_code == 409
-    # SMS is off for this hospital; contact is required for e-mail.
-    assert (
-        api.post(
-            "/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "sms", "contact": "+91"}
-        ).status_code
-        == 403
-    )
-    assert (
-        api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "email"}).status_code
-        == 422
-    )
+    assert re.fullmatch(r"nc_[0-9a-f]{32}", ncid) and r.json()["invite_link"].startswith("neurocapture://")
+    # The platform never takes a patient's contact details or MRN (decision 027): e-mail / SMS
+    # invites go through the hospital connector.
+    for body in (
+        {"channel": "email", "contact": "patient@example.org"},
+        {"channel": "print", "contact": "patient@example.org"},
+        {"channel": "print", "mrn": "00012388"},
+        {"channel": "sms"},
+    ):
+        assert api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json=body).status_code == 422
 
-    link = last_link("neurocapture://invite?t=")
+    link = r.json()["invite_link"]
+
     bad = api.post(
         "/patient/invite/accept",
         json={
@@ -360,17 +345,6 @@ def test_patient_pin_lockout_and_reinvite(api, two_hospitals):
     assert api.post(f"/hospital/patients/{link['ncid']}/close", headers=hdr(t["a_tok"])).status_code == 204
     creds2 = {"device_id": acc2["device_id"], "device_secret": acc2["device_secret"]}
     assert api.post("/patient/login", json={**creds2, "pin": "135790"}).status_code == 401
-
-
-def test_sms_invite_when_hospital_pays(api, two_hospitals):
-    t = two_hospitals
-    r = api.post(
-        "/hospital/patients/invite",
-        headers=hdr(t["b_tok"]),
-        json={"channel": "sms", "contact": "+919800000000"},
-    )
-    assert r.status_code == 201
-    assert OUTBOX[-1].channel == "sms" and "Lakeview Hospital" in OUTBOX[-1].body
 
 
 def test_cross_hospital_isolation(api, two_hospitals):
@@ -471,12 +445,13 @@ def test_no_patient_identity_columns():
     assert found == []
 
 
-def test_audit_details_have_no_contact_or_mrn(api, two_hospitals):
+def test_platform_refuses_patient_identity(api, two_hospitals):
     t = two_hospitals
-    api.post(
+    r = api.post(
         "/hospital/patients/invite",
         headers=hdr(t["a_tok"]),
         json={"channel": "email", "contact": "patient@example.org", "mrn": "MRN-99887766"},
     )
+    assert r.status_code == 422
     rows = str(api.get("/hospital/audit", headers=hdr(t["a_tok"])).json())
     assert "patient@example.org" not in rows and "MRN-99887766" not in rows

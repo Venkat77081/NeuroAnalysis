@@ -26,6 +26,8 @@ def platform_api(tmp_path, monkeypatch):
     monkeypatch.setattr(s, "storage_dir", str(tmp_path / "store"))
     monkeypatch.setattr(s, "public_base_url", "http://testserver")
     monkeypatch.setattr(s, "part_size", 1024)
+    # Pre-M12 tests record without a hospital take key (the platform key); M12 tests turn it on.
+    monkeypatch.setattr(s, "require_hospital_key", False)
     for f in (dbmod.get_engine, dbmod._factory, storage.get_storage, keys.server_public_key):
         f.cache_clear()
     Base.metadata.create_all(dbmod.get_engine())

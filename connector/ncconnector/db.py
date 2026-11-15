@@ -41,6 +41,14 @@ class ActivityLog(Base):
     details: Mapped[dict | None] = mapped_column(JSON)
 
 
+class UsedNonce(Base):
+    """Nonces of signed platform requests within the window (replay protection across restarts)."""
+
+    __tablename__ = "nc_used_nonces"
+    nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
 class LogSpool(Base):
     """Activity entries waiting for an unreachable log server (resilience, PLATFORM_PLAN §3)."""
 

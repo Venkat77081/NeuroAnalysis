@@ -24,6 +24,7 @@ from app.policy import policy
 from app.security import Principal, new_secret, require_role, sha256_hex
 from app.signing import (
     NONCES,
+    DbNonces,
     connector_token,
     load_public_pem,
     platform_key,
@@ -43,11 +44,31 @@ class PlatformKeyOut(BaseModel):
     key_id: str
     algorithm: str = "Ed25519"
     public_key_pem: str
+    #: SHA-256 of the DER public key. Connectors pin it (NCC_PLATFORM_KEY_SHA256), so a fetched key
+    #: is never trusted on its own.
+    sha256: str
+
+
+def platform_key_sha256() -> str:
+    import hashlib
+
+    from cryptography.hazmat.primitives import serialization
+
+    der = (
+        platform_key()
+        .public_key()
+        .public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+    )
+    return hashlib.sha256(der).hexdigest()
 
 
 @router.get("/.well-known/neurocapture-platform-key", response_model=PlatformKeyOut)
 def platform_public_key() -> PlatformKeyOut:
-    return PlatformKeyOut(key_id=get_settings().platform_key_id, public_key_pem=platform_public_pem())
+    return PlatformKeyOut(
+        key_id=get_settings().platform_key_id,
+        public_key_pem=platform_public_pem(),
+        sha256=platform_key_sha256(),
+    )
 
 
 # --- Hospital admin: register and test the connector ---
@@ -63,6 +84,8 @@ class ConnectorIn(BaseModel):
 class ConnectorOut(BaseModel):
     url: str | None
     registered: bool
+    #: Put this in the connector's NCC_PLATFORM_KEY_SHA256.
+    platform_key_sha256: str
     check: dict | None
     checked_at: datetime | None
 
@@ -71,6 +94,7 @@ def _conn_out(site: Site) -> ConnectorOut:
     return ConnectorOut(
         url=site.connector_url,
         registered=bool(site.connector_public_key),
+        platform_key_sha256=platform_key_sha256(),
         check=site.connector_check,
         checked_at=site.connector_checked_at,
     )
@@ -179,10 +203,11 @@ async def signed_connector(request: Request, db: DbSession = Depends(get_db)) ->
     path = request.url.path + (f"?{request.url.query}" if request.url.query else "")
     body = await request.body()
     window = get_settings().signature_window_s
+    nonces = DbNonces(db, site.id) if site else NONCES
     if (
         not site
         or not public
-        or not verify_signed(public, request.method, path, request.headers, body, window, NONCES)
+        or not verify_signed(public, request.method, path, request.headers, body, window, nonces)
     ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "bad connector signature")
     if site.status == "suspended":

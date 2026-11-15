@@ -72,6 +72,29 @@ class NonceCache:
 NONCES = NonceCache()
 
 
+class DbNonces:
+    """Nonce store in the platform database: one row per nonce, so every API replica sees it."""
+
+    def __init__(self, db, signer: str):
+        self.db, self.signer = db, signer
+
+    def use(self, nonce: str, window_s: int) -> bool:
+        from sqlalchemy import delete
+        from sqlalchemy.exc import IntegrityError
+
+        from app.models import UsedNonce
+
+        cutoff = datetime.now(UTC) - timedelta(seconds=2 * window_s)
+        self.db.execute(delete(UsedNonce).where(UsedNonce.seen_at < cutoff))
+        try:
+            with self.db.begin_nested():
+                self.db.add(UsedNonce(nonce=nonce, signer=self.signer))
+        except IntegrityError:
+            return False
+        self.db.commit()
+        return True
+
+
 def verify_signed(
     public: Ed25519PublicKey, method: str, path: str, headers, body: bytes, window_s: int, nonces: NonceCache
 ) -> bool:

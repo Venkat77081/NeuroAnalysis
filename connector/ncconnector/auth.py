@@ -12,8 +12,9 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ncconnector.config import get_settings
+from ncconnector.db import get_db
 from ncconnector.keys import platform_public_key
-from ncconnector.signing import NONCES, verify_signed
+from ncconnector.signing import verify_signed
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -51,7 +52,32 @@ def role(*roles: str):
     return check
 
 
-async def platform_signed(request: Request) -> None:
+class DbNonces:
+    """Nonce store in the connector's database (survives restarts, shared by replicas)."""
+
+    def __init__(self, db):
+        self.db = db
+
+    def use(self, nonce: str, window_s: int) -> bool:
+        from datetime import UTC, datetime, timedelta
+
+        from sqlalchemy import delete
+        from sqlalchemy.exc import IntegrityError
+
+        from ncconnector.db import UsedNonce
+
+        cutoff = datetime.now(UTC) - timedelta(seconds=2 * window_s)
+        self.db.execute(delete(UsedNonce).where(UsedNonce.seen_at < cutoff))
+        try:
+            with self.db.begin_nested():
+                self.db.add(UsedNonce(nonce=nonce))
+        except IntegrityError:
+            return False
+        self.db.commit()
+        return True
+
+
+async def platform_signed(request: Request, db=Depends(get_db)) -> None:
     path = request.url.path + (f"?{request.url.query}" if request.url.query else "")
     body = await request.body()
     ok = request.headers.get("x-nc-key") == "platform" and verify_signed(
@@ -61,7 +87,7 @@ async def platform_signed(request: Request) -> None:
         request.headers,
         body,
         get_settings().signature_window_s,
-        NONCES,
+        DbNonces(db),
     )
     if not ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "bad platform signature")

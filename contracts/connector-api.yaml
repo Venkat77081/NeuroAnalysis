@@ -790,6 +790,9 @@ components:
         registered:
           type: boolean
           title: Registered
+        platform_key_sha256:
+          type: string
+          title: Platform Key Sha256
         check:
           anyOf:
           - additionalProperties: true
@@ -806,6 +809,7 @@ components:
       required:
       - url
       - registered
+      - platform_key_sha256
       - check
       - checked_at
       title: ConnectorOut
@@ -1166,10 +1170,14 @@ components:
         public_key_pem:
           type: string
           title: Public Key Pem
+        sha256:
+          type: string
+          title: Sha256
       type: object
       required:
       - key_id
       - public_key_pem
+      - sha256
       title: PlatformKeyOut
     RecordingOut:
       properties:

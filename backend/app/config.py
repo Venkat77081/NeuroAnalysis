@@ -57,9 +57,9 @@ class Settings(BaseSettings):
     platform_aws_principal: str = "arn:aws:iam::000000000000:root"
     #: Minimum RSA size for hospital take keys.
     min_take_key_bits: int = 3072
-    #: byo hospitals must have a registered key before sessions can start (managed: fall back to
-    #: the platform key until their connector registers one).
-    require_hospital_key_for_byo: bool = True
+    #: Every hospital must have a registered take key before sessions can start (decision 027).
+    #: False only for development and the pre-M12 tests.
+    require_hospital_key: bool = True
     # Repo config/ (test configs, quality.json, biomarker-registry.json, platform.json and
     # messages/). Docker: mounted read-only.
     config_dir: str = str(Path(__file__).resolve().parents[2] / "config")

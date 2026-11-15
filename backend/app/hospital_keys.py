@@ -60,7 +60,7 @@ def session_key(db: DbSession, site: Site) -> tuple[str, str, str]:
     key = active_key(db, site.id)
     if key:
         return key.id, key.public_key_pem, "hospital"
-    if site.data_mode == "byo" and get_settings().require_hospital_key_for_byo:
+    if get_settings().require_hospital_key:
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "no_hospital_key"})
     key_id, pem = server_public_key()
     return key_id, pem, "platform"

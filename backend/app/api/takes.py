@@ -12,7 +12,7 @@ from app.audit import audit
 from app.config import get_settings
 from app.db import get_db
 from app.models import Session, Take, TakeFile
-from app.security import Principal, current_principal, require_role
+from app.security import Principal, require_device, require_role
 from app.storage import Part, get_storage
 
 router = APIRouter(prefix="/takes", tags=["takes"])
@@ -115,7 +115,7 @@ def _files(db: DbSession, take_id: str) -> list[TakeFile]:
 @router.post("", response_model=TakePlan, status_code=201)
 def create_take(
     body: TakeIn,
-    p: Principal = Depends(current_principal),  # noqa: B008
+    p: Principal = Depends(require_device),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> TakePlan:
     s = db.get(Session, body.session_id)
@@ -152,7 +152,7 @@ def create_take(
     st = get_storage()
     files = []
     for f in body.files:
-        key = f"{p.operator.site_id}/{s.id}/{take.id}/{f.kind}.enc"
+        key = f"{p.site_id}/{s.id}/{take.id}/{f.kind}.enc"
         tf = TakeFile(
             take_id=take.id,
             kind=f.kind,
@@ -165,20 +165,21 @@ def create_take(
         files.append(tf)
     audit(
         db,
-        "operator",
-        p.operator.id,
+        p.actor_type,
+        p.actor_id,
         "take_created",
         "take",
         take.id,
         verdict=body.capture_verdict,
         flagged=body.flagged_for_review,
+        site_id=p.site_id,
     )
     db.commit()
     return _plan(take, files)
 
 
 @router.get("/{take_id}/upload", response_model=TakePlan)
-def upload_plan(take_id: str, p: Principal = Depends(current_principal), db: DbSession = Depends(get_db)):  # noqa: B008
+def upload_plan(take_id: str, p: Principal = Depends(require_device), db: DbSession = Depends(get_db)):  # noqa: B008
     """Resume: what is already on the server and fresh URLs for the missing parts."""
     t = _take(db, p, take_id)
     return _plan(t, _files(db, t.id))
@@ -198,7 +199,7 @@ def complete_file(
     take_id: str,
     kind: str,
     body: CompleteFileIn,
-    p: Principal = Depends(current_principal),  # noqa: B008
+    p: Principal = Depends(require_device),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ):
     t = _take(db, p, take_id)
@@ -232,7 +233,7 @@ class TakeDone(BaseModel):
 
 
 @router.post("/{take_id}/complete", response_model=TakeDone)
-def complete_take(take_id: str, p: Principal = Depends(current_principal), db: DbSession = Depends(get_db)):  # noqa: B008
+def complete_take(take_id: str, p: Principal = Depends(require_device), db: DbSession = Depends(get_db)):  # noqa: B008
     """All files verified → `complete`. The phone may delete its copy after the retention time."""
     t = _take(db, p, take_id)
     files = _files(db, t.id)
@@ -241,7 +242,7 @@ def complete_take(take_id: str, p: Principal = Depends(current_principal), db: D
     if t.status != "complete":
         t.status = "complete"
         t.uploaded_at = datetime.now(UTC)
-        audit(db, "operator", p.operator.id, "take_uploaded", "take", t.id)
+        audit(db, p.actor_type, p.actor_id, "take_uploaded", "take", t.id, site_id=p.site_id)
         db.commit()
     return TakeDone(take_id=t.id, status=t.status, confirmed_at=t.uploaded_at)
 
@@ -261,11 +262,11 @@ class TakeRow(BaseModel):
 def list_takes(
     session_id: str | None = None,
     flagged: bool | None = Query(default=None),  # noqa: B008
-    p: Principal = Depends(require_role("reviewer", "admin")),  # noqa: B008
+    p: Principal = Depends(require_role("reviewer", "admin", "doctor", "hospital_admin")),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ):
     q = select(Take).join(Session, Session.id == Take.session_id)
-    q = q.where(Session.device_id.in_(_site_devices(db, p.operator.site_id)))
+    q = q.where(Session.device_id.in_(_site_devices(db, p.site_id)))
     if session_id:
         q = q.where(Take.session_id == session_id)
     if flagged is not None:

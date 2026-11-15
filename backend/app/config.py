@@ -34,7 +34,15 @@ class Settings(BaseSettings):
     # Its private key, for server-side readiness (M8). Dev/pilot only: production keeps it in the
     # KMS (decision 020). Without it, readiness falls back to the phone's hint (source device_hint).
     server_private_key_path: str | None = None
-    # Repo config/ (test configs, quality.json, biomarker-registry.json). Docker: mounted read-only.
+    # M10 providers. "dummy" keeps messages in memory (dev, tests) until real ones are configured.
+    email_provider: str = "dummy"
+    sms_provider: str = "dummy"
+    #: Link the patient app opens from an invite (QR code / e-mail / SMS); the token follows.
+    invite_link_base: str = "neurocapture://invite?t="
+    #: Web dashboard address used in staff invite e-mails.
+    dashboard_url: str = "http://localhost:5174"
+    # Repo config/ (test configs, quality.json, biomarker-registry.json, platform.json and
+    # messages/). Docker: mounted read-only.
     config_dir: str = str(Path(__file__).resolve().parents[2] / "config")
 
 

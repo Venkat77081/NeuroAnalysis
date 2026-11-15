@@ -1,4 +1,9 @@
-"""Database models (DEV_PLAN §13.1). No patient names anywhere; identifiers are hashed on the device."""
+"""Database models (DEV_PLAN §13.1, PLATFORM_PLAN M10).
+
+Patients are known only by a random NCID (decision 023): no table holds a patient's name, MRN,
+e-mail address or phone number. Staff e-mail addresses (hospital admins, doctors) are stored:
+they are accounts, not patient data.
+"""
 
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -29,8 +34,19 @@ class Site(Base):
     region: Mapped[str] = mapped_column(String(50))
     #: SHA-256 of the enrollment code given to the site for registering phones.
     enrollment_code_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    #: Salt the device uses to hash patient references before they leave the phone.
+    #: Salt the device uses to hash patient references before they leave the phone (pre-M10 app).
     patient_ref_salt: Mapped[str] = mapped_column(String(64))
+    # M10: hospital or clinic as a tenant.
+    kind: Mapped[str] = mapped_column(String(10), default="hospital")  # hospital | clinic
+    #: byo = the hospital's own connector, storage and key; managed = run by NeuroCapture.
+    data_mode: Mapped[str] = mapped_column(String(10), default="managed")
+    status: Mapped[str] = mapped_column(String(12), default="active")  # invited | active | suspended
+    modules: Mapped[dict] = mapped_column(Json, default=dict)  # {"clinic": true, "home": true, ...}
+    city: Mapped[str | None] = mapped_column(String(100))
+    connector_url: Mapped[str | None] = mapped_column(String(300))
+    sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
+    onboarded_by: Mapped[str | None] = mapped_column(String(32))
+    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Operator(Base):
@@ -40,8 +56,11 @@ class Operator(Base):
     #: Operator code typed at login (e.g. OP-07); not a name.
     code: Mapped[str] = mapped_column(String(20))
     display_name_hash: Mapped[str | None] = mapped_column(String(64))
+    #: Password hash (M10: operator ID + password; earlier operators used a PIN, same hash format).
     pin_hash: Mapped[str] = mapped_column(String(200))
     role: Mapped[str] = mapped_column(String(20), default="operator")  # operator | reviewer | admin
+    #: Set by a hospital admin's reset: the operator must choose a new password at next sign-in.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     __table_args__ = (UniqueConstraint("site_id", "code"),)
 
@@ -55,6 +74,9 @@ class Device(Base):
     tier: Mapped[str | None] = mapped_column(String(1))
     qualification_report: Mapped[dict | None] = mapped_column(Json)
     secret_hash: Mapped[str] = mapped_column(String(64))
+    #: clinic = registered by the hospital (operator mode only); patient = a patient's own phone.
+    kind: Mapped[str] = mapped_column(String(10), default="clinic")
+    label: Mapped[str | None] = mapped_column(String(60))
     registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -73,7 +95,10 @@ class Patient(Base):
     __tablename__ = "patients"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"))
-    external_ref_hash: Mapped[str] = mapped_column(String(64))
+    #: The only patient key NeuroCapture holds (decision 023); the hospital maps it to the MRN.
+    ncid: Mapped[str] = mapped_column(String(40), unique=True, default=lambda: "nc_" + uuid4().hex)
+    #: Pre-M10 phones sent a salted hash of the clinic reference; kept for those sessions only.
+    external_ref_hash: Mapped[str | None] = mapped_column(String(64))
     year_of_birth: Mapped[int | None] = mapped_column(Integer)
     sex: Mapped[str | None] = mapped_column(String(1))
     __table_args__ = (UniqueConstraint("site_id", "external_ref_hash"),)
@@ -85,7 +110,9 @@ class Session(Base):
     #: Session ID generated on the phone (idempotent creation).
     client_session_id: Mapped[str] = mapped_column(String(64))
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"))
-    operator_id: Mapped[str] = mapped_column(ForeignKey("operators.id"))
+    #: Clinic sessions: the operator. Home sessions (patient app): null.
+    operator_id: Mapped[str | None] = mapped_column(ForeignKey("operators.id"))
+    recorded_by: Mapped[str] = mapped_column(String(10), default="operator")  # operator | patient
     device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -149,9 +176,87 @@ class BiomarkerRun(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class StaffUser(Base):
+    """Web dashboard accounts (M10): platform admins (no site), hospital admins and doctors."""
+
+    __tablename__ = "staff_users"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str | None] = mapped_column(ForeignKey("sites.id"))
+    role: Mapped[str] = mapped_column(String(20))  # platform_admin | hospital_admin | doctor
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    display_name: Mapped[str | None] = mapped_column(String(120))
+    password_hash: Mapped[str | None] = mapped_column(String(200))
+    totp_secret: Mapped[str | None] = mapped_column(String(64))
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: Wrong passwords or codes in a row; at staff.maxFailedLogins the account is locked until an
+    #: admin unlocks it.
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0)
+    invite_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    invite_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StaffRefreshToken(Base):
+    __tablename__ = "staff_refresh_tokens"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class DeviceEnrollment(Base):
+    """One-time phone registration code made in the hospital dashboard (QR or typed), 24 h."""
+
+    __tablename__ = "device_enrollments"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"))
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    label: Mapped[str | None] = mapped_column(String(60))
+    created_by: Mapped[str] = mapped_column(String(32))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    device_id: Mapped[str | None] = mapped_column(String(32))
+
+
+class PatientAccount(Base):
+    """A patient's app account (M10): by NCID only. Invited by the hospital; then a PIN."""
+
+    __tablename__ = "patient_accounts"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"))
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), unique=True)
+    status: Mapped[str] = mapped_column(String(10), default="invited")  # invited | active | locked | closed
+    invite_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    invite_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    invite_channel: Mapped[str | None] = mapped_column(String(10))  # email | sms | print
+    pin_hash: Mapped[str | None] = mapped_column(String(200))
+    failed_pins: Mapped[int] = mapped_column(Integer, default=0)
+    device_id: Mapped[str | None] = mapped_column(ForeignKey("devices.id"))
+    consent_version: Mapped[str | None] = mapped_column(String(50))
+    consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class PatientRefreshToken(Base):
+    __tablename__ = "patient_refresh_tokens"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("patient_accounts.id"))
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    #: Hospital the event belongs to (null = platform-level event).
+    site_id: Mapped[str | None] = mapped_column(String(32), index=True)
     actor_id: Mapped[str | None] = mapped_column(String(32))
     actor_type: Mapped[str] = mapped_column(String(20))  # operator | device | system
     action: Mapped[str] = mapped_column(String(50))

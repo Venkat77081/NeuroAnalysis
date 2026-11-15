@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.audit import audit
 from app.db import get_db
 from app.models import Device
-from app.security import Principal, current_principal
+from app.security import Principal, require_device
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -22,13 +22,13 @@ class QualificationIn(BaseModel):
 
 def _own(p: Principal, device_id: str, db: DbSession) -> Device:
     dev = db.get(Device, device_id)
-    if not dev or dev.site_id != p.operator.site_id:
+    if not dev or dev.site_id != p.site_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "device not found")
     return dev
 
 
 @router.get("/{device_id}/tier", response_model=TierOut)
-def get_tier(device_id: str, p: Principal = Depends(current_principal), db: DbSession = Depends(get_db)):  # noqa: B008
+def get_tier(device_id: str, p: Principal = Depends(require_device), db: DbSession = Depends(get_db)):  # noqa: B008
     return TierOut(device_id=device_id, tier=_own(p, device_id, db).tier)
 
 
@@ -36,7 +36,7 @@ def get_tier(device_id: str, p: Principal = Depends(current_principal), db: DbSe
 def put_qualification(
     device_id: str,
     body: QualificationIn,
-    p: Principal = Depends(current_principal),  # noqa: B008
+    p: Principal = Depends(require_device),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ):
     if device_id != p.device.id:

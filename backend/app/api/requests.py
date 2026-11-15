@@ -1,8 +1,10 @@
 """v3: appointments and recording requests.
 
 - Reception (receptionist, hospital admin) keeps the hospital's appointments here (read from its
-  FHIR system through the connector, or entered by hand), assigns the doctor and sends the
-  patient a recording request: these tests, by this date.
+  FHIR system through the connector, or entered by hand) and assigns the doctor.
+- The assigned doctor chooses the tests and sends the patient the record link (a recording
+  request: these tests, by this date; optionally also "repeat every N days"). Nothing reaches
+  the patient before that.
 - Doctors see their patients' appointment history and ask to record again.
 - The patient's app lists open requests and the history, per hospital.
 - The hospital connector collects due reminders and sends them (the platform has no contacts).
@@ -38,7 +40,6 @@ from app.security import Principal, current_principal, require_role, sha256_hex
 router = APIRouter(tags=["appointments"])
 desk = require_role("receptionist", "hospital_admin")
 doctor_only = require_role("doctor")
-admin_only = require_role("hospital_admin")
 staff = require_role("receptionist", "hospital_admin", "doctor")
 
 TestCode = Literal["FT", "FTF", "FR", "SAW", "FA"]
@@ -123,15 +124,20 @@ class AppointmentOut(BaseModel):
     status: str
     #: Set for FHIR appointments: SHA-256 of the hospital's appointment ID (to match the live list).
     external_ref_hash: str | None
+    #: needs_doctor → needs_tests (waiting for the doctor) → sent → recorded | missed; or cancelled.
+    stage: str
     requests: list[RequestOut]
 
 
 def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
-    reqs = db.scalars(
-        select(RecordingRequest)
-        .where(RecordingRequest.appointment_id == a.id)
-        .order_by(RecordingRequest.created_at)
-    )
+    reqs = [
+        _req_out(db, r)
+        for r in db.scalars(
+            select(RecordingRequest)
+            .where(RecordingRequest.appointment_id == a.id)
+            .order_by(RecordingRequest.created_at)
+        )
+    ]
     return AppointmentOut(
         id=a.id,
         ncid=ncid,
@@ -141,8 +147,21 @@ def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
         source=a.source,
         status=a.status,
         external_ref_hash=a.external_ref_hash,
-        requests=[_req_out(db, r) for r in reqs],
+        stage=appointment_stage(a, reqs),
+        requests=reqs,
     )
+
+
+def appointment_stage(a: Appointment, reqs: list[RequestOut]) -> str:
+    if a.status == "cancelled":
+        return "cancelled"
+    if a.doctor_id is None:
+        return "needs_doctor"
+    live = [r for r in reqs if r.state != "cancelled"]
+    if not live:
+        return "needs_tests"
+    last = live[-1].state
+    return {"open": "sent"}.get(last, last)  # recorded | missed
 
 
 def external_hash(site_id: str, external_id: str) -> str:
@@ -315,6 +334,8 @@ class RequestIn(BaseModel):
     #: Default: the appointment minus requests.defaultDueDaysBefore days.
     due_at: datetime | None = None
     remind: bool = True
+    #: Doctor only: also record at home every N days until the next appointment (periodic plan).
+    repeat_every_days: int | None = Field(default=None, ge=1, le=90)
 
 
 def _new_request(
@@ -360,15 +381,42 @@ def _new_request(
     return r
 
 
+def _set_periodic(db: DbSession, p: Principal, pt: Patient, tests: list[str], med: str, days: int) -> None:
+    """The doctor asked for recordings every `days` days as well (v3: only when asked)."""
+    plan = db.get(RecordingPlan, pt.id)
+    if plan is None:
+        plan = RecordingPlan(patient_id=pt.id)
+        db.add(plan)
+    plan.tests, plan.med_state, plan.every_days, plan.periodic = tests, med, days, True
+    plan.updated_by, plan.updated_at = p.actor_id, datetime.now(UTC)
+    audit(
+        db,
+        p.actor_type,
+        p.actor_id,
+        "plan_changed",
+        "patient",
+        pt.id,
+        site_id=p.site_id,
+        periodic=True,
+        every_days=days,
+    )
+
+
 @router.post("/hospital/appointments/{appt_id}/request", response_model=RequestOut, status_code=201)
 def request_for_appointment(
-    appt_id: str, body: RequestIn, p: Principal = Depends(desk), db: DbSession = Depends(get_db)
+    appt_id: str, body: RequestIn, p: Principal = Depends(doctor_only), db: DbSession = Depends(get_db)
 ):
+    """The assigned doctor chooses the tests and sends the patient the record link."""
     a, pt = _appointment(db, p, appt_id)
+    _patient(db, p, pt.ncid)  # the doctor must be assigned to this patient
+    if a.doctor_id != p.actor_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_your_appointment"})
     if a.status == "cancelled":
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "appointment_cancelled"})
     due = aware(a.at) - timedelta(days=policy()["requests"]["defaultDueDaysBefore"])
     r = _new_request(db, p, pt, body, kind="appointment", appointment=a, default_due=due)
+    if body.repeat_every_days:
+        _set_periodic(db, p, pt, list(r.tests), r.med_state, body.repeat_every_days)
     db.commit()
     return _req_out(db, r)
 
@@ -384,6 +432,8 @@ def rerecord(
     pt = _patient(db, p, ncid)
     due = datetime.now(UTC) + timedelta(days=policy()["requests"]["rerecordDueDays"])
     r = _new_request(db, p, pt, body, kind="rerecord", appointment=None, default_due=due)
+    if body.repeat_every_days:
+        _set_periodic(db, p, pt, list(r.tests), r.med_state, body.repeat_every_days)
     db.commit()
     return _req_out(db, r)
 
@@ -411,7 +461,6 @@ class SessionRow(BaseModel):
     med_state: str
     request_id: str | None
     takes_uploaded: int
-    recordings_deleted: bool
 
 
 class HistoryOut(BaseModel):
@@ -425,7 +474,7 @@ class HistoryOut(BaseModel):
 
 @router.get("/hospital/patients/{ncid}/history", response_model=HistoryOut)
 def history(ncid: str, p: Principal = Depends(staff), db: DbSession = Depends(get_db)) -> HistoryOut:
-    """Appointments, requests and sessions, kept after a withdrawal (the recordings may be deleted)."""
+    """Appointments, requests and sessions. All of it stays with the hospital after a withdrawal."""
     pt = _patient(db, p, ncid)
     acc = db.scalar(select(PatientAccount).where(PatientAccount.patient_id == pt.id))
     appts = db.scalars(
@@ -462,7 +511,6 @@ def history(ncid: str, p: Principal = Depends(staff), db: DbSession = Depends(ge
                 med_state=s.med_state,
                 request_id=s.request_id,
                 takes_uploaded=n or 0,
-                recordings_deleted=s.recordings_deleted_at is not None,
             )
             for s, n in sessions
         ],
@@ -567,43 +615,3 @@ def reminder_sent(
     r.reminder_sent_at = datetime.now(UTC)
     audit(db, "connector", site.id, "reminder_sent", "patient", r.patient_id, site_id=site.id)
     db.commit()
-
-
-# --- Hospital settings: what happens to recordings after a withdrawal ---
-
-
-class SettingsOut(BaseModel):
-    #: null = recordings are kept after a patient withdraws.
-    withdrawn_retention_days: int | None
-
-
-class SettingsIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    withdrawn_retention_days: int | None = Field(default=None, ge=0, le=3650)
-
-
-@router.get("/hospital/settings", response_model=SettingsOut)
-def get_settings_(p: Principal = Depends(admin_only), db: DbSession = Depends(get_db)):
-    site = db.get(Site, p.site_id)
-    return SettingsOut(withdrawn_retention_days=site.withdrawn_retention_days if site else None)
-
-
-@router.put("/hospital/settings", response_model=SettingsOut)
-def put_settings(
-    body: SettingsIn, p: Principal = Depends(admin_only), db: DbSession = Depends(get_db)
-):
-    site = db.get(Site, p.site_id)
-    assert site is not None
-    site.withdrawn_retention_days = body.withdrawn_retention_days
-    audit(
-        db,
-        p.actor_type,
-        p.actor_id,
-        "settings_changed",
-        "site",
-        site.id,
-        site_id=site.id,
-        withdrawn_retention_days=body.withdrawn_retention_days,
-    )
-    db.commit()
-    return SettingsOut(withdrawn_retention_days=site.withdrawn_retention_days)

@@ -217,7 +217,7 @@ def withdraw(
     """Stops home recording at once: the account closes and this phone is signed out for good."""
     acc = _me(p)
     acc.status = "closed"
-    acc.withdrawn_at = datetime.now(UTC)  # v3: history stays; recordings follow the hospital's retention
+    acc.withdrawn_at = datetime.now(UTC)  # v3: history and recordings stay with the hospital
     acc.invite_token_hash = None
     if acc.device_id:
         dev = db.get(Device, acc.device_id)

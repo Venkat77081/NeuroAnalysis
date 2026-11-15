@@ -54,11 +54,8 @@ def upgrade() -> None:
     )
     op.create_index("ix_recording_requests_site_id", "recording_requests", ["site_id"])
     op.create_index("ix_recording_requests_patient_id", "recording_requests", ["patient_id"])
-    with op.batch_alter_table("sites") as t:
-        t.add_column(sa.Column("withdrawn_retention_days", sa.Integer()))
     with op.batch_alter_table("sessions") as t:
         t.add_column(sa.Column("request_id", sa.String(32)))
-        t.add_column(sa.Column("recordings_deleted_at", TS))
         t.create_index("ix_sessions_request_id", ["request_id"])
     with op.batch_alter_table("patient_accounts") as t:
         t.add_column(sa.Column("withdrawn_at", TS))
@@ -76,10 +73,7 @@ def downgrade() -> None:
         t.drop_column("withdrawn_at")
     with op.batch_alter_table("sessions") as t:
         t.drop_index("ix_sessions_request_id")
-        t.drop_column("recordings_deleted_at")
         t.drop_column("request_id")
-    with op.batch_alter_table("sites") as t:
-        t.drop_column("withdrawn_retention_days")
     op.drop_index("ix_recording_requests_patient_id", table_name="recording_requests")
     op.drop_index("ix_recording_requests_site_id", table_name="recording_requests")
     op.drop_table("recording_requests")

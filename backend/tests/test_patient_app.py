@@ -298,10 +298,22 @@ def test_appointment_request_record_and_history(api, two_hospitals):
         == 403
     )
 
-    # Recording request: tests from the plan, due a day before.
-    rq = api.post(f"/hospital/appointments/{appt['id']}/request", headers=desk, json={})
+    # Stages: assigned, waiting for the doctor's tests; nothing for the patient yet.
+    assert appt["stage"] == "needs_tests"
+    assert api.get("/patient/requests", headers=ptok).json() == []
+    assert f1.json()["stage"] == "needs_doctor"
+
+    # Only the assigned doctor sends the record link (not reception, not another doctor).
+    url = f"/hospital/appointments/{appt['id']}/request"
+    assert api.post(url, headers=desk, json={}).status_code == 403
+    other = _staff(api, t, "dr-other@sunrise.example", "doctor")
+    assert api.post(url, headers=other, json={}).status_code == 404
+    # Tests from the plan, due a day before.
+    rq = api.post(url, headers=dr, json={})
     assert rq.status_code == 201, rq.text
     req = rq.json()
+    stages = {a["id"]: a["stage"] for a in api.get("/hospital/appointments", headers=desk).json()}
+    assert stages[appt["id"]] == "sent"
     assert req["tests"] == ["FT", "FTF", "FR", "SAW", "FA"] and req["state"] == "open"
     assert req["due_at"].startswith((at - timedelta(days=1)).date().isoformat())
     mine = api.get("/patient/requests", headers=ptok).json()
@@ -319,6 +331,7 @@ def test_appointment_request_record_and_history(api, two_hospitals):
     take_id = _upload_take(api, acc["tokens"], sid, acc["server_key"], "tk-req")
     api.post(f"/takes/{take_id}/complete", headers=ptok)
     assert api.get("/patient/requests", headers=ptok).json()[0]["state"] == "recorded"
+    assert api.get("/hospital/appointments", headers=dr).json()[0]["stage"] == "recorded"
 
     # The doctor asks to record again: a second request (re-record).
     rr = api.post(f"/hospital/patients/{ncid}/rerecord", headers=dr, json={"tests": ["FA"]})
@@ -333,7 +346,34 @@ def test_appointment_request_record_and_history(api, two_hospitals):
     # Cancelling the appointment cancels its request.
     api.put(f"/hospital/appointments/{appt['id']}", headers=desk, json={"status": "cancelled"})
     hist = api.get(f"/hospital/patients/{ncid}/history", headers=desk).json()
-    assert [a["status"] for a in hist["appointments"] if a["id"] == appt["id"]] == ["cancelled"]
+    assert [a["stage"] for a in hist["appointments"] if a["id"] == appt["id"]] == ["cancelled"]
+
+
+def test_doctor_can_add_repeat_every_n_days(api, two_hospitals):
+    t = two_hospitals
+    desk = _staff(api, t, "desk3@sunrise.example", "receptionist")
+    dr = _staff(api, t, "dr3@sunrise.example", "doctor")
+    dr_id = next(
+        d["id"]
+        for d in api.get("/hospital/doctors", headers=desk).json()
+        if d["email"] == "dr3@sunrise.example"
+    )
+    ncid, acc = home_patient(api, t["a_tok"])
+    ptok = hdr(acc["tokens"]["access_token"])
+    at = (datetime.now(UTC) + timedelta(days=5)).isoformat()
+    appt = api.post(
+        "/hospital/appointments", headers=desk, json={"ncid": ncid, "at": at, "doctor_id": dr_id}
+    ).json()
+    assert api.get("/patient/plan", headers=ptok).json()["next_due"] is None  # appointments only
+    r = api.post(
+        f"/hospital/appointments/{appt['id']}/request",
+        headers=dr,
+        json={"tests": ["FA", "FT"], "med_state": "OFF", "repeat_every_days": 7},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["tests"] == ["FT", "FA"]
+    plan = api.get(f"/hospital/patients/{ncid}/plan", headers=dr).json()
+    assert plan["periodic"] and plan["every_days"] == 7 and plan["tests"] == ["FT", "FA"]
 
 
 def test_request_needs_a_joined_patient(api, two_hospitals):
@@ -342,11 +382,18 @@ def test_request_needs_a_joined_patient(api, two_hospitals):
     inv = api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "print"}).json()
     at = (datetime.now(UTC) + timedelta(days=2)).isoformat()
     appt = api.post("/hospital/appointments", headers=desk, json={"ncid": inv["ncid"], "at": at}).json()
-    r = api.post(f"/hospital/appointments/{appt['id']}/request", headers=desk, json={})
+    dr = _staff(api, t, "dr2@sunrise.example", "doctor")
+    dr_id = next(
+        d["id"]
+        for d in api.get("/hospital/doctors", headers=desk).json()
+        if d["email"] == "dr2@sunrise.example"
+    )
+    api.put(f"/hospital/appointments/{appt['id']}", headers=desk, json={"doctor_id": dr_id})
+    r = api.post(f"/hospital/appointments/{appt['id']}/request", headers=dr, json={})
     assert r.status_code == 409 and r.json()["detail"]["code"] == "not_joined"
 
 
-def test_withdraw_keeps_history_rejoin_and_retention(api, two_hospitals, monkeypatch):
+def test_withdraw_keeps_history_and_recordings_and_rejoin(api, two_hospitals):
     t = two_hospitals
     ncid, acc = home_patient(api, t["a_tok"])
     ptok = hdr(acc["tokens"]["access_token"])
@@ -362,22 +409,12 @@ def test_withdraw_keeps_history_rejoin_and_retention(api, two_hospitals, monkeyp
         hist["app_status"] == "closed" and hist["withdrawn_at"] and hist["sessions"][0]["takes_uploaded"] == 1
     )
 
-    # Retention: kept with no setting; deleted once the hospital's days have passed.
+    # Everything stays with the hospital: no deletion after a withdrawal.
     from app.db import _factory
-    from app.jobs import purge_withdrawn
     from app.models import Take
 
     with _factory()() as db:
-        assert purge_withdrawn(db) == 0
-    assert api.put(
-        "/hospital/settings", headers=hdr(t["a_tok"]), json={"withdrawn_retention_days": 30}
-    ).json() == {"withdrawn_retention_days": 30}
-    with _factory()() as db:
-        assert purge_withdrawn(db) == 0  # not yet
-        assert purge_withdrawn(db, datetime.now(UTC) + timedelta(days=31)) == 1
-        assert db.get(Take, take_id) is None
-    hist = api.get(f"/hospital/patients/{ncid}/history", headers=hdr(t["a_tok"])).json()
-    assert hist["sessions"][0]["recordings_deleted"] and hist["sessions"][0]["takes_uploaded"] == 0
+        assert db.get(Take, take_id) is not None
 
     # Joining again: a fresh invite for the same NCID; the history stays.
     r = api.post(f"/hospital/patients/{ncid}/reinvite", headers=hdr(t["a_tok"]), json={"channel": "print"})
@@ -386,7 +423,7 @@ def test_withdraw_keeps_history_rejoin_and_retention(api, two_hospitals, monkeyp
     assert again["ncid"] == ncid
     hist = api.get(f"/hospital/patients/{ncid}/history", headers=hdr(t["a_tok"])).json()
     assert hist["app_status"] == "active" and hist["withdrawn_at"] is None and len(hist["sessions"]) == 1
-    assert api.get("/hospital/settings", headers=hdr(t["b_tok"])).json()["withdrawn_retention_days"] is None
+    assert api.get("/hospital/settings", headers=hdr(t["a_tok"])).status_code == 404
 
 
 def test_joining_needs_no_consent(api, two_hospitals):

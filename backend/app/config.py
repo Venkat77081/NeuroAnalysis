@@ -66,8 +66,6 @@ class Settings(BaseSettings):
     #: Pre-M10 phones identified patients by SHA-256(site salt + MRN). Off: operators must use an
     #: NCID from the hospital connector (decision 027). True only for the pre-M13 tests.
     allow_legacy_ref_hash: bool = False
-    #: v3: how often withdrawn patients' recordings past retention are deleted (0 = off).
-    purge_interval_s: int = 3600
     # Repo config/ (test configs, quality.json, biomarker-registry.json, platform.json and
     # messages/). Docker: mounted read-only.
     config_dir: str = str(Path(__file__).resolve().parents[2] / "config")

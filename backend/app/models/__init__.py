@@ -58,9 +58,6 @@ class Site(Base):
     storage_external_id: Mapped[str | None] = mapped_column(String(64))
     storage_check: Mapped[dict | None] = mapped_column(Json)
     storage_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    #: v3: recordings of a patient who withdrew from this hospital are deleted after this many
-    #: days (null = kept). The appointment history stays.
-    withdrawn_retention_days: Mapped[int | None] = mapped_column(Integer)
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -146,8 +143,6 @@ class Session(Base):
     key_id: Mapped[str | None] = mapped_column(String(50))
     #: v3: the recording request this session answers (home recording before an appointment).
     request_id: Mapped[str | None] = mapped_column(String(32), index=True)
-    #: v3: set when the recordings were deleted (withdrawal retention); the session row stays.
-    recordings_deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (UniqueConstraint("device_id", "client_session_id"),)
 
 

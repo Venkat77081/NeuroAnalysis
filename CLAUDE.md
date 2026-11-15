@@ -48,7 +48,8 @@ docker compose up -d      # api + postgres (storage profile: see docs/decisions/
 cd backend && pytest && ruff check .
 cd connector && pytest && ruff check .   # hospital connector, tested against the platform in-process (M11)
 cd connector && python -m scripts.gen_contract   # regenerate contracts/connector-api.yaml
-pnpm --filter @neurocapture/dashboard dev   # web dashboards (M14), API at apps/dashboard/public/config.json
+python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack [--lan <wifi ip>]   # real platform + connector + FHIR stand-in, seeded; prints sign-ins
+pnpm dev:dashboard        # dashboards against that stack (http://localhost:5174); see docs/qa/testing-guide.md
 pnpm e2e:dashboard        # dashboards against the real platform + connector, then the no-identity scan
 cd backend && python -m app.admin create-platform-admin --email you@example.org   # prints a one-time invite link (M10)
 ```

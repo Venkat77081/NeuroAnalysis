@@ -24,9 +24,29 @@
   patient's name, MRN, e-mail, phone, birth date and the review note. A positive control (the
   NCID) shows the scan does find stored values.
 
+## Receptionist and assignments (user, 15 Nov 2026)
+
+- **New hospital role: receptionist.** A receptionist:
+  - finds patients in the hospital's records (live);
+  - adds them to NeuroCapture (an NCID only);
+  - assigns, reassigns or unassigns each patient's doctor.
+
+  A receptionist cannot see medical history or recordings, nor manage the team, phones or
+  settings. Hospital admins can also assign.
+
+- **Doctors see only their assigned patients**, enforced in two places:
+  - **the platform:** patient list, plan, re-record request and readiness. An unassigned
+    patient answers "not found", so its existence is not revealed.
+  - **the hospital connector:** names, history, recordings, decrypted videos and reviews. The
+    connector asks the platform (`POST /connector/v1/access`, signed) on every request, without
+    caching, so a reassignment takes effect on the very next request.
+- Doctors can no longer search the hospital's records; the receptionist finds patients.
+- A patient has one assigned doctor at a time. Assignment changes are kept in the activity log.
+- The dashboard stays English only (user, 15 Nov 2026). Doctors need network access to their
+  hospital's connector, as designed.
+
 ## Consequences
 
 - Doctors need network access to their hospital's connector. Without it, the dashboard shows the
   connector error and lists NCIDs only.
-- **No doctor ↔ patient assignment yet:** "My patients" lists every patient of the doctor's
-  hospital (assumption A83).
+- Each doctor's "My patients" shows only the patients the receptionist assigned (A83).

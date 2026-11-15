@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     connector_timeout_s: float = 10.0
     #: Signed request clock window (seconds).
     signature_window_s: int = 300
+    # M12: per-hospital storage. Managed hospitals on S3 get their own bucket from this template
+    # ("{bucket}" = one shared bucket with a per-hospital prefix; e.g. "nc-managed-{site}").
+    managed_bucket_template: str = "{bucket}"
+    #: STS endpoint (None = AWS default) and the AWS principal hospitals trust in their role policy.
+    sts_endpoint: str | None = None
+    platform_aws_principal: str = "arn:aws:iam::000000000000:root"
+    #: Minimum RSA size for hospital take keys.
+    min_take_key_bits: int = 3072
+    #: byo hospitals must have a registered key before sessions can start (managed: fall back to
+    #: the platform key until their connector registers one).
+    require_hospital_key_for_byo: bool = True
     # Repo config/ (test configs, quality.json, biomarker-registry.json, platform.json and
     # messages/). Docker: mounted read-only.
     config_dir: str = str(Path(__file__).resolve().parents[2] / "config")

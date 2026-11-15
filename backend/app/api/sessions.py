@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.audit import audit
 from app.db import get_db
-from app.models import Patient, Session
+from app.hospital_keys import session_key
+from app.models import Patient, Session, Site, SiteKey
 from app.security import Principal, patient_of, require_device
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -37,9 +38,31 @@ class SessionIn(BaseModel):
     config_versions: dict[str, str]
 
 
+class EncryptionKey(BaseModel):
+    """M12: wrap every take data key of this session with this RSA-OAEP public key."""
+
+    key_id: str
+    public_key_pem: str
+    #: hospital = only the hospital's connector can decrypt; platform = pre-M12 / managed fallback.
+    owner: str
+
+
 class SessionOut(BaseModel):
     id: str
     client_session_id: str
+    encryption_key: EncryptionKey | None = None
+
+
+def _key_out(db: DbSession, s: Session) -> EncryptionKey | None:
+    if s.key_id is None:
+        return None
+    k = db.get(SiteKey, s.key_id)
+    if k:
+        return EncryptionKey(key_id=k.id, public_key_pem=k.public_key_pem, owner="hospital")
+    from app.keys import server_public_key
+
+    key_id, pem = server_public_key()
+    return EncryptionKey(key_id=key_id, public_key_pem=pem, owner="platform") if key_id == s.key_id else None
 
 
 def _patient_for(db: DbSession, p: Principal, given: PatientIn | None) -> Patient:
@@ -83,8 +106,15 @@ def create_session(
         )
     )
     if existing:
-        return SessionOut(id=existing.id, client_session_id=existing.client_session_id)
+        return SessionOut(
+            id=existing.id,
+            client_session_id=existing.client_session_id,
+            encryption_key=_key_out(db, existing),
+        )
     patient = _patient_for(db, p, body.patient)
+    site = db.get(Site, p.site_id)
+    assert site is not None
+    key_id, pem, owner = session_key(db, site)
     s = Session(
         client_session_id=body.client_session_id,
         patient_id=patient.id,
@@ -97,12 +127,19 @@ def create_session(
         config_versions=body.config_versions,
         consent_version=body.consent_version,
         consent_at=body.consent_at,
+        key_id=key_id,
     )
     db.add(s)
     db.flush()
-    audit(db, p.actor_type, p.actor_id, "session_created", "session", s.id, site_id=p.site_id)
+    audit(
+        db, p.actor_type, p.actor_id, "session_created", "session", s.id, site_id=p.site_id, key_owner=owner
+    )
     db.commit()
-    return SessionOut(id=s.id, client_session_id=s.client_session_id)
+    return SessionOut(
+        id=s.id,
+        client_session_id=s.client_session_id,
+        encryption_key=EncryptionKey(key_id=key_id, public_key_pem=pem, owner=owner),
+    )
 
 
 class AbortIn(BaseModel):

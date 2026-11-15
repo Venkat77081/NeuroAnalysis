@@ -48,6 +48,8 @@ def _safe(name: str) -> str:
 
 
 class LocalStorage:
+    readable = True
+
     def __init__(self, root: str, base_url: str, secret: str, ttl_s: int):
         self.root = Path(root)
         self.base = base_url.rstrip("/")
@@ -141,15 +143,22 @@ class LocalStorage:
 
 
 class S3Storage:
-    def __init__(self, client, bucket: str, ttl_s: int):
+    #: The platform may read objects back (checksum, readiness). False for hospital buckets (M12).
+    readable = True
+
+    def __init__(self, client, bucket: str, ttl_s: int, kms_key_id: str | None = None):
         self.s3 = client
         self.bucket = bucket
         self.ttl_s = ttl_s
+        self.kms_key_id = kms_key_id
 
     def create_upload(self, key: str) -> str:
-        return self.s3.create_multipart_upload(Bucket=self.bucket, Key=key, ServerSideEncryption="AES256")[
-            "UploadId"
-        ]
+        sse = (
+            {"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": self.kms_key_id}
+            if self.kms_key_id
+            else {"ServerSideEncryption": "AES256"}
+        )
+        return self.s3.create_multipart_upload(Bucket=self.bucket, Key=key, **sse)["UploadId"]
 
     def part_url(self, key: str, upload_id: str, number: int) -> str:
         return self.s3.generate_presigned_url(

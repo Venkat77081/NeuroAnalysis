@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session as DbSession
 from app.audit import audit
 from app.config import get_settings
 from app.db import get_db
-from app.models import Session, Take, TakeFile
+from app.models import Session, Site, Take, TakeFile
 from app.security import Principal, require_device, require_role
-from app.storage import Part, get_storage
+from app.storage import Part
+from app.storage.sites import location_for, object_key, storage_at, storage_of
 
 router = APIRouter(prefix="/takes", tags=["takes"])
 
@@ -71,10 +72,10 @@ class TakePlan(BaseModel):
 
 
 def _plan(take: Take, files: list[TakeFile]) -> TakePlan:
-    st = get_storage()
     size = get_settings().part_size
     out = []
     for f in files:
+        st = storage_of(f)
         total = max(1, math.ceil(f.size_bytes / size))
         if f.uploaded_at:
             out.append(
@@ -131,6 +132,12 @@ def create_take(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "files: unique kinds from the list, video required"
         )
+    if s.key_id is not None and body.key_id != s.key_id:
+        # M12: take keys must be wrapped with the hospital key this session was given.
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "wrong_key", "expected": s.key_id})
+    site = db.get(Site, p.site_id)
+    assert site is not None
+    location = location_for(site)
     take = Take(
         client_take_id=body.client_take_id,
         session_id=s.id,
@@ -149,13 +156,14 @@ def create_take(
     )
     db.add(take)
     db.flush()
-    st = get_storage()
+    st = storage_at(location)
     files = []
     for f in body.files:
-        key = f"{p.site_id}/{s.id}/{take.id}/{f.kind}.enc"
+        key = object_key(site, s.id, take.id, f.kind)
         tf = TakeFile(
             take_id=take.id,
             kind=f.kind,
+            location=location,
             object_key=key,
             upload_id=st.create_upload(key),
             size_bytes=f.size_bytes,
@@ -208,7 +216,22 @@ def complete_file(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "file not found")
     if f.uploaded_at:
         return _plan(t, _files(db, t.id))
-    st = get_storage()
+    st = storage_of(f)
+    if not st.readable:
+        # Hospital bucket (M12): the platform cannot read the object. Sizes are checked from the
+        # part list; the hospital's connector checks SHA-256 on first read.
+        try:
+            uploaded = sum(x.size for x in st.list_parts(f.object_key, f.upload_id or ""))
+            if uploaded != f.size_bytes:
+                raise ValueError("size")
+            st.complete(f.object_key, f.upload_id or "", [Part(x.number, x.etag, 0) for x in body.parts])
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status.HTTP_409_CONFLICT, {"code": "parts_incomplete"}) from exc
+        f.uploaded_at = datetime.now(UTC)
+        f.upload_id = None
+        f.checksum_verified = None
+        db.commit()
+        return _plan(t, _files(db, t.id))
     try:
         st.complete(f.object_key, f.upload_id or "", [Part(x.number, x.etag, 0) for x in body.parts])
     except Exception as exc:  # noqa: BLE001 - storage reports missing parts in its own way
@@ -222,6 +245,7 @@ def complete_file(
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "checksum_mismatch", "kind": kind})
     f.uploaded_at = datetime.now(UTC)
     f.upload_id = None
+    f.checksum_verified = True
     db.commit()
     return _plan(t, _files(db, t.id))
 

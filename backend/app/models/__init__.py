@@ -49,6 +49,15 @@ class Site(Base):
     #: Last health check: {"records": "pass", ...} — pass/fail only, never data.
     connector_check: Mapped[dict | None] = mapped_column(Json)
     connector_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # M12: where this hospital's recordings are stored. managed = NeuroCapture storage, separated
+    # per hospital; s3 = the hospital's own bucket through an upload-only role.
+    storage_kind: Mapped[str] = mapped_column(String(10), default="managed")
+    #: s3: {bucket, region, endpoint?, prefix, role_arn, kms_key_id?}. References only, no secrets.
+    storage_config: Mapped[dict | None] = mapped_column(Json)
+    #: ExternalId the hospital puts in its role's trust policy (generated here, not a secret).
+    storage_external_id: Mapped[str | None] = mapped_column(String(64))
+    storage_check: Mapped[dict | None] = mapped_column(Json)
+    storage_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -127,6 +136,8 @@ class Session(Base):
     config_versions: Mapped[dict] = mapped_column(Json)
     consent_version: Mapped[str] = mapped_column(String(50))
     consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    #: M12: the hospital key the phone must wrap this session's take keys with (null = pre-M12).
+    key_id: Mapped[str | None] = mapped_column(String(50))
     __table_args__ = (UniqueConstraint("device_id", "client_session_id"),)
 
 
@@ -163,6 +174,10 @@ class TakeFile(Base):
     size_bytes: Mapped[int] = mapped_column(Integer)
     sha256: Mapped[str] = mapped_column(String(64))
     uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: M12: where the object lives (null = platform storage). Snapshot taken when the take is created.
+    location: Mapped[dict | None] = mapped_column(Json)
+    #: SHA-256 checked: True/False; None = not yet (hospital bucket: the connector checks on first read).
+    checksum_verified: Mapped[bool | None] = mapped_column(Boolean)
     __table_args__ = (UniqueConstraint("take_id", "kind"),)
 
 
@@ -179,6 +194,21 @@ class BiomarkerRun(Base):
     readiness: Mapped[dict] = mapped_column(Json)
     results: Mapped[dict | None] = mapped_column(Json)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class SiteKey(Base):
+    """A hospital's RSA public key for wrapping take data keys (M12). The private key stays with the
+    hospital's connector (or KMS). One active key per hospital; retired keys stay for old sessions."""
+
+    __tablename__ = "site_keys"
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    public_key_pem: Mapped[str] = mapped_column(Text)
+    #: SHA-256 of the DER public key (hex), shown in the dashboard to compare with the connector.
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(10), default="active")  # active | retired
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class StaffUser(Base):

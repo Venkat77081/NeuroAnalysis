@@ -54,7 +54,7 @@ def take_body(session_id, files):
         "quality": {"captureVerdict": "PASS"},
         "meta": {"takeId": "tk-1"},
         "wrapped_data_key": "d3JhcHBlZA==",
-        "key_id": "dev-key-1",
+        "key_id": "dev-key-1-ephemeral",  # the dev platform key the phone received (M12: per session)
         "files": [{"kind": k, "size_bytes": len(v), "sha256": H(v).hexdigest()} for k, v in files.items()],
     }
 

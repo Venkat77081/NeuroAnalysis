@@ -31,7 +31,7 @@ from app.signing import (
     sign_headers,
     verify_signed,
 )
-from app.storage import get_storage
+from app.storage.sites import storage_of
 
 router = APIRouter(tags=["connector"])
 
@@ -359,11 +359,25 @@ def connector_takes(
     ]
 
 
+class ObjectLocation(BaseModel):
+    """A file in the hospital's own bucket: the connector reads it with the hospital's credentials."""
+
+    kind: str = "s3"
+    bucket: str
+    key: str
+    region: str | None = None
+    endpoint: str | None = None
+
+
 class TakeFileOut(BaseModel):
     kind: str
-    url: str
+    #: Short-lived download link (NeuroCapture-managed storage), or null with `location` set.
+    url: str | None = None
+    location: ObjectLocation | None = None
     sha256: str
     size_bytes: int
+    #: True / False once checked; null = the connector must check SHA-256 and report it.
+    checksum_verified: bool | None = None
 
 
 class TakeDownloadOut(BaseModel):
@@ -391,14 +405,20 @@ def connector_take(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
     if take.status != "complete":
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "upload_not_complete"})
-    st = get_storage()
     ttl = get_settings().upload_url_ttl_s
-    files = [
-        TakeFileOut(
-            kind=f.kind, url=st.download_url(f.object_key, ttl), sha256=f.sha256, size_bytes=f.size_bytes
+    files = []
+    for f in db.scalars(select(TakeFile).where(TakeFile.take_id == take.id)):
+        out = TakeFileOut(
+            kind=f.kind, sha256=f.sha256, size_bytes=f.size_bytes, checksum_verified=f.checksum_verified
         )
-        for f in db.scalars(select(TakeFile).where(TakeFile.take_id == take.id))
-    ]
+        if f.location and f.location.get("kind") == "s3":
+            loc = f.location
+            out.location = ObjectLocation(
+                bucket=loc["bucket"], key=f.object_key, region=loc.get("region"), endpoint=loc.get("endpoint")
+            )
+        else:
+            out.url = storage_of(f).download_url(f.object_key, ttl)
+        files.append(out)
     audit(db, "connector", site.id, "take_fetched", "take", take.id, site_id=site.id)
     db.commit()
     return TakeDownloadOut(
@@ -410,3 +430,103 @@ def connector_take(
         wrapped_data_key=take.wrapped_data_key,
         files=files,
     )
+
+
+# --- M12: hospital take keys and checksum reports ---
+
+
+class KeyIn(BaseModel):
+    public_key_pem: str = Field(min_length=100, max_length=4000)
+
+
+class KeyOut(BaseModel):
+    key_id: str
+    fingerprint: str
+    status: str
+    created_at: datetime
+    retired_at: datetime | None
+    #: Set on registration: the key that was active before (now retired).
+    retired_key_id: str | None = None
+
+
+def _key_out(k, retired: str | None = None) -> KeyOut:
+    return KeyOut(
+        key_id=k.id,
+        fingerprint=k.fingerprint,
+        status=k.status,
+        created_at=k.created_at,
+        retired_at=k.retired_at,
+        retired_key_id=retired,
+    )
+
+
+@router.post("/connector/v1/keys", response_model=KeyOut, status_code=201)
+def connector_register_key(
+    body: KeyIn,
+    site: Site = Depends(signed_connector),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> KeyOut:
+    """Register (or rotate to) a new hospital take key. New sessions get it at once; sessions that
+    already started keep theirs."""
+    from app.hospital_keys import register_key
+
+    key, old = register_key(db, site, body.public_key_pem)
+    audit(
+        db,
+        "connector",
+        site.id,
+        "take_key_registered",
+        "site_key",
+        key.id,
+        site_id=site.id,
+        retired=old.id if old else None,
+    )
+    db.commit()
+    return _key_out(key, old.id if old else None)
+
+
+def site_keys(db: DbSession, site_id: str) -> list[KeyOut]:
+    from app.models import SiteKey
+
+    q = select(SiteKey).where(SiteKey.site_id == site_id).order_by(SiteKey.created_at.desc())
+    return [_key_out(k) for k in db.scalars(q)]
+
+
+@router.get("/connector/v1/keys", response_model=list[KeyOut])
+def connector_keys(site: Site = Depends(signed_connector), db: DbSession = Depends(get_db)) -> list[KeyOut]:  # noqa: B008
+    return site_keys(db, site.id)
+
+
+@router.get("/hospital/keys", response_model=list[KeyOut])
+def hospital_keys(p: Principal = Depends(hospital_admin), db: DbSession = Depends(get_db)) -> list[KeyOut]:  # noqa: B008
+    """Fingerprints to compare with `python -m ncconnector take-keys` on the connector."""
+    return site_keys(db, _my_site(db, p).id)
+
+
+class VerifiedIn(BaseModel):
+    ok: bool
+
+
+@router.post("/connector/v1/takes/{take_id}/files/{kind}/verified", status_code=204)
+def connector_verified(
+    take_id: str,
+    kind: str,
+    body: VerifiedIn,
+    site: Site = Depends(signed_connector),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> None:
+    """The connector read a file from the hospital bucket and checked its SHA-256."""
+    take = db.get(Take, take_id)
+    sess = db.get(Session, take.session_id) if take else None
+    patient = db.get(Patient, sess.patient_id) if sess else None
+    f = (
+        db.scalar(select(TakeFile).where(TakeFile.take_id == take_id, TakeFile.kind == kind))
+        if take
+        else None
+    )
+    if not f or not patient or patient.site_id != site.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "file not found")
+    f.checksum_verified = body.ok
+    if not body.ok:
+        audit(db, "connector", site.id, "checksum_mismatch", "take", take_id, site_id=site.id, kind=kind)
+    db.commit()

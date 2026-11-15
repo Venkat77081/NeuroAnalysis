@@ -23,7 +23,7 @@ from app.audit import audit
 from app.config import get_settings
 from app.keys import server_private_key
 from app.models import BiomarkerRun, Take, TakeFile
-from app.storage import get_storage
+from app.storage.sites import storage_of
 
 log = logging.getLogger("neurocapture.readiness")
 
@@ -56,7 +56,7 @@ def compute(db: DbSession, take: Take, actor_id: str | None) -> BiomarkerRun:
             frames = None
             if "landmarks" in files:
                 keyset = unwrap_data_key(take.wrapped_data_key, key)
-                raw = get_storage().read(files["landmarks"].object_key)
+                raw = storage_of(files["landmarks"]).read(files["landmarks"].object_key)
                 _, frames = read_landmarks(decrypt_file(keyset, take.client_take_id, "landmarks", raw))
             ev = evidence_from_take(
                 take.quality, tests[take.test_code], quality_cfg, frames, sensors_present="sensors" in files

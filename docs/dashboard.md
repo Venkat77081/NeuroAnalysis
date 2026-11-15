@@ -1,0 +1,36 @@
+# Web dashboards — deploy and run (M14)
+
+One web app for platform admins, hospital admins and doctors (`apps/dashboard`).
+
+## Build and deploy
+
+```bash
+pnpm --filter @neurocapture/dashboard build     # → apps/dashboard/dist (static files)
+```
+
+1. Serve `dist/` from any static host (nginx, S3 + CloudFront, the API's reverse proxy) with an
+   SPA fallback to `index.html`. Staff invite links are `<dashboard>/invite?t=…`.
+2. Point the dashboard at the API: edit `dist/config.json` → `{ "apiUrl": "https://api.example.in" }`.
+3. On the API, set `NC_CORS_ORIGINS` to the dashboard's origin and `NC_DASHBOARD_URL` to its
+   address (used in invite e-mails).
+4. On each hospital connector, set `NCC_CORS_ORIGINS` to the same dashboard origin.
+
+## How data flows
+
+- **The platform API** gives the dashboard accounts, phones, NCIDs, sessions, plans and
+  pass/fail health, and never patient identity.
+- **The hospital connector** is called by the browser directly, with a 10-minute connector token
+  from the platform. It serves names, MRNs, live history, decrypted recordings, reviews (notes
+  stay at the hospital), invites and the clinical activity log. Doctors therefore need network
+  access to their hospital's connector (hospital network, VPN or a hospital-controlled HTTPS
+  address).
+- **Tokens:** the access token is held in memory only. The refresh token is kept in the tab's
+  `sessionStorage`, so closing the tab signs out. Decrypted videos exist only as in-memory blob
+  URLs while they are open.
+
+## Local run
+
+```bash
+pnpm --filter @neurocapture/dashboard dev         # http://localhost:5174, API at public/config.json
+pnpm e2e:dashboard                                # real platform + connector + FHIR stand-in, then the identity scan
+```

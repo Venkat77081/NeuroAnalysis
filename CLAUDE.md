@@ -48,9 +48,11 @@ docker compose up -d      # api + postgres (storage profile: see docs/decisions/
 cd backend && pytest && ruff check .
 cd connector && pytest && ruff check .   # hospital connector, tested against the platform in-process (M11)
 cd connector && python -m scripts.gen_contract   # regenerate contracts/connector-api.yaml
+pnpm --filter @neurocapture/dashboard dev   # web dashboards (M14), API at apps/dashboard/public/config.json
+pnpm e2e:dashboard        # dashboards against the real platform + connector, then the no-identity scan
 cd backend && python -m app.admin create-platform-admin --email you@example.org   # prints a one-time invite link (M10)
 ```
 
 ## Layout
 
-See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI), `connector` (hospital connector, FastAPI, docs/connector.md).
+See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI), `connector` (hospital connector, FastAPI, docs/connector.md), `apps/dashboard` (web dashboards, docs/dashboard.md).

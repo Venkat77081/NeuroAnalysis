@@ -85,6 +85,16 @@ function runAll(): void {
   if (!rIssues.length)
     rIssues.push(...checkBiomarkerRegistry(readJson(registryFile) as BiomarkerRegistry, tests));
   report(registryFile, rIssues);
+  // 2e. Platform accounts and invites (M10)
+  const platformFile = join(repoRoot, 'config/platform.json');
+  const pIssues = validateFile('platform-config', platformFile);
+  if (!pIssues.length) {
+    const pin = (readJson(platformFile) as { patientPin: { minDigits: number; maxDigits: number } })
+      .patientPin;
+    if (pin.minDigits > pin.maxDigits)
+      pIssues.push({ path: '/patientPin/minDigits', message: 'must not exceed maxDigits' });
+  }
+  report(platformFile, pIssues);
 
   // 3. Compatibility samples: valid must pass
   const samples = join(repoRoot, 'contracts/tests');

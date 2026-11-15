@@ -1,0 +1,19 @@
+{
+  "_comment": "Server-sent message text (e-mail, SMS). {placeholders} are filled by the server. Never put patient names here; the patient's name is only added by the hospital connector.",
+  "staffInvite": {
+    "subject": "You are invited to NeuroCapture for {hospital}",
+    "body": "You have been added to NeuroCapture for {hospital} as {role}.\n\nSet your password here (the link works once and expires in {days} days):\n{link}\n\nAfter that you will set up two-step sign-in with an authenticator app."
+  },
+  "patientInviteEmail": {
+    "subject": "{hospital} invites you to record movement tests at home",
+    "body": "{hospital} has invited you to record short movement tests at home with the NeuroCapture app.\n\nOpen this link on your phone, or scan the QR code attached (it works once and expires in {days} days):\n{link}\n\nYou will then choose a PIN. You do not need your MRN."
+  },
+  "patientInviteSms": {
+    "body": "{hospital}: record your movement tests at home with NeuroCapture. Open {link} (works once, {days} days)."
+  },
+  "roles": {
+    "platform_admin": "platform admin",
+    "hospital_admin": "hospital admin",
+    "doctor": "doctor"
+  }
+}

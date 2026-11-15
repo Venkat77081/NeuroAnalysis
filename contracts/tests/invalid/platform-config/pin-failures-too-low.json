@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "configVersion": "PLATFORM@1.0.0",
+  "invites": {
+    "patientTtlDays": 7,
+    "staffTtlDays": 7,
+    "deviceCodeTtlHours": 24,
+    "deviceCodeLength": 10
+  },
+  "passwords": {
+    "minLength": 10,
+    "temporaryLength": 14
+  },
+  "patientPin": {
+    "minDigits": 4,
+    "maxDigits": 6,
+    "maxFailures": 1
+  },
+  "staff": {
+    "twoStepRequired": true,
+    "maxFailedLogins": 10
+  },
+  "consentVersion": "home-consent@1"
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/platform-config.schema.json",
+  "title": "PlatformConfig",
+  "description": "Account and invite policy for hospitals, staff, operators and patients (PLATFORM_PLAN M10). Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "configVersion",
+    "invites",
+    "passwords",
+    "patientPin",
+    "staff",
+    "consentVersion"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "configVersion": { "type": "string", "pattern": "^PLATFORM@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "invites": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["patientTtlDays", "staffTtlDays", "deviceCodeTtlHours", "deviceCodeLength"],
+      "properties": {
+        "patientTtlDays": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "staffTtlDays": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "deviceCodeTtlHours": { "type": "integer", "minimum": 1, "maximum": 168 },
+        "deviceCodeLength": { "type": "integer", "minimum": 8, "maximum": 16 }
+      }
+    },
+    "passwords": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minLength", "temporaryLength"],
+      "properties": {
+        "minLength": { "type": "integer", "minimum": 8, "maximum": 64 },
+        "temporaryLength": { "type": "integer", "minimum": 10, "maximum": 32 }
+      }
+    },
+    "patientPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minDigits", "maxDigits", "maxFailures"],
+      "properties": {
+        "minDigits": { "type": "integer", "minimum": 4, "maximum": 8 },
+        "maxDigits": { "type": "integer", "minimum": 4, "maximum": 8 },
+        "maxFailures": { "type": "integer", "minimum": 3, "maximum": 10 }
+      }
+    },
+    "staff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["twoStepRequired", "maxFailedLogins"],
+      "properties": {
+        "twoStepRequired": { "type": "boolean" },
+        "maxFailedLogins": { "type": "integer", "minimum": 3, "maximum": 20 }
+      }
+    },
+    "consentVersion": { "type": "string", "minLength": 1, "maxLength": 50 }
+  }
+}

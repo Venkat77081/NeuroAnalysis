@@ -119,7 +119,10 @@ paths:
   /v1/ncid:
     post:
       summary: Ncid For Mrn
-      description: NCID for a hospital patient (clinic session without an app invite).
+      description: 'NCID for a hospital patient (clinic session without an app invite).
+        Clinic phones call this
+
+        with an operator token; the MRN stays inside the hospital.'
       operationId: ncid_for_mrn_v1_ncid_post
       requestBody:
         content:
@@ -305,6 +308,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /auth/connector-token:
+    post:
+      tags:
+      - auth
+      summary: Operator Connector Token
+      description: 'M13: a clinic phone asks the hospital connector for a patient''s
+        NCID by MRN. The MRN goes to
+
+        the connector only; this token allows nothing else there (role "operator").'
+      operationId: operator_connector_token_auth_connector_token_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorTokenOut'
+      security:
+      - HTTPBearer: []
+    servers: &id001
+    - url: https://api.neurocapture.example
+      description: NeuroCapture platform
   /.well-known/neurocapture-platform-key:
     get:
       tags:
@@ -318,9 +343,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlatformKeyOut'
-    servers: &id001
-    - url: https://api.neurocapture.example
-      description: NeuroCapture platform
+    servers: *id001
   /hospital/connector:
     get:
       tags:

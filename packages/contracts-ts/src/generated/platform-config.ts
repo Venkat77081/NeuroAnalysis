@@ -27,4 +27,23 @@ export interface PlatformConfig {
     maxFailedLogins: number;
   };
   consentVersion: string;
+  /**
+   * Recording plan for a patient until their doctor sets one (M13).
+   */
+  defaultPlan: {
+    /**
+     * @minItems 1
+     */
+    tests: ['FT' | 'FTF' | 'FR' | 'SAW' | 'FA', ...('FT' | 'FTF' | 'FR' | 'SAW' | 'FA')[]];
+    everyDays: number;
+    medState: 'OFF' | 'ON' | 'ANY';
+  };
+  app: {
+    operatorAutoLockMin: number;
+    patientAutoLockMin: number;
+    /**
+     * Home walking test only with a helper holding the phone.
+     */
+    homeSawNeedsHelper: boolean;
+  };
 }

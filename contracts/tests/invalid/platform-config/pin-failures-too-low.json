@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "PLATFORM@1.0.0",
+  "configVersion": "PLATFORM@1.1.0",
   "invites": {
     "patientTtlDays": 7,
     "staffTtlDays": 7,
@@ -20,5 +20,15 @@
     "twoStepRequired": true,
     "maxFailedLogins": 10
   },
-  "consentVersion": "home-consent@1"
+  "consentVersion": "home-consent@1",
+  "defaultPlan": {
+    "tests": ["FT", "FTF", "FR", "SAW", "FA"],
+    "everyDays": 7,
+    "medState": "OFF"
+  },
+  "app": {
+    "operatorAutoLockMin": 5,
+    "patientAutoLockMin": 2,
+    "homeSawNeedsHelper": true
+  }
 }

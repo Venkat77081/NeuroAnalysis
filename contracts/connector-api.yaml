@@ -1,0 +1,1178 @@
+# Generated: python -m scripts.gen_contract (connector/). Do not edit.
+openapi: 3.1.0
+info:
+  title: NeuroCapture hospital connector contract
+  version: 1.0.0
+  description: Connector API (served by the hospital connector) and the platform endpoints
+    the connector calls. Patient identity (names, MRNs, contact details, records)
+    only appears in responses of the connector to the hospital's own staff. Generated
+    by connector/scripts/gen_contract.py.
+servers:
+- url: https://connector.hospital.example
+  description: Hospital connector
+paths:
+  /health:
+    get:
+      summary: Health
+      description: Liveness only; reveals nothing about the hospital.
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOut'
+  /v1/health/check:
+    post:
+      summary: Health Check
+      description: The onboarding wizard's test, requested by the platform. Answers
+        pass / fail only.
+      operationId: health_check_v1_health_check_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/patients:
+    get:
+      summary: Search Patients
+      operationId: search_patients_v1_patients_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 100
+          title: Q
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientRow'
+                title: Response Search Patients V1 Patients Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/patients/{ncid}:
+    get:
+      summary: Patient View
+      description: 'Doctor view: identity and history read live for this request (never
+        stored).'
+      operationId: patient_view_v1_patients__ncid__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: ncid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ncid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientViewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/ncid:
+    post:
+      summary: Ncid For Mrn
+      description: NCID for a hospital patient (clinic session without an app invite).
+      operationId: ncid_for_mrn_v1_ncid_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NcidIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NcidOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /v1/invites:
+    post:
+      summary: Invite
+      description: 'Invite patients from the hospital''s records. Contact details
+        are read live here and handed to
+
+        the hospital''s mail / SMS provider; the platform only learns the NCID and
+        the channel.'
+      operationId: invite_v1_invites_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/InviteResult'
+                type: array
+                title: Response Invite V1 Invites Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /v1/patients/{ncid}/recordings:
+    get:
+      summary: Recordings
+      operationId: recordings_v1_patients__ncid__recordings_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: ncid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ncid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response Recordings V1 Patients  Ncid  Recordings Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/takes/{take_id}/files/{kind}:
+    get:
+      summary: Take File
+      description: Decrypts one file of a take for the doctor's browser (only this
+        connector holds the key).
+      operationId: take_file_v1_takes__take_id__files__kind__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: take_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Take Id
+      - name: kind
+        in: path
+        required: true
+        schema:
+          enum:
+          - video
+          - frames
+          - landmarks
+          - sensors
+          - quality
+          - meta
+          type: string
+          title: Kind
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/activity:
+    post:
+      summary: Platform Activity
+      description: Clinical events the platform sees first (e.g. a home session uploaded),
+        logged at the hospital.
+      operationId: platform_activity_v1_activity_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityIn'
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      summary: Read Activity
+      operationId: read_activity_v1_activity_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: ncid
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ncid
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 200
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityOut'
+                title: Response Read Activity V1 Activity Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /.well-known/neurocapture-platform-key:
+    get:
+      tags:
+      - connector
+      summary: Platform Public Key
+      operationId: platform_public_key__well_known_neurocapture_platform_key_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformKeyOut'
+    servers: &id001
+    - url: https://api.neurocapture.example
+      description: NeuroCapture platform
+  /hospital/connector:
+    get:
+      tags:
+      - connector
+      summary: Get Connector
+      operationId: get_connector_hospital_connector_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorOut'
+      security:
+      - HTTPBearer: []
+    put:
+      tags:
+      - connector
+      summary: Register Connector
+      operationId: register_connector_hospital_connector_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectorIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+    servers: *id001
+  /hospital/connector/check:
+    post:
+      tags:
+      - connector
+      summary: Check Connector
+      description: The onboarding wizard's test. NeuroCapture keeps pass / fail per
+        check, nothing else.
+      operationId: check_connector_hospital_connector_check_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+    servers: *id001
+  /hospital/connector-token:
+    post:
+      tags:
+      - connector
+      summary: Get Connector Token
+      description: For the browser to call the hospital's connector directly (patient
+        identity never comes here).
+      operationId: get_connector_token_hospital_connector_token_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorTokenOut'
+      security:
+      - HTTPBearer: []
+    servers: *id001
+  /connector/v1/patients:
+    post:
+      tags:
+      - connector
+      summary: Connector New Patient
+      operationId: connector_new_patient_connector_v1_patients_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPatientIn'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewPatientOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+  /connector/v1/patients/{ncid}/invite:
+    post:
+      tags:
+      - connector
+      summary: Connector Invite
+      description: 'Invite (or re-invite) an existing NCID: a new single-use link;
+        an earlier phone stops working.'
+      operationId: connector_invite_connector_v1_patients__ncid__invite_post
+      parameters:
+      - name: ncid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ncid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewPatientOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+  /connector/v1/patients/status:
+    post:
+      tags:
+      - connector
+      summary: Connector Status
+      description: App status per NCID (invited / active / locked / closed / no_app);
+        unknown NCIDs are left out.
+      operationId: connector_status_connector_v1_patients_status_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/app__api__connector_link__StatusIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+                title: Response Connector Status Connector V1 Patients Status Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+  /connector/v1/patients/{ncid}/takes:
+    get:
+      tags:
+      - connector
+      summary: Connector Takes
+      operationId: connector_takes_connector_v1_patients__ncid__takes_get
+      parameters:
+      - name: ncid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ncid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecordingOut'
+                title: Response Connector Takes Connector V1 Patients  Ncid  Takes
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+  /connector/v1/takes/{take_id}:
+    get:
+      tags:
+      - connector
+      summary: Connector Take
+      description: 'Encrypted files of one complete take, with short-lived download
+        links. Only this hospital''s
+
+        connector can unwrap the data key.'
+      operationId: connector_take_connector_v1_takes__take_id__get
+      parameters:
+      - name: take_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Take Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TakeDownloadOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+components:
+  schemas:
+    ActivityIn:
+      properties:
+        actor_type:
+          type: string
+          maxLength: 20
+          title: Actor Type
+        actor_id:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Actor Id
+        action:
+          type: string
+          maxLength: 50
+          title: Action
+        ncid:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+          title: Ncid
+        details:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Details
+      type: object
+      required:
+      - actor_type
+      - action
+      title: ActivityIn
+    ActivityOut:
+      properties:
+        at:
+          type: string
+          format: date-time
+          title: At
+        actor_type:
+          type: string
+          title: Actor Type
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        action:
+          type: string
+          title: Action
+        ncid:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ncid
+        details:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Details
+      type: object
+      required:
+      - at
+      - actor_type
+      - actor_id
+      - action
+      - ncid
+      - details
+      title: ActivityOut
+    CheckIn:
+      properties:
+        sample_mrn:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Sample Mrn
+      type: object
+      title: CheckIn
+    CheckOut:
+      properties:
+        records:
+          type: string
+          enum:
+          - pass
+          - fail
+          title: Records
+        ncid_map:
+          type: string
+          enum:
+          - pass
+          - fail
+          title: Ncid Map
+        activity_log:
+          type: string
+          enum:
+          - pass
+          - fail
+          title: Activity Log
+        decrypt_key:
+          type: string
+          enum:
+          - pass
+          - fail
+          title: Decrypt Key
+      type: object
+      required:
+      - records
+      - ncid_map
+      - activity_log
+      - decrypt_key
+      title: CheckOut
+    ConnectorIn:
+      properties:
+        url:
+          type: string
+          maxLength: 300
+          minLength: 8
+          pattern: ^https?://[^\s]+$
+          title: Url
+        public_key_pem:
+          type: string
+          maxLength: 2000
+          minLength: 40
+          title: Public Key Pem
+      type: object
+      required:
+      - url
+      - public_key_pem
+      title: ConnectorIn
+    ConnectorOut:
+      properties:
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        registered:
+          type: boolean
+          title: Registered
+        check:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Check
+        checked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Checked At
+      type: object
+      required:
+      - url
+      - registered
+      - check
+      - checked_at
+      title: ConnectorOut
+    ConnectorTokenOut:
+      properties:
+        token:
+          type: string
+          title: Token
+        expires_in:
+          type: integer
+          title: Expires In
+        connector_url:
+          type: string
+          title: Connector Url
+      type: object
+      required:
+      - token
+      - expires_in
+      - connector_url
+      title: ConnectorTokenOut
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthOut:
+      properties:
+        status:
+          type: string
+          title: Status
+        version:
+          type: string
+          title: Version
+      type: object
+      required:
+      - status
+      - version
+      title: HealthOut
+    HistoryItemOut:
+      properties:
+        text:
+          type: string
+          title: Text
+        date:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Date
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Detail
+      type: object
+      required:
+      - text
+      title: HistoryItemOut
+    InviteIn:
+      properties:
+        mrns:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          minItems: 1
+          title: Mrns
+        channel:
+          type: string
+          enum:
+          - email
+          - sms
+          - print
+          title: Channel
+          default: email
+      type: object
+      required:
+      - mrns
+      title: InviteIn
+    InviteResult:
+      properties:
+        mrn:
+          type: string
+          title: Mrn
+        result:
+          type: string
+          title: Result
+        ncid:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ncid
+        invite_link:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Invite Link
+        qr_png_base64:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Qr Png Base64
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+      type: object
+      required:
+      - mrn
+      - result
+      title: InviteResult
+    NcidIn:
+      properties:
+        mrn:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Mrn
+      type: object
+      required:
+      - mrn
+      title: NcidIn
+    NcidOut:
+      properties:
+        ncid:
+          type: string
+          title: Ncid
+        created:
+          type: boolean
+          title: Created
+      type: object
+      required:
+      - ncid
+      - created
+      title: NcidOut
+    NewPatientIn:
+      properties:
+        channel:
+          type: string
+          enum:
+          - email
+          - sms
+          - print
+          - none
+          title: Channel
+          default: email
+      type: object
+      title: NewPatientIn
+    NewPatientOut:
+      properties:
+        ncid:
+          type: string
+          title: Ncid
+        invite_link:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Invite Link
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        app_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: App Status
+      type: object
+      required:
+      - ncid
+      title: NewPatientOut
+    PatientRow:
+      properties:
+        mrn:
+          type: string
+          title: Mrn
+        name:
+          type: string
+          title: Name
+        birth_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Birth Date
+        sex:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sex
+        has_email:
+          type: boolean
+          title: Has Email
+        has_phone:
+          type: boolean
+          title: Has Phone
+        ncid:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ncid
+        app_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: App Status
+      type: object
+      required:
+      - mrn
+      - name
+      - birth_date
+      - sex
+      - has_email
+      - has_phone
+      - ncid
+      - app_status
+      title: PatientRow
+    PatientViewOut:
+      properties:
+        ncid:
+          type: string
+          title: Ncid
+        records_available:
+          type: boolean
+          title: Records Available
+        mrn:
+          type: string
+          title: Mrn
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        birth_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Birth Date
+        sex:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sex
+        conditions:
+          items:
+            $ref: '#/components/schemas/HistoryItemOut'
+          type: array
+          title: Conditions
+          default: []
+        medications:
+          items:
+            $ref: '#/components/schemas/HistoryItemOut'
+          type: array
+          title: Medications
+          default: []
+        encounters:
+          items:
+            $ref: '#/components/schemas/HistoryItemOut'
+          type: array
+          title: Encounters
+          default: []
+      type: object
+      required:
+      - ncid
+      - records_available
+      - mrn
+      title: PatientViewOut
+    PlatformKeyOut:
+      properties:
+        key_id:
+          type: string
+          title: Key Id
+        algorithm:
+          type: string
+          title: Algorithm
+          default: Ed25519
+        public_key_pem:
+          type: string
+          title: Public Key Pem
+      type: object
+      required:
+      - key_id
+      - public_key_pem
+      title: PlatformKeyOut
+    RecordingOut:
+      properties:
+        take_id:
+          type: string
+          title: Take Id
+        session_id:
+          type: string
+          title: Session Id
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        recorded_by:
+          type: string
+          title: Recorded By
+        med_state:
+          type: string
+          title: Med State
+        test_code:
+          type: string
+          title: Test Code
+        side:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Side
+        capture_verdict:
+          type: string
+          title: Capture Verdict
+        flagged_for_review:
+          type: boolean
+          title: Flagged For Review
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - take_id
+      - session_id
+      - started_at
+      - recorded_by
+      - med_state
+      - test_code
+      - side
+      - capture_verdict
+      - flagged_for_review
+      - status
+      title: RecordingOut
+    TakeDownloadOut:
+      properties:
+        take_id:
+          type: string
+          title: Take Id
+        client_take_id:
+          type: string
+          title: Client Take Id
+        ncid:
+          type: string
+          title: Ncid
+        test_code:
+          type: string
+          title: Test Code
+        key_id:
+          type: string
+          title: Key Id
+        wrapped_data_key:
+          type: string
+          title: Wrapped Data Key
+        files:
+          items:
+            $ref: '#/components/schemas/TakeFileOut'
+          type: array
+          title: Files
+      type: object
+      required:
+      - take_id
+      - client_take_id
+      - ncid
+      - test_code
+      - key_id
+      - wrapped_data_key
+      - files
+      title: TakeDownloadOut
+    TakeFileOut:
+      properties:
+        kind:
+          type: string
+          title: Kind
+        url:
+          type: string
+          title: Url
+        sha256:
+          type: string
+          title: Sha256
+        size_bytes:
+          type: integer
+          title: Size Bytes
+      type: object
+      required:
+      - kind
+      - url
+      - sha256
+      - size_bytes
+      title: TakeFileOut
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    app__api__connector_link__StatusIn:
+      properties:
+        ncids:
+          items:
+            type: string
+          type: array
+          maxItems: 500
+          title: Ncids
+      type: object
+      required:
+      - ncids
+      title: StatusIn
+  securitySchemes:
+    connectorToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT (EdDSA, aud site:<id>) from POST /hospital/connector-token
+    signedRequest:
+      type: apiKey
+      in: header
+      name: X-NC-Signature
+      description: 'Ed25519-signed request. Signed bytes: METHOD \n PATH?QUERY \n
+        X-NC-Timestamp \n X-NC-Nonce \n
+
+        hex(SHA-256(body)). Headers: X-NC-Key (signer: "platform" or the hospital''s
+        site ID),
+
+        X-NC-Timestamp (unix seconds, within 300 s), X-NC-Nonce (16-64 chars, single
+        use),
+
+        X-NC-Signature (base64url of the signature, no padding).'

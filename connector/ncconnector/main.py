@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session as DbSession
 from ncconnector import __version__, activity, platform
 from ncconnector.auth import Staff, platform_signed, role
 from ncconnector.config import get_settings
-from ncconnector.db import ActivityLog, NcidMap, get_db, init_db
+from ncconnector.db import ActivityLog, NcidMap, Review, get_db, init_db
 from ncconnector.keys import has_take_key, take_private_key
 from ncconnector.providers import send_invite
 from ncconnector.records import RecordsUnavailableError, records
@@ -44,6 +44,7 @@ app.add_middleware(
 doctor_or_admin = role("doctor", "hospital_admin")
 admin = role("hospital_admin")
 clinic_staff = role("doctor", "hospital_admin", "operator")
+doctor = role("doctor")
 
 
 def _platform_error(exc: platform.PlatformError) -> HTTPException:
@@ -214,6 +215,49 @@ def patient_view(
         medications=items(hist.medications),
         encounters=items(hist.encounters),
     )
+
+
+class LookupIn(BaseModel):
+    ncids: list[str] = Field(min_length=1, max_length=200)
+
+
+class LookupRow(BaseModel):
+    ncid: str
+    mrn: str
+    name: str | None = None
+    birth_date: date | None = None
+    sex: str | None = None
+    #: False: this patient could not be read from the hospital system just now.
+    records_available: bool
+
+
+@app.post("/v1/patients/lookup", response_model=list[LookupRow])
+def lookup(
+    body: LookupIn, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)
+) -> list[LookupRow]:
+    """M14: names for a list of NCIDs (the platform lists NCIDs; the browser joins identity here,
+    live, never stored). Unknown NCIDs are left out."""
+    rows = list(db.scalars(select(NcidMap).where(NcidMap.ncid.in_(body.ncids))))
+    out = []
+    for m in rows:
+        try:
+            rec = records().get(m.mrn)
+        except RecordsUnavailableError:
+            rec = None
+            out.append(LookupRow(ncid=m.ncid, mrn=m.mrn, records_available=False))
+            continue
+        out.append(
+            LookupRow(
+                ncid=m.ncid,
+                mrn=m.mrn,
+                name=rec.name if rec else None,
+                birth_date=rec.birth_date if rec else None,
+                sex=rec.sex if rec else None,
+                records_available=rec is not None,
+            )
+        )
+    activity.write(db, s.role, s.user_id, "patients_listed", results=len(out))
+    return out
 
 
 # --- NCIDs and invites ---
@@ -393,6 +437,69 @@ def take_file(
             "Content-Disposition": f'inline; filename="{FILE_NAMES[kind]}"',
         },
     )
+
+
+# --- Reviews (M14): kept at the hospital ---
+
+
+class ReviewIn(BaseModel):
+    usable: bool
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ReviewOut(BaseModel):
+    id: str
+    take_id: str
+    ncid: str
+    usable: bool
+    note: str | None
+    reviewer_id: str
+    at: datetime
+
+
+def _review_out(r: Review) -> ReviewOut:
+    return ReviewOut(
+        id=r.id,
+        take_id=r.take_id,
+        ncid=r.ncid,
+        usable=r.usable,
+        note=r.note,
+        reviewer_id=r.reviewer_id,
+        at=r.at,
+    )
+
+
+@app.post("/v1/takes/{take_id}/review", response_model=ReviewOut, status_code=201)
+def review_take(
+    take_id: str, body: ReviewIn, s: Staff = Depends(doctor), db: DbSession = Depends(get_db)
+) -> ReviewOut:
+    """A doctor marks a recording usable or not usable. The note stays in the hospital's database."""
+    try:
+        info = platform.call("GET", f"/connector/v1/takes/{take_id}")
+    except platform.PlatformError as exc:
+        raise _platform_error(exc) from exc
+    if db.get(NcidMap, info["ncid"]) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
+    r = Review(
+        take_id=take_id,
+        ncid=info["ncid"],
+        usable=body.usable,
+        note=(body.note or "").strip() or None,
+        reviewer_id=s.user_id,
+    )
+    db.add(r)
+    db.commit()
+    activity.write(db, s.role, s.user_id, "take_reviewed", info["ncid"], take_id=take_id, usable=body.usable)
+    return _review_out(r)
+
+
+@app.get("/v1/patients/{ncid}/reviews", response_model=list[ReviewOut])
+def reviews(
+    ncid: str, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)
+) -> list[ReviewOut]:
+    _mrn_for(db, ncid)
+    q = select(Review).where(Review.ncid == ncid).order_by(Review.at.desc())
+    return [_review_out(r) for r in db.scalars(q)]
 
 
 # --- Activity log ---

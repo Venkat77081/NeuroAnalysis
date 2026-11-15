@@ -116,6 +116,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/patients/lookup:
+    post:
+      summary: Lookup
+      description: 'M14: names for a list of NCIDs (the platform lists NCIDs; the
+        browser joins identity here,
+
+        live, never stored). Unknown NCIDs are left out.'
+      operationId: lookup_v1_patients_lookup_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LookupIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/LookupRow'
+                type: array
+                title: Response Lookup V1 Patients Lookup Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /v1/ncid:
     post:
       summary: Ncid For Mrn
@@ -242,6 +274,69 @@ paths:
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/takes/{take_id}/review:
+    post:
+      summary: Review Take
+      description: A doctor marks a recording usable or not usable. The note stays
+        in the hospital's database.
+      operationId: review_take_v1_takes__take_id__review_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: take_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Take Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewIn'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/patients/{ncid}/reviews:
+    get:
+      summary: Reviews
+      operationId: reviews_v1_patients__ncid__reviews_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: ncid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ncid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewOut'
+                title: Response Reviews V1 Patients  Ncid  Reviews Get
         '422':
           description: Validation Error
           content:
@@ -993,6 +1088,52 @@ components:
       - created_at
       - retired_at
       title: KeyOut
+    LookupIn:
+      properties:
+        ncids:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          minItems: 1
+          title: Ncids
+      type: object
+      required:
+      - ncids
+      title: LookupIn
+    LookupRow:
+      properties:
+        ncid:
+          type: string
+          title: Ncid
+        mrn:
+          type: string
+          title: Mrn
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        birth_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Birth Date
+        sex:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sex
+        records_available:
+          type: boolean
+          title: Records Available
+      type: object
+      required:
+      - ncid
+      - mrn
+      - records_available
+      title: LookupRow
     NcidIn:
       properties:
         mrn:
@@ -1250,6 +1391,57 @@ components:
       - flagged_for_review
       - status
       title: RecordingOut
+    ReviewIn:
+      properties:
+        usable:
+          type: boolean
+          title: Usable
+        note:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Note
+      type: object
+      required:
+      - usable
+      title: ReviewIn
+    ReviewOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        take_id:
+          type: string
+          title: Take Id
+        ncid:
+          type: string
+          title: Ncid
+        usable:
+          type: boolean
+          title: Usable
+        note:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Note
+        reviewer_id:
+          type: string
+          title: Reviewer Id
+        at:
+          type: string
+          format: date-time
+          title: At
+      type: object
+      required:
+      - id
+      - take_id
+      - ncid
+      - usable
+      - note
+      - reviewer_id
+      - at
+      title: ReviewOut
     TakeDownloadOut:
       properties:
         take_id:

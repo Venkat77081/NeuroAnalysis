@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from uuid import uuid4
 
-from sqlalchemy import JSON, DateTime, Integer, String, create_engine
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -47,6 +47,20 @@ class UsedNonce(Base):
     __tablename__ = "nc_used_nonces"
     nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
     seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
+class Review(Base):
+    """A doctor's review of a recording (M14): usable or not, with a note. Hospital-owned; the
+    platform never receives the note."""
+
+    __tablename__ = "nc_reviews"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    take_id: Mapped[str] = mapped_column(String(32), index=True)
+    ncid: Mapped[str] = mapped_column(String(40), index=True)
+    usable: Mapped[bool] = mapped_column(Boolean)
+    note: Mapped[str | None] = mapped_column(String(2000))
+    reviewer_id: Mapped[str] = mapped_column(String(64))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
 class LogSpool(Base):

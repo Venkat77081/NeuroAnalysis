@@ -142,10 +142,20 @@ def login(body: LoginIn, db: DbSession = Depends(get_db)) -> TokenOut:  # noqa: 
         select(Operator).where(Operator.site_id == dev.site_id, Operator.code == body.operator_code)
     )
     secret = body.password or body.pin or ""
+    from app.policy import policy
+
+    max_failed = policy()["operators"]["maxFailedLogins"]
+    if op and op.active and op.failed_logins >= max_failed:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "account_locked"})
     if not op or not op.active or not verify_pin(secret, op.pin_hash):
+        if op and op.active:
+            op.failed_logins += 1
+            if op.failed_logins >= max_failed:
+                audit(db, "system", None, "operator_locked", "operator", op.id, site_id=dev.site_id)
         audit(db, "device", dev.id, "login_failed", site_id=dev.site_id)
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "wrong operator ID or password")
+    op.failed_logins = 0
     out = _issue(db, op, dev)
     audit(db, "operator", op.id, "login", "device", dev.id, site_id=dev.site_id)
     db.commit()

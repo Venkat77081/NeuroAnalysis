@@ -46,7 +46,7 @@ export class FakeServer {
     { id: string; closed: boolean; patient: string | null; startedAt: string; medState: string }
   >();
   /** Operators: ID → password (M13). OP-07 keeps the pre-M13 PIN; OP-NEW must change its temporary one. */
-  readonly operators = new Map<string, { password: string; mustChange: boolean }>([
+  readonly operators = new Map<string, { password: string; mustChange: boolean; failed?: number }>([
     ['OP-07', { password: '2468', mustChange: false }],
     ['OP-NEW', { password: 'temp-pass-1234', mustChange: true }],
   ]);
@@ -106,8 +106,8 @@ export class FakeServer {
   }
 
   /** Test hook: a hospital admin sends a home-recording invite; returns the link in the e-mail. */
-  issueInvite(): string {
-    const token = `inv${++this.seq}${Math.random().toString(36).slice(2, 10)}`;
+  issueInvite(fixedToken?: string): string {
+    const token = fixedToken ?? `inv${++this.seq}${Math.random().toString(36).slice(2, 10)}`;
     this.invites.set(token, { used: false, ncid: this.ncid() });
     return `neurocapture://invite?t=${token}`;
   }
@@ -202,7 +202,12 @@ export class FakeServer {
       if (this.devices.get(String(body.device_id)) !== body.device_secret) return res(401);
       const op = this.operators.get(String(body.operator_code));
       const secret = String(body.password ?? body.pin ?? '');
-      if (!op || op.password !== secret) return res(401);
+      if (op && (op.failed ?? 0) >= 10) return res(403, { detail: { code: 'account_locked' } });
+      if (!op || op.password !== secret) {
+        if (op) op.failed = (op.failed ?? 0) + 1;
+        return res(401);
+      }
+      op.failed = 0;
       return res(200, this.tokens(String(body.operator_code)));
     }
     if ((path === '/auth/refresh' || path === '/patient/refresh') && init.method === 'POST') {

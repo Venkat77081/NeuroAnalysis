@@ -46,4 +46,10 @@ export interface PlatformConfig {
      */
     homeSawNeedsHelper: boolean;
   };
+  /**
+   * Clinic operators (M13): wrong passwords in a row before the account locks; a hospital admin unlocks it.
+   */
+  operators: {
+    maxFailedLogins: number;
+  };
 }

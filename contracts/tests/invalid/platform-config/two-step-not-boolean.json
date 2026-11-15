@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "PLATFORM@1.1.0",
+  "configVersion": "PLATFORM@1.2.0",
   "invites": {
     "patientTtlDays": 7,
     "staffTtlDays": 7,
@@ -30,5 +30,8 @@
     "operatorAutoLockMin": 5,
     "patientAutoLockMin": 2,
     "homeSawNeedsHelper": true
+  },
+  "operators": {
+    "maxFailedLogins": 10
   }
 }

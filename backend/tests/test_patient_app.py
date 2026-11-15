@@ -126,3 +126,20 @@ def test_operator_needs_ncid_without_legacy_hash(api, two_hospitals, monkeypatch
     assert r.status_code == 422 and r.json()["detail"]["code"] == "ncid_required"
     # No connector registered yet: no connector token.
     assert api.post("/auth/connector-token", headers=hdr(tok)).status_code == 409
+
+
+def test_operator_locks_after_wrong_passwords_and_admin_unlocks(api, two_hospitals):
+    from test_tenancy import register_phone
+
+    t = two_hospitals
+    dev = register_phone(api, t["a_tok"])
+    op = api.post("/hospital/operators", headers=hdr(t["a_tok"]), json={"code": "OP-L"}).json()
+    creds = {"device_id": dev["device_id"], "device_secret": dev["device_secret"], "operator_code": "OP-L"}
+    for _ in range(10):
+        assert api.post("/auth/login", json={**creds, "password": "wrong-pass-1"}).status_code == 401
+    r = api.post("/auth/login", json={**creds, "password": op["temporary_password"]})
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "account_locked"
+    listed = {o["id"]: o for o in api.get("/hospital/operators", headers=hdr(t["a_tok"])).json()}
+    assert listed[op["id"]]["locked"]
+    api.post(f"/hospital/operators/{op['id']}/active", headers=hdr(t["a_tok"]), json={"active": True})
+    assert api.post("/auth/login", json={**creds, "password": op["temporary_password"]}).status_code == 200

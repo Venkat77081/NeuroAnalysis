@@ -14,7 +14,8 @@
     "staff",
     "consentVersion",
     "defaultPlan",
-    "app"
+    "app",
+    "operators"
   ],
   "properties": {
     "schemaVersion": {
@@ -152,6 +153,19 @@
         "homeSawNeedsHelper": {
           "type": "boolean",
           "description": "Home walking test only with a helper holding the phone."
+        }
+      }
+    },
+    "operators": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxFailedLogins"],
+      "description": "Clinic operators (M13): wrong passwords in a row before the account locks; a hospital admin unlocks it.",
+      "properties": {
+        "maxFailedLogins": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 20
         }
       }
     }

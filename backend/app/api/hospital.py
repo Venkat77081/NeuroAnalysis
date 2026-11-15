@@ -81,6 +81,7 @@ class OperatorOut(BaseModel):
     role: str
     active: bool
     must_change_password: bool
+    locked: bool = False
     #: Shown once, on create and reset only. The operator must change it at first sign-in.
     temporary_password: str | None = None
 
@@ -92,6 +93,7 @@ def _op_out(op: Operator, temp: str | None = None) -> OperatorOut:
         role=op.role,
         active=op.active,
         must_change_password=op.must_change_password,
+        locked=op.failed_logins >= policy()["operators"]["maxFailedLogins"],
         temporary_password=temp,
     )
 
@@ -149,6 +151,7 @@ def reset_operator(
     temp = temporary_password()
     op.pin_hash = hash_password(temp)
     op.must_change_password = True
+    op.failed_logins = 0
     _revoke_operator_tokens(db, op.id)
     audit(db, p.actor_type, p.actor_id, "operator_password_reset", "operator", op.id, site_id=p.site_id)
     db.commit()
@@ -168,6 +171,8 @@ def set_operator_active(
 ) -> OperatorOut:
     op = _operator(db, p, operator_id)
     op.active = body.active
+    if body.active:
+        op.failed_logins = 0  # enabling also unlocks
     if not body.active:
         _revoke_operator_tokens(db, op.id)
     action = "operator_enabled" if body.active else "operator_disabled"

@@ -76,6 +76,9 @@ class Operator(Base):
     #: Set by a hospital admin's reset: the operator must choose a new password at next sign-in.
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: Wrong passwords in a row (M13); at operators.maxFailedLogins the account locks until a
+    #: hospital admin resets or re-enables it. Phones unlock by signing in again, so this counts.
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0)
     __table_args__ = (UniqueConstraint("site_id", "code"),)
 
 

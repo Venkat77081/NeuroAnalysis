@@ -243,6 +243,17 @@ class DeletionRequest(Base):
     done_by: Mapped[str | None] = mapped_column(String(32))
 
 
+class PatientAssignment(Base):
+    """Which doctor a patient is assigned to (M14, set by a receptionist or hospital admin). A doctor
+    sees only their assigned patients, on the platform and on the hospital connector."""
+
+    __tablename__ = "patient_assignments"
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), primary_key=True)
+    doctor_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"), index=True)
+    assigned_by: Mapped[str] = mapped_column(String(32))
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class UsedNonce(Base):
     """Signed-request nonces seen within the window (replay protection shared by all API replicas)."""
 
@@ -258,7 +269,8 @@ class StaffUser(Base):
     __tablename__ = "staff_users"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     site_id: Mapped[str | None] = mapped_column(ForeignKey("sites.id"))
-    role: Mapped[str] = mapped_column(String(20))  # platform_admin | hospital_admin | doctor
+    #: platform_admin | hospital_admin | doctor | receptionist
+    role: Mapped[str] = mapped_column(String(20))
     email: Mapped[str] = mapped_column(String(254), unique=True)
     display_name: Mapped[str | None] = mapped_column(String(120))
     password_hash: Mapped[str | None] = mapped_column(String(200))

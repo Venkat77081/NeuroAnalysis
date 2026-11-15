@@ -187,7 +187,7 @@ def set_operator_active(
 class StaffIn(BaseModel):
     email: str = Email
     display_name: str | None = Field(default=None, max_length=120)
-    role: Literal["doctor", "hospital_admin"] = "doctor"
+    role: Literal["doctor", "hospital_admin", "receptionist"] = "doctor"
 
 
 class StaffOut(BaseModel):
@@ -544,18 +544,20 @@ class PatientOut(BaseModel):
     created_at: datetime | None
     sessions: int = 0
     last_session_at: datetime | None = None
+    #: M14: the doctor this patient is assigned to (staff user ID), if any.
+    doctor_id: str | None = None
 
 
 @router.get("/patients", response_model=list[PatientOut])
 def list_patients(
-    p: Principal = Depends(require_role("hospital_admin", "doctor")),  # noqa: B008
+    p: Principal = Depends(require_role("hospital_admin", "doctor", "receptionist")),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> list[PatientOut]:
-    """NCIDs, app status and session counts only; the dashboard joins names and MRNs live from the
-    hospital's records through the connector."""
+    """NCIDs, app status, session counts and the assigned doctor; the dashboard joins names and MRNs
+    live from the hospital's records through the connector. Doctors see only their own patients."""
     from sqlalchemy import func
 
-    from app.models import Session
+    from app.models import PatientAssignment, Session
 
     stats = (
         select(Session.patient_id, func.count().label("n"), func.max(Session.started_at).label("last"))
@@ -563,9 +565,10 @@ def list_patients(
         .subquery()
     )
     q = (
-        select(Patient, PatientAccount, stats.c.n, stats.c.last)
+        select(Patient, PatientAccount, stats.c.n, stats.c.last, PatientAssignment.doctor_id)
         .outerjoin(PatientAccount, PatientAccount.patient_id == Patient.id)
         .outerjoin(stats, stats.c.patient_id == Patient.id)
+        .outerjoin(PatientAssignment, PatientAssignment.patient_id == Patient.id)
         .where(Patient.site_id == p.site_id)
         .order_by(stats.c.last.desc().nulls_last(), PatientAccount.created_at.desc().nulls_last())
     )
@@ -579,8 +582,10 @@ def list_patients(
             created_at=acc.created_at if acc else None,
             sessions=n or 0,
             last_session_at=last,
+            doctor_id=doc,
         )
-        for pt, acc, n, last in db.execute(q)
+        for pt, acc, n, last, doc in db.execute(q)
+        if p.role != "doctor" or doc == p.actor_id
     ]
 
 

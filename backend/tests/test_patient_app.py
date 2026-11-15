@@ -157,6 +157,13 @@ def test_rerecord_request_makes_the_plan_due(api, two_hospitals):
     api.post("/hospital/staff", headers=hdr(t["a_tok"]), json={"email": "dr@sunrise.example"})
     _, secret = sign_up(api, "dr@sunrise.example")
     dr = hdr(staff_login(api, "dr@sunrise.example", secret)["access_token"])
+    doc_id = api.get("/hospital/doctors", headers=hdr(t["a_tok"])).json()[0]["id"]
+    assert (
+        api.put(
+            f"/hospital/patients/{ncid}/doctor", headers=hdr(t["a_tok"]), json={"doctor_id": doc_id}
+        ).status_code
+        == 200
+    )
     # Only doctors ask for re-recording; only for their hospital's patients.
     assert (
         api.post(f"/hospital/patients/{ncid}/rerecord", headers=hdr(t["a_tok"]), json={}).status_code == 403
@@ -199,3 +206,78 @@ def test_cors_allows_the_dashboard_origin(api):
         "/staff/login", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"}
     )
     assert "access-control-allow-origin" not in r.headers
+
+
+def test_receptionist_assigns_and_doctors_see_only_their_patients(api, two_hospitals):
+    from test_tenancy import sign_up, staff_login
+
+    t = two_hospitals
+    a = hdr(t["a_tok"])
+    p1, _ = home_patient(api, t["a_tok"])
+    p2, _ = home_patient(api, t["a_tok"])
+    tokens = {}
+    for email, role in (
+        ("desk@sunrise.example", "receptionist"),
+        ("dr1@sunrise.example", "doctor"),
+        ("dr2@sunrise.example", "doctor"),
+    ):
+        assert api.post("/hospital/staff", headers=a, json={"email": email, "role": role}).status_code == 201
+        _, secret = sign_up(api, email)
+        tokens[email] = hdr(staff_login(api, email, secret)["access_token"])
+    desk, dr1, dr2 = (
+        tokens["desk@sunrise.example"],
+        tokens["dr1@sunrise.example"],
+        tokens["dr2@sunrise.example"],
+    )
+    docs = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
+    assert set(docs) == {"dr1@sunrise.example", "dr2@sunrise.example"}
+    # Doctors start with no patients; the receptionist sees all.
+    assert api.get("/hospital/patients", headers=dr1).json() == []
+    assert {r["ncid"] for r in api.get("/hospital/patients", headers=desk).json()} >= {p1, p2}
+    # The receptionist cannot manage the team, phones or plans; doctors cannot assign.
+    assert api.get("/hospital/operators", headers=desk).status_code == 403
+    assert (
+        api.put(
+            f"/hospital/patients/{p1}/plan",
+            headers=desk,
+            json={"tests": ["FT"], "every_days": 7, "med_state": "ON"},
+        ).status_code
+        == 403
+    )
+    assert (
+        api.put(
+            f"/hospital/patients/{p1}/doctor", headers=dr1, json={"doctor_id": docs["dr1@sunrise.example"]}
+        ).status_code
+        == 403
+    )
+
+    r = api.put(
+        f"/hospital/patients/{p1}/doctor", headers=desk, json={"doctor_id": docs["dr1@sunrise.example"]}
+    )
+    assert r.status_code == 200
+    assert [x["ncid"] for x in api.get("/hospital/patients", headers=dr1).json()] == [p1]
+    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr1).status_code == 200
+    assert api.get(f"/hospital/patients/{p2}/plan", headers=dr1).status_code == 404  # not assigned
+    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr2).status_code == 404
+    # Reassign: dr1 loses access at once, dr2 gains it.
+    api.put(f"/hospital/patients/{p1}/doctor", headers=desk, json={"doctor_id": docs["dr2@sunrise.example"]})
+    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr1).status_code == 404
+    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr2).status_code == 200
+    assert [
+        x["doctor_id"] for x in api.get("/hospital/patients", headers=desk).json() if x["ncid"] == p1
+    ] == [docs["dr2@sunrise.example"]]
+    # Unassign; another hospital's admin cannot assign here; only this hospital's doctors.
+    api.put(f"/hospital/patients/{p1}/doctor", headers=desk, json={"doctor_id": None})
+    assert api.get("/hospital/patients", headers=dr2).json() == []
+    assert (
+        api.put(
+            f"/hospital/patients/{p1}/doctor", headers=hdr(t["b_tok"]), json={"doctor_id": None}
+        ).status_code
+        == 404
+    )
+    assert (
+        api.put(f"/hospital/patients/{p2}/doctor", headers=desk, json={"doctor_id": "nobody"}).status_code
+        == 422
+    )
+    actions = [e["action"] for e in api.get("/hospital/audit", headers=a).json()]
+    assert {"patient_assigned", "patient_reassigned", "patient_unassigned"} <= set(actions)

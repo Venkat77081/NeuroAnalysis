@@ -182,7 +182,7 @@ class ConnectorTokenOut(BaseModel):
 
 @router.post("/hospital/connector-token", response_model=ConnectorTokenOut)
 def get_connector_token(
-    p: Principal = Depends(require_role("hospital_admin", "doctor")),  # noqa: B008
+    p: Principal = Depends(require_role("hospital_admin", "doctor", "receptionist")),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> ConnectorTokenOut:
     """For the browser to call the hospital's connector directly (patient identity never comes here)."""
@@ -555,3 +555,35 @@ def connector_verified(
     if not body.ok:
         audit(db, "connector", site.id, "checksum_mismatch", "take", take_id, site_id=site.id, kind=kind)
     db.commit()
+
+
+class AccessIn(BaseModel):
+    user_id: str = Field(max_length=32)
+    ncids: list[str] = Field(max_length=500)
+
+
+class AccessOut(BaseModel):
+    #: The NCIDs (of those asked) this staff member may see. Doctors: assigned patients only.
+    allowed: list[str]
+
+
+@router.post("/connector/v1/access", response_model=AccessOut)
+def connector_access(
+    body: AccessIn,
+    site: Site = Depends(signed_connector),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> AccessOut:
+    """M14: the connector asks which patients a doctor may see before showing identity, history or
+    recordings. Unknown or inactive users, and other hospitals' staff, may see none."""
+    from app.assignments import ALL_PATIENTS_ROLES
+    from app.models import PatientAssignment, StaffUser
+
+    user = db.get(StaffUser, body.user_id)
+    if not user or not user.active or user.site_id != site.id:
+        return AccessOut(allowed=[])
+    q = select(Patient.ncid).where(Patient.site_id == site.id, Patient.ncid.in_(body.ncids))
+    if user.role not in ALL_PATIENTS_ROLES:
+        q = q.join(PatientAssignment, PatientAssignment.patient_id == Patient.id).where(
+            PatientAssignment.doctor_id == user.id
+        )
+    return AccessOut(allowed=list(db.scalars(q)))

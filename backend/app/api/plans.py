@@ -65,9 +65,12 @@ def plan_for(db: DbSession, patient_id: str) -> PlanOut:
 
 
 def _patient(db: DbSession, p: Principal, ncid: str) -> Patient:
+    from app.assignments import check_patient_access
+
     pt = db.scalar(select(Patient).where(Patient.ncid == ncid, Patient.site_id == p.site_id))
     if not pt:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "patient not found")
+    check_patient_access(db, p, pt)  # doctors: assigned patients only
     return pt
 
 

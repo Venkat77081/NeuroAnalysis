@@ -13,12 +13,23 @@ router = APIRouter(tags=["readiness"])
 reviewer = require_role("reviewer", "admin", "doctor", "hospital_admin")
 
 
+def _doctor_scope(db: DbSession, p: Principal, s: Session) -> None:
+    """Doctors: only sessions of their assigned patients (M14)."""
+    from app.assignments import check_patient_access
+    from app.models import Patient
+
+    patient = db.get(Patient, s.patient_id)
+    if patient is not None:
+        check_patient_access(db, p, patient)
+
+
 def _site_take(db: DbSession, p: Principal, take_id: str) -> Take:
     t = db.get(Take, take_id)
     s = db.get(Session, t.session_id) if t else None
     d = db.get(Device, s.device_id) if s else None
     if not t or not d or d.site_id != p.site_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
+    _doctor_scope(db, p, s)
     if t.status != "complete":
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "take_not_uploaded"})
     return t
@@ -42,6 +53,7 @@ def session_readiness(session_id: str, p: Principal = Depends(reviewer), db: DbS
     d = db.get(Device, s.device_id) if s else None
     if not s or not d or d.site_id != p.site_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found")
+    _doctor_scope(db, p, s)
     takes = db.scalars(
         select(Take).where(Take.session_id == s.id, Take.status == "complete").order_by(Take.created_at)
     ).all()

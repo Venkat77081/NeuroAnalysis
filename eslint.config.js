@@ -13,6 +13,7 @@ export default tseslint.config(
       'apps/mobile/public/mediapipe/**',
       '**/ios/**',
       'backend/**',
+      'connector/**',
       'packages/contracts-ts/src/generated/**',
       '**/playwright-report/**',
       '**/test-results/**',

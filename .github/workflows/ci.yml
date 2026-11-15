@@ -115,6 +115,24 @@ jobs:
         env:
           NC_DATABASE_URL: postgresql+psycopg://neurocapture:ci-only-password@localhost:5432/neurocapture
 
+  connector:
+    name: Connector (ruff, pytest with the platform, contract)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: connector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e "../backend[dev]" -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest -q
+      - name: Connector image builds
+        run: docker build -t neurocapture-connector:ci .
+
   compose:
     name: docker compose up → /health
     runs-on: ubuntu-latest

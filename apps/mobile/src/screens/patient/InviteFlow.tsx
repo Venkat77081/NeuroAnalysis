@@ -3,15 +3,10 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
-import {
-  acceptInvite,
-  inviteToken,
-  lookupInvite,
-  newLock,
-  type InviteInfo,
-} from '../../lib/accounts.ts';
+import { acceptInvite, inviteToken, lookupInvite, type InviteInfo } from '../../lib/accounts.ts';
 import { uploadPrefs } from '../../lib/uploads.ts';
 import { Button, Card } from '../../ui/kit.tsx';
+import { QrScanner } from './QrScanner.tsx';
 import { attempt, ErrorText, Field, Screen } from '../modes/Common.tsx';
 
 export function InviteFlow({ initialToken }: { initialToken: string | null }) {
@@ -28,6 +23,7 @@ export function InviteFlow({ initialToken }: { initialToken: string | null }) {
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const look = (raw: string) =>
     attempt(setBusy, setError, async () => {
@@ -70,14 +66,26 @@ export function InviteFlow({ initialToken }: { initialToken: string | null }) {
           consentVersion: info!.consentVersion,
           consentAt: new Date().toISOString(),
         },
-        lock: await newLock(pin),
       });
     });
 
   if (!info)
     return (
       <Screen title={t('modes.invite.title')}>
+        {scanning && (
+          <QrScanner
+            onResult={(text) => {
+              setScanning(false);
+              setText(text);
+              void look(text);
+            }}
+            onClose={() => setScanning(false)}
+          />
+        )}
         <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('modes.invite.hint')}</p>
+        <Button onClick={() => setScanning(true)} data-testid="invite-scan">
+          {t('modes.invite.scan')}
+        </Button>
         <Field
           id="invite-text"
           label={t('modes.invite.paste')}

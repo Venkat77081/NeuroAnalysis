@@ -20,8 +20,6 @@ export interface Settings {
   localDev: boolean;
   /** M13 patient app: which hospital invited this phone (no tokens; the patient is only an NCID). */
   patient: { hospital: string; ncid: string; consentVersion: string; consentAt: string } | null;
-  /** M13: screen lock (salted PBKDF2 of the operator password or patient PIN), checked offline. */
-  lock: { salt: string; hash: string } | null;
   /** M13: the operator must choose a new password before recording. */
   mustChangePassword: boolean;
 }
@@ -36,7 +34,6 @@ export const defaultSettings: Settings = {
   retentionHours: null,
   localDev: false,
   patient: null,
-  lock: null,
   mustChangePassword: false,
 };
 

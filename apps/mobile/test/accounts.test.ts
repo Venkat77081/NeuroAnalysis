@@ -5,11 +5,9 @@ import {
   acceptInvite,
   api,
   changePassword,
-  checkLock,
   inviteToken,
   lookupInvite,
   ncidForMrn,
-  newLock,
   operatorSignIn,
   type HomePlan,
 } from '../src/lib/accounts.ts';
@@ -24,15 +22,6 @@ describe('accounts (M13)', () => {
     expect(inviteToken('abcdefghijk')).toBe('abcdefghijk');
     expect(inviteToken('short')).toBeNull();
     expect(inviteToken('has spaces in it')).toBeNull();
-  });
-
-  it('screen lock: salted PBKDF2, only the right secret unlocks', async () => {
-    const lock = await newLock('2580');
-    expect(lock.hash).toHaveLength(64);
-    expect(await checkLock('2580', lock)).toBe(true);
-    expect(await checkLock('2581', lock)).toBe(false);
-    expect(await checkLock('2580', null)).toBe(false);
-    expect((await newLock('2580')).hash).not.toBe(lock.hash); // a new salt each time
   });
 
   it('patient: invite → PIN → plan via CaptureKit (tokens never in JS)', async () => {

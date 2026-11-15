@@ -553,7 +553,8 @@
       "unlock": "Unlock",
       "wrong": "That is not right. Try again.",
       "signOut": "Sign out",
-      "lockNow": "Lock"
+      "lockNow": "Lock",
+      "online": "Unlocking checks with the server, so the phone needs a connection."
     },
     "clinicBlocked": {
       "title": "This is a clinic phone",
@@ -562,7 +563,7 @@
     },
     "invite": {
       "title": "Accept your invite",
-      "hint": "Open the link from your hospital's e-mail or SMS, or scan its QR code with your camera. You can also paste the link or code here.",
+      "hint": "Scan the QR code from your hospital's e-mail or letter, or open its link. You can also paste the link or the code from the SMS.",
       "paste": "Invite link or code",
       "server": "Server address",
       "continue": "Continue",
@@ -576,7 +577,12 @@
       "consentTitle": "Your consent",
       "consentBody": "Videos of your movements are encrypted on this phone and stored by {{hospital}}. Only their doctors can watch them. You can stop and ask for deletion at any time in Settings.",
       "consentCheck": "I agree to record and share with my hospital",
-      "accept": "Accept and continue"
+      "accept": "Accept and continue",
+      "scan": "Scan the QR code",
+      "scanTitle": "Camera view for the QR code",
+      "scanHint": "Point the camera at the QR code in your invite e-mail or letter.",
+      "scanNoCamera": "The camera could not be opened. Allow camera access, or paste the link instead.",
+      "scanClose": "Close"
     },
     "home": {
       "hello": "Your movement tests",
@@ -599,7 +605,8 @@
       "recordings": "My recordings",
       "settings": "Settings",
       "selfRecorded": "Self-recorded",
-      "offline": "You are offline. You can still record; uploads wait for a connection."
+      "offline": "You are offline. You can still record; uploads wait for a connection.",
+      "consent": "I agree to record this session and share it with my hospital"
     },
     "saw": {
       "title": "Someone to help?",
@@ -638,7 +645,8 @@
       "login_required": "Please sign in again.",
       "pin_format": "Use digits only, the length shown.",
       "no_hospital_key": "Your hospital has not finished setting up recordings yet.",
-      "generic": "Something went wrong. Try again."
+      "generic": "Something went wrong. Try again.",
+      "account_locked": "Too many wrong passwords. Ask your hospital admin to unlock your account."
     }
   }
 }

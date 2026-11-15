@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
-import { changePassword, newLock, operatorSignIn } from '../../lib/accounts.ts';
+import { changePassword, errorCode, operatorSignIn } from '../../lib/accounts.ts';
 import { enroll, uploadPrefs } from '../../lib/uploads.ts';
 import { Button } from '../../ui/kit.tsx';
 import { attempt, ErrorText, Field, Screen } from './Common.tsx';
@@ -74,14 +74,12 @@ export function OperatorSignIn() {
         password,
         uploadPrefs(settings, config),
       );
-      const lock = await newLock(password);
       setPassword('');
       await saveSettings({
         ...settings,
         signedIn: { operatorId: who.operatorId, operatorCode: who.operatorCode, role: who.role },
         operatorId: who.operatorCode,
         mustChangePassword: who.mustChangePassword,
-        lock,
       });
     });
   return (
@@ -128,7 +126,7 @@ export function ChangePassword() {
     attempt(setBusy, setError, async () => {
       if (next !== repeat) throw new Error('mismatch');
       await changePassword(capture.kit, current, next);
-      await saveSettings({ ...settings, mustChangePassword: false, lock: await newLock(next) });
+      await saveSettings({ ...settings, mustChangePassword: false });
     });
   return (
     <Screen title={t('modes.changePassword.title')}>
@@ -192,17 +190,21 @@ export function ClinicBlocked({ onOk }: { onOk: () => void }) {
   );
 }
 
-/** Screen lock (both modes): checked on the phone against the salted hash, so it works offline. */
+/**
+ * Screen lock (both modes): unlocking signs in again with the server (operator password or patient
+ * PIN), so wrong attempts count towards the server's lockout. Needs a connection.
+ */
 export function LockScreen({
   kind,
   onUnlock,
   onSignOut,
-  check,
+  unlock,
 }: {
   kind: 'operator' | 'patient';
   onUnlock: () => void;
   onSignOut?: () => void;
-  check: (secret: string) => Promise<boolean>;
+  /** Rejects with an error code: bad_login, account_locked, pin_locked, network… */
+  unlock: (secret: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [secret, setSecret] = useState('');
@@ -210,15 +212,19 @@ export function LockScreen({
   const [error, setError] = useState<string | null>(null);
   const submit = () =>
     attempt(setBusy, setError, async () => {
-      if (!(await check(secret))) {
+      try {
+        await unlock(secret);
+      } catch (e) {
         setSecret('');
-        throw new Error('wrong');
+        const code = errorCode(e);
+        throw new Error(code === 'bad_login' ? 'wrong' : code, { cause: e });
       }
       onUnlock();
     });
   return (
     <Screen title={t('modes.lock.title')}>
       <p className="text-[15px] text-[#3D4552]">{t(`modes.lock.${kind}Hint`)}</p>
+      <p className="text-[13px] text-muted">{t('modes.lock.online')}</p>
       <Field
         id="unlock-secret"
         label={kind === 'operator' ? t('modes.signIn.password') : 'PIN'}

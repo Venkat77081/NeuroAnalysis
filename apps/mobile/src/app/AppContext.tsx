@@ -182,7 +182,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         a.send({
           type: 'SET_CONSENT',
           given: true,
-          at: settings.patient?.consentAt ?? new Date().toISOString(),
+          at: new Date().toISOString(), // ticked on the home screen for this session
         });
         a.send({ type: 'START', at: new Date().toISOString() });
         setActor(a);

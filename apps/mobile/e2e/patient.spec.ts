@@ -55,6 +55,8 @@ test('M13: e-mail invite → PIN → consent → full home session uploaded', as
   await expect(page.getByTestId('home-due')).toBeVisible();
   await expect(page.getByTestId('home-med')).toContainText('medicine OFF');
   await page.screenshot({ path: 'test-results/patient-home.png', fullPage: true });
+  await expect(page.getByTestId('home-start')).toBeDisabled(); // consent for this session first
+  await page.getByTestId('home-consent').check();
   await page.getByTestId('home-start').click();
 
   for (let i = 0; i < 5; i++) {

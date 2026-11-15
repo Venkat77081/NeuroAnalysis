@@ -1,6 +1,7 @@
 /**
  * M13 accounts on the phone: operator password sign-in and change, the clinic NCID lookup through
- * the hospital connector, patient invites and PIN, and the offline screen lock.
+ * the hospital connector, patient invites and PIN. The screen lock unlocks by signing in again
+ * with the server, so every wrong attempt counts towards the server's lockout.
  *
  * Tokens never reach JavaScript: CaptureKit keeps them and makes signed-in calls itself
  * (`apiRequest`). The MRN typed on a clinic phone goes to the hospital connector only.
@@ -62,7 +63,12 @@ export async function operatorSignIn(
     operator_code: code,
     password,
   });
-  if (r.status === 401 || r.status === 403 || r.status === 422) throw new ServerError('bad_login');
+  if (r.status === 403) {
+    const code = ((await r.json().catch(() => null)) as { detail?: { code?: string } } | null)
+      ?.detail?.code;
+    throw code === 'account_locked' ? new Error('account_locked') : new ServerError('bad_login');
+  }
+  if (r.status === 401 || r.status === 422) throw new ServerError('bad_login');
   if (r.status >= 300) throw new ServerError('server', `HTTP ${r.status}`);
   const b = (await r.json()) as {
     access_token: string;
@@ -243,42 +249,4 @@ export interface HomeSession {
   med_state: string;
   recorded_by: string;
   takes_uploaded: number;
-}
-
-// --- Offline screen lock ---
-
-const enc = new TextEncoder();
-
-function hex(b: ArrayBuffer | Uint8Array): string {
-  return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
-}
-
-/** PBKDF2-SHA256, 100 000 rounds, per-phone salt. Only unlocks this phone's screen. */
-export async function lockHash(secret: string, saltHex: string): Promise<string> {
-  const salt = new Uint8Array(saltHex.match(/../g)!.map((h) => parseInt(h, 16)));
-  const key = await globalThis.crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, [
-    'deriveBits',
-  ]);
-  const bits = await globalThis.crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100_000 },
-    key,
-    256,
-  );
-  return hex(bits);
-}
-
-export async function newLock(secret: string): Promise<{ salt: string; hash: string }> {
-  const salt = hex(globalThis.crypto.getRandomValues(new Uint8Array(16)));
-  return { salt, hash: await lockHash(secret, salt) };
-}
-
-export async function checkLock(
-  secret: string,
-  lock: { salt: string; hash: string } | null,
-): Promise<boolean> {
-  if (!lock) return false;
-  const h = await lockHash(secret, lock.salt);
-  let diff = 0;
-  for (let i = 0; i < h.length; i++) diff |= h.charCodeAt(i) ^ (lock.hash.charCodeAt(i) || 0);
-  return diff === 0 && h.length === lock.hash.length;
 }

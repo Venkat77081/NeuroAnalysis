@@ -8,7 +8,8 @@ import type { AppMode } from '@neurocapture/capture-kit';
 import { useApp } from './AppContext.tsx';
 import { useSession } from '../session/useSession.ts';
 import { capture } from '../lib/capture.ts';
-import { checkLock, inviteToken } from '../lib/accounts.ts';
+import { inviteToken, operatorSignIn, patientSignIn } from '../lib/accounts.ts';
+import { uploadPrefs } from '../lib/uploads.ts';
 import { onInviteLink } from '../lib/deeplink.ts';
 import { RoleChooser } from '../screens/modes/RoleChooser.tsx';
 import {
@@ -73,7 +74,8 @@ export function Gate({
   /** An invite dismissed on a clinic phone (it stays refused). */
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [withdrawn, setWithdrawn] = useState(false);
-  const [locked, setLocked] = useState(!!settings.lock);
+  // Signed in → the app opens locked; unlocking signs in again with the server.
+  const [locked, setLocked] = useState(!!settings.signedIn && !settings.localDev);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -114,7 +116,7 @@ export function Gate({
       ? config.platform.app.patientAutoLockMin
       : config.platform.app.operatorAutoLockMin) * 60_000;
   useIdleLock(
-    !!effective && !!settings.lock && !locked && !busyRecording && !settings.localDev,
+    !!effective && !!settings.signedIn && !locked && !busyRecording && !settings.localDev,
     lockMs,
     () => setLocked(true),
   );
@@ -133,7 +135,18 @@ export function Gate({
         }}
       />
     );
-  const check = (secret: string) => checkLock(secret, settings.lock);
+  const prefs = uploadPrefs(settings, config);
+  const unlockOperator = async (password: string) => {
+    const who = await operatorSignIn(
+      capture.kit,
+      settings.server!,
+      settings.signedIn!.operatorCode,
+      password,
+      prefs,
+    );
+    if (who.mustChangePassword) await saveSettings({ ...settings, mustChangePassword: true });
+  };
+  const unlockPatient = (pin: string) => patientSignIn(capture.kit, settings.server!, pin, prefs);
 
   if (effective === null) return <RoleChooser onPick={setChoice} />;
 
@@ -146,12 +159,12 @@ export function Gate({
       return (
         <LockScreen
           kind="operator"
-          check={check}
+          unlock={unlockOperator}
           onUnlock={() => setLocked(false)}
           onSignOut={() =>
             void (async () => {
               await capture.kit.clearUploadCredentials();
-              await saveSettings({ ...settings, signedIn: null, lock: null });
+              await saveSettings({ ...settings, signedIn: null });
               setLocked(false);
             })()
           }
@@ -162,7 +175,8 @@ export function Gate({
 
   // Patient app
   if (!settings.patient) return <InviteFlow initialToken={invite} />;
-  if (locked) return <LockScreen kind="patient" check={check} onUnlock={() => setLocked(false)} />;
+  if (locked)
+    return <LockScreen kind="patient" unlock={unlockPatient} onUnlock={() => setLocked(false)} />;
   if (snapshot.matches('setup'))
     return <PatientApp onLock={() => setLocked(true)} onSignedOut={() => setWithdrawn(true)} />;
   return <>{sessionScreens()}</>;

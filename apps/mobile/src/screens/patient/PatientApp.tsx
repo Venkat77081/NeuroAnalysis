@@ -55,6 +55,8 @@ function Home({
   const [plan, setPlan] = useState<HomePlan | null>(null);
   const [offline, setOffline] = useState(false);
   const [askMed, setAskMed] = useState(false);
+  // Consent for this session: nothing is recorded until it is ticked.
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -92,7 +94,9 @@ function Home({
   const steps = plan ? config.session.order.filter(([code]) => plan.tests.includes(code)) : [];
   const totalS = steps.reduce((s, [code]) => s + (config.tests.get(code)?.task.durationS ?? 0), 0);
   const minutes = Math.round(totalS / 60 + steps.length * 1.5);
-  const start = (med: 'ON' | 'OFF') => void startHomeSession(plan!.tests, med);
+  const start = (med: 'ON' | 'OFF') => {
+    if (consent) void startHomeSession(plan!.tests, med);
+  };
 
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-6 pb-6">
@@ -150,6 +154,16 @@ function Home({
           )}
         </Card>
       )}
+      <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-[14px]">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="size-6 accent-brand"
+          data-testid="home-consent"
+        />
+        <span className="font-semibold">{t('modes.home.consent')}</span>
+      </label>
       {askMed ? (
         <Card className="flex flex-col gap-3" data-testid="home-med-ask">
           <p className="text-[15px] font-semibold">{t('modes.home.medAsk')}</p>
@@ -169,7 +183,7 @@ function Home({
         </Card>
       ) : (
         <Button
-          disabled={!plan || steps.length === 0}
+          disabled={!plan || steps.length === 0 || !consent}
           onClick={() =>
             plan!.med_state === 'ANY' ? setAskMed(true) : start(plan!.med_state as 'ON' | 'OFF')
           }

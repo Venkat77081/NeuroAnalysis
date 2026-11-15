@@ -38,9 +38,10 @@ def test_doctor_access_follows_assignment(connector):
     assert c.post("/v1/ncid", headers=desk, json={"mrn": "00012401"}).status_code == 200
     assert c.get(f"/v1/patients/{ncid}", headers=desk).status_code == 403
     assert c.get(f"/v1/takes/{take_id}/files/video", headers=desk).status_code == 403
+    # v3: reception sends join invites.
     assert (
         c.post("/v1/invites", headers=desk, json={"mrns": ["00012388"], "channel": "print"}).status_code
-        == 403
+        == 200
     )
     # Doctors cannot search the hospital's records; unassigned patients are invisible.
     assert c.get("/v1/patients", params={"q": "asha"}, headers=dr1).status_code == 403

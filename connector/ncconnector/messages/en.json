@@ -16,5 +16,12 @@
     "hospital_admin": "hospital admin",
     "doctor": "doctor",
     "receptionist": "receptionist"
+  },
+  "reminderEmail": {
+    "subject": "{hospital}: please record your movement tests by {due}",
+    "body": "{hospital} asks you to record your movement tests in the NeuroCapture app by {due}{appointment}.\n\nOpen the app, choose {hospital} and tap Start recording."
+  },
+  "reminderSms": {
+    "body": "{hospital}: please record your movement tests in the NeuroCapture app by {due}{appointment}."
   }
 }

@@ -280,6 +280,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/appointments:
+    get:
+      summary: Appointments
+      description: Booked appointments from now (minus a day) to `days` ahead, with
+        names, read live.
+      operationId: appointments_v1_appointments_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 60
+          minimum: 1
+          default: 7
+          title: Days
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AppointmentRow'
+                title: Response Appointments V1 Appointments Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/takes/{take_id}/review:
     post:
       summary: Review Take
@@ -796,6 +830,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
     servers: *id001
+  /connector/v1/reminders/due:
+    get:
+      tags:
+      - appointments
+      summary: Reminders Due
+      operationId: reminders_due_connector_v1_reminders_due_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ReminderOut'
+                type: array
+                title: Response Reminders Due Connector V1 Reminders Due Get
+    servers: *id001
+  /connector/v1/reminders/{req_id}/sent:
+    post:
+      tags:
+      - appointments
+      summary: Reminder Sent
+      operationId: reminder_sent_connector_v1_reminders__req_id__sent_post
+      parameters:
+      - name: req_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Req Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
 components:
   schemas:
     AccessIn:
@@ -896,6 +970,42 @@ components:
       - ncid
       - details
       title: ActivityOut
+    AppointmentRow:
+      properties:
+        external_id:
+          type: string
+          title: External Id
+        at:
+          type: string
+          format: date-time
+          title: At
+        mrn:
+          type: string
+          title: Mrn
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        ncid:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ncid
+        practitioner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Practitioner
+      type: object
+      required:
+      - external_id
+      - at
+      - mrn
+      - name
+      - ncid
+      - practitioner
+      title: AppointmentRow
     CheckIn:
       properties:
         sample_mrn:
@@ -1450,6 +1560,37 @@ components:
       - flagged_for_review
       - status
       title: RecordingOut
+    ReminderOut:
+      properties:
+        request_id:
+          type: string
+          title: Request Id
+        ncid:
+          type: string
+          title: Ncid
+        due_at:
+          type: string
+          format: date-time
+          title: Due At
+        appointment_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Appointment At
+        tests:
+          items:
+            type: string
+          type: array
+          title: Tests
+      type: object
+      required:
+      - request_id
+      - ncid
+      - due_at
+      - appointment_at
+      - tests
+      title: ReminderOut
     ReviewIn:
       properties:
         usable:

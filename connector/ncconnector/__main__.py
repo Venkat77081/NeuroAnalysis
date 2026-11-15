@@ -24,6 +24,7 @@ def main(argv: list[str] | None = None) -> None:
     sub.add_parser("flush-log")
     sub.add_parser("rotate-take-key")
     sub.add_parser("take-keys")
+    sub.add_parser("send-reminders")
     sub.add_parser("openapi")
     a = ap.parse_args(argv)
     if a.cmd == "keygen":
@@ -42,6 +43,13 @@ def main(argv: list[str] | None = None) -> None:
         for k in platform.call("GET", "/connector/v1/keys"):
             here = "here" if k["key_id"] in local else "MISSING"
             print(k["key_id"], k["status"], k["fingerprint"], here)  # noqa: T201
+    elif a.cmd == "send-reminders":
+        from ncconnector.db import factory, init_db
+        from ncconnector.reminders import send_due
+
+        init_db()
+        with factory()() as db:
+            print(send_due(db))  # noqa: T201
     elif a.cmd == "flush-log":
         from ncconnector import activity
         from ncconnector.db import factory, init_db

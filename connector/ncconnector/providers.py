@@ -71,3 +71,28 @@ def send_invite(channel: str, to: str, link: str, days: int) -> None:
             Message("sms", to, "", text("patientInviteSms", "body", hospital=hospital, link=link, days=days))
         )
         log.info("invite SMS queued (dummy provider)")
+
+
+def send_reminder(channel: str, to: str, due: str, appointment: str | None) -> None:
+    """v3: "please record by …" for an open recording request."""
+    s = get_settings()
+    hospital = s.hospital_name
+    appt = f", before your appointment on {appointment}" if appointment else ""
+    if channel == "email":
+        if s.email_provider != "dummy":
+            raise ProviderNotConfiguredError(f"e-mail provider {s.email_provider!r} is not available yet")
+        OUTBOX.append(
+            Message(
+                "email",
+                to,
+                text("reminderEmail", "subject", hospital=hospital, due=due),
+                text("reminderEmail", "body", hospital=hospital, due=due, appointment=appt),
+            )
+        )
+    else:
+        if s.sms_provider != "dummy":
+            raise ProviderNotConfiguredError(f"SMS provider {s.sms_provider!r} is not available yet")
+        OUTBOX.append(
+            Message("sms", to, "", text("reminderSms", "body", hospital=hospital, due=due, appointment=appt))
+        )
+    log.info("reminder queued (dummy provider)")

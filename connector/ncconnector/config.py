@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     #: Includes the Android app's WebView origin (clinic phones look up NCIDs).
     cors_origins: str = "http://localhost:5174,https://localhost"
     signature_window_s: int = 300
+    #: v3: how often due recording reminders are sent (0 = off; then use the CLI).
+    reminder_interval_s: int = 900
     message_lang: str = "en"
 
 

@@ -1,5 +1,6 @@
 """Connector HTTP API (contracts/connector-api.yaml)."""
 
+import asyncio
 import base64
 import hashlib
 import logging
@@ -27,10 +28,30 @@ from ncconnector.takecrypto import FILE_NAMES, decrypt_file, unwrap_data_key
 log = logging.getLogger("ncconnector")
 
 
+async def _reminder_loop(every_s: int) -> None:
+    from ncconnector.db import factory
+    from ncconnector.reminders import send_due
+
+    def run() -> None:
+        with factory()() as db:
+            send_due(db)
+
+    while True:
+        try:
+            await asyncio.to_thread(run)
+        except Exception as exc:  # noqa: BLE001 - next round
+            log.warning("reminders failed: %s", type(exc).__name__)
+        await asyncio.sleep(every_s)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    every = get_settings().reminder_interval_s
+    task = asyncio.create_task(_reminder_loop(every)) if every else None
     yield
+    if task:
+        task.cancel()
 
 
 app = FastAPI(title="NeuroCapture hospital connector", version=__version__, lifespan=lifespan)
@@ -384,7 +405,7 @@ def _invite_one(db: DbSession, s: Staff, mrn: str, channel: str) -> InviteResult
 
 
 @app.post("/v1/invites", response_model=list[InviteResult])
-def invite(body: InviteIn, s: Staff = Depends(admin), db: DbSession = Depends(get_db)) -> list[InviteResult]:
+def invite(body: InviteIn, s: Staff = Depends(desk), db: DbSession = Depends(get_db)) -> list[InviteResult]:
     """Invite patients from the hospital's records. Contact details are read live here and handed to
     the hospital's mail / SMS provider; the platform only learns the NCID and the channel."""
     out = []
@@ -460,6 +481,58 @@ def take_file(
             "Content-Disposition": f'inline; filename="{FILE_NAMES[kind]}"',
         },
     )
+
+
+# --- Appointments (v3): live from the hospital's system ---
+
+
+class AppointmentRow(BaseModel):
+    #: The hospital system's ID (e.g. "Appointment/123"); the platform stores only its hash.
+    external_id: str
+    at: datetime
+    mrn: str
+    name: str | None
+    ncid: str | None
+    practitioner: str | None
+
+
+@app.get("/v1/appointments", response_model=list[AppointmentRow])
+def appointments(
+    days: int = Query(7, ge=1, le=60), s: Staff = Depends(desk), db: DbSession = Depends(get_db)
+) -> list[AppointmentRow]:
+    """Booked appointments from now (minus a day) to `days` ahead, with names, read live."""
+    from datetime import UTC, timedelta
+
+    now_ = datetime.now(UTC)
+    try:
+        found = records().appointments(now_ - timedelta(days=1), now_ + timedelta(days=days))
+    except RecordsUnavailableError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "records_unavailable"}) from exc
+    except AttributeError as exc:  # an adapter without appointments
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, {"code": "no_appointments_source"}) from exc
+    links = {
+        m.mrn: m.ncid for m in db.scalars(select(NcidMap).where(NcidMap.mrn.in_([a.mrn for a in found])))
+    }
+    names: dict[str, str | None] = {}
+    for a in found:
+        if a.mrn not in names:
+            try:
+                rec = records().get(a.mrn)
+            except RecordsUnavailableError:
+                rec = None
+            names[a.mrn] = rec.name if rec else None
+    activity.write(db, s.role, s.user_id, "appointments_listed", results=len(found))
+    return [
+        AppointmentRow(
+            external_id=a.external_id,
+            at=a.at,
+            mrn=a.mrn,
+            name=names.get(a.mrn),
+            ncid=links.get(a.mrn),
+            practitioner=a.practitioner,
+        )
+        for a in found
+    ]
 
 
 # --- Reviews (M14): kept at the hospital ---

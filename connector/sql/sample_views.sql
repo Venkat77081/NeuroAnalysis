@@ -24,3 +24,8 @@ CREATE VIEW nc_medications AS
   SELECT mrn, drug AS description, sig AS dosage, started AS start_date FROM his_prescription;
 CREATE VIEW nc_encounters AS
   SELECT mrn, visit_date AS encounter_date, clinic AS kind, reason FROM his_visit;
+
+-- v3 (optional): appointments, so reception sees them without typing them again.
+CREATE TABLE his_appointment (appt_id TEXT, mrn TEXT, starts TIMESTAMP, doctor TEXT);
+CREATE VIEW nc_appointments AS
+  SELECT appt_id AS appointment_id, mrn, starts AS start_at, doctor AS practitioner FROM his_appointment;

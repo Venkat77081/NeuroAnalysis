@@ -45,6 +45,7 @@ pnpm --filter @neurocapture/mobile dev      # web app in mock mode
 pnpm e2e                  # Playwright smoke test (mock mode)
 docker compose up -d      # api + postgres (storage profile: see docs/decisions/004); GET http://localhost:8000/health
 cd backend && pytest && ruff check .
+cd backend && python -m app.admin create-platform-admin --email you@example.org   # prints a one-time invite link (M10)
 ```
 
 ## Layout

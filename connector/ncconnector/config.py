@@ -49,7 +49,8 @@ class Settings(BaseSettings):
     sms_provider: str = "dummy"
     hospital_name: str = "Hospital"
     #: Dashboard origin(s) allowed to call this connector from the browser (CORS), comma-separated.
-    cors_origins: str = "http://localhost:5174"
+    #: Includes the Android app's WebView origin (clinic phones look up NCIDs).
+    cors_origins: str = "http://localhost:5174,https://localhost"
     signature_window_s: int = 300
     message_lang: str = "en"
 

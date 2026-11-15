@@ -152,6 +152,32 @@ def login(body: LoginIn, db: DbSession = Depends(get_db)) -> TokenOut:  # noqa: 
     return out
 
 
+class ConnectorTokenOut(BaseModel):
+    token: str
+    expires_in: int
+    connector_url: str
+
+
+@router.post("/connector-token", response_model=ConnectorTokenOut)
+def operator_connector_token(
+    p: Principal = Depends(current_principal),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> ConnectorTokenOut:
+    """M13: a clinic phone asks the hospital connector for a patient's NCID by MRN. The MRN goes to
+    the connector only; this token allows nothing else there (role "operator")."""
+    from app.signing import connector_token
+
+    if p.operator is None or p.device is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "operator sign-in required")
+    if p.operator.must_change_password:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "password_change_required"})
+    site = db.get(Site, p.site_id)
+    if not site or not site.connector_url or not site.connector_public_key:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "connector_not_registered"})
+    token, ttl = connector_token(site.id, p.actor_id, "operator")
+    return ConnectorTokenOut(token=token, expires_in=ttl, connector_url=site.connector_url)
+
+
 class PasswordIn(BaseModel):
     current_password: str = Field(max_length=128)
     new_password: str = Field(max_length=128)

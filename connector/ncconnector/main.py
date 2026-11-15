@@ -43,6 +43,7 @@ app.add_middleware(
 
 doctor_or_admin = role("doctor", "hospital_admin")
 admin = role("hospital_admin")
+clinic_staff = role("doctor", "hospital_admin", "operator")
 
 
 def _platform_error(exc: platform.PlatformError) -> HTTPException:
@@ -242,10 +243,9 @@ def _ensure_ncid(db: DbSession, mrn: str, by: str, channel: str) -> tuple[str, b
 
 
 @app.post("/v1/ncid", response_model=NcidOut)
-def ncid_for_mrn(
-    body: NcidIn, s: Staff = Depends(doctor_or_admin), db: DbSession = Depends(get_db)
-) -> NcidOut:
-    """NCID for a hospital patient (clinic session without an app invite)."""
+def ncid_for_mrn(body: NcidIn, s: Staff = Depends(clinic_staff), db: DbSession = Depends(get_db)) -> NcidOut:
+    """NCID for a hospital patient (clinic session without an app invite). Clinic phones call this
+    with an operator token; the MRN stays inside the hospital."""
     mrn = body.mrn.strip()
     try:
         if records().get(mrn) is None:

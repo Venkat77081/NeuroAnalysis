@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     #: Every hospital must have a registered take key before sessions can start (decision 027).
     #: False only for development and the pre-M12 tests.
     require_hospital_key: bool = True
+    #: Pre-M10 phones identified patients by SHA-256(site salt + MRN). Off: operators must use an
+    #: NCID from the hospital connector (decision 027). True only for the pre-M13 tests.
+    allow_legacy_ref_hash: bool = False
     # Repo config/ (test configs, quality.json, biomarker-registry.json, platform.json and
     # messages/). Docker: mounted read-only.
     config_dir: str = str(Path(__file__).resolve().parents[2] / "config")

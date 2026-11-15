@@ -79,6 +79,10 @@ def _patient_for(db: DbSession, p: Principal, given: PatientIn | None) -> Patien
         if not patient:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown NCID for this hospital")
         return patient
+    from app.config import get_settings
+
+    if not get_settings().allow_legacy_ref_hash:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "ncid_required"})
     patient = db.scalar(
         select(Patient).where(Patient.site_id == p.site_id, Patient.external_ref_hash == given.ref_hash)
     )

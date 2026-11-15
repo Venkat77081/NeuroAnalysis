@@ -211,6 +211,32 @@ class SiteKey(Base):
     retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class RecordingPlan(Base):
+    """What a patient records at home, set by their doctor (M13). No free text."""
+
+    __tablename__ = "recording_plans"
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), primary_key=True)
+    tests: Mapped[list] = mapped_column(Json)
+    every_days: Mapped[int] = mapped_column(Integer)
+    med_state: Mapped[str] = mapped_column(String(3))  # OFF | ON | ANY
+    updated_by: Mapped[str] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class DeletionRequest(Base):
+    """A patient withdrew consent and asked for their recordings to be deleted (M13). The hospital
+    deletes them in its storage; the platform deletes its records of them."""
+
+    __tablename__ = "deletion_requests"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"))
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    status: Mapped[str] = mapped_column(String(10), default="pending")  # pending | done
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    done_by: Mapped[str | None] = mapped_column(String(32))
+
+
 class UsedNonce(Base):
     """Signed-request nonces seen within the window (replay protection shared by all API replicas)."""
 

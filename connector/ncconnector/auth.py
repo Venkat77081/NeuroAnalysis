@@ -22,7 +22,7 @@ bearer = HTTPBearer(auto_error=False)
 @dataclass
 class Staff:
     user_id: str
-    role: str  # hospital_admin | doctor
+    role: str  # hospital_admin | doctor | operator (clinic phone: NCID lookup only)
 
 
 def staff(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Staff:
@@ -38,7 +38,7 @@ def staff(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Staff
         )
     except jwt.PyJWTError as exc:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token") from exc
-    if claims.get("typ") != "connector" or claims.get("role") not in {"hospital_admin", "doctor"}:
+    if claims.get("typ") != "connector" or claims.get("role") not in {"hospital_admin", "doctor", "operator"}:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
     return Staff(user_id=str(claims["sub"]), role=claims["role"])
 

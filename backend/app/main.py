@@ -12,6 +12,7 @@ from app.api.health import router as health_router
 from app.api.hospital import router as hospital_router
 from app.api.hospital_storage import router as hospital_storage_router
 from app.api.patient import router as patient_router
+from app.api.plans import router as plans_router
 from app.api.platform import router as platform_router
 from app.api.readiness import router as readiness_router
 from app.api.sessions import router as sessions_router
@@ -49,3 +50,4 @@ app.include_router(hospital_router)
 app.include_router(patient_router)
 app.include_router(connector_router)
 app.include_router(hospital_storage_router)
+app.include_router(plans_router)

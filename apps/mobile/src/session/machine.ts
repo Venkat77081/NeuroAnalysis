@@ -20,10 +20,16 @@ export interface PlanStep {
 /** Local only (encrypted on the device). Never sent to the server as-is (§14). */
 export interface Patient {
   localId: string;
+  /** Clinic: the MRN, kept on this phone only. Patient app: SELF_REF. */
   ref: string;
   yearOfBirth: number | null;
   sex: 'M' | 'F' | 'O' | null;
+  /** M13: the hospital's NeuroCapture ID for this patient (from the connector); sent to the server. */
+  ncid?: string;
 }
+
+/** The patient app records for its own user only; nothing about them is typed in. */
+export const SELF_REF = 'self';
 
 /** What the Review timeline shows for a take (M6): seconds from video start. */
 export interface TakeTimeline {

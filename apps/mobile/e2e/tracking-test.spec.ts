@@ -7,7 +7,7 @@ test('M4 tracking test (mock): measures analysis events while recording and draw
   test.setTimeout(60_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/?mockSpeed=10');
+  await page.goto('/?mode=clinic-local&mockSpeed=10');
   await openDeviceCheck(page);
   await page.getByTestId('open-tracking-test').click();
   await expect(page.getByRole('heading', { name: 'Tracking test (M4)' })).toBeVisible();

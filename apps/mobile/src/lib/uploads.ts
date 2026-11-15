@@ -15,7 +15,12 @@ import {
 } from '@neurocapture/capture-kit';
 import type { LoadedConfig } from './config.ts';
 import { APP_VERSION } from './evidence.ts';
-import type { SessionContext, StepOutcome, TakeRecord } from '../session/machine.ts';
+import {
+  SELF_REF,
+  type SessionContext,
+  type StepOutcome,
+  type TakeRecord,
+} from '../session/machine.ts';
 
 /** What device enrollment returns; saved in the encrypted app store. */
 export interface ServerLink {
@@ -188,13 +193,21 @@ export async function sessionBody(
 ): Promise<Record<string, unknown>> {
   if (!ctx.patient || !ctx.medState || !ctx.consent || !ctx.startedAt)
     throw new Error('session not started');
+  // M13: the patient app records for its own user (no patient field); clinic phones send the
+  // NCID from the hospital connector; the salted hash is only for pre-M13 servers.
+  const patient =
+    ctx.patient.ref === SELF_REF
+      ? undefined
+      : ctx.patient.ncid
+        ? { ncid: ctx.patient.ncid, year_of_birth: ctx.patient.yearOfBirth, sex: ctx.patient.sex }
+        : {
+            ref_hash: await refHash(link.patientRefSalt, ctx.patient.ref),
+            year_of_birth: ctx.patient.yearOfBirth,
+            sex: ctx.patient.sex,
+          };
   return {
     client_session_id: ctx.sessionId,
-    patient: {
-      ref_hash: await refHash(link.patientRefSalt, ctx.patient.ref),
-      year_of_birth: ctx.patient.yearOfBirth,
-      sex: ctx.patient.sex,
-    },
+    ...(patient ? { patient } : {}),
     med_state: ctx.medState,
     started_at: ctx.startedAt,
     consent_version: ctx.consent.version,

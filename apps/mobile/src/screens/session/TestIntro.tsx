@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { speak, stopSpeaking } from '../../guidance/audio.ts';
 import { useSession } from '../../session/useSession.ts';
+import { SELF_REF } from '../../session/machine.ts';
 import { BackButton, Button, Card, Check } from '../../ui/kit.tsx';
 import { SkipSheet } from './SkipSheet.tsx';
 
@@ -22,6 +23,14 @@ export function TestIntro() {
   const outcome = ctx.outcomes[ctx.index]!;
   const steps = cfg.instructions.stepKeys.map((k) => t(`session.steps.${k}`));
   const [dMin, dMax] = cfg.setup.distanceM;
+  // M13: at home the walking test needs a helper to hold the phone (config/platform.json).
+  const [helper, setHelper] = useState(false);
+  const needHelper =
+    ctx.patient?.ref === SELF_REF &&
+    step.code === 'SAW' &&
+    config.platform.app.homeSawNeedsHelper &&
+    !helper &&
+    outcome.status === 'pending';
 
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col bg-ground">
@@ -182,7 +191,29 @@ export function TestIntro() {
         </Card>
       </main>
 
-      <footer className="flex gap-2.5 px-5 pt-3 pb-6">
+      {needHelper && (
+        <section
+          className="mx-5 flex flex-col gap-2.5 rounded-2xl border border-line bg-white p-4"
+          data-testid="saw-helper"
+        >
+          <h2 className="text-[16px] font-bold">{t('modes.saw.title')}</h2>
+          <p className="text-[14px] leading-5 text-[#3D4552]">{t('modes.saw.body')}</p>
+          <Button onClick={() => setHelper(true)} data-testid="saw-helper-yes">
+            {t('modes.saw.yes')}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              send({ type: 'SKIP', reason: 'no_helper', at: new Date().toISOString() })
+            }
+            data-testid="saw-helper-no"
+          >
+            {t('modes.saw.no')}
+          </Button>
+        </section>
+      )}
+
+      <footer className={`flex gap-2.5 px-5 pt-3 pb-6 ${needHelper ? 'hidden' : ''}`}>
         <Button variant="secondary" onClick={() => setSkipping(true)} data-testid="skip-test">
           {t('session.intro.skip')}
         </Button>

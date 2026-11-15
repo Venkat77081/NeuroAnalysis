@@ -9,8 +9,9 @@ import { TestIntro } from './screens/session/TestIntro.tsx';
 import { CameraStage } from './screens/session/CameraStage.tsx';
 import { Review } from './screens/session/Review.tsx';
 import { Summary } from './screens/session/Summary.tsx';
+import { Gate } from './app/Gate.tsx';
 
-function SessionScreens() {
+function SessionScreens({ onLock }: { onLock?: () => void }) {
   const { snapshot } = useSession();
   const [menu, setMenu] = useState(false);
   const [deviceCheck, setDeviceCheck] = useState(false);
@@ -18,7 +19,8 @@ function SessionScreens() {
   if (deviceCheck) return <DeviceCheck onBack={() => setDeviceCheck(false)} />;
 
   let screen;
-  if (snapshot.matches('setup')) screen = <SessionHome onEngineering={() => setMenu(true)} />;
+  if (snapshot.matches('setup'))
+    screen = <SessionHome onEngineering={() => setMenu(true)} onLock={onLock} />;
   else if (snapshot.matches({ test: 'intro' })) screen = <TestIntro />;
   else if (
     snapshot.matches({ test: 'framing' }) ||
@@ -56,7 +58,7 @@ function Loading() {
 export function App() {
   return (
     <AppProvider fallback={<Loading />}>
-      <SessionScreens />
+      <Gate loading={<Loading />} sessionScreens={(onLock) => <SessionScreens onLock={onLock} />} />
     </AppProvider>
   );
 }

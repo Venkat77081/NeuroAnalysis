@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
+import { errorCode, ncidForMrn } from '../../lib/accounts.ts';
+import { ErrorText } from '../modes/Common.tsx';
 import { capture } from '../../lib/capture.ts';
 import { maskRef, newId } from '../../data/repo.ts';
 import { useSession } from '../../session/useSession.ts';
@@ -45,9 +47,18 @@ export function Logo({ onLongPress }: { onLongPress: () => void }) {
   );
 }
 
-export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
+export function SessionHome({
+  onEngineering,
+  onLock,
+}: {
+  onEngineering: () => void;
+  /** M13 clinic phones: lock the screen now (the operator steps away). */
+  onLock?: () => void;
+}) {
   const { t } = useTranslation();
   const { config, repo, settings } = useApp();
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
   const { ctx, send } = useSession();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [picker, setPicker] = useState(false);
@@ -67,11 +78,26 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
   const draftOk = draft.ref.trim().length >= 3 && (!draft.yob || (yob >= 1900 && yob <= 2030));
 
   async function savePatient() {
+    let ncid: string | undefined;
+    if (settings.server && settings.signedIn && !settings.localDev) {
+      // M13: the hospital connector gives the NCID; the MRN never goes to the platform.
+      setLookingUp(true);
+      setLookupError(null);
+      try {
+        ncid = await ncidForMrn(capture.kit, draft.ref);
+      } catch (e) {
+        setLookupError(errorCode(e));
+        return;
+      } finally {
+        setLookingUp(false);
+      }
+    }
     const p: Patient = {
       localId: newId('p'),
       ref: draft.ref.trim(),
       yearOfBirth: draft.yob ? yob : null,
       sex: draft.sex || null,
+      ...(ncid ? { ncid } : {}),
     };
     await repo.savePatient(p);
     setPatients(await repo.listPatients());
@@ -87,12 +113,24 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
           <Logo onLongPress={onEngineering} />
           <span className="text-[17px] font-bold">{t('app.name')}</span>
         </div>
-        <span
-          className={`rounded-full px-2.5 py-1.5 text-xs font-semibold ${native ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}
-          data-testid="mode-badge"
-        >
-          {t(`home.mode.${capture.implementation}`)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`rounded-full px-2.5 py-1.5 text-xs font-semibold ${native ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}
+            data-testid="mode-badge"
+          >
+            {t(`home.mode.${capture.implementation}`)}
+          </span>
+          {onLock && (
+            <button
+              type="button"
+              onClick={onLock}
+              className="min-h-12 rounded-full px-3 text-[13px] font-semibold text-brand"
+              data-testid="lock-now"
+            >
+              {t('modes.lock.lockNow')}
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="flex flex-1 flex-col gap-3.5 px-5 pt-1">
@@ -312,7 +350,12 @@ export function SessionHome({ onEngineering }: { onEngineering: () => void }) {
               </select>
             </label>
           </div>
-          <Button disabled={!draftOk} onClick={() => void savePatient()} data-testid="save-patient">
+          <ErrorText code={lookupError} />
+          <Button
+            disabled={!draftOk || lookingUp}
+            onClick={() => void savePatient()}
+            data-testid="save-patient"
+          >
             {t('session.home.savePatient')}
           </Button>
         </Sheet>

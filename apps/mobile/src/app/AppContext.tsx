@@ -14,7 +14,12 @@ import { loadConfig, type LoadedConfig } from '../lib/config.ts';
 import { logger } from '../lib/logger.ts';
 import { browserStore, kitStore, memoryStorage } from '../data/store.ts';
 import { defaultSettings, newId, repo, type Repo, type Settings } from '../data/repo.ts';
-import { summarizeOutcomes, type PlanStep, type SessionInput } from '../session/machine.ts';
+import {
+  SELF_REF,
+  summarizeOutcomes,
+  type PlanStep,
+  type SessionInput,
+} from '../session/machine.ts';
 import { persist, startSession, type SessionActor } from '../session/persist.ts';
 import { uploadConfig, uploadPrefs } from '../lib/uploads.ts';
 import { crashScreen } from '../lib/crash.ts';
@@ -28,6 +33,10 @@ export interface AppServices {
   caps: DeviceCapabilities | null;
   /** Archive the finished session and start a new one. */
   newSession(): Promise<void>;
+  /** M13 patient app: a home session with the doctor's plan (tests in protocol order). */
+  startHomeSession(tests: string[], medState: 'ON' | 'OFF'): Promise<void>;
+  /** M13: wipe this phone (after withdrawing consent): CaptureKit data, app data, app mode. */
+  resetApp(): Promise<void>;
 }
 
 const Ctx = createContext<AppServices | null>(null);
@@ -47,11 +56,14 @@ function makeStore() {
   }
 }
 
-function inputFor(config: LoadedConfig, operatorId: string): SessionInput {
+function inputFor(config: LoadedConfig, operatorId: string, tests?: string[]): SessionInput {
+  const order = tests
+    ? config.session.order.filter(([code]) => tests.includes(code))
+    : config.session.order;
   return {
     sessionId: newId('s'),
     operatorId,
-    plan: config.session.order.map(([code, side]) => ({ code, side }) as PlanStep),
+    plan: order.map(([code, side]) => ({ code, side }) as PlanStep),
     maxRetakes: config.session.maxRetakes,
     skipReasons: config.session.skipReasons,
     overrideReasons: config.session.overrideReasons,
@@ -88,6 +100,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
     (async () => {
       const s = await r.settings();
       void i18n.changeLanguage(s.language);
+      // Settings first: the app gate decides on the lock from them in its first render.
+      if (!cancelled) setSettings(s);
       const saved = await r.loadSession().catch(() => null);
       const a = watch(startSession(inputFor(config, s.operatorId), saved ?? undefined));
       if (a.getSnapshot().status === 'done') {
@@ -150,6 +164,36 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         actor.stop();
         await r.clearSession();
         setActor(watch(startSession(inputFor(config, settings.operatorId))));
+      },
+      async startHomeSession(tests: string[], medState: 'ON' | 'OFF') {
+        await saving.current;
+        actor.stop();
+        await r.clearSession();
+        const input = {
+          ...inputFor(config, 'patient', tests),
+          consentVersion: settings.patient?.consentVersion ?? config.platform.consentVersion,
+        };
+        const a = watch(startSession(input));
+        a.send({
+          type: 'SET_PATIENT',
+          patient: { localId: 'self', ref: SELF_REF, yearOfBirth: null, sex: null },
+        });
+        a.send({ type: 'SET_MED_STATE', medState });
+        a.send({
+          type: 'SET_CONSENT',
+          given: true,
+          at: settings.patient?.consentAt ?? new Date().toISOString(),
+        });
+        a.send({ type: 'START', at: new Date().toISOString() });
+        setActor(a);
+      },
+      async resetApp() {
+        await saving.current;
+        actor.stop();
+        await capture.kit.resetDevice();
+        for (const k of await r.store.keys('')) await r.store.delete(k);
+        setSettings(defaultSettings);
+        setActor(watch(startSession(inputFor(config, defaultSettings.operatorId))));
       },
     };
   }, [actor, caps, config, r, settings, watch, saving]);

@@ -16,6 +16,14 @@ export interface Settings {
   /** null = config default (session.json `upload`). */
   wifiOnly: boolean | null;
   retentionHours: number | null;
+  /** M13 (mock/dev only): clinic phone with a local operator and no server. */
+  localDev: boolean;
+  /** M13 patient app: which hospital invited this phone (no tokens; the patient is only an NCID). */
+  patient: { hospital: string; ncid: string; consentVersion: string; consentAt: string } | null;
+  /** M13: screen lock (salted PBKDF2 of the operator password or patient PIN), checked offline. */
+  lock: { salt: string; hash: string } | null;
+  /** M13: the operator must choose a new password before recording. */
+  mustChangePassword: boolean;
 }
 
 export const defaultSettings: Settings = {
@@ -26,6 +34,10 @@ export const defaultSettings: Settings = {
   signedIn: null,
   wifiOnly: null,
   retentionHours: null,
+  localDev: false,
+  patient: null,
+  lock: null,
+  mustChangePassword: false,
 };
 
 /** Patients, session snapshot and settings on top of an AppStore. */

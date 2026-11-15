@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 async function firstTake(page: Page, query: string) {
-  await page.goto(`/?mockSpeed=20${query}`);
+  await page.goto(`/?mode=clinic-local&mockSpeed=20${query}`);
   await page.getByTestId('choose-patient').click();
   await page.getByTestId('patient-ref-input').fill('A0142');
   await page.getByTestId('patient-yob-input').fill('1958');

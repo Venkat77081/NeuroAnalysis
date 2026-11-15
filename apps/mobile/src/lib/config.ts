@@ -8,6 +8,7 @@ import {
 import type {
   BiomarkerRegistry,
   DeviceTiersConfig,
+  PlatformConfig,
   QualityConfig,
   SessionConfig,
   TestConfig,
@@ -16,6 +17,7 @@ import quality from '../../../../config/quality.json' with { type: 'json' };
 import deviceTiers from '../../../../config/device-tiers.json' with { type: 'json' };
 import session from '../../../../config/session.json' with { type: 'json' };
 import registryJson from '../../../../config/biomarker-registry.json' with { type: 'json' };
+import platformJson from '../../../../config/platform.json' with { type: 'json' };
 import FT from '../../../../config/tests/FT.json' with { type: 'json' };
 import FTF from '../../../../config/tests/FTF.json' with { type: 'json' };
 import FR from '../../../../config/tests/FR.json' with { type: 'json' };
@@ -29,6 +31,8 @@ export interface LoadedConfig {
   /** Biomarker registry (M8): readiness hint per take; never shown to operators. */
   registry: BiomarkerRegistry | null;
   tests: Map<string, TestConfig>;
+  /** M13: account rules and app timings (config/platform.json). */
+  platform: PlatformConfig;
   errors: string[];
 }
 
@@ -93,8 +97,11 @@ export function loadConfig(
         (i) => `biomarker-registry.json ${i.path} ${i.message}`,
       ),
     );
+  const pres = validate('platform-config', platformJson);
+  errors.push(...pres.issues.map((i) => `platform.json ${i.path || '/'} ${i.message}`));
   return {
     session: raw.session as SessionConfig,
+    platform: platformJson as PlatformConfig,
     quality: q as QualityConfig,
     registry: rres.valid ? (r as BiomarkerRegistry) : null,
     tests,

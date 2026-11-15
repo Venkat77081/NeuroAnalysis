@@ -6,7 +6,7 @@ test('landmark overlay can be switched on while framing and recording, and in re
   test.setTimeout(60_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/?mockSpeed=10');
+  await page.goto('/?mode=clinic-local&mockSpeed=10');
   await page.getByTestId('choose-patient').click();
   await page.getByTestId('patient-ref-input').fill('A0142');
   await page.getByTestId('patient-yob-input').fill('1958');

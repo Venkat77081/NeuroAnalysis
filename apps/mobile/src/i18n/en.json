@@ -339,7 +339,8 @@
         "patient_declined": "Patient declined",
         "time_constraint": "Not enough time",
         "equipment_issue": "Equipment problem",
-        "other": "Other"
+        "other": "Other",
+        "no_helper": "No helper for the walking test"
       },
       "abort": {
         "patient_unwell": "Patient unwell",
@@ -512,5 +513,132 @@
     "retry": "Retry now",
     "setup": "Set up uploads",
     "signInToUpload": "Sign in to upload"
+  },
+  "modes": {
+    "role": {
+      "title": "How will this phone be used?",
+      "patient": "I am a patient",
+      "patientHint": "My hospital invited me to record movement tests at home.",
+      "clinic": "This is a clinic phone",
+      "clinicHint": "Set up by the hospital for its operators.",
+      "note": "This choice cannot be changed later without resetting the phone."
+    },
+    "clinicSetup": {
+      "title": "Register this clinic phone",
+      "hint": "Enter the server address and the one-time code from your hospital's dashboard. After this, the phone works only for clinic operators.",
+      "server": "Server address",
+      "code": "Registration code",
+      "register": "Register phone"
+    },
+    "signIn": {
+      "title": "Operator sign-in",
+      "operator": "Operator ID",
+      "password": "Password",
+      "submit": "Sign in",
+      "hospital": "Clinic phone"
+    },
+    "changePassword": {
+      "title": "Choose a new password",
+      "hint": "Your hospital gave you a temporary password. Choose your own: at least {{min}} characters, with letters and numbers.",
+      "current": "Current password",
+      "next": "New password",
+      "repeat": "Repeat new password",
+      "submit": "Save password",
+      "mismatch": "The new passwords do not match."
+    },
+    "lock": {
+      "title": "Locked",
+      "operatorHint": "Enter your password to continue.",
+      "patientHint": "Enter your PIN to continue.",
+      "unlock": "Unlock",
+      "wrong": "That is not right. Try again.",
+      "signOut": "Sign out",
+      "lockNow": "Lock"
+    },
+    "clinicBlocked": {
+      "title": "This is a clinic phone",
+      "body": "Patient invites cannot be opened on a phone registered to a hospital. Open the invite on your own phone.",
+      "ok": "OK"
+    },
+    "invite": {
+      "title": "Accept your invite",
+      "hint": "Open the link from your hospital's e-mail or SMS, or scan its QR code with your camera. You can also paste the link or code here.",
+      "paste": "Invite link or code",
+      "server": "Server address",
+      "continue": "Continue",
+      "invited": "INVITE ACCEPTED",
+      "pinTitle": "Choose a PIN",
+      "pinHint": "You will use this PIN to open the app on this phone. You do not need your MRN.",
+      "pin": "PIN ({{min}}–{{max}} digits)",
+      "pinRepeat": "Repeat PIN",
+      "pinMismatch": "The PINs do not match.",
+      "pinFormat": "Use {{min}} to {{max}} digits.",
+      "consentTitle": "Your consent",
+      "consentBody": "Videos of your movements are encrypted on this phone and stored by {{hospital}}. Only their doctors can watch them. You can stop and ask for deletion at any time in Settings.",
+      "consentCheck": "I agree to record and share with my hospital",
+      "accept": "Accept and continue"
+    },
+    "home": {
+      "hello": "Your movement tests",
+      "from": "From {{hospital}}",
+      "due": "Due now",
+      "next": "Next recording: {{date}}",
+      "last": "Last recorded {{date}}",
+      "plan": "Your doctor's plan",
+      "every_one": "Every day",
+      "every_other": "Every {{count}} days",
+      "defaultPlan": "Standard plan until your doctor changes it",
+      "medOFF": "Record before your morning medicine (medicine OFF).",
+      "medON": "Record about an hour after your medicine (medicine ON).",
+      "medANY": "Tell us whether you have taken your medicine.",
+      "medAsk": "Have you taken your medicine in the last 2 hours?",
+      "medYes": "Yes",
+      "medNo": "No",
+      "start": "Start recording",
+      "minutes": "About {{n}} minutes",
+      "recordings": "My recordings",
+      "settings": "Settings",
+      "selfRecorded": "Self-recorded",
+      "offline": "You are offline. You can still record; uploads wait for a connection."
+    },
+    "saw": {
+      "title": "Someone to help?",
+      "body": "The walking test needs someone to hold the phone and keep you safe while you walk.",
+      "yes": "Yes, someone is with me",
+      "no": "No, skip this test"
+    },
+    "recordings": {
+      "title": "My recordings",
+      "onPhone": "On this phone",
+      "none": "No recordings yet.",
+      "session": "{{date}} · {{n}} tests uploaded",
+      "pending": "{{n}} waiting to upload"
+    },
+    "settings": {
+      "title": "Settings",
+      "language": "Language",
+      "withdrawTitle": "Stop recording",
+      "withdrawBody": "This closes your home recording account and signs this phone out. Your hospital is told.",
+      "deleteAlso": "Also ask my hospital to delete my recordings",
+      "withdraw": "Withdraw consent",
+      "confirm": "Withdraw consent and sign out?",
+      "confirmYes": "Yes, withdraw",
+      "cancel": "Cancel",
+      "done": "Your consent is withdrawn. This phone is signed out."
+    },
+    "errors": {
+      "network": "Cannot reach the server. Check the network.",
+      "bad_code": "This invite or code was not accepted. It may be used or expired.",
+      "bad_login": "Operator ID or password is wrong.",
+      "server": "The server had a problem. Try again later.",
+      "weak_password": "Choose a longer password with letters and numbers.",
+      "pin_locked": "Too many wrong PINs. Ask your hospital for a new invite.",
+      "mrn_not_found": "No patient with this MRN in the hospital records.",
+      "connector_unreachable": "Cannot reach the hospital records. Check the hospital Wi-Fi.",
+      "login_required": "Please sign in again.",
+      "pin_format": "Use digits only, the length shown.",
+      "no_hospital_key": "Your hospital has not finished setting up recordings yet.",
+      "generic": "Something went wrong. Try again."
+    }
   }
 }

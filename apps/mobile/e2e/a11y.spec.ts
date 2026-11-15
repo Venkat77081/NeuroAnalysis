@@ -28,7 +28,7 @@ async function smallTargets(page: Page): Promise<string[]> {
 }
 
 test('M9: touch targets and names on the main screens', async ({ page }) => {
-  await page.goto('/?mockSpeed=20');
+  await page.goto('/?mode=clinic-local&mockSpeed=20');
   const problems: Record<string, string[]> = {};
   problems.home = await smallTargets(page);
   await page.getByTestId('choose-patient').click();

@@ -13,7 +13,7 @@ async function toFraming(page: Page, url: string) {
 }
 
 test('§15: below 2 GB free, Record is blocked with a plain message', async ({ page }) => {
-  await toFraming(page, '/?mockSpeed=20&freeGb=1.2');
+  await toFraming(page, '/?mode=clinic-local&mockSpeed=20&freeGb=1.2');
   await expect(page.getByTestId('storage-low')).toContainText('1.2 GB free, 2 GB needed');
   await expect(page.getByTestId('record')).toBeDisabled();
 });
@@ -21,7 +21,7 @@ test('§15: below 2 GB free, Record is blocked with a plain message', async ({ p
 test('§15: an app switch or call mid-recording stops the take; record it again', async ({
   page,
 }) => {
-  await toFraming(page, '/?mockSpeed=2');
+  await toFraming(page, '/?mode=clinic-local&mockSpeed=2');
   await page.getByTestId('record').click();
   await expect(page.getByTestId('rec-badge')).toBeVisible({ timeout: 10_000 });
   await page.evaluate(() =>

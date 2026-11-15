@@ -21,7 +21,12 @@ import {
   uploadConfig,
   uploadPrefs,
 } from '../src/lib/uploads.ts';
-import type { SessionContext, SessionInput } from '../src/session/machine.ts';
+import {
+  SELF_REF,
+  type Patient,
+  type SessionContext,
+  type SessionInput,
+} from '../src/session/machine.ts';
 import { startSession } from '../src/session/persist.ts';
 
 const config = loadConfig();
@@ -50,12 +55,11 @@ const until = async (cond: () => boolean | Promise<boolean>, ms = 4000) => {
 };
 
 /** FT: RETAKE then PASS (accepted). FR: skipped. FA: RETAKE kept with a reason. */
-function finishedSession(): SessionContext {
+function finishedSession(
+  patient: Patient = { localId: 'p1', ref: 'A0142', yearOfBirth: 1958, sex: 'M' },
+): SessionContext {
   const a = startSession(input);
-  a.send({
-    type: 'SET_PATIENT',
-    patient: { localId: 'p1', ref: 'A0142', yearOfBirth: 1958, sex: 'M' },
-  });
+  a.send({ type: 'SET_PATIENT', patient });
   a.send({ type: 'SET_MED_STATE', medState: 'ON' });
   a.send({ type: 'SET_CONSENT', given: true, at });
   a.send({ type: 'START', at });
@@ -108,6 +112,32 @@ async function kitWithTakes(ids: string[]) {
 }
 
 describe('upload glue (M7)', () => {
+  it('M13 session bodies: NCID for clinic phones, no patient field in the patient app', async () => {
+    const link = {
+      endpoint: 'fake://api',
+      deviceId: 'd',
+      deviceSecret: 's',
+      siteId: 'site',
+      patientRefSalt: 'salt-1',
+      serverKeyId: 'k',
+      serverPublicKeyPem: 'pem',
+    };
+    const ncid = 'nc_' + 'c'.repeat(32);
+    const clinic = await sessionBody(
+      finishedSession({ localId: 'p1', ref: 'A0142', yearOfBirth: 1958, sex: 'M', ncid }),
+      link,
+      config,
+    );
+    expect(clinic.patient).toEqual({ ncid, year_of_birth: 1958, sex: 'M' });
+    expect(JSON.stringify(clinic)).not.toContain('A0142');
+    const home = await sessionBody(
+      finishedSession({ localId: 'self', ref: SELF_REF, yearOfBirth: null, sex: null }),
+      link,
+      config,
+    );
+    expect(home).not.toHaveProperty('patient');
+  });
+
   it('builds bodies: only accepted/kept takes, hashed patient ref, override flag', async () => {
     const ctx = finishedSession();
     expect(ctx.outcomes.map((o) => o.status)).toEqual(['accepted', 'skipped', 'kept']);
@@ -192,7 +222,14 @@ describe('upload glue (M7)', () => {
   });
 
   it('enrolls, signs in and uploads a finished session to the built-in server', async () => {
-    const ctx = finishedSession();
+    // M13: clinic phones send the NCID from the hospital connector (the server refuses others).
+    const ctx = finishedSession({
+      localId: 'p1',
+      ref: 'A0142',
+      yearOfBirth: 1958,
+      sex: 'M',
+      ncid: 'nc_' + 'b'.repeat(32),
+    });
     const kit = await kitWithTakes(['tk-ft2', 'tk-fa1']);
     const srv = kit.fakeServer;
     await expect(

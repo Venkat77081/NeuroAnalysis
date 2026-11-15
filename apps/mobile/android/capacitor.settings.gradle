@@ -2,8 +2,11 @@
 include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../../../node_modules/.pnpm/@capacitor+android@8.6.2_@capacitor+core@8.6.2/node_modules/@capacitor/android/capacitor')
 
-include ':neurocapture-capture-kit'
-project(':neurocapture-capture-kit').projectDir = new File('../node_modules/@neurocapture/capture-kit/android')
-
 include ':capacitor-community-text-to-speech'
 project(':capacitor-community-text-to-speech').projectDir = new File('../../../node_modules/.pnpm/@capacitor-community+text-to-speech@8.0.2_@capacitor+core@8.6.2/node_modules/@capacitor-community/text-to-speech/android')
+
+include ':capacitor-app'
+project(':capacitor-app').projectDir = new File('../../../node_modules/.pnpm/@capacitor+app@8.1.2_@capacitor+core@8.6.2/node_modules/@capacitor/app/android')
+
+include ':neurocapture-capture-kit'
+project(':neurocapture-capture-kit').projectDir = new File('../node_modules/@neurocapture/capture-kit/android')

@@ -8,7 +8,7 @@ const analysisFps = (page: Page) =>
   page.evaluate(() => (globalThis as unknown as { __ncMock: Mock }).__ncMock.currentAnalysisFps());
 
 test('M9: a hot phone slows tracking, then blocks new takes until it cools', async ({ page }) => {
-  await page.goto('/?mockSpeed=20');
+  await page.goto('/?mode=clinic-local&mockSpeed=20');
   await page.getByTestId('choose-patient').click();
   await page.getByTestId('patient-ref-input').fill('E7001');
   await page.getByTestId('save-patient').click();

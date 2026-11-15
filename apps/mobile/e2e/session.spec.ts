@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /** Mock recordings and countdowns run 20× faster (?mockSpeed=20). */
-const URL = '/?mockSpeed=20';
+const URL = '/?mode=clinic-local&mockSpeed=20';
 
 async function startSession(page: Page) {
   await page.goto(URL);
@@ -86,7 +86,7 @@ test('M3: a take in progress when the app reloads resumes as interrupted at fram
   page,
 }) => {
   test.setTimeout(60_000);
-  await page.goto('/'); // real time, so the take is still recording at reload
+  await page.goto('/?mode=clinic-local'); // real time, so the take is still recording at reload
   await page.getByTestId('choose-patient').click();
   await page.getByTestId('patient-ref-input').fill('B7788');
   await page.getByTestId('save-patient').click();

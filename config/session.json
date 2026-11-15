@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@2.4.0",
+  "configVersion": "SESSION@2.5.0",
   "order": [
     ["FT", null],
     ["FTF", null],
@@ -14,6 +14,7 @@
     "patient_declined",
     "time_constraint",
     "equipment_issue",
+    "no_helper",
     "other"
   ],
   "overrideReasons": ["clinically_adequate", "patient_fatigue", "max_retakes_reached", "other"],

@@ -7,7 +7,7 @@ test('M2 capture test records a mock take and checks it against the acceptance c
   test.setTimeout(60_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/');
+  await page.goto('/?mode=clinic-local');
   await openDeviceCheck(page);
   await page.getByTestId('open-capture-test').click();
   await expect(page.getByRole('heading', { name: 'Capture test (M2)' })).toBeVisible();

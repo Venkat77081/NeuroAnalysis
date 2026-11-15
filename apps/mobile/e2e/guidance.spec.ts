@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 /** Mock camera plays a synthetic positioning scenario (?scenario=…) for the current test. */
 async function framing(page: Page, scenario: string) {
-  await page.goto(`/?mockSpeed=4&scenario=${scenario}`);
+  await page.goto(`/?mode=clinic-local&mockSpeed=4&scenario=${scenario}`);
   await page.getByTestId('choose-patient').click();
   await page.getByTestId('patient-ref-input').fill('A0142');
   await page.getByTestId('patient-yob-input').fill('1958');
@@ -49,7 +49,7 @@ test('M5: a tracker error shows "Tracking…", not an error prompt', async ({ pa
 });
 
 test('M5: engineering "gate off" lets Record work while prompts still show', async ({ page }) => {
-  await page.goto('/?mockSpeed=4&scenario=too_far');
+  await page.goto('/?mode=clinic-local&mockSpeed=4&scenario=too_far');
   const logo = page.getByTestId('logo');
   await logo.dispatchEvent('pointerdown');
   await page.waitForTimeout(1400);

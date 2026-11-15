@@ -11,7 +11,7 @@ const takeCount = (page: import('@playwright/test').Page) =>
 test('M9: a practice session records without a patient and leaves nothing behind', async ({
   page,
 }) => {
-  await page.goto('/?mockSpeed=20');
+  await page.goto('/?mode=clinic-local&mockSpeed=20');
   await expect(page.getByTestId('start-session')).toBeDisabled();
   await page.getByTestId('practice-toggle').check();
   await expect(page.getByTestId('choose-patient')).toHaveCount(0);

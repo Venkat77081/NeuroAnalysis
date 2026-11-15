@@ -1,0 +1,85 @@
+# Hospital connector — set-up guide (M11)
+
+The connector is a small service that runs in the hospital's network, or per clinic in managed
+mode (run by NeuroCapture). It is the only part of NeuroCapture that handles patient identity:
+
+- It **reads patient records live** from FHIR R4 or from read-only SQL views, and never copies
+  them.
+- It keeps the **NCID ↔ MRN map** in its own database, which belongs to the hospital.
+- It **sends patient invites** (e-mail with QR code, SMS, printed QR) using contact details from
+  the records.
+- It **writes the clinical activity log**: searched, invited, viewed history, viewed a recording.
+- It **decrypts recordings** for the hospital's doctors.
+
+The platform only ever learns NCIDs, invite channels and pass/fail health results. The API is in
+`contracts/connector-api.yaml`, and decision 025 explains the security design.
+
+## 1. Run it
+
+```bash
+docker build -t neurocapture-connector connector/
+docker run -d --name nc-connector -p 8100:8100 -v nc-connector:/data --env-file connector.env neurocapture-connector
+```
+
+`connector.env` (all variables start with `NCC_`):
+
+| Variable                                                            | Meaning                                                                                                     |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `NCC_SITE_ID`                                                       | The hospital's ID, shown in the hospital dashboard (Data connections)                                       |
+| `NCC_PLATFORM_URL`                                                  | NeuroCapture API address                                                                                    |
+| `NCC_SIGNING_KEY_PATH`                                              | This connector's Ed25519 key (step 2)                                                                       |
+| `NCC_PLATFORM_PUBLIC_KEY_PATH`                                      | Optional. Without it the key is fetched once from `<platform>/.well-known/neurocapture-platform-key`        |
+| `NCC_TAKE_PRIVATE_KEY_PATH`                                         | RSA private key that unwraps recordings (M12 makes this the hospital's own key)                             |
+| `NCC_DATABASE_URL`                                                  | The connector's database (Postgres or SQLite file); tables `nc_ncid_map`, `nc_activity_log`, `nc_log_spool` |
+| `NCC_RECORDS`                                                       | `fhir` or `sql`                                                                                             |
+| `NCC_FHIR_BASE_URL`, `NCC_FHIR_MRN_SYSTEM`, `NCC_FHIR_BEARER_TOKEN` | FHIR server, the identifier system that holds the MRN, and an optional token                                |
+| `NCC_RECORDS_SQL_URL`                                               | Read-only database URL with the views from `connector/sql/sample_views.sql`                                 |
+| `NCC_ACTIVITY_SINK`, `NCC_ACTIVITY_HTTP_URL`                        | `db` (default) or `http` (the hospital's log server; entries are queued while it is down)                   |
+| `NCC_HOSPITAL_NAME`                                                 | Name used in invite messages                                                                                |
+| `NCC_CORS_ORIGINS`                                                  | Dashboard address(es) allowed to call the connector from the browser                                        |
+| `NCC_EMAIL_PROVIDER`, `NCC_SMS_PROVIDER`                            | `dummy` for now (decision 024)                                                                              |
+
+The connector must be reachable over HTTPS from the doctors' browsers (hospital network, VPN or
+a hospital-controlled endpoint) and from the NeuroCapture platform (for health checks).
+
+## 2. Register it
+
+```bash
+docker exec nc-connector python -m ncconnector keygen --out /data/signing.pem
+```
+
+The command prints a public key. In the hospital dashboard → Data connections, enter the
+connector's address and paste that key. The private key never leaves the connector.
+
+## 3. Test it
+
+In Data connections → Test, enter one sample MRN. The connector:
+
+- looks up that patient;
+- reads its NCID map;
+- writes a test entry to the activity log;
+- checks that the take key is present.
+
+NeuroCapture records only pass or fail for each check.
+
+## 4. SQL views (if not FHIR)
+
+Hospital IT creates four views, mapped to their own tables:
+
+- `nc_patients`
+- `nc_conditions`
+- `nc_medications`
+- `nc_encounters`
+
+Columns and an example are in `connector/sql/sample_views.sql`. Grant the connector's database
+user `SELECT` on these views only. The connector runs SELECTs with bound parameters, nothing else.
+
+## Managed clinics
+
+The same image runs per clinic, with its own database and keys. For a local trial:
+
+```bash
+NCC_SITE_ID=<site id> docker compose --profile connector up -d connector
+```
+
+The public key to register is in `/data/connector.pub` inside the container.

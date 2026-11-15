@@ -45,9 +45,11 @@ pnpm --filter @neurocapture/mobile dev      # web app in mock mode
 pnpm e2e                  # Playwright smoke test (mock mode)
 docker compose up -d      # api + postgres (storage profile: see docs/decisions/004); GET http://localhost:8000/health
 cd backend && pytest && ruff check .
+cd connector && pytest && ruff check .   # hospital connector, tested against the platform in-process (M11)
+cd connector && python -m scripts.gen_contract   # regenerate contracts/connector-api.yaml
 cd backend && python -m app.admin create-platform-admin --email you@example.org   # prints a one-time invite link (M10)
 ```
 
 ## Layout
 
-See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI).
+See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI), `connector` (hospital connector, FastAPI, docs/connector.md).

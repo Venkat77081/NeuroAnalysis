@@ -381,7 +381,8 @@
       "gateAdvisory": "Record without the positioning gate (testing)",
       "minFps": "Fail a take below (frame rate)",
       "minFpsDefault": "Test default ({{fps}} fps)",
-      "minFpsOption": "{{fps}} fps"
+      "minFpsOption": "{{fps}} fps",
+      "tests": "Tests"
     },
     "abort": {
       "title": "End session early?",
@@ -715,12 +716,14 @@
       "patientTitle": "First, a quick camera check",
       "hint": {
         "clinic": "Recordings need 60 frames a second. This takes about {{s}} seconds. Point the camera at the room and keep the phone still.",
-        "patient": "We check that this phone can record smooth video (about {{s}} seconds). Point the back camera at the room and keep the phone still. Nothing is recorded or sent."
+        "patient": "We check that this phone can record smooth video (about {{s}} seconds). Point the back camera at the room and keep the phone still. Nothing is recorded or sent.",
+        "check": "Recordings need 60 frames a second. This takes about {{s}} seconds. Point the back camera at the room and keep the phone still."
       },
       "live": "Back camera · 1080p · {{fps}} fps so far",
       "notUsed": {
         "clinic": "The registration code is not used until the check passes.",
-        "patient": "Your invite is not used until you join."
+        "patient": "Your invite is not used until you join.",
+        "check": "Nothing is recorded or sent."
       },
       "passTitle": "This phone can record",
       "passFps": "Back camera: {{fps}} fps",
@@ -778,5 +781,22 @@
     "clinicDone": "{{name}} (MRN {{mrn}}) added for today. Tap Refresh on the clinic queue.",
     "memory": "The fake server lives in this page: reloading the page forgets registered phones, new passwords and joined patients, and sign-in then fails. Use Start again.",
     "startAgain": "Start again (clear all test data)"
+  },
+  "testMode": {
+    "summary": "Test mode: these recordings stay on this phone and are not uploaded. Turning test mode off deletes them.",
+    "banner": "TEST MODE · pretend hospital · nothing leaves this phone",
+    "useClinic": "Use test hospital",
+    "useClinicHint": "Test mode: no registration code needed. Then sign in as OP-07, password 2468.",
+    "joinTest": "Join test hospital",
+    "joinTestHint": "Test mode: no invite needed.",
+    "toggle": "Test mode",
+    "toggleHint": "A pretend hospital on this phone: no server needed. Real camera and real checks; recordings stay on the phone. Turning it on or off clears this app's data.",
+    "confirmOn": "Turn test mode on? This app's data on this phone is cleared first.",
+    "confirmOff": "Turn test mode off? Test recordings and the test hospital are deleted.",
+    "browser": "The browser version always uses a pretend hospital: use the Test tab.",
+    "fpsCheck": "Camera frame-rate check",
+    "fpsCheckHint": "20 s, back camera, 60 fps target",
+    "clinicRecording": "Doctor asks for a clinic recording",
+    "clinicRecordingDone": "Clinic recording requested. Go back to My hospitals to see the notice."
   }
 }

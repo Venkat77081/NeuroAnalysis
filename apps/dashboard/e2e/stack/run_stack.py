@@ -34,7 +34,7 @@ PATIENT_MRN = "00012388"
 OTHER_MRN = "00012401"  # Ravi Samplename (no e-mail on file)
 
 
-def wait(url: str, timeout: float = 30) -> None:
+def wait(url: str, timeout: float = 30, log: Path | None = None) -> None:
     end = time.time() + timeout
     while time.time() < end:
         try:
@@ -43,7 +43,16 @@ def wait(url: str, timeout: float = 30) -> None:
         except httpx.HTTPError:
             pass
         time.sleep(0.2)
-    raise RuntimeError(f"{url} did not start")
+    tail = ""
+    if log and log.exists():
+        lines = log.read_text(errors="replace").splitlines()[-25:]
+        tail = f"\n\nLast lines of {log}:\n" + "\n".join(lines)
+        if "ModuleNotFoundError" in tail or "ImportError" in tail:
+            tail += (
+                '\n\nA Python package is missing: run  pip install -e "backend[dev]" -e "connector[dev]"'
+                "  (with the .venv activated), then try again."
+            )
+    raise SystemExit(f"{url} did not start.{tail}")
 
 
 def _in_use(port: int) -> bool:
@@ -230,9 +239,9 @@ def main() -> None:
     signal.signal(signal.SIGINT, stop)
     if hasattr(signal, "SIGBREAK"):  # Windows: closing the console window, Ctrl+Break
         signal.signal(signal.SIGBREAK, stop)
-    wait(f"http://127.0.0.1:{P_PORT}/health")
-    wait(f"http://127.0.0.1:{F_PORT}/fhir/Patient")
-    wait(f"http://127.0.0.1:{C_PORT}/health")
+    wait(f"http://127.0.0.1:{P_PORT}/health", log=work / "platform.log")
+    wait(f"http://127.0.0.1:{F_PORT}/fhir/Patient", log=work / "fhir.log")
+    wait(f"http://127.0.0.1:{C_PORT}/health", log=work / "connector.log")
 
     # --- The hospital's take key: created on the connector, registered through a signed call ---
     sys.path.insert(0, str(ROOT / "connector"))

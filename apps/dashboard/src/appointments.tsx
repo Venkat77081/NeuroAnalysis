@@ -1,27 +1,30 @@
 /**
- * Reception (v3): the hospital's appointments, read live from its system through the connector
- * (FHIR or SQL) and kept on the platform as a time, a patient NCID and a doctor only; or entered by
- * hand when the hospital system does not send them. Reception assigns the doctor; the appointment
- * then waits for that doctor to choose the tests. The patient gets the record link only when the
- * doctor sends it. Names and MRNs come live from the connector and are never stored here.
+ * Reception: appointments that need a recording, added by hand (user, 16 Nov 2026: nothing is read
+ * from the hospital's appointment system, which also holds ortho, cardio and other visits). The
+ * platform keeps a time, a patient NCID and a doctor only. The doctor then chooses the tests and
+ * where to record: at home (record link) and/or in the clinic (clinic phones' queue). Names and
+ * MRNs come live from the connector and are never stored here.
  */
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError, call, hospital } from './api.ts';
+import { call, hospital } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
 
-export type Stage = 'needs_doctor' | 'needs_tests' | 'sent' | 'recorded' | 'missed' | 'cancelled';
+export type Stage =
+  'needs_doctor' | 'needs_tests' | 'sent' | 'recorded' | 'missed' | 'not_recorded' | 'cancelled';
 
 export interface RequestOut {
   id: string;
   kind: 'appointment' | 'rerecord';
+  place: 'home' | 'clinic';
+  not_done_reason: string | null;
   tests: string[];
   med_state: string;
   due_at: string;
-  state: 'open' | 'recorded' | 'missed' | 'cancelled';
+  state: 'open' | 'recorded' | 'missed' | 'cancelled' | 'not_recorded';
   created_at: string;
 }
 export interface Appointment {
@@ -45,14 +48,6 @@ export interface HistoryEvent {
   actor_email: string | null;
   actor_role: string;
   details: Record<string, unknown>;
-}
-interface LiveRow {
-  external_id: string;
-  at: string;
-  mrn: string;
-  name: string | null;
-  ncid: string | null;
-  practitioner: string | null;
 }
 interface PatientRow {
   ncid: string;
@@ -81,19 +76,58 @@ const STAGE_TONE: Record<Stage, 'ok' | 'warn' | 'bad' | 'neutral'> = {
   sent: 'warn',
   recorded: 'ok',
   missed: 'bad',
+  not_recorded: 'bad',
   cancelled: 'neutral',
 };
 
 export function StageBadge({ a }: { a: Appointment }) {
   const { t } = useTranslation();
-  const open = a.requests.filter((r) => r.state === 'open').pop();
+  const live = a.requests.filter((r) => r.state !== 'cancelled');
+  if (
+    a.stage === 'needs_doctor' ||
+    a.stage === 'needs_tests' ||
+    a.stage === 'cancelled' ||
+    !live.length
+  )
+    return (
+      <span data-testid="appt-stage">
+        <Badge tone={STAGE_TONE[a.stage]}>{t(`appts.stage.${a.stage}`)}</Badge>
+      </span>
+    );
+  // One badge per place (home link, clinic queue): both may be asked for.
   return (
-    <span data-testid="appt-stage">
-      <Badge tone={STAGE_TONE[a.stage]}>
-        {a.stage === 'sent' && open
-          ? t('appts.stage.sentDue', { date: fmtDate(open.due_at) })
-          : t(`appts.stage.${a.stage}`)}
-      </Badge>
+    <span className="flex flex-col items-start gap-1" data-testid="appt-stage">
+      {live.map((r) => (
+        <Badge
+          key={r.id}
+          tone={r.state === 'recorded' ? 'ok' : r.state === 'open' ? 'warn' : 'bad'}
+        >
+          {t(`appts.req.${r.place}.${r.state}`, {
+            date: fmtDate(r.place === 'clinic' ? a.at : r.due_at),
+            reason: r.not_done_reason
+              ? t(`appts.notDone.${r.not_done_reason}`, { defaultValue: r.not_done_reason })
+              : '',
+          })}
+        </Badge>
+      ))}
+    </span>
+  );
+}
+
+/** Where the doctor asked to record: home link, clinic queue, or both. */
+export function WhereBadges({ a }: { a: Appointment }) {
+  const { t } = useTranslation();
+  const places = [
+    ...new Set(a.requests.filter((r) => r.state !== 'cancelled').map((r) => r.place)),
+  ];
+  if (!places.length) return <span className="text-muted">—</span>;
+  return (
+    <span className="flex flex-col items-start gap-1" data-testid="appt-where">
+      {places.map((p) => (
+        <Badge key={p} tone="neutral">
+          {t(`appts.where.${p}`)}
+        </Badge>
+      ))}
     </span>
   );
 }
@@ -106,8 +140,6 @@ export function Appointments() {
   const canAssign = perms.has('appointments.assign');
   const canInvite = perms.has('invites.send');
   const [appts, setAppts] = useState<Appointment[] | null>(null);
-  const [notJoined, setNotJoined] = useState<LiveRow[]>([]);
-  const [live, setLive] = useState<'ok' | 'off' | 'down' | null>(null);
   const [app, setApp] = useState<Record<string, string>>({});
   const [docs, setDocs] = useState<Doctor[]>([]);
   const [ident, setIdent] = useState<Record<string, Ident>>({});
@@ -121,24 +153,6 @@ export function Appointments() {
     let off = false;
     void (async () => {
       try {
-        // Live list from the hospital system; appointments of patients with an NCID are kept
-        // (idempotent: the platform matches them by a hash of the hospital's appointment ID).
-        let rows: LiveRow[] = [];
-        let state: 'ok' | 'off' | 'down' | null = null;
-        if (canAdd)
-          try {
-            rows = await hospital<LiveRow[]>('GET', '/v1/appointments');
-            state = 'ok';
-          } catch (e) {
-            state = e instanceof ApiError && e.status === 501 ? 'off' : 'down';
-          }
-        for (const r of rows.filter((x) => x.ncid))
-          await call('POST', '/hospital/appointments', {
-            ncid: r.ncid,
-            at: r.at,
-            source: 'fhir',
-            external_id: r.external_id,
-          });
         const [list, doctors, patients] = await Promise.all([
           call<Appointment[]>('GET', '/hospital/appointments'),
           call<Doctor[]>('GET', '/hospital/doctors'),
@@ -149,8 +163,6 @@ export function Appointments() {
           ? await hospital<Ident[]>('POST', '/v1/patients/lookup', { ncids })
           : [];
         if (off) return;
-        setLive(state);
-        setNotJoined(rows.filter((x) => !x.ncid));
         setAppts(list);
         setDocs(doctors.filter((d) => d.active));
         setApp(Object.fromEntries(patients.map((p) => [p.ncid, p.status])));
@@ -162,7 +174,7 @@ export function Appointments() {
     return () => {
       off = true;
     };
-  }, [version, canAdd]);
+  }, [version]);
 
   const assign = async (a: Appointment) => {
     setError(null);
@@ -189,24 +201,27 @@ export function Appointments() {
     <Page title={t('appts.title')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-[13px] text-muted">{t('appts.window')}</span>
-        {live && (
-          <span
-            className={`text-[13px] font-semibold ${live === 'ok' ? 'text-ok' : 'text-warn'}`}
-            data-testid="appts-live"
-          >
-            {t(`appts.live.${live}`)}
-          </span>
-        )}
       </div>
       <Notice>{t('app.notStored')}</Notice>
       <ErrorNote error={error} />
       {notice && <Notice testId="notice">{notice}</Notice>}
+      {canAdd && (
+        <ManualAppointment
+          docs={docs}
+          canAssign={canAssign}
+          onAdded={() => {
+            setNotice(t('appts.added'));
+            reload();
+          }}
+        />
+      )}
       <Table
         head={[
           t('appts.when'),
           t('appts.patient'),
           t('appts.app'),
           t('appts.doctor'),
+          t('appts.whereTitle'),
           t('appts.status'),
           t('appts.lastChange'),
           '',
@@ -263,6 +278,9 @@ export function Appointments() {
                   )}
                 </td>
                 <td className="px-4 py-3">
+                  <WhereBadges a={a} />
+                </td>
+                <td className="px-4 py-3">
                   <div className="flex flex-col items-start gap-1.5">
                     <StageBadge a={a} />
                     {canInvite && !joined(a.ncid) && i && a.stage !== 'cancelled' && (
@@ -299,7 +317,7 @@ export function Appointments() {
               </tr>
               {open === a.id && (
                 <tr>
-                  <td colSpan={7} className="bg-[#F9FBFD] px-4 pb-4">
+                  <td colSpan={8} className="bg-[#F9FBFD] px-4 pb-4">
                     <AppointmentHistory id={a.id} />
                   </td>
                 </tr>
@@ -307,43 +325,8 @@ export function Appointments() {
             </Fragment>
           );
         })}
-        {notJoined.map((r) => (
-          <tr
-            key={r.external_id}
-            className="border-t border-[#EDF0F3] bg-[#F9FBFD]"
-            data-testid={`live-${r.mrn}`}
-          >
-            <td className="px-4 py-3 font-semibold">
-              {fmt(r.at)}
-              <span className="block text-[12px] font-normal text-muted">
-                {t('appts.source.fhir')}
-              </span>
-            </td>
-            <td className="px-4 py-3">
-              {r.name}
-              <span className="block text-[12px] text-muted">MRN {r.mrn}</span>
-            </td>
-            <td className="px-4 py-3">
-              <Badge>{t('appts.notJoined')}</Badge>
-            </td>
-            <td className="px-4 py-3 text-[13px] text-muted">{r.practitioner}</td>
-            <td className="px-4 py-3">
-              {canInvite && (
-                <Button
-                  variant="secondary"
-                  onClick={() => invite(r.mrn, r.name)}
-                  data-testid="live-invite"
-                >
-                  {t('appts.sendInvite')}
-                </Button>
-              )}
-            </td>
-            <td />
-            <td />
-          </tr>
-        ))}
       </Table>
-      {appts?.length === 0 && notJoined.length === 0 && (
+      {appts?.length === 0 && (
         <Notice tone="warn" testId="no-appointments">
           {t('appts.none')}
         </Notice>
@@ -354,16 +337,6 @@ export function Appointments() {
           mrns={[inviting.mrn]}
           title={t('appts.inviteFor', { name: inviting.name })}
           onSent={() => reload()}
-        />
-      )}
-      {canAdd && (
-        <ManualAppointment
-          docs={docs}
-          canAssign={canAssign}
-          onAdded={() => {
-            setNotice(t('appts.added'));
-            reload();
-          }}
         />
       )}
     </Page>
@@ -411,6 +384,7 @@ function ManualAppointment({
       setFound([]);
       setQ('');
       setAt('');
+      setDoctor('');
       onAdded();
     } catch (e) {
       setError(e);

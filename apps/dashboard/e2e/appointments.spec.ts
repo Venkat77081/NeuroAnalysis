@@ -2,10 +2,11 @@ import { expect, test } from '@playwright/test';
 import { scanPlatform, signIn, stack } from './support.ts';
 
 /**
- * v3 acceptance against the real platform + connector + FHIR stand-in: reception sees the
- * hospital's appointments live, assigns the doctor and adds one by hand; the doctor chooses the
- * tests (history next to them) and sends the record link; reception sees the link went out; the
- * doctor's patient page shows the timeline. The platform still holds no name or MRN.
+ * Acceptance against the real platform + connector + FHIR stand-in: reception adds appointments by
+ * hand (nothing is read from the hospital's appointment system) and assigns the doctor; the doctor
+ * chooses the tests (history next to them) and where to record: at home, in the clinic, or both
+ * (clinic only for a patient not in the app); reception sees where and who did each step. The
+ * platform still holds no name or MRN.
  */
 test('v3: reception assigns the doctor; the doctor chooses the tests and sends the link', async ({
   page,
@@ -31,69 +32,77 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   await expect(page.getByTestId('p-send')).toBeDisabled(); // sent once; the QR stays on screen
 
   await page.getByTestId('nav-appointments').click();
-  await expect(page.getByTestId('appts-live')).toContainText('From your hospital system');
-  // Asha has joined: her FHIR appointment is kept and needs a doctor.
+  // By hand only: nothing is read from the hospital's appointment system (user, 16 Nov 2026).
+  await expect(page.getByTestId('appts-live')).toHaveCount(0);
+  const at = (days: number, hm: string) =>
+    `${new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)}T${hm}`;
+  const add = async (q: string, mrn: string, when: string, doctor?: string) => {
+    await page.getByTestId('manual-q').fill(q);
+    await page.getByTestId('manual-search').click();
+    await page.getByTestId(`manual-pick-${mrn}`).click();
+    await page.getByTestId('manual-at').fill(when);
+    if (doctor) await page.getByTestId('manual-doctor').selectOption({ label: doctor });
+    await page.getByTestId('manual-add').click();
+    await expect(page.getByTestId('notice')).toContainText('Appointment added');
+  };
+  await add('asha', s.patient_mrn, at(3, '10:30'), 'Dr. Rao');
+  await add('ravi', '00012401', at(2, '11:15'));
   const asha = page.getByTestId(`appt-${s.patient_mrn}`).first();
-  await expect(asha).toContainText('Asha Testpatient');
-  await expect(asha).toContainText('From the hospital system');
-  await expect(asha.getByTestId('appt-stage')).toHaveText('Needs a doctor');
-  // Ravi has not joined the app (invited, not accepted): the same three ways to invite him.
-  const ravi = page.getByTestId('live-00012401').or(page.getByTestId('appt-00012401'));
+  await expect(asha).toContainText('Added by hand · Front desk');
+  await expect(asha.getByTestId('appt-stage')).toHaveText("Waiting for doctor's tests");
+  const ravi = page.getByTestId('appt-00012401');
+  await expect(ravi.getByTestId('appt-stage')).toHaveText('Needs a doctor');
+  await ravi.getByTestId('appt-doctor').selectOption({ label: 'Dr. Rao' });
+  await ravi.getByTestId('appt-assign').click();
+  await expect(page.getByTestId('notice')).toContainText('waits for the doctor');
+  // Ravi has not joined the app: the same three ways to invite him.
   await expect(ravi).toContainText('Not joined');
   await ravi.getByRole('button', { name: 'Send join invite' }).click();
   await expect(page.getByTestId('p-invite')).toContainText('Send a join invite to Ravi Samplename');
   await page.getByTestId('via-print').check();
   await page.getByTestId('p-send').click();
   await expect(page.getByTestId('invite-qr')).toBeVisible();
-
-  await asha.getByTestId('appt-doctor').selectOption({ label: 'Dr. Rao' });
-  await asha.getByTestId('appt-assign').click();
-  await expect(page.getByTestId('notice')).toContainText('waits for the doctor');
-  await expect(asha.getByTestId('appt-stage')).toHaveText("Waiting for doctor's tests");
-
-  // An appointment the hospital system does not send, entered by hand.
-  const inSix = new Date(Date.now() + 6 * 86_400_000);
-  const local = `${inSix.toISOString().slice(0, 10)}T11:15`;
-  await page.getByTestId('manual-q').fill('asha');
-  await page.getByTestId('manual-search').click();
-  await page.getByTestId(`manual-pick-${s.patient_mrn}`).click();
-  await page.getByTestId('manual-at').fill(local);
-  await page.getByTestId('manual-doctor').selectOption({ label: 'Dr. Rao' });
-  await page.getByTestId('manual-add').click();
-  await expect(page.getByTestId('notice')).toContainText('Appointment added');
-  await expect(page.getByTestId(`appt-${s.patient_mrn}`)).toHaveCount(2);
-  await expect(page.getByTestId('appointments')).toContainText('Added by hand');
   await page.screenshot({ path: 'test-results/reception-appointments.png', fullPage: true });
   await page.getByTestId('sign-out').click();
 
   // The doctor: both appointments wait for tests; history is shown next to the choice.
   await signIn(page, s.doctor_email, s.doctor_totp);
   await expect(page.getByTestId('choose-count')).toHaveText('2');
-  await expect(page.getByTestId('choose-list')).toContainText('Asha Testpatient');
+  // Ravi is not in the app: only the clinic can record him.
+  await page.getByTestId('choose-00012401').click();
+  await expect(page.getByTestId('choose-not-joined')).toBeVisible();
+  await expect(page.getByTestId('choose-home')).toBeDisabled();
+  await expect(page.getByTestId('choose-clinic')).toBeChecked();
+  await expect(page.getByTestId('choose-send')).toHaveText('Add to the clinic queue');
+  await page.getByTestId('choose-send').click();
+  await expect(page.getByTestId('notice')).toContainText('Sent.');
+  await expect(page.getByTestId('choose-count')).toHaveText('1');
+  // Asha: at home and in the clinic.
+  await page.getByTestId(`choose-${s.patient_mrn}`).click();
   await expect(page.getByTestId('choose-history')).toContainText("Parkinson's disease");
   await page.getByTestId('choose-hands').click();
   await expect(page.getByTestId('choose-test-SAW')).not.toBeChecked();
   await page.getByTestId('choose-test-FA').check();
   await page.getByTestId('choose-med').selectOption('OFF');
+  await expect(page.getByTestId('choose-home')).toBeChecked();
+  await page.getByTestId('choose-clinic').check();
   await page.getByTestId('choose-repeat').check();
   await page.getByTestId('choose-days').fill('7');
+  await expect(page.getByTestId('choose-send')).toHaveText(
+    'Send the link and add to the clinic queue',
+  );
   await page.screenshot({ path: 'test-results/doctor-choose-tests.png', fullPage: true });
   await page.getByTestId('choose-send').click();
-  await expect(page.getByTestId('notice')).toContainText('Record link sent');
-  await expect(page.getByTestId('choose-count')).toHaveText('1');
-  // "Same as last time" now offers what was just chosen.
-  await expect(page.getByTestId('choose-last')).toContainText('Finger Tapping');
-  await page.getByTestId('choose-same').click();
-  await expect(page.getByTestId('choose-test-FA')).toBeChecked();
-  await expect(page.getByTestId('choose-test-SAW')).not.toBeChecked();
+  await expect(page.getByTestId('choose-empty')).toBeVisible();
 
   // The patient page: the timeline and the "every N days" plan the doctor asked for.
   await page.getByTestId('nav-myPatients').click();
   await page.getByTestId(`open-${s.patient_mrn}`).click();
+  await expect(page.getByTestId('timeline')).toContainText('At home');
+  await expect(page.getByTestId('timeline')).toContainText('In the clinic');
   await expect(page.getByTestId('timeline-request').first()).toContainText(
     'Finger Tapping, Finger-to-Finger, Forearm Roll, Facial Activation',
   );
-  await expect(page.getByTestId('timeline')).toContainText('Doctor sent record link');
   await expect(page.getByTestId('plan-periodic')).toBeChecked();
   await expect(page.getByTestId('plan-days')).toHaveValue('7');
   await expect(page.getByTestId('plan-until')).toContainText(
@@ -101,19 +110,24 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   );
   await page.getByTestId('sign-out').click();
 
-  // Reception sees the link went out, and who did each step.
+  // Reception sees where each will be recorded, and who did each step.
   await signIn(page, s.desk_email, s.desk_totp);
-  await expect(page.getByTestId('appointments')).toContainText('Doctor sent record link · due');
-  const first = page.getByTestId(`appt-${s.patient_mrn}`).first();
-  await expect(first.getByTestId('appt-last')).toContainText('Record link sent');
-  await expect(first.getByTestId('appt-last')).toContainText('Dr. Rao');
-  await first.getByTestId('appt-history-btn').click();
+  const row = page.getByTestId(`appt-${s.patient_mrn}`).first();
+  await expect(row.getByTestId('appt-where')).toContainText('Home link');
+  await expect(row.getByTestId('appt-where')).toContainText('Clinic queue');
+  await expect(row.getByTestId('appt-stage')).toContainText('Link sent · due');
+  await expect(row.getByTestId('appt-stage')).toContainText('In clinic queue for');
+  await expect(page.getByTestId('appt-00012401').getByTestId('appt-where')).toHaveText(
+    'Clinic queue',
+  );
+  await expect(row.getByTestId('appt-last')).toContainText('Recording asked for');
+  await expect(row.getByTestId('appt-last')).toContainText('Dr. Rao');
+  await row.getByTestId('appt-history-btn').click();
   const hist = page.getByTestId('appt-history');
-  await expect(hist).toContainText('Doctor assigned: Dr. Rao');
-  await expect(hist).toContainText(`Front desk`);
+  await expect(hist).toContainText('Appointment added by hand');
   await expect(hist).toContainText(s.desk_email);
-  await expect(hist).toContainText('Record link sent');
-  await expect(page.getByTestId('appointments')).toContainText('Added by hand · Front desk');
+  await expect(hist).toContainText('Recording asked for (clinic queue)');
+  await expect(hist).toContainText('Recording asked for (home link)');
 
   const scan = scanPlatform(['Asha', 'Testpatient', 'Ravi', 'Samplename', s.patient_mrn]);
   expect(scan.found).toEqual([]);

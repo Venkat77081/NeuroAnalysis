@@ -603,9 +603,7 @@ def connector_access(
     """M14: the connector asks which patients a doctor may see before showing identity, history or
     recordings. Unknown or inactive users, and other hospitals' staff, may see none."""
     from app.assignments import ALL_PATIENTS_ROLES
-    from app.models import PatientAssignment, StaffUser
-
-    from app.models import Operator, RecordingRequest
+    from app.models import Operator, PatientAssignment, RecordingRequest, StaffUser
 
     op = db.get(Operator, body.user_id)
     if op is not None:

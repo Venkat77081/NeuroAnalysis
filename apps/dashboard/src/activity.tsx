@@ -48,6 +48,11 @@ export function describe(t: TFunction, action: string, d: Record<string, unknown
     params.channel = t(`log.channel.${x.channel}`, { defaultValue: x.channel });
   if (typeof x.source === 'string')
     params.source = t(`log.source.${x.source}`, { defaultValue: x.source });
+  if (typeof x.place === 'string')
+    params.place = t(`log.place.${x.place}`, { defaultValue: x.place });
+  else params.place = t('log.place.home');
+  if (typeof x.reason === 'string')
+    params.reason = t(`appts.notDone.${x.reason}`, { defaultValue: x.reason });
   if (Array.isArray(x.tests)) params.tests = x.tests.map((c) => t(`tests.${c}`)).join(', ');
   if (typeof x.due === 'string') params.due = fmtDate(x.due);
   if (typeof x.at === 'string') params.when = fmt(x.at);

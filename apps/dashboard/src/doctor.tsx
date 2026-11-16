@@ -487,10 +487,16 @@ function Timeline({ ncid }: { ncid: string }) {
     <li key={r.id} className="flex flex-col gap-0.5 text-[13px]" data-testid="timeline-request">
       <span>
         {r.kind === 'rerecord' ? t('timeline.rerecord') : t('timeline.link')} ·{' '}
+        {t(`timeline.place.${r.place ?? 'home'}`)} ·{' '}
         {r.tests.map((c) => t(`tests.${c}`)).join(', ')} · {t(`med.${r.med_state}`)}
       </span>
       <span className="text-muted">
-        {t(`timeline.state.${r.state}`, { date: fmtDate(r.due_at) })}
+        {t(`timeline.state.${r.state}`, {
+          date: fmtDate(r.due_at),
+          reason: r.not_done_reason
+            ? t(`appts.notDone.${r.not_done_reason}`, { defaultValue: r.not_done_reason })
+            : '',
+        })}
         {recorded(r.id).map(
           (s) =>
             ` · ${t('timeline.uploaded', { n: s.takes_uploaded, date: fmtDate(s.started_at) })}`,

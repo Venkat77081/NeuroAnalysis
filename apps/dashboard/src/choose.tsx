@@ -134,11 +134,23 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
   const [med, setMed] = useState<'OFF' | 'ON' | 'ANY'>('OFF');
   const [due, setDue] = useState(dayBefore(a.at));
   const [repeat, setRepeat] = useState(false);
+  // Where to record (user, 16 Nov 2026): at home (record link), in the clinic (operator queue), or both.
+  const [home, setHome] = useState(true);
+  const [clinic, setClinic] = useState(false);
+  const [joined, setJoined] = useState<boolean | null>(null);
   const [days, setDays] = useState(7);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
+    call<{ ncid: string; status: string }[]>('GET', '/hospital/patients').then((ps) => {
+      const ok = ps.find((x) => x.ncid === a.ncid)?.status === 'active';
+      setJoined(ok);
+      if (!ok) {
+        setHome(false); // not in the app: only the clinic can record
+        setClinic(true);
+      }
+    }, setError);
     hospital<LiveView>('GET', `/v1/patients/${a.ncid}`).then(setView, setError);
     call<PlatformHistory>('GET', `/hospital/patients/${a.ncid}/history`).then((h) => {
       const reqs = [...h.appointments.flatMap((x) => x.requests), ...h.other_requests]
@@ -160,9 +172,10 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
       await call('POST', `/hospital/appointments/${a.id}/request`, {
         tests,
         med_state: med,
-        // Record by the end of that day (local time).
+        places: [...(home ? ['home'] : []), ...(clinic ? ['clinic'] : [])],
+        // Record by the end of that day (local time); home links only.
         due_at: new Date(`${due}T23:59:00`).toISOString(),
-        ...(repeat ? { repeat_every_days: days } : {}),
+        ...(home && repeat ? { repeat_every_days: days } : {}),
       });
       onSent();
     } catch (e) {
@@ -255,47 +268,106 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
-            {t('choose.recordBy')}
-            <input
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              className="h-11 rounded-xl border border-[#C9CFD8] px-3 font-normal"
-              data-testid="choose-due"
-            />
-          </label>
         </div>
-        <label className="flex min-h-11 flex-wrap items-center gap-2 text-[14px]">
-          <input
-            type="checkbox"
-            checked={repeat}
-            onChange={(e) => setRepeat(e.target.checked)}
-            className="size-5 accent-brand"
-            data-testid="choose-repeat"
-          />
-          {t('choose.repeatA')}
-          <input
-            type="number"
-            min={1}
-            max={90}
-            value={days}
-            aria-label={t('choose.days')}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="h-9 w-16 rounded-lg border border-[#C9CFD8] px-2"
-            data-testid="choose-days"
-          />
-          {t('choose.repeatB')}
-        </label>
-        <p className="text-[13px] leading-[19px] text-muted">{t('choose.reminder')}</p>
+        <fieldset className="flex flex-col gap-2" data-testid="choose-where">
+          <legend className="mb-1.5 text-[14px] font-bold">{t('choose.whereTitle')}</legend>
+          <div
+            className={`flex gap-3 rounded-xl px-4 py-3.5 ${home ? 'border-2 border-brand bg-[#F4F8FC]' : 'border border-[#C9CFD8]'} ${joined === false ? 'opacity-60' : ''}`}
+          >
+            <input
+              type="checkbox"
+              checked={home}
+              disabled={joined === false}
+              onChange={(e) => setHome(e.target.checked)}
+              className="mt-0.5 size-5 accent-brand"
+              id="choose-home"
+              data-testid="choose-home"
+            />
+            <span className="flex flex-1 flex-col gap-2 text-[14px]">
+              <label htmlFor="choose-home">
+                <b>{t('choose.home')}</b> · {t('choose.homeHint')}
+              </label>
+              {joined === false && (
+                <span className="text-[13px] text-warn" data-testid="choose-not-joined">
+                  {t('choose.notJoined')}
+                </span>
+              )}
+              {home && (
+                <span className="flex flex-col gap-2">
+                  <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+                    {t('choose.recordBy')}
+                    <input
+                      type="date"
+                      value={due}
+                      onChange={(e) => setDue(e.target.value)}
+                      className="h-11 rounded-xl border border-[#C9CFD8] px-3 font-normal"
+                      data-testid="choose-due"
+                    />
+                  </label>
+                  <label className="flex min-h-11 flex-wrap items-center gap-2 text-[14px]">
+                    <input
+                      type="checkbox"
+                      checked={repeat}
+                      onChange={(e) => setRepeat(e.target.checked)}
+                      className="size-5 accent-brand"
+                      data-testid="choose-repeat"
+                    />
+                    {t('choose.repeatA')}
+                    <input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={days}
+                      aria-label={t('choose.days')}
+                      onChange={(e) => setDays(Number(e.target.value))}
+                      className="h-9 w-16 rounded-lg border border-[#C9CFD8] px-2"
+                      data-testid="choose-days"
+                    />
+                    {t('choose.repeatB')}
+                  </label>
+                  <span className="text-[13px] text-muted">{t('choose.reminder')}</span>
+                </span>
+              )}
+            </span>
+          </div>
+          <div
+            className={`flex gap-3 rounded-xl px-4 py-3.5 ${clinic ? 'border-2 border-brand bg-[#F4F8FC]' : 'border border-[#C9CFD8]'}`}
+          >
+            <input
+              type="checkbox"
+              checked={clinic}
+              onChange={(e) => setClinic(e.target.checked)}
+              className="mt-0.5 size-5 accent-brand"
+              id="choose-clinic"
+              data-testid="choose-clinic"
+            />
+            <span className="flex flex-col gap-1 text-[14px]">
+              <label htmlFor="choose-clinic">
+                <b>{t('choose.clinic')}</b> · {t('choose.clinicHint')}
+              </label>
+              <span className="text-[13px] text-muted">
+                {t('choose.clinicWhen', { date: fmtDate(a.at) })}
+              </span>
+            </span>
+          </div>
+        </fieldset>
         <ErrorNote error={error} />
         <Button
           className="self-start"
-          disabled={busy || tests.length === 0 || !due || (repeat && (days < 1 || days > 90))}
+          disabled={
+            busy ||
+            tests.length === 0 ||
+            (!home && !clinic) ||
+            (home && (!due || (repeat && (days < 1 || days > 90))))
+          }
           onClick={() => void send()}
           data-testid="choose-send"
         >
-          {t('choose.send')}
+          {home && clinic
+            ? t('choose.sendBoth')
+            : clinic
+              ? t('choose.sendClinic')
+              : t('choose.send')}
         </Button>
       </Card>
     </div>

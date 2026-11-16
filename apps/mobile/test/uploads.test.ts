@@ -29,6 +29,8 @@ import {
 } from '../src/session/machine.ts';
 import { startSession } from '../src/session/persist.ts';
 
+const OK = { effective_fps: 60, ran_at: '2026-11-16T09:00:00Z' };
+
 const config = loadConfig();
 const at = '2026-11-14T10:00:00Z';
 const input: SessionInput = {
@@ -233,12 +235,18 @@ describe('upload glue (M7)', () => {
     const kit = await kitWithTakes(['tk-ft2', 'tk-fa1']);
     const srv = kit.fakeServer;
     await expect(
-      enroll(kit, 'fake://api', 'WRONG-CODE', { model: 'x', osVersion: '1' }),
+      enroll(kit, 'fake://api', 'WRONG-CODE', { model: 'x', osVersion: '1' }, OK),
     ).rejects.toMatchObject({ code: 'bad_code' });
-    const link = await enroll(kit, 'fake://api/', srv.enrollmentCode, {
-      model: 'x',
-      osVersion: '1',
-    });
+    const link = await enroll(
+      kit,
+      'fake://api/',
+      srv.enrollmentCode,
+      {
+        model: 'x',
+        osVersion: '1',
+      },
+      OK,
+    );
     expect(link.endpoint).toBe('fake://api');
     const prefs = { wifiOnly: false, retentionHours: 24 };
     await expect(signIn(kit, link, 'OP-07', '0000', prefs)).rejects.toBeInstanceOf(ServerError);
@@ -263,10 +271,16 @@ describe('upload glue (M7)', () => {
   it('a session with nothing accepted or kept queues nothing', async () => {
     const a = startSession(input);
     const kit = await kitWithTakes([]);
-    const link = await enroll(kit, 'fake://api', kit.fakeServer.enrollmentCode, {
-      model: 'x',
-      osVersion: '1',
-    });
+    const link = await enroll(
+      kit,
+      'fake://api',
+      kit.fakeServer.enrollmentCode,
+      {
+        model: 'x',
+        osVersion: '1',
+      },
+      OK,
+    );
     expect(await queueSession(kit, a.getSnapshot().context, link, config, at)).toEqual([]);
   });
 });

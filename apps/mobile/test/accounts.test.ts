@@ -13,6 +13,8 @@ import {
 } from '../src/lib/accounts.ts';
 import { enroll } from '../src/lib/uploads.ts';
 
+const OK = { effective_fps: 60, ran_at: '2026-11-16T09:00:00Z' };
+
 const prefs = { wifiOnly: false, retentionHours: 24 };
 
 describe('accounts (M13)', () => {
@@ -38,6 +40,7 @@ describe('accounts (M13)', () => {
       { model: 'm', osVersion: '1' },
       prefs,
       () => 'default',
+      OK,
     );
     expect(out.ncid).toMatch(/^nc_/);
     expect(JSON.stringify(out)).not.toContain('at-'); // no access token handed to the app
@@ -51,10 +54,16 @@ describe('accounts (M13)', () => {
 
   it('operator: password sign-in, forced change, NCID from the connector', async () => {
     const kit = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] });
-    const link = await enroll(kit, 'fake://api', kit.fakeServer.enrollmentCode, {
-      model: 'm',
-      osVersion: '1',
-    });
+    const link = await enroll(
+      kit,
+      'fake://api',
+      kit.fakeServer.enrollmentCode,
+      {
+        model: 'm',
+        osVersion: '1',
+      },
+      OK,
+    );
     await expect(operatorSignIn(kit, link, 'OP-NEW', 'wrong', prefs)).rejects.toMatchObject({
       code: 'bad_login',
     });

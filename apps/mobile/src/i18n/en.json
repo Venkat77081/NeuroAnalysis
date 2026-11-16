@@ -492,7 +492,8 @@
       "network": "Cannot reach the server. Check the address and the network.",
       "bad_code": "This enrollment code was not accepted.",
       "bad_login": "Operator code or PIN is wrong.",
-      "server": "The server had a problem. Try again later."
+      "server": "The server had a problem. Try again later.",
+      "camera_check_failed": "Camera check failed: this phone records too few frames a second. Use another phone; the code was not used."
     },
     "state": {
       "queued": "Waiting to upload",
@@ -650,7 +651,8 @@
       "no_hospital_key": "Your hospital has not finished setting up recordings yet.",
       "generic": "Something went wrong. Try again.",
       "account_locked": "Too many wrong passwords. Ask your hospital admin to unlock your account.",
-      "not_permitted": "Clinic recording is switched off for your hospital. Ask your hospital admin."
+      "not_permitted": "Clinic recording is switched off for your hospital. Ask your hospital admin.",
+      "camera_check_failed": "The server says this phone did not pass the camera check. Run the check again."
     },
     "hospitals": {
       "title": "My hospitals and clinics",
@@ -703,6 +705,35 @@
       "open": "Open the camera",
       "notNow": "Not now",
       "every": "Asked every session. Ticking it is saved with this session only."
+    },
+    "deviceCheck": {
+      "step": "Step 1 of 2 · Camera check",
+      "step2": "Step 2 · Register with your hospital",
+      "checking": "Checking this phone",
+      "patientTitle": "First, a quick camera check",
+      "hint": {
+        "clinic": "Recordings need 60 frames a second. This takes about {{s}} seconds. Point the camera at the room and keep the phone still.",
+        "patient": "We check that this phone can record smooth video (about {{s}} seconds). Point the back camera at the room and keep the phone still. Nothing is recorded or sent."
+      },
+      "live": "Back camera · 1080p · {{fps}} fps so far",
+      "notUsed": {
+        "clinic": "The registration code is not used until the check passes.",
+        "patient": "Your invite is not used until you join."
+      },
+      "passTitle": "This phone can record",
+      "passFps": "Back camera: {{fps}} fps",
+      "borderline": "This phone can record, but some takes may need to be repeated (recordings need {{take}} frames a second).",
+      "failTitle": "This phone cannot record well enough",
+      "failFps": "It records {{fps}} frames a second; it needs {{min}} or more.",
+      "failClinic": "Use another phone. Your registration code was not used: it still works on another phone until it expires.",
+      "stillTakePart": "You can still take part:",
+      "otherPhone": "Use another phone (a family member's): open the same invite there. It still works.",
+      "atClinic": "Be recorded at the clinic at your next visit.",
+      "tell": "Tell my hospital",
+      "tellHint": "Optional: the hospital sees \"Phone not suitable\" on your record, so your doctor can choose clinic recording. Only the phone model and the result are sent.",
+      "told": "{{hospital}} has been told. Your invite still works on another phone.",
+      "again": "Run the check again",
+      "error": "The camera check could not run. Close other apps that use the camera and try again."
     }
   },
   "clinicQueue": {

@@ -5,8 +5,10 @@ import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
 import { changePassword, errorCode, operatorSignIn } from '../../lib/accounts.ts';
 import { enroll, uploadPrefs } from '../../lib/uploads.ts';
+import type { DeviceCheckResult } from '../../lib/devicecheck.ts';
 import { Button } from '../../ui/kit.tsx';
 import { attempt, ErrorText, Field, Screen } from './Common.tsx';
+import { DeviceCheck } from './DeviceCheck.tsx';
 
 export function ClinicSetup({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
@@ -17,12 +19,21 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Decision 035: the code is asked for (and used) only after the camera check passes.
+  const [check, setCheck] = useState<DeviceCheckResult | null>(null);
+  const passed = !!check && check.outcome !== 'fail';
   const submit = () =>
     attempt(setBusy, setError, async () => {
-      const link = await enroll(capture.kit, endpoint, code, {
-        model: caps?.device.model ?? 'unknown',
-        osVersion: caps?.device.osVersion ?? 'unknown',
-      });
+      const link = await enroll(
+        capture.kit,
+        endpoint,
+        code,
+        {
+          model: caps?.device.model ?? 'unknown',
+          osVersion: caps?.device.osVersion ?? 'unknown',
+        },
+        check!.check,
+      );
       await capture.kit.lockAppMode({ mode: 'clinic' }); // from now on: operator mode only
       await saveSettings({ ...settings, server: link, signedIn: null, localDev: false });
       onDone();
@@ -30,30 +41,36 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
   return (
     <Screen title={t('modes.clinicSetup.title')}>
       <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('modes.clinicSetup.hint')}</p>
-      <Field
-        id="clinic-server"
-        label={t('modes.clinicSetup.server')}
-        value={endpoint}
-        onChange={(e) => setEndpoint(e.target.value)}
-        inputMode="url"
-        data-testid="clinic-server"
-      />
-      <Field
-        id="clinic-code"
-        label={t('modes.clinicSetup.code')}
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        autoCapitalize="characters"
-        data-testid="clinic-code"
-      />
-      <ErrorText code={error} />
-      <Button
-        disabled={busy || !endpoint || code.trim().length < 6}
-        onClick={() => void submit()}
-        data-testid="clinic-register"
-      >
-        {t('modes.clinicSetup.register')}
-      </Button>
+      <DeviceCheck who="clinic" onResult={setCheck} />
+      {passed && (
+        <>
+          <h2 className="text-[17px] font-bold">{t('modes.deviceCheck.step2')}</h2>
+          <Field
+            id="clinic-server"
+            label={t('modes.clinicSetup.server')}
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            inputMode="url"
+            data-testid="clinic-server"
+          />
+          <Field
+            id="clinic-code"
+            label={t('modes.clinicSetup.code')}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            autoCapitalize="characters"
+            data-testid="clinic-code"
+          />
+          <ErrorText code={error} />
+          <Button
+            disabled={busy || !endpoint || code.trim().length < 6}
+            onClick={() => void submit()}
+            data-testid="clinic-register"
+          >
+            {t('modes.clinicSetup.register')}
+          </Button>
+        </>
+      )}
     </Screen>
   );
 }

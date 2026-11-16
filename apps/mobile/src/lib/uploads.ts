@@ -13,6 +13,7 @@ import {
   type Http,
   type UploadConfig,
 } from '@neurocapture/capture-kit';
+import type { CameraCheck } from './devicecheck.ts';
 import type { LoadedConfig } from './config.ts';
 import { APP_VERSION } from './evidence.ts';
 import {
@@ -41,7 +42,7 @@ export interface SignedIn {
 
 export class ServerError extends Error {
   constructor(
-    readonly code: 'network' | 'bad_code' | 'bad_login' | 'server',
+    readonly code: 'network' | 'bad_code' | 'bad_login' | 'server' | 'camera_check_failed',
     message: string = code,
   ) {
     super(message);
@@ -77,6 +78,18 @@ async function post(http: Http, url: string, body: unknown) {
   }
 }
 
+/** A 422 from the server about the camera check (decision 035) becomes `camera_check_failed`. */
+export async function throwIfCameraCheck(r: { json(): Promise<unknown> }): Promise<void> {
+  let code: unknown;
+  try {
+    code = ((await r.json()) as { detail?: { code?: unknown } }).detail?.code;
+  } catch {
+    return;
+  }
+  if (code === 'camera_check_failed' || code === 'camera_check_required')
+    throw new ServerError('camera_check_failed');
+}
+
 const trimSlash = (s: string) => s.trim().replace(/\/+$/, '');
 
 /** Register this phone with a site (one-time enrollment code from the site admin). */
@@ -85,13 +98,16 @@ export async function enroll(
   endpoint: string,
   enrollmentCode: string,
   device: { model: string; osVersion: string },
+  cameraCheck: CameraCheck,
 ): Promise<ServerLink> {
   const base = trimSlash(endpoint);
   const r = await post(httpFor(kit, base), `${base}/auth/device-register`, {
     enrollment_code: enrollmentCode.trim(),
     model: device.model.slice(0, 100),
     os_version: device.osVersion.slice(0, 50),
+    camera_check: cameraCheck,
   });
+  if (r.status === 422) await throwIfCameraCheck(r);
   if (r.status === 401 || r.status === 403 || r.status === 404 || r.status === 422)
     throw new ServerError('bad_code');
   if (r.status >= 300) throw new ServerError('server', `HTTP ${r.status}`);

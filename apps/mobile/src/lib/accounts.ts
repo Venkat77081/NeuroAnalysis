@@ -7,7 +7,15 @@
  * (`apiRequest`). The MRN typed on a clinic phone goes to the hospital connector only.
  */
 import type { CaptureKitPlugin } from '@neurocapture/capture-kit';
-import { httpFor, ServerError, uploadConfig, type ServerLink, type SignedIn } from './uploads.ts';
+import {
+  httpFor,
+  ServerError,
+  throwIfCameraCheck,
+  uploadConfig,
+  type ServerLink,
+  type SignedIn,
+} from './uploads.ts';
+import type { CameraCheck } from './devicecheck.ts';
 
 const trimSlash = (s: string) => s.trim().replace(/\/+$/, '');
 
@@ -163,6 +171,27 @@ export async function lookupInvite(
 }
 
 /**
+ * "Tell my hospital" (decision 035): this phone failed the camera check. Sends only the phone
+ * model and the measured fps; the invite stays valid (another phone can still use it).
+ */
+export async function phoneNotSuitable(
+  kit: CaptureKitPlugin,
+  endpoint: string,
+  token: string,
+  model: string,
+  cameraCheck: CameraCheck,
+): Promise<void> {
+  const base = trimSlash(endpoint);
+  const r = await postJson(kit, base, '/patient/invite/phone-not-suitable', {
+    token,
+    model: model.slice(0, 100),
+    camera_check: cameraCheck,
+  });
+  if (r.status === 403) throw new ServerError('bad_code');
+  if (r.status >= 300) throw new ServerError('server', `HTTP ${r.status}`);
+}
+
+/**
  * Joins a hospital (v3: no consent here; it is asked before each recording). `profile` picks the
  * CaptureKit upload profile from the site ID the server returns (see lib/hospitals.ts).
  */
@@ -174,6 +203,7 @@ export async function acceptInvite(
   device: { model: string; osVersion: string },
   prefs: { wifiOnly: boolean; retentionHours: number },
   profile: (siteId: string) => string,
+  cameraCheck: CameraCheck,
 ): Promise<{ link: ServerLink; hospital: string; ncid: string; profile: string }> {
   const base = trimSlash(endpoint);
   const r = await postJson(kit, base, '/patient/invite/accept', {
@@ -181,9 +211,13 @@ export async function acceptInvite(
     pin,
     model: device.model.slice(0, 100),
     os_version: device.osVersion.slice(0, 50),
+    camera_check: cameraCheck,
   });
   if (r.status === 403) throw new ServerError('bad_code');
-  if (r.status === 422) throw new Error('pin_format');
+  if (r.status === 422) {
+    await throwIfCameraCheck(r);
+    throw new Error('pin_format');
+  }
   if (r.status >= 300) throw new ServerError('server', `HTTP ${r.status}`);
   const b = (await r.json()) as {
     device_id: string;

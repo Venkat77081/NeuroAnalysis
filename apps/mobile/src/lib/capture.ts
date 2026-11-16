@@ -46,3 +46,7 @@ if (capture.kit instanceof MockCaptureKit && freeGb > 0) capture.kit.freeBytes =
 // Mock mode only: e2e tests reach the mock (e.g. simulateBackground) through this handle.
 if (capture.implementation === 'mock')
   (globalThis as { __ncMock?: unknown }).__ncMock = capture.kit;
+
+/** `?benchFps=48` makes the mock's camera check measure 48 fps (device-check e2e). */
+const benchFps = Number(params.get('benchFps'));
+if (capture.kit instanceof MockCaptureKit && benchFps > 0) capture.kit.benchmarkFps = benchFps;

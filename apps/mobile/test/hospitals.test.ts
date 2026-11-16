@@ -14,6 +14,8 @@ import {
 } from '../src/lib/hospitals.ts';
 import { defaultSettings, type Settings } from '../src/data/repo.ts';
 
+const OK = { effective_fps: 60, ran_at: '2026-11-16T09:00:00Z' };
+
 const prefs = { wifiOnly: false, retentionHours: 24 };
 
 async function join(kit: MockCaptureKit, s: Settings, link: string, pin = '2580') {
@@ -26,6 +28,7 @@ async function join(kit: MockCaptureKit, s: Settings, link: string, pin = '2580'
     { model: 'm', osVersion: '1' },
     prefs,
     (site) => profileFor(known, site),
+    OK,
   );
   const h: PatientHospital = {
     profile: out.profile,

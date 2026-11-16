@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../app/AppContext.tsx';
 import { capture } from '../lib/capture.ts';
+import { runDeviceCheck } from '../lib/devicecheck.ts';
 import { logger } from '../lib/logger.ts';
 import {
   enroll,
@@ -56,10 +57,19 @@ export function UploadSetup({ onClose }: { onClose: () => void }) {
 
   const doEnroll = () =>
     run(async () => {
-      const link: ServerLink = await enroll(capture.kit, endpoint, code, {
-        model: caps?.device.model ?? 'unknown',
-        osVersion: caps?.device.osVersion ?? 'unknown',
-      });
+      // Decision 035: the same camera check as clinic set-up, run before the code is sent.
+      const check = await runDeviceCheck(capture.kit, config.platform.deviceCheck);
+      if (check.outcome === 'fail') throw new ServerError('camera_check_failed');
+      const link: ServerLink = await enroll(
+        capture.kit,
+        endpoint,
+        code,
+        {
+          model: caps?.device.model ?? 'unknown',
+          osVersion: caps?.device.osVersion ?? 'unknown',
+        },
+        check.check,
+      );
       setCode('');
       await saveSettings({ ...settings, server: link, signedIn: null });
     });

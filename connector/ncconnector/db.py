@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String, create_engine
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, TypeDecorator, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -15,6 +15,23 @@ def now() -> datetime:
     return datetime.now(UTC)
 
 
+class UTCDateTime(TypeDecorator):
+    """Stored in UTC, always read back with its time zone (SQLite drops it; same as the platform)."""
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None and value.tzinfo is not None:
+            return value.astimezone(UTC)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -23,7 +40,7 @@ class NcidMap(Base):
     __tablename__ = "nc_ncid_map"
     ncid: Mapped[str] = mapped_column(String(40), primary_key=True)
     mrn: Mapped[str] = mapped_column(String(64), unique=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     #: Platform user ID of the staff member (no names).
     created_by: Mapped[str | None] = mapped_column(String(32))
 
@@ -33,7 +50,7 @@ class ActivityLog(Base):
 
     __tablename__ = "nc_activity_log"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     actor_type: Mapped[str] = mapped_column(String(20))
     actor_id: Mapped[str | None] = mapped_column(String(64))
     action: Mapped[str] = mapped_column(String(50))
@@ -46,7 +63,7 @@ class UsedNonce(Base):
 
     __tablename__ = "nc_used_nonces"
     nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
-    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    seen_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now, index=True)
 
 
 class Review(Base):
@@ -60,7 +77,7 @@ class Review(Base):
     usable: Mapped[bool] = mapped_column(Boolean)
     note: Mapped[str | None] = mapped_column(String(2000))
     reviewer_id: Mapped[str] = mapped_column(String(64))
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class LogSpool(Base):
@@ -70,7 +87,7 @@ class LogSpool(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
     payload: Mapped[dict] = mapped_column(JSON)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 @lru_cache

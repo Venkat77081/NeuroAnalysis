@@ -8,11 +8,41 @@ they are accounts, not patient data.
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    TypeDecorator,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 Json = JSON().with_variant(JSONB(), "postgresql")
+
+
+class UTCDateTime(TypeDecorator):
+    """A point in time, stored in UTC and always read back with its time zone. PostgreSQL keeps the
+    zone itself; SQLite (tests, the local test stack) drops it, which made the API send times without
+    a zone and browsers show them as local time."""
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None and value.tzinfo is not None:
+            return value.astimezone(UTC)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
 
 
 def now() -> datetime:
@@ -48,7 +78,7 @@ class Site(Base):
     connector_public_key: Mapped[str | None] = mapped_column(Text)
     #: Last health check: {"records": "pass", ...} — pass/fail only, never data.
     connector_check: Mapped[dict | None] = mapped_column(Json)
-    connector_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    connector_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     # M12: where this hospital's recordings are stored. managed = NeuroCapture storage, separated
     # per hospital; s3 = the hospital's own bucket through an upload-only role.
     storage_kind: Mapped[str] = mapped_column(String(10), default="managed")
@@ -57,12 +87,12 @@ class Site(Base):
     #: ExternalId the hospital puts in its role's trust policy (generated here, not a secret).
     storage_external_id: Mapped[str | None] = mapped_column(String(64))
     storage_check: Mapped[dict | None] = mapped_column(Json)
-    storage_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    storage_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     #: Decision 033: {permission: [roles]} where this hospital differs from config/platform.json.
     permissions: Mapped[dict | None] = mapped_column(Json)
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
-    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    onboarded_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class Operator(Base):
@@ -100,9 +130,9 @@ class Device(Base):
     label: Mapped[str | None] = mapped_column(String(60))
     #: Camera check before the phone was added (user, 16 Nov 2026): measured frames per second.
     check_fps: Mapped[float | None] = mapped_column(Float)
-    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    registered_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class RefreshToken(Base):
@@ -111,7 +141,7 @@ class RefreshToken(Base):
     operator_id: Mapped[str] = mapped_column(ForeignKey("operators.id"))
     device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
@@ -138,14 +168,14 @@ class Session(Base):
     operator_id: Mapped[str | None] = mapped_column(ForeignKey("operators.id"))
     recorded_by: Mapped[str] = mapped_column(String(10), default="operator")  # operator | patient
     device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"))
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    ended_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     aborted: Mapped[dict | None] = mapped_column(Json)
     med_state: Mapped[str] = mapped_column(String(3))
     app_version: Mapped[str] = mapped_column(String(20))
     config_versions: Mapped[dict] = mapped_column(Json)
     consent_version: Mapped[str] = mapped_column(String(50))
-    consent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consent_at: Mapped[datetime] = mapped_column(UTCDateTime())
     #: M12: the hospital key the phone must wrap this session's take keys with (null = pre-M12).
     key_id: Mapped[str | None] = mapped_column(String(50))
     #: v3: the recording request this session answers (home recording before an appointment).
@@ -173,8 +203,8 @@ class Take(Base):
     key_id: Mapped[str] = mapped_column(String(50))
     status: Mapped[str] = mapped_column(String(10), default="pending")  # pending|uploading|complete|failed
     checksums: Mapped[dict] = mapped_column(Json, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    uploaded_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     __table_args__ = (UniqueConstraint("session_id", "client_take_id"),)
 
 
@@ -187,7 +217,7 @@ class TakeFile(Base):
     upload_id: Mapped[str | None] = mapped_column(String(300))
     size_bytes: Mapped[int] = mapped_column(Integer)
     sha256: Mapped[str] = mapped_column(String(64))
-    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    uploaded_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     #: M12: where the object lives (null = platform storage). Snapshot taken when the take is created.
     location: Mapped[dict | None] = mapped_column(Json)
     #: SHA-256 checked: True/False; None = not yet (hospital bucket: the connector checks on first read).
@@ -207,7 +237,7 @@ class BiomarkerRun(Base):
     status: Mapped[str] = mapped_column(String(10))  # ready | error
     readiness: Mapped[dict] = mapped_column(Json)
     results: Mapped[dict | None] = mapped_column(Json)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class SiteKey(Base):
@@ -221,8 +251,8 @@ class SiteKey(Base):
     #: SHA-256 of the DER public key (hex), shown in the dashboard to compare with the connector.
     fingerprint: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(10), default="active")  # active | retired
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class RecordingPlan(Base):
@@ -234,14 +264,14 @@ class RecordingPlan(Base):
     every_days: Mapped[int] = mapped_column(Integer)
     med_state: Mapped[str] = mapped_column(String(3))  # OFF | ON | ANY
     updated_by: Mapped[str] = mapped_column(String(32))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     #: v3: the doctor asked for recording every `every_days` days (otherwise appointments only).
     periodic: Mapped[bool] = mapped_column(Boolean, default=False)
     #: v3: when the doctor turned periodic recording on. It ends at the patient's first booked
     #: appointment after this time ("until the next appointment").
-    periodic_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    periodic_since: Mapped[datetime | None] = mapped_column(UTCDateTime())
     #: M14: the doctor asked for a new recording (due at once until the patient records again).
-    rerecord_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rerecord_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     rerecord_tests: Mapped[list | None] = mapped_column(Json)
 
 
@@ -253,9 +283,9 @@ class DeletionRequest(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"))
-    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    requested_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     status: Mapped[str] = mapped_column(String(10), default="pending")  # pending | done
-    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    done_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     done_by: Mapped[str | None] = mapped_column(String(32))
 
 
@@ -267,7 +297,7 @@ class PatientAssignment(Base):
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), primary_key=True)
     doctor_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"), index=True)
     assigned_by: Mapped[str] = mapped_column(String(32))
-    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    assigned_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class UsedNonce(Base):
@@ -276,7 +306,7 @@ class UsedNonce(Base):
     __tablename__ = "used_nonces"
     nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
     signer: Mapped[str] = mapped_column(String(64))
-    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    seen_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now, index=True)
 
 
 class StaffUser(Base):
@@ -297,10 +327,10 @@ class StaffUser(Base):
     #: admin unlocks it.
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)
     invite_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
-    invite_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    invite_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     created_by: Mapped[str | None] = mapped_column(String(32))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class StaffRefreshToken(Base):
@@ -308,7 +338,7 @@ class StaffRefreshToken(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     user_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
@@ -321,8 +351,8 @@ class DeviceEnrollment(Base):
     code_hash: Mapped[str] = mapped_column(String(64), unique=True)
     label: Mapped[str | None] = mapped_column(String(60))
     created_by: Mapped[str] = mapped_column(String(32))
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     device_id: Mapped[str | None] = mapped_column(String(32))
 
 
@@ -335,20 +365,20 @@ class PatientAccount(Base):
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), unique=True)
     status: Mapped[str] = mapped_column(String(10), default="invited")  # invited | active | locked | closed
     invite_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
-    invite_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    invite_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     invite_channel: Mapped[str | None] = mapped_column(String(10))  # email | sms | print
     pin_hash: Mapped[str | None] = mapped_column(String(200))
     failed_pins: Mapped[int] = mapped_column(Integer, default=0)
     device_id: Mapped[str | None] = mapped_column(ForeignKey("devices.id"))
     consent_version: Mapped[str | None] = mapped_column(String(50))
-    consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    consent_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     created_by: Mapped[str | None] = mapped_column(String(32))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     #: v3: when the patient withdrew from this hospital (status closed). Cleared on re-joining.
-    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    withdrawn_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     #: The patient's phone failed the camera check and they told the hospital (record in clinic).
     camera_failed_fps: Mapped[float | None] = mapped_column(Float)
-    camera_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    camera_failed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class Appointment(Base):
@@ -359,14 +389,14 @@ class Appointment(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    at: Mapped[datetime] = mapped_column(UTCDateTime())
     doctor_id: Mapped[str | None] = mapped_column(ForeignKey("staff_users.id"))
     source: Mapped[str] = mapped_column(String(6))  # fhir | manual
     #: SHA-256 of the hospital's appointment ID (FHIR), to avoid duplicates.
     external_ref_hash: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(10), default="booked")  # booked | cancelled
     created_by: Mapped[str] = mapped_column(String(32))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     __table_args__ = (UniqueConstraint("site_id", "external_ref_hash"),)
 
 
@@ -382,9 +412,9 @@ class RecordingRequest(Base):
     kind: Mapped[str] = mapped_column(String(10), default="appointment")  # appointment | rerecord
     tests: Mapped[list] = mapped_column(Json)
     med_state: Mapped[str] = mapped_column(String(3))  # OFF | ON | ANY
-    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    due_at: Mapped[datetime] = mapped_column(UTCDateTime())
     remind: Mapped[bool] = mapped_column(Boolean, default=True)
-    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     status: Mapped[str] = mapped_column(String(10), default="open")  # open | cancelled | not_done
     #: home = record link in the patient's app; clinic = the clinic phones' queue (user, 16 Nov 2026).
     place: Mapped[str] = mapped_column(String(6), default="home")
@@ -392,7 +422,7 @@ class RecordingRequest(Base):
     not_done_reason: Mapped[str | None] = mapped_column(String(30))
     not_done_by: Mapped[str | None] = mapped_column(String(32))
     created_by: Mapped[str] = mapped_column(String(32))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class PatientRefreshToken(Base):
@@ -401,7 +431,7 @@ class PatientRefreshToken(Base):
     account_id: Mapped[str] = mapped_column(ForeignKey("patient_accounts.id"))
     device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
@@ -415,5 +445,5 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String(50))
     target_type: Mapped[str | None] = mapped_column(String(20))
     target_id: Mapped[str | None] = mapped_column(String(32))
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     details: Mapped[dict | None] = mapped_column(Json)

@@ -35,6 +35,17 @@
     where clinic recording is already the only choice for a patient who has not joined.
   - Joining later with a phone that passes clears it.
 
+- **Phones list: "In use (last 30 days)"** (`deviceCheck.usageDays`; user, 16 Nov 2026: "build
+  the takes column too").
+  - Shows the takes recorded on each clinic phone, and how many were below 59 fps
+    (`warnBelowFps`). Retakes are included.
+  - When a session closes, the app sends `attempt_fps`, the measured fps of every take recorded
+    (numbers only, stored as `sessions.attempt_fps`, migration 0017). Retaken takes are never
+    uploaded, so this is the only way to count them.
+  - Sessions from apps that do not send `attempt_fps` count their uploaded takes instead
+    (`fpsEffective` in each take's quality report).
+  - The borderline band stays (user: "keep borderline").
+
 ## Why
 
 A phone that cannot reach 55 fps would fail almost every take. Checking before the code or invite

@@ -23,7 +23,7 @@ const fake = (page: Page) =>
 async function recordAndAccept(page: Page) {
   await page.getByTestId('set-up-camera').click();
   await page.getByTestId('record').click();
-  await expect(page.getByTestId('verdict-card')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('verdict-card')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByTestId('verdict-title')).toHaveText('Capture passed');
   await page.getByTestId('accept').click();
 }

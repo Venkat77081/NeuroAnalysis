@@ -161,6 +161,8 @@ test('v3: join → record link → consent → home session; second hospital; wi
 
 test('an invite link opens straight to the PIN screen; the app opens locked', async ({ page }) => {
   await page.goto(URL);
+  // The app listens for links once it has loaded (a link sent earlier is missed on a slow machine).
+  await expect(page.getByTestId('role-patient')).toBeVisible();
   const { link } = await fake(page);
   await page.evaluate(
     (l) => globalThis.dispatchEvent(new CustomEvent('nc:invite', { detail: l })),

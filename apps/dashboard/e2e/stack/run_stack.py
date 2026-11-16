@@ -13,10 +13,12 @@ exactly as phones and the connector use them.
 """
 
 import argparse
+import atexit
 import hashlib
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -41,6 +43,11 @@ def wait(url: str, timeout: float = 30) -> None:
             pass
         time.sleep(0.2)
     raise RuntimeError(f"{url} did not start")
+
+
+def _in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sk:
+        return sk.connect_ex(("127.0.0.1", port)) == 0
 
 
 def summary(o: dict) -> str:
@@ -82,10 +89,23 @@ def main() -> None:
     bind = "0.0.0.0" if args.lan else "127.0.0.1"  # noqa: S104 - opt-in, for a phone on the LAN
     # The dashboard (localhost:5174) and the phone app's WebView (https://localhost) call from a browser.
     origins = f"{ORIGIN},https://localhost,http://localhost"
+    busy = [port for port in (P_PORT, C_PORT, F_PORT) if _in_use(port)]
+    if busy:
+        raise SystemExit(
+            f"Port(s) {', '.join(map(str, busy))} already in use: an earlier test stack is still "
+            "running. Stop it (Ctrl+C in its window; on Windows also `taskkill /F /IM python.exe`), "
+            "then run this again."
+        )
     work.mkdir(parents=True, exist_ok=True)
     for f in work.glob("*"):
         if f.is_file():
-            f.unlink()
+            try:
+                f.unlink()
+            except PermissionError:
+                raise SystemExit(
+                    f"{f} is in use by another program (an earlier test stack?). Stop it "
+                    "(on Windows: `taskkill /F /IM python.exe`), or use another --dir."
+                ) from None
     (work / "store").mkdir(exist_ok=True)
     (work / "take-keys").mkdir(exist_ok=True)
 
@@ -186,13 +206,27 @@ def main() -> None:
         ),
     ]
 
-    def stop(*_):
+    def end_servers() -> None:
         for p in procs:
-            p.terminate()
+            if p.poll() is None:
+                p.terminate()
+        for p in procs:
+            try:
+                p.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                p.kill()
+
+    # Servers stop with this script however it ends (Ctrl+C, an error, the window closing).
+    atexit.register(end_servers)
+
+    def stop(*_):
+        end_servers()
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    if hasattr(signal, "SIGBREAK"):  # Windows: closing the console window, Ctrl+Break
+        signal.signal(signal.SIGBREAK, stop)
     wait(f"http://127.0.0.1:{P_PORT}/health")
     wait(f"http://127.0.0.1:{F_PORT}/fhir/Patient")
     wait(f"http://127.0.0.1:{C_PORT}/health")

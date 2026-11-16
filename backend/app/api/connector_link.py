@@ -453,6 +453,34 @@ class AppointmentInfoOut(BaseModel):
     status: str
 
 
+class MessagingStatusIn(BaseModel):
+    """Decision 042: whether the connector's e-mail and SMS work. Never the settings."""
+
+    email: Literal["working", "failing", "off"]
+    sms: Literal["working", "failing", "off"]
+
+
+@router.post("/connector/v1/messaging/status", status_code=204)
+def connector_messaging_status(
+    body: MessagingStatusIn,
+    site: Site = Depends(signed_connector),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> None:
+    site.messaging_status = {"email": body.email, "sms": body.sms, "at": datetime.now(UTC).isoformat()}
+    audit(
+        db,
+        "connector",
+        site.id,
+        "messaging_status",
+        "site",
+        site.id,
+        site_id=site.id,
+        email=body.email,
+        sms=body.sms,
+    )
+    db.commit()
+
+
 @router.get("/connector/v1/appointments/{appt_id}", response_model=AppointmentInfoOut)
 def connector_appointment(
     appt_id: str,

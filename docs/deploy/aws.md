@@ -388,6 +388,20 @@ If the hospital uses AWS:
    "Not sent" means the mail or SMS settings were refused; the connector log says which (by type,
    never the address).
 
+## Step 13 (optional): Hospitals on Azure keep recordings in their own Blob container
+
+The platform can run on AWS and still let a hospital keep its recordings in **its own Azure Blob
+container**, write-only for NeuroCapture (decision 037):
+
+1. Create a multitenant app registration in a Microsoft Entra tenant you own, with a client
+   secret.
+2. Store the secret: `aws secretsmanager create-secret --name nc/azure-client-secret --secret-string '<secret>'`.
+3. Add `NC_AZURE_CLIENT_ID=<application id>` to `api.env`, and
+   `-e NC_AZURE_CLIENT_SECRET="$(s nc/azure-client-secret)"` to `start-api.sh`.
+4. Restart the API.
+
+The hospital's steps are in [`azure.md`](azure.md) step 12 and in the dashboard.
+
 ## Costs (rough, ap-south-1, on-demand, before tax)
 
 | Item                               | Pilot (1 hospital)                     |

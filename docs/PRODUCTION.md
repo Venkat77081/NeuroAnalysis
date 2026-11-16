@@ -82,13 +82,13 @@ The rest of this guide is the cloud-neutral reference they build on.
 Any cloud or a hospital-grade data centre works. The code defaults to AWS **ap-south-1
 (Mumbai)**, which keeps data in India. A simple, sensible production layout:
 
-| Part              | Recommended                                                                                       | Minimum for a pilot                               |
-| ----------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Platform database | Amazon RDS for PostgreSQL 16, Multi-AZ, automated backups, encryption on                          | PostgreSQL 16 on the same VM, nightly dump        |
-| Recordings        | Amazon S3 bucket (private, encryption on, versioning on)                                          | Local disk on the API server (`NC_STORAGE=local`) |
-| API               | 2 × containers (ECS Fargate or 2 VMs) behind an Application Load Balancer with an ACM certificate | 1 VM (2 vCPU, 4 GB RAM) with Docker and Caddy     |
-| Dashboard         | S3 + CloudFront, or the same Caddy                                                                | Same Caddy as the API                             |
-| DNS               | `api.<your-domain>`, `dashboard.<your-domain>`                                                    | Same                                              |
+| Part              | Recommended                                                                                                  | Minimum for a pilot                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| Platform database | Amazon RDS for PostgreSQL 16, Multi-AZ, automated backups, encryption on                                     | PostgreSQL 16 on the same VM, nightly dump        |
+| Recordings        | Amazon S3 bucket (`NC_STORAGE=s3`) or Azure Blob Storage (`NC_STORAGE=azure`): private, encrypted, versioned | Local disk on the API server (`NC_STORAGE=local`) |
+| API               | 2 × containers (ECS Fargate or 2 VMs) behind an Application Load Balancer with an ACM certificate            | 1 VM (2 vCPU, 4 GB RAM) with Docker and Caddy     |
+| Dashboard         | S3 + CloudFront, or the same Caddy                                                                           | Same Caddy as the API                             |
+| DNS               | `api.<your-domain>`, `dashboard.<your-domain>`                                                               | Same                                              |
 
 The rest of this guide uses the **single-VM pilot layout**. Each step is the same on the
 bigger layout.
@@ -174,7 +174,10 @@ NC_PLATFORM_KEY_ID=platform-1
 NC_SERVER_PUBLIC_KEY_PATH=/keys/server-public.pem
 NC_SERVER_KEY_ID=server-1
 
-# --- Recordings storage ---
+# --- Recordings storage: local | s3 | azure (decision 037) ---
+# local keeps recordings on this server's disk: only ONE API server can then be used, and replacing
+# the server means moving the recordings. s3 or azure keep them in cloud storage: the API server
+# holds no files, so it can be replaced or run as two or more copies behind a load balancer.
 # Pilot on one VM:
 NC_STORAGE=local
 NC_STORAGE_DIR=/data/storage
@@ -184,6 +187,13 @@ NC_STORAGE_DIR=/data/storage
 # NC_S3_REGION=ap-south-1
 # NC_MANAGED_BUCKET_TEMPLATE={bucket}
 # NC_PLATFORM_AWS_PRINCIPAL=arn:aws:iam::<your-account-id>:role/neurocapture-api   # hospitals with their own bucket trust this
+# Production on Azure Blob (the server's managed identity signs upload links; no key):
+# NC_STORAGE=azure
+# NC_AZURE_STORAGE_ACCOUNT=ncrec<unique>
+# NC_AZURE_CONTAINER=neurocapture-takes
+# Offer hospitals their own Azure Blob container (works on any cloud): NeuroCapture's multitenant app
+# NC_AZURE_CLIENT_ID=<application (client) id>
+# NC_AZURE_CLIENT_SECRET=<client secret>
 
 # --- Safety switches (keep these values in production) ---
 NC_REQUIRE_HOSPITAL_KEY=true
@@ -400,7 +410,8 @@ NCC_SMS_DEFAULT_COUNTRY_CODE=+91
 NCC_SMS_DLT_ENTITY_ID=1201...
 NCC_SMS_DLT_TEMPLATE_IDS={"patientInviteSms": "1207...", "reminderSms": "1207..."}
 
-# Only if the hospital stores recordings in its own S3 bucket (5.5):
+# Only if the hospital stores recordings in its own S3 bucket or Azure container (5.5):
+# NCC_AZURE_STORAGE_KEY=<only if the connector uses an account key instead of its managed identity>
 # NCC_S3_REGION=ap-south-1     (+ AWS credentials or instance role with read access to that prefix)
 ```
 
@@ -429,13 +440,20 @@ Then, in the **hospital dashboard → Data connections**:
 
 ### 5.5 Where recordings are stored (per hospital)
 
-In Data connections → Storage, the hospital admin chooses one option:
+In Data connections → Recording storage, the hospital admin chooses one of three options:
 
-- **NeuroCapture storage** (default): your S3 bucket or disk. The files are encrypted on the
-  phone with the hospital's key; you cannot read them.
-- **The hospital's own S3 bucket.** The dashboard shows an ExternalId and two IAM policies.
-  The hospital creates a role that lets NeuroCapture **upload only**, and gives the connector
-  its own read access. Full steps: [`connector.md`](connector.md) §2c.
+- **NeuroCapture storage** (default): your S3 bucket, Azure Blob container or disk. The files are
+  encrypted on the phone with the hospital's key; you cannot read them.
+- **The hospital's own Amazon S3 bucket.** The dashboard shows an ExternalId and two IAM
+  policies. The hospital creates a role that lets NeuroCapture **upload only**, and gives the
+  connector its own read access. Full steps: [`connector.md`](connector.md) §2c.
+- **The hospital's own Azure Blob container** (decision 037). The hospital approves
+  NeuroCapture's app in its Microsoft Entra tenant and gives it a **write-only** custom role on
+  the container (the dashboard shows the role), plus "Storage Blob Delegator" on the account. The
+  connector reads with its own identity. Offered when `NC_AZURE_CLIENT_ID` is set. Full steps:
+  [`connector.md`](connector.md) §2d and [`deploy/azure.md`](deploy/azure.md) step 12.
+
+The dashboard tests the storage before switching. Earlier recordings stay where they were.
 
 ---
 

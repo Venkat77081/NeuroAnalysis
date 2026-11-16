@@ -72,6 +72,22 @@ In Data connections → Storage, the dashboard shows an ExternalId and two polic
 3. Enter the bucket, region, prefix and role ARN. The platform tests the role before switching.
 4. Give the connector read access to the same prefix, with its own AWS credentials.
 
+### 2d. Optional: store recordings in the hospital's own Azure Blob container
+
+In Data connections → Recording storage → "Your own Azure Blob container", the dashboard shows the
+steps, the approval link and a custom role (decision 037):
+
+1. A Global Administrator approves the NeuroCapture app in the hospital's Microsoft Entra tenant.
+2. Create the custom role **NeuroCapture recording uploader**. It may write blobs only: no read,
+   list or delete.
+3. Assign the NeuroCapture app **Storage Blob Delegator** on the storage account and the custom
+   role on the container. The platform then signs each upload link (user delegation SAS) for one
+   file, write-only, for one hour.
+4. Give the connector **Storage Blob Data Reader** on the container: its managed identity, or
+   `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_CLIENT_SECRET` in `connector.env`, or
+   `NCC_AZURE_STORAGE_KEY`.
+5. Enter the storage account, container, tenant ID and prefix, then **Test and save**.
+
 ## 3. Test it
 
 In Data connections → Test, enter one sample MRN. The connector:

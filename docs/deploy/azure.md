@@ -15,25 +15,22 @@ India. Replace `example.in` with your domain and `<unique>` with a short suffix 
           ┌────────▼─────────┐  public IP, NSG: 80/443 from anywhere, 22 from your IP only
           │ VM: Ubuntu 24.04 │  Caddy (TLS) ─► API container (port 8000)
           │  + Docker        │             └─► dashboard static files
-          │  data disk ──────┼── recordings (/srv/nc/storage, encrypted managed disk)
-          └──┬───────────────┘  managed identity → Key Vault
-             │ private VNet
-   ┌─────────▼──────────────┐   ┌───────────────────────────────────┐
-   │ Azure Database for     │   │ Azure Communication Services       │
-   │ PostgreSQL (Flexible)  │   │ Email, over SMTP: staff invites    │
-   └────────────────────────┘   └───────────────────────────────────┘
+          └──┬──────────┬────┘  managed identity → Key Vault, Blob Storage
+             │          │
+   ┌─────────▼──────┐ ┌─▼──────────────────────┐ ┌──────────────────────────────┐
+   │ Azure Database │ │ Storage account (Blob)  │ │ Azure Communication Services │
+   │ for PostgreSQL │ │ recordings, encrypted   │ │ Email over SMTP: staff       │
+   │ (Flexible)     │ │ on the phone            │ │ invites                      │
+   └────────────────┘ └─────────────────────────┘ └──────────────────────────────┘
 ```
 
-> **Recordings on Azure.** The platform stores recordings either on Amazon S3 (or an
-> S3-compatible store) or on a **local disk**. Azure Blob Storage is not S3-compatible. On Azure,
-> recordings go on an encrypted **managed data disk** attached to the API server
-> (`NC_STORAGE=local`); the API itself serves the signed upload URLs.
->
-> - This suits one API server. A second server would need shared storage (Azure Files NFS) or an
->   S3-compatible store.
-> - The files are encrypted on the phone with each hospital's key, so the disk only holds
->   ciphertext.
-> - "Hospital's own bucket" storage needs Amazon S3. On Azure, hospitals use NeuroCapture storage.
+**Recordings go to Azure Blob Storage** (`NC_STORAGE=azure`, decision 037). Phones upload
+straight to Blob through short-lived links that can write one recording and nothing else; the
+API server never stores video. The API server therefore holds no data: you can replace it, or
+run two or more behind a load balancer, without moving recordings.
+
+Hospitals can also keep recordings in **their own** Azure Blob container (or their own S3 bucket)
+instead of NeuroCapture storage. See step 12.
 
 ---
 
@@ -122,14 +119,14 @@ When the client secret expires (you choose 6–24 months), create a new one and 
 The platform sends staff invites only. Patient e-mails and SMS come from each hospital's
 connector (step 11).
 
-## Step 5: The server (VM with a data disk)
+## Step 5: The server (VM)
 
 ```bash
 az vm create -g nc-prod -n nc-api -l centralindia \
   --image Canonical:ubuntu-24_04-lts:server:latest --size Standard_D2s_v5 \
   --vnet-name nc-vnet --subnet app --public-ip-sku Standard --public-ip-address-allocation static \
   --admin-username azureuser --ssh-key-values ~/.ssh/id_ed25519.pub \
-  --os-disk-size-gb 64 --data-disk-sizes-gb 512 --storage-sku Premium_LRS \
+  --os-disk-size-gb 64 \
   --assign-identity
 az vm open-port -g nc-prod -n nc-api --port 80,443 --priority 900
 # Restrict SSH to your own IP (az vm create opens 22 to everyone):
@@ -137,19 +134,9 @@ az network nsg rule update -g nc-prod --nsg-name nc-apiNSG -n default-allow-ssh 
 az vm show -g nc-prod -n nc-api -d --query publicIps -o tsv     # → DNS A records for api. and dashboard.
 ```
 
-**Sizing (rough):** a session is about 0.3–0.5 GB of video. 512 GB holds about 1,000–1,500
-sessions. Managed disks can be enlarged later without data loss. Measure on your own phones.
-
-On the VM (`ssh azureuser@api.example.in`), mount the data disk and install the tools:
+On the VM (`ssh azureuser@api.example.in`), install the tools:
 
 ```bash
-lsblk                                        # the empty 512 GB disk, e.g. /dev/sdc
-sudo parted /dev/sdc --script mklabel gpt mkpart primary ext4 0% 100%
-sudo mkfs.ext4 /dev/sdc1
-sudo mkdir -p /srv/nc/storage
-echo "UUID=$(sudo blkid -s UUID -o value /dev/sdc1) /srv/nc/storage ext4 defaults,nofail 0 2" | sudo tee -a /etc/fstab
-sudo mount -a && sudo chown 10001 /srv/nc/storage      # the API container's user
-
 sudo apt-get update && sudo apt-get install -y docker.io git postgresql-client
 sudo usermod -aG docker azureuser && newgrp docker
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
@@ -159,8 +146,29 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt-get update && sudo apt-get install -y caddy
 ```
 
-Azure managed disks are encrypted at rest by default (platform-managed keys). For your own keys,
-set up a Disk Encryption Set.
+## Step 5b: Recordings storage (Blob)
+
+```bash
+az storage account create -g nc-prod -n ncrec<unique> -l centralindia \
+  --sku Standard_ZRS --kind StorageV2 --https-only true --min-tls-version TLS1_2 \
+  --allow-blob-public-access false --allow-shared-key-access false
+az storage account blob-service-properties update -g nc-prod --account-name ncrec<unique> \
+  --enable-delete-retention true --delete-retention-days 30 --enable-versioning true
+# The API server's managed identity may write and read recordings, and sign upload links:
+SA=$(az storage account show -g nc-prod -n ncrec<unique> --query id -o tsv)
+az role assignment create --assignee-object-id "$(az vm show -g nc-prod -n nc-api --query identity.principalId -o tsv)" \
+  --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope "$SA"
+```
+
+- **No storage key** is used: `--allow-shared-key-access false` turns keys off. The API signs
+  upload links with its managed identity (user delegation SAS). The API creates the container
+  `neurocapture-takes` on start.
+- **Redundancy:** `Standard_ZRS` keeps copies in three zones of the region. Use `Standard_LRS` for
+  a cheaper pilot.
+- **Abandoned uploads:** Azure drops uncommitted blocks from interrupted phone uploads after
+  7 days.
+- **Sizing (rough):** a session is about 0.3–0.5 GB of video. Blob storage grows by itself; set a
+  budget alert.
 
 ## Step 6: Keys and secrets (Azure Key Vault)
 
@@ -210,7 +218,7 @@ s server-public-key    > /srv/nc/keys/server-public.pem
 chmod 600 /srv/nc/keys/*.pem && chown 10001 /srv/nc/keys/*.pem   # the container's user
 docker rm -f nc-api 2>/dev/null || true
 docker run -d --name nc-api --restart unless-stopped -p 127.0.0.1:8000:8000 \
-  -v /srv/nc/keys:/keys:ro -v /srv/nc/src/config:/srv/config:ro -v /srv/nc/storage:/data/storage \
+  -v /srv/nc/keys:/keys:ro -v /srv/nc/src/config:/srv/config:ro \
   -e NC_DATABASE_URL="$(s db-url)" \
   -e NC_JWT_SECRET="$(s jwt-secret)" \
   -e NC_SMTP_USERNAME="$(s smtp-username)" \
@@ -229,8 +237,10 @@ NC_PLATFORM_SIGNING_KEY_PATH=/keys/platform-signing.pem
 NC_PLATFORM_KEY_ID=platform-1
 NC_SERVER_PUBLIC_KEY_PATH=/keys/server-public.pem
 NC_SERVER_KEY_ID=server-1
-NC_STORAGE=local
-NC_STORAGE_DIR=/data/storage
+NC_STORAGE=azure
+NC_AZURE_STORAGE_ACCOUNT=ncrec<unique>
+NC_AZURE_CONTAINER=neurocapture-takes
+# (no NC_AZURE_STORAGE_KEY: the VM's managed identity signs upload links)
 NC_REQUIRE_HOSPITAL_KEY=true
 NC_ALLOW_LEGACY_REF_HASH=false
 NC_EMAIL_PROVIDER=smtp
@@ -275,16 +285,16 @@ docker exec -it nc-api python -m app.admin create-platform-admin --email you@exa
 
 ## Step 10: Operations
 
-| Task               | How                                                                                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Start after reboot | `sudo crontab -e` → `@reboot /srv/nc/start-api.sh` (the container also restarts itself)                                                                            |
-| Health             | Azure Monitor → Application Insights **availability test** on `https://api.example.in/health`, with an alert                                                       |
-| Logs               | `docker logs nc-api`; for central logs, install the Azure Monitor Agent and collect syslog, or run the container with `--log-driver syslog`                        |
-| Backups            | **Azure Backup** for the VM, daily, which includes the recordings disk (keep ≥ 30 days); PostgreSQL automatic backups (14 days; add long-term retention if needed) |
-| Disk space         | Alert when `/srv/nc/storage` passes 80 %; enlarge the managed disk (portal → Disks → Size), then `sudo growpart /dev/sdc 1 && sudo resize2fs /dev/sdc1`            |
-| Update             | Back up first → `git pull` → `docker build -t neurocapture-api:<new> backend/` → edit the tag in `start-api.sh` → `sudo /srv/nc/start-api.sh`                      |
-| Config change      | Edit `config/*.json`, run `pnpm validate`, then `sudo /srv/nc/start-api.sh`. The app needs a new APK for the same change                                           |
-| Patching           | Ubuntu unattended upgrades (on by default); Azure Update Manager for scheduled reboots                                                                             |
+| Task               | How                                                                                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start after reboot | `sudo crontab -e` → `@reboot /srv/nc/start-api.sh` (the container also restarts itself)                                                                                      |
+| Health             | Azure Monitor → Application Insights **availability test** on `https://api.example.in/health`, with an alert                                                                 |
+| Logs               | `docker logs nc-api`; for central logs, install the Azure Monitor Agent and collect syslog, or run the container with `--log-driver syslog`                                  |
+| Backups            | PostgreSQL automatic backups (14 days; add long-term retention if needed); Blob soft delete and versioning (step 5b); the VM holds no data (Azure Backup for it is optional) |
+| More servers       | The API keeps no files: add a second VM with the same `start-api.sh` and put both behind Azure Application Gateway or Load Balancer                                          |
+| Update             | Back up first → `git pull` → `docker build -t neurocapture-api:<new> backend/` → edit the tag in `start-api.sh` → `sudo /srv/nc/start-api.sh`                                |
+| Config change      | Edit `config/*.json`, run `pnpm validate`, then `sudo /srv/nc/start-api.sh`. The app needs a new APK for the same change                                                     |
+| Patching           | Ubuntu unattended upgrades (on by default); Azure Update Manager for scheduled reboots                                                                                       |
 
 ## Step 11: A hospital that runs its connector in Azure
 
@@ -349,14 +359,65 @@ If the hospital uses Azure:
    "Not sent" means the mail or SMS settings were refused; the connector log says which (by type,
    never the address).
 
+## Step 12: Letting hospitals keep recordings in their own Azure Blob container
+
+A hospital can choose, in its dashboard (Data connections → Recording storage), to keep recordings
+in **its own** storage account. NeuroCapture can then only **write** there: it can never read, list
+or delete. The hospital's connector reads the recordings. The files are still encrypted on the
+phone with the hospital's key.
+
+**Once, on your side (NeuroCapture):**
+
+1. Entra ID → App registrations → **New registration** `NeuroCapture recordings`, _Accounts in any
+   organizational directory (multitenant)_.
+2. Create a **client secret** and store it:
+
+   ```bash
+   az keyvault secret set --vault-name nc-kv-<unique> -n azure-client-secret --value '<secret>'
+   ```
+
+3. Add to `api.env`: `NC_AZURE_CLIENT_ID=<application (client) id>`. In `start-api.sh`, add
+   `-e NC_AZURE_CLIENT_SECRET="$(s azure-client-secret)"`. Then restart the API.
+
+   The dashboard then offers "Your own Azure Blob container". The same works when the platform
+   runs on AWS.
+
+**At each hospital** (its Azure administrator, guided by the dashboard):
+
+1. A Global Administrator approves the NeuroCapture app in the hospital's tenant with the link
+   in the dashboard. (Alternative: `az ad sp create --id <NeuroCapture client id>`.)
+2. Create the **custom role** the dashboard shows. It allows writing blobs only:
+
+   ```bash
+   az role definition create --role-definition @neurocapture-uploader.json
+   ```
+
+3. Assign the app two roles:
+   - **Storage Blob Delegator** on the storage account (lets it sign upload links);
+   - the custom role on the container.
+
+   ```bash
+   SP=$(az ad sp show --id <NeuroCapture client id> --query id -o tsv)
+   az role assignment create --assignee-object-id $SP --assignee-principal-type ServicePrincipal \
+     --role "Storage Blob Delegator" --scope <storage account id>
+   az role assignment create --assignee-object-id $SP --assignee-principal-type ServicePrincipal \
+     --role "NeuroCapture recording uploader" --scope <storage account id>/blobServices/default/containers/<container>
+   ```
+
+4. Give the **connector's** managed identity **Storage Blob Data Reader** on the container. (Or
+   set `NCC_AZURE_STORAGE_KEY` on the connector, if the hospital uses account keys.)
+5. In the dashboard: storage account, container, tenant ID → **Test and save**. The test signs in,
+   uploads a test block and checks that reading is refused. It saves only if the upload works.
+
+Earlier recordings stay where they were; only new ones go to the new storage.
+
 ## Costs (rough, Central India, pay-as-you-go, before tax)
 
 | Item                                      | Pilot (1 hospital)                                         |
 | ----------------------------------------- | ---------------------------------------------------------- |
 | VM Standard_D2s_v5 + 64 GB OS disk        | ~ US$ 75 / month (B2ms: ~ US$ 35)                          |
-| 512 GB Premium SSD data disk              | ~ US$ 70 / month (Standard SSD less)                       |
+| Blob storage (ZRS, hot)                   | ~ US$ 0.025 per GB-month (LRS less)                        |
 | PostgreSQL Flexible, Burstable B2s, 64 GB | ~ US$ 35 / month (General Purpose + HA several times more) |
-| Azure Backup (VM + disk)                  | depends on data size                                       |
 | ACS Email                                 | ~ US$ 0.25 per 1,000 e-mails + data                        |
 
 Prices change; check the Azure Pricing Calculator.

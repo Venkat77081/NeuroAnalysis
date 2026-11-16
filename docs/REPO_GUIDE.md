@@ -288,7 +288,7 @@ environment variables (`ncconnector/config.py`). Set-up: [`connector.md`](connec
 | `REPO_GUIDE.md`                                      | This file                                                                                   |
 | `PLATFORM_PLAN.md`                                   | The platform plan: hospital-owned data, roles, milestones M10–M14                           |
 | `connector.md`, `dashboard.md`, `release.md`         | Set-up of the connector, the dashboards and Android releases                                |
-| `decisions/NNN-*.md`                                 | One file per significant decision (000 is the template, 001–036 so far)                     |
+| `decisions/NNN-*.md`                                 | One file per significant decision (000 is the template, 001–037 so far)                     |
 | `assumptions.md`                                     | Every assumption made where the requirements were unclear (A1–A109), with who should review |
 | `mockups.md`                                         | Links to the agreed UI mockups                                                              |
 | `protocols/`, `dne-coverage.md`                      | The DNE clinical protocol and biomarker definitions; how the app covers them                |

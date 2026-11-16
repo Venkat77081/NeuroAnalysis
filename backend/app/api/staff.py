@@ -285,3 +285,55 @@ def deliver_staff_invite(to: str, hospital: str, role: str, link: str, days: int
         staff_invite(to, hospital, role, link, days)
     except DeliveryError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, {"code": "email_not_sent"}) from exc
+
+
+class ResetOut(BaseModel):
+    """`sent`: the e-mail went out. If not, `link` is shown once to the admin to hand over in person."""
+
+    sent: bool
+    link: str | None = None
+    expires_at: datetime
+
+
+def reset_sign_in(
+    db: DbSession, user: StaffUser, by_type: str, by_id: str | None, by_name: str, reason: str
+) -> ResetOut:
+    """Decision 039: password and authenticator cleared, every session ended, a fresh single-use link
+    (`staff.resetTtlHours`) to choose a new password and set up the authenticator again."""
+    from app.delivery import DeliveryError
+    from app.models import StaffRefreshToken
+    from app.providers import staff_reset
+
+    if reason not in policy()["staff"]["resetReasons"]:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "bad_reason"})
+    hours = int(policy()["staff"]["resetTtlHours"])
+    token = new_secret()
+    user.password_hash = None
+    user.totp_secret = None
+    user.totp_enabled = False
+    user.failed_logins = 0
+    user.invite_token_hash = sha256_hex(token)
+    user.invite_expires_at = datetime.now(UTC) + timedelta(hours=hours)
+    for rt in db.scalars(select(StaffRefreshToken).where(StaffRefreshToken.user_id == user.id)):
+        rt.revoked = True
+    link = f"{get_settings().dashboard_url}/invite?t={token}"
+    site = db.get(Site, user.site_id) if user.site_id else None
+    try:
+        staff_reset(user.email, site.name if site else "NeuroCapture", by_name, link, hours)
+        sent = True
+    except DeliveryError:
+        sent = False
+    audit(
+        db,
+        by_type,
+        by_id,
+        "staff_sign_in_reset",
+        "staff",
+        user.id,
+        site_id=user.site_id,
+        role=user.role,
+        reason=reason,
+        emailed=sent,
+    )
+    db.commit()
+    return ResetOut(sent=sent, link=None if sent else link, expires_at=user.invite_expires_at)

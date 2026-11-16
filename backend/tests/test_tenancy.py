@@ -620,3 +620,93 @@ def test_staff_invites_over_smtp_and_resend_when_mail_was_down(api, two_hospital
         assert ok.status_code == 204, ok.text
     finally:
         smtp.close()
+
+
+def test_staff_sign_in_reset(api, two_hospitals, monkeypatch):
+    """Decision 039 (user, 16 Nov 2026): an admin resets a staff member's sign-in: sessions end at
+    once, a 24-hour link sets a new password and authenticator. Not one's own; platform admin resets
+    hospital admins; if e-mail fails the link is shown once instead."""
+    from app.config import get_settings
+    from app.providers import OUTBOX
+
+    t = two_hospitals
+    admin = hdr(t["a_tok"])
+    api.post("/hospital/staff", headers=admin, json={"email": "dr.reset@sunrise.example", "role": "doctor"})
+    doc_tok, _ = sign_up(api, "dr.reset@sunrise.example")
+    uid = next(
+        u["id"]
+        for u in api.get("/hospital/staff", headers=admin).json()
+        if u["email"] == "dr.reset@sunrise.example"
+    )
+    assert api.get("/staff/me", headers=hdr(doc_tok)).status_code == 200
+
+    bad = api.post(f"/hospital/staff/{uid}/reset-sign-in", headers=admin, json={"reason": "bored"})
+    assert bad.status_code == 422
+    me = api.get("/staff/me", headers=admin).json()["id"]
+    selfr = api.post(f"/hospital/staff/{me}/reset-sign-in", headers=admin, json={"reason": "forgot_password"})
+    assert selfr.status_code == 409 and selfr.json()["detail"]["code"] == "cannot_reset_self"
+
+    OUTBOX.clear()
+    r = api.post(f"/hospital/staff/{uid}/reset-sign-in", headers=admin, json={"reason": "lost_phone"})
+    assert r.status_code == 200 and r.json()["sent"] is True and r.json()["link"] is None
+    assert api.get("/staff/me", headers=hdr(doc_tok)).status_code == 401  # signed out at once
+    mail = OUTBOX[-1]
+    assert mail.to == "dr.reset@sunrise.example" and "24 hours" in mail.body
+    token = mail.body.split("/invite?t=", 1)[1].split()[0]
+    assert (
+        api.post("/staff/invite/accept", json={"token": token, "password": NEW_PW + "x"}).status_code == 204
+    )
+    # Signing in again asks for a new authenticator before anything else works.
+    r = api.post("/staff/login", json={"email": "dr.reset@sunrise.example", "password": NEW_PW + "x"})
+    setup = r.json()["tokens"]
+    assert setup["two_step_setup_required"] is True
+    secret = api.post("/staff/two-step/setup", headers=hdr(setup["access_token"])).json()["secret"]
+    ok = api.post(
+        "/staff/two-step/confirm", json={"code": totp_code(secret)}, headers=hdr(setup["access_token"])
+    )
+    assert (
+        ok.status_code == 200
+        and api.get("/staff/me", headers=hdr(ok.json()["access_token"])).status_code == 200
+    )
+    log = api.get("/hospital/audit", headers=admin).json()
+    ev = next(e for e in log if e["action"] == "staff_sign_in_reset")
+    assert ev["details"]["reason"] == "lost_phone" and ev["actor_email"] == "admin@sunrise.example"
+
+    # Front desk cannot reset; a doctor of another hospital is not found.
+    assert (
+        api.post(
+            f"/hospital/staff/{uid}/reset-sign-in", headers=hdr(t["a_desk"]), json={"reason": "misuse"}
+        ).status_code
+        == 403
+    )
+    assert (
+        api.post(
+            f"/hospital/staff/{uid}/reset-sign-in", headers=hdr(t["b_tok"]), json={"reason": "misuse"}
+        ).status_code
+        == 404
+    )
+
+    # Platform admin resets the hospital admin; with mail down the link is shown once instead.
+    admins = api.get(f"/platform/hospitals/{t['a']}/admins", headers=hdr(t["platform"])).json()
+    a_admin = next(a for a in admins if a["email"] == "admin@sunrise.example")
+    assert a_admin["signed_up"] is True
+    monkeypatch.setattr(get_settings(), "email_provider", "smtp")
+    monkeypatch.setattr(get_settings(), "smtp_host", "127.0.0.1")
+    monkeypatch.setattr(get_settings(), "smtp_port", 9)  # nothing listens
+    monkeypatch.setattr(get_settings(), "mail_from", "no-reply@neurocapture.example")
+    monkeypatch.setattr(get_settings(), "smtp_security", "none")
+    monkeypatch.setattr(get_settings(), "smtp_timeout_s", 2.0)
+    r = api.post(
+        f"/platform/staff/{a_admin['id']}/reset-sign-in",
+        headers=hdr(t["platform"]),
+        json={"reason": "forgot_password"},
+    )
+    assert r.status_code == 200 and r.json()["sent"] is False and "/invite?t=" in r.json()["link"]
+    assert api.get("/staff/me", headers=admin).status_code == 401
+    # The platform admin cannot reset doctors directly (their hospital admin does).
+    assert (
+        api.post(
+            f"/platform/staff/{uid}/reset-sign-in", headers=hdr(t["platform"]), json={"reason": "misuse"}
+        ).status_code
+        == 404
+    )

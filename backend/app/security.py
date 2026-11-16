@@ -197,7 +197,8 @@ def current_principal(
             raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "hospital_suspended"})
     if typ == "staff":
         user = db.get(StaffUser, claims.get("sub"))
-        if not user or not user.active:
+        # No password = the sign-in was reset (decision 039): tokens issued before end at once.
+        if not user or not user.active or user.password_hash is None:
             raise denied
         return Principal("staff", user.role, user.site_id, user.id, user=user, mfa=bool(claims.get("mfa")))
     dev = db.get(Device, claims.get("dev"))

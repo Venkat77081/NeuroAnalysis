@@ -18,7 +18,9 @@
   },
   "staff": {
     "twoStepRequired": true,
-    "maxFailedLogins": 10
+    "maxFailedLogins": 10,
+    "resetTtlHours": 24,
+    "resetReasons": ["forgot_password", "lost_phone", "misuse"]
   },
   "consentVersion": "home-consent@1",
   "defaultPlan": {

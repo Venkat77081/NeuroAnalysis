@@ -61,11 +61,28 @@ def main(argv: list[str] | None = None) -> None:
     o.add_argument("--code", required=True)
     o.add_argument("--pin", required=True)
     o.add_argument("--role", default="operator")
+    rs = sub.add_parser("reset-sign-in", help="new password and authenticator link for a staff member")
+    rs.add_argument("--email", required=True)
+    rs.add_argument("--reason", default="forgot_password")
     pa = sub.add_parser("create-platform-admin")
     pa.add_argument("--email", required=True)
     pa.add_argument("--name")
     a = ap.parse_args(argv)
     with _factory()() as db:
+        if a.cmd == "reset-sign-in":
+            from sqlalchemy import select
+
+            from app.api.staff import reset_sign_in
+            from app.models import StaffUser
+
+            user = db.scalar(select(StaffUser).where(StaffUser.email == a.email.strip().lower()))
+            if user is None:
+                raise SystemExit("no staff member with that e-mail")
+            out = reset_sign_in(db, user, "system", None, "the NeuroCapture server administrator", a.reason)
+            # The link is printed here too: whoever runs this command already controls the server.
+            print("e-mail sent" if out.sent else "e-mail NOT sent; hand over this link:")  # noqa: T201
+            print(out.link or "(link only in the e-mail)")  # noqa: T201
+            return
         if a.cmd == "create-platform-admin":
             _, link = create_platform_admin(db, a.email, a.name)
             print(link)  # noqa: T201

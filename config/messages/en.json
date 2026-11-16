@@ -26,5 +26,9 @@
   },
   "reminderAppointment": {
     "suffix": ", before your appointment on {appointment}"
+  },
+  "staffReset": {
+    "subject": "Reset your NeuroCapture sign-in for {hospital}",
+    "body": "Your NeuroCapture sign-in for {hospital} was reset by {by}.\n\nChoose a new password here (the link works once and expires in {hours} hours):\n{link}\n\nAfter that you will set up two-step sign-in with your authenticator app again.\n\nIf you did not ask for this, tell your hospital admin."
   }
 }

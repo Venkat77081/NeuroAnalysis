@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
-from app.api.staff import deliver_staff_invite, new_staff_invite
+from app.api.staff import ResetOut, deliver_staff_invite, new_staff_invite, reset_sign_in
 from app.audit import audit
 from app.db import get_db
 from app.models import AuditEvent, Device, Operator, PatientAccount, Site, StaffUser
@@ -198,6 +198,64 @@ def resend_admin_invite(
     audit(db, p.actor_type, p.actor_id, "staff_invited", "staff", admin.id, site_id=site.id, role=admin.role)
     db.commit()
     deliver_staff_invite(admin.email, site.name, admin.role, link, policy()["invites"]["staffTtlDays"])
+
+
+class AdminOut(BaseModel):
+    id: str
+    email: str
+    display_name: str | None
+    signed_up: bool
+    last_login_at: datetime | None
+
+
+@router.get("/hospitals/{site_id}/admins", response_model=list[AdminOut])
+def hospital_admins(
+    site_id: str,
+    _: Principal = Depends(admin_only),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> list[AdminOut]:
+    site = _site(db, site_id)
+    rows = db.scalars(
+        select(StaffUser)
+        .where(StaffUser.site_id == site.id, StaffUser.role == "hospital_admin")
+        .order_by(StaffUser.created_at)
+    )
+    return [
+        AdminOut(
+            id=u.id,
+            email=u.email,
+            display_name=u.display_name,
+            signed_up=u.password_hash is not None,
+            last_login_at=u.last_login_at,
+        )
+        for u in rows
+    ]
+
+
+class PlatformResetIn(BaseModel):
+    reason: str = Field(pattern=r"^[a-z_]+$")
+
+
+@router.post("/staff/{user_id}/reset-sign-in", response_model=ResetOut)
+def reset_admin_sign_in(
+    user_id: str,
+    body: PlatformResetIn,
+    p: Principal = Depends(admin_only),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> ResetOut:
+    """Decision 039: the platform admin resets a hospital admin, or another platform admin."""
+    u = db.get(StaffUser, user_id)
+    if not u or u.role not in ("hospital_admin", "platform_admin"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "admin not found")
+    if u.id == p.actor_id:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "cannot_reset_self"})
+    if u.password_hash is None and not u.totp_enabled:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "not_signed_up"})
+    from app.people import People
+
+    return reset_sign_in(
+        db, u, p.actor_type, p.actor_id, People(db).who(p.actor_type, p.actor_id).name, body.reason
+    )
 
 
 class AuditOut(BaseModel):

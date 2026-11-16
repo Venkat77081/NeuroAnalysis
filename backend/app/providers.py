@@ -55,3 +55,12 @@ def staff_invite(to: str, hospital: str, role: str, link: str, days: int) -> Non
         message("staffInvite", "subject", hospital=hospital),
         message("staffInvite", "body", hospital=hospital, role=role_text, link=link, days=days),
     )
+
+
+def staff_reset(to: str, hospital: str, by: str, link: str, hours: int) -> None:
+    """Decision 039: an admin reset this person's sign-in."""
+    send_email(
+        to,
+        message("staffReset", "subject", hospital=hospital),
+        message("staffReset", "body", hospital=hospital, by=by, link=link, hours=hours),
+    )

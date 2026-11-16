@@ -25,6 +25,16 @@ export interface PlatformConfig {
   staff: {
     twoStepRequired: boolean;
     maxFailedLogins: number;
+    /**
+     * Staff sign-in reset link lifetime (decision 039).
+     */
+    resetTtlHours: number;
+    /**
+     * Reasons an admin picks when resetting someone's sign-in (kept in the log).
+     *
+     * @minItems 1
+     */
+    resetReasons: [string, ...string[]];
   };
   consentVersion: string;
   /**

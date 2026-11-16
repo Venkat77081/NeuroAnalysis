@@ -64,9 +64,11 @@ def summary(o: dict) -> str:
         "",
         "NeuroCapture test stack",
         f"  Platform API : {o['platform_url']}    Connector: {o['connector_url']}",
-        "  Dashboard    : pnpm --filter @neurocapture/dashboard dev  ->  http://localhost:5174",
+        "  Dashboard    : in another terminal run `pnpm dev:dashboard`, then open http://localhost:5174",
         f"  Password for every account: {o['password']}",
-        "  Two-step codes: add the key to an authenticator app, or run: python codes.py <dir>/stack.json",
+        "  Two-step codes (change every 30 s): "
+        f"python {Path('apps/dashboard/e2e/stack/codes.py')} {Path(o['store']).parent / 'stack.json'}",
+        "    or add a key below to an authenticator app (Enter a set-up key, time-based)",
         "",
     ]
     lines += [f"  {r:<22} {e:<30} key {k}" for r, e, k in rows]

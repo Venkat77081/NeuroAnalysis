@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.platform import AuditOut, Email, audit_rows
-from app.api.staff import new_staff_invite
+from app.api.staff import deliver_staff_invite, new_staff_invite
 from app.audit import audit
 from app.config import get_settings
 from app.db import get_db
@@ -32,7 +32,6 @@ from app.models import (
 )
 from app.permissions import require
 from app.policy import policy
-from app.providers import staff_invite
 from app.security import Principal, hash_password, new_secret, require_role, sha256_hex, temporary_password
 
 router = APIRouter(prefix="/hospital", tags=["hospital"])
@@ -265,7 +264,7 @@ def invite_staff(
     link = new_staff_invite(u)
     audit(db, p.actor_type, p.actor_id, "staff_invited", "staff", u.id, site_id=p.site_id, role=body.role)
     db.commit()
-    staff_invite(email, site_of(db, p).name, body.role, link, policy()["invites"]["staffTtlDays"])
+    deliver_staff_invite(email, site_of(db, p).name, body.role, link, policy()["invites"]["staffTtlDays"])
     return _staff_out(u)
 
 
@@ -304,7 +303,7 @@ def resend_staff_invite(
     link = new_staff_invite(u)
     audit(db, p.actor_type, p.actor_id, "staff_invited", "staff", u.id, site_id=p.site_id, role=u.role)
     db.commit()
-    staff_invite(u.email, site_of(db, p).name, u.role, link, policy()["invites"]["staffTtlDays"])
+    deliver_staff_invite(u.email, site_of(db, p).name, u.role, link, policy()["invites"]["staffTtlDays"])
 
 
 # --- Phones ---

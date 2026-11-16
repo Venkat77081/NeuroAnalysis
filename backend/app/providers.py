@@ -1,6 +1,6 @@
-"""E-mail and SMS delivery (M10). Only the dummy providers exist for now: messages are kept in
-memory (dev, tests) and nothing is sent. Real providers plug in behind the same functions
-(settings NC_EMAIL_PROVIDER / NC_SMS_PROVIDER) once configured. Addresses are never logged.
+"""E-mail and SMS delivery (M10). "dummy" keeps messages in memory (dev, tests); "smtp" sends e-mail
+through any SMTP service, and SMS goes through Twilio, Amazon SNS or an HTTP gateway
+(app/delivery.py; settings NC_EMAIL_PROVIDER, NC_SMTP_*, NC_SMS_*). Addresses are never logged.
 """
 
 import logging
@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from app.config import get_settings
+from app.delivery import build_email, send_sms_via, send_smtp
 from app.policy import message
 
 log = logging.getLogger("neurocapture.providers")
@@ -26,24 +27,25 @@ class Message:
 OUTBOX: list[Message] = []
 
 
-class ProviderNotConfiguredError(RuntimeError):
-    pass
-
-
 def send_email(to: str, subject: str, body: str) -> None:
-    provider = get_settings().email_provider
-    if provider != "dummy":
-        raise ProviderNotConfiguredError(f"e-mail provider {provider!r} is not available yet")
-    OUTBOX.append(Message("email", to, subject, body))
-    log.info("e-mail queued (dummy provider): %s", subject)
+    """Raises DeliveryError when the message could not be handed to the mail server."""
+    s = get_settings()
+    if s.email_provider == "dummy":
+        OUTBOX.append(Message("email", to, subject, body))
+        log.info("e-mail queued (dummy provider)")
+        return
+    send_smtp(s, build_email(s, to, subject, body))
+    log.info("e-mail sent")
 
 
-def send_sms(to: str, body: str) -> None:
-    provider = get_settings().sms_provider
-    if provider != "dummy":
-        raise ProviderNotConfiguredError(f"SMS provider {provider!r} is not available yet")
-    OUTBOX.append(Message("sms", to, "", body))
-    log.info("SMS queued (dummy provider)")
+def send_sms(to: str, body: str, template: str) -> None:
+    s = get_settings()
+    if s.sms_provider == "dummy":
+        OUTBOX.append(Message("sms", to, "", body))
+        log.info("SMS queued (dummy provider)")
+        return
+    send_sms_via(s, to, body, template)
+    log.info("SMS sent")
 
 
 def staff_invite(to: str, hospital: str, role: str, link: str, days: int) -> None:

@@ -19,6 +19,7 @@ from ncconnector import __version__, activity, platform
 from ncconnector.auth import Staff, perm, platform_signed, role
 from ncconnector.config import get_settings
 from ncconnector.db import ActivityLog, NcidMap, Review, get_db, init_db
+from ncconnector.delivery import DeliveryError, check_config
 from ncconnector.keys import has_take_key, take_private_key
 from ncconnector.providers import send_invite
 from ncconnector.records import RecordsUnavailableError, records
@@ -46,6 +47,7 @@ async def _reminder_loop(every_s: int) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    check_config(get_settings())
     init_db()
     every = get_settings().reminder_interval_s
     task = asyncio.create_task(_reminder_loop(every)) if every else None
@@ -365,7 +367,7 @@ class InviteIn(BaseModel):
 
 class InviteResult(BaseModel):
     mrn: str
-    #: sent | printed | skipped_no_email | skipped_no_phone | not_found | failed
+    #: sent | printed | skipped_no_email | skipped_no_phone | not_found | not_delivered | failed
     result: str
     ncid: str | None = None
     #: Print only: the link and a QR code (PNG, base64) to hand over at the visit.
@@ -416,7 +418,12 @@ def _invite_one(db: DbSession, s: Staff, mrn: str, channel: str) -> InviteResult
             qr_png_base64=base64.b64encode(qr_png(link)).decode(),
         )
     assert contact is not None
-    send_invite(channel, contact, link, _days(out["expires_at"]))
+    try:
+        send_invite(channel, contact, link, _days(out["expires_at"]))
+    except DeliveryError as exc:
+        # The invite exists; the front desk can send it again or print the QR code.
+        activity.write(db, s.role, s.user_id, "invite_not_delivered", ncid, channel=channel, reason=exc.code)
+        return InviteResult(mrn=mrn, result="not_delivered", ncid=ncid, error=exc.code)
     return InviteResult(mrn=mrn, result="sent", ncid=ncid)
 
 

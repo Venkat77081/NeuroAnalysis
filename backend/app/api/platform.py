@@ -11,12 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
-from app.api.staff import new_staff_invite
+from app.api.staff import deliver_staff_invite, new_staff_invite
 from app.audit import audit
 from app.db import get_db
 from app.models import AuditEvent, Device, Operator, PatientAccount, Site, StaffUser
 from app.policy import policy
-from app.providers import staff_invite
 from app.security import Principal, require_role, sha256_hex
 
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -142,7 +141,7 @@ def onboard(
         role="hospital_admin",
     )
     db.commit()
-    staff_invite(email, site.name, "hospital_admin", link, policy()["invites"]["staffTtlDays"])
+    deliver_staff_invite(email, site.name, "hospital_admin", link, policy()["invites"]["staffTtlDays"])
     return _out(db, site)
 
 
@@ -198,7 +197,7 @@ def resend_admin_invite(
     admin.failed_logins = 0
     audit(db, p.actor_type, p.actor_id, "staff_invited", "staff", admin.id, site_id=site.id, role=admin.role)
     db.commit()
-    staff_invite(admin.email, site.name, admin.role, link, policy()["invites"]["staffTtlDays"])
+    deliver_staff_invite(admin.email, site.name, admin.role, link, policy()["invites"]["staffTtlDays"])
 
 
 class AuditOut(BaseModel):

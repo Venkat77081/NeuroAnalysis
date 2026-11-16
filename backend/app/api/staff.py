@@ -273,3 +273,15 @@ def me(p: Principal = Depends(staff), db: DbSession = Depends(get_db)) -> MeOut:
         two_step_enabled=user.totp_enabled,
         permissions=granted(db, p) if site else [],
     )
+
+
+def deliver_staff_invite(to: str, hospital: str, role: str, link: str, days: int) -> None:
+    """Sends the invite e-mail after the account is saved. If the mail server refuses, the account
+    stays (the admin can use "Resend invite" once mail works) and the caller gets 502 email_not_sent."""
+    from app.delivery import DeliveryError
+    from app.providers import staff_invite
+
+    try:
+        staff_invite(to, hospital, role, link, days)
+    except DeliveryError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, {"code": "email_not_sent"}) from exc

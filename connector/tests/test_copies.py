@@ -33,3 +33,7 @@ def test_signing_matches_backend():
         assert inspect.getsource(getattr(platform_side, name)) == inspect.getsource(
             getattr(connector_side, name)
         )
+
+
+def test_delivery_matches_backend():
+    assert _after_docstring(HERE / "delivery.py") == _after_docstring(ROOT / "backend/app/delivery.py")

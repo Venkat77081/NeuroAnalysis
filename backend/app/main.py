@@ -24,6 +24,7 @@ from app.api.staff import router as staff_router
 from app.api.storage_local import router as storage_router
 from app.api.takes import router as takes_router
 from app.config import get_settings
+from app.delivery import check_config
 from app.storage import ensure_bucket
 
 log = logging.getLogger("neurocapture")
@@ -31,6 +32,7 @@ log = logging.getLogger("neurocapture")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    check_config(get_settings())
     if get_settings().storage == "s3" and get_settings().s3_endpoint:
         try:
             ensure_bucket()

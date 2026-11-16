@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from ncconnector import activity, platform
 from ncconnector.db import NcidMap
+from ncconnector.delivery import DeliveryError
 from ncconnector.providers import send_reminder
 from ncconnector.records import RecordsUnavailableError, records
 
@@ -37,7 +38,12 @@ def send_due(db: DbSession) -> int:
         if rec is None or not (rec.email or rec.phone):
             continue
         channel, to = ("email", rec.email) if rec.email else ("sms", rec.phone)
-        send_reminder(channel, to, _day(r["due_at"]) or "", _day(r.get("appointment_at")))
+        try:
+            send_reminder(channel, to, _day(r["due_at"]) or "", _day(r.get("appointment_at")))
+        except DeliveryError as exc:
+            # Not marked as sent: the next run tries again.
+            log.warning("reminder not delivered: %s", exc.code)
+            continue
         platform.call("POST", f"/connector/v1/reminders/{r['request_id']}/sent", {})
         activity.write(db, "system", None, "reminder_sent", r["ncid"], channel=channel)
         sent += 1

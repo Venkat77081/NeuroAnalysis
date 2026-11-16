@@ -1,6 +1,6 @@
-"""Invite delivery from the hospital's side (e-mail with QR code, SMS, print). Only dummy
-providers exist until the hospital's mail and SMS accounts are configured (decision 024): messages
-are kept in memory. Addresses are never logged."""
+"""Invite and reminder delivery from the hospital's side (e-mail with QR code, SMS, print), through
+the hospital's own mail server (SMTP) and SMS provider (ncconnector/delivery.py). "dummy" keeps
+messages in memory (dev, tests). Addresses are never logged."""
 
 import io
 import json
@@ -12,6 +12,7 @@ from pathlib import Path
 import segno
 
 from ncconnector.config import get_settings
+from ncconnector.delivery import build_email, send_sms_via, send_smtp
 
 log = logging.getLogger("ncconnector.providers")
 
@@ -26,10 +27,6 @@ class Message:
 
 
 OUTBOX: list[Message] = []
-
-
-class ProviderNotConfiguredError(RuntimeError):
-    pass
 
 
 @lru_cache
@@ -48,51 +45,51 @@ def qr_png(link: str) -> bytes:
     return out.getvalue()
 
 
-def send_invite(channel: str, to: str, link: str, days: int) -> None:
+def _email(to: str, subject: str, body: str, attachments: dict[str, bytes] | None = None) -> None:
     s = get_settings()
-    hospital = s.hospital_name
+    if s.email_provider == "dummy":
+        OUTBOX.append(Message("email", to, subject, body, attachments or {}))
+        log.info("e-mail queued (dummy provider)")
+        return
+    send_smtp(s, build_email(s, to, subject, body, attachments))
+    log.info("e-mail sent")
+
+
+def _sms(to: str, body: str, template: str) -> None:
+    s = get_settings()
+    if s.sms_provider == "dummy":
+        OUTBOX.append(Message("sms", to, "", body))
+        log.info("SMS queued (dummy provider)")
+        return
+    send_sms_via(s, to, body, template)
+    log.info("SMS sent")
+
+
+def send_invite(channel: str, to: str, link: str, days: int) -> None:
+    """Raises DeliveryError when the mail server or SMS provider refuses."""
+    hospital = get_settings().hospital_name
     if channel == "email":
-        if s.email_provider != "dummy":
-            raise ProviderNotConfiguredError(f"e-mail provider {s.email_provider!r} is not available yet")
-        OUTBOX.append(
-            Message(
-                "email",
-                to,
-                text("patientInviteEmail", "subject", hospital=hospital),
-                text("patientInviteEmail", "body", hospital=hospital, link=link, days=days),
-                {"invite-qr.png": qr_png(link)},
-            )
+        _email(
+            to,
+            text("patientInviteEmail", "subject", hospital=hospital),
+            text("patientInviteEmail", "body", hospital=hospital, link=link, days=days),
+            {"invite-qr.png": qr_png(link)},
         )
-        log.info("invite e-mail queued (dummy provider)")
     elif channel == "sms":
-        if s.sms_provider != "dummy":
-            raise ProviderNotConfiguredError(f"SMS provider {s.sms_provider!r} is not available yet")
-        OUTBOX.append(
-            Message("sms", to, "", text("patientInviteSms", "body", hospital=hospital, link=link, days=days))
+        _sms(
+            to, text("patientInviteSms", "body", hospital=hospital, link=link, days=days), "patientInviteSms"
         )
-        log.info("invite SMS queued (dummy provider)")
 
 
 def send_reminder(channel: str, to: str, due: str, appointment: str | None) -> None:
-    """v3: "please record by …" for an open recording request."""
-    s = get_settings()
-    hospital = s.hospital_name
+    """v3: "please record by …" for an open recording request. Raises DeliveryError."""
+    hospital = get_settings().hospital_name
     appt = text("reminderAppointment", "suffix", appointment=appointment) if appointment else ""
     if channel == "email":
-        if s.email_provider != "dummy":
-            raise ProviderNotConfiguredError(f"e-mail provider {s.email_provider!r} is not available yet")
-        OUTBOX.append(
-            Message(
-                "email",
-                to,
-                text("reminderEmail", "subject", hospital=hospital, due=due),
-                text("reminderEmail", "body", hospital=hospital, due=due, appointment=appt),
-            )
+        _email(
+            to,
+            text("reminderEmail", "subject", hospital=hospital, due=due),
+            text("reminderEmail", "body", hospital=hospital, due=due, appointment=appt),
         )
     else:
-        if s.sms_provider != "dummy":
-            raise ProviderNotConfiguredError(f"SMS provider {s.sms_provider!r} is not available yet")
-        OUTBOX.append(
-            Message("sms", to, "", text("reminderSms", "body", hospital=hospital, due=due, appointment=appt))
-        )
-    log.info("reminder queued (dummy provider)")
+        _sms(to, text("reminderSms", "body", hospital=hospital, due=due, appointment=appt), "reminderSms")

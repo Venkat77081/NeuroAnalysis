@@ -569,3 +569,54 @@ def test_phones_list_counts_takes_below_the_minimum(api, two_hospitals):
     phones = {d["id"]: d for d in api.get("/hospital/devices", headers=hdr(t["a_tok"])).json()}
     d = phones[dev["device_id"]]
     assert (d["takes_recent"], d["takes_below_min"], d["check_fps"]) == (6, 3, 60.0)
+
+
+def test_staff_invites_over_smtp_and_resend_when_mail_was_down(api, two_hospitals, monkeypatch):
+    """Real e-mail (user, 16 Nov 2026): staff invites go out over SMTP. If the mail server is down,
+    the person is still added (502 email_not_sent) and "Resend invite" works once mail is back."""
+    from fake_smtp import FakeSmtp
+
+    from app.config import get_settings
+
+    t = two_hospitals
+    s = get_settings()
+    dead = FakeSmtp()
+    dead_port = dead.port
+    dead.close()
+    for k, v in {
+        "email_provider": "smtp",
+        "smtp_host": "127.0.0.1",
+        "smtp_port": dead_port,
+        "smtp_security": "none",
+        "smtp_username": "AKIAEXAMPLE",
+        "smtp_password": "ses-smtp-password",
+        "mail_from": "no-reply@neurocapture.example",
+        "mail_from_name": "NeuroCapture",
+        "smtp_timeout_s": 3.0,
+    }.items():
+        monkeypatch.setattr(s, k, v)
+
+    r = api.post(
+        "/hospital/staff", headers=hdr(t["a_tok"]), json={"email": "dr.rao@sunrise.example", "role": "doctor"}
+    )
+    assert r.status_code == 502 and r.json()["detail"]["code"] == "email_not_sent"
+    staff = {u["email"]: u for u in api.get("/hospital/staff", headers=hdr(t["a_tok"])).json()}
+    assert "dr.rao@sunrise.example" in staff  # saved; only the e-mail failed
+
+    smtp = FakeSmtp()
+    try:
+        monkeypatch.setattr(s, "smtp_port", smtp.port)
+        uid = staff["dr.rao@sunrise.example"]["id"]
+        assert api.post(f"/hospital/staff/{uid}/resend-invite", headers=hdr(t["a_tok"])).status_code == 204
+        assert smtp.logins == [("AKIAEXAMPLE", "ses-smtp-password")]
+        msg = smtp.messages[0]
+        assert msg["To"] == "dr.rao@sunrise.example"
+        assert msg["From"] == "NeuroCapture <no-reply@neurocapture.example>"
+        assert "Sunrise Neuro Clinic" in msg["Subject"]
+        body = msg.get_payload(decode=True).decode()
+        token = body.split("/invite?t=", 1)[1].split()[0]
+        # The link in the e-mail works.
+        ok = api.post("/staff/invite/accept", json={"token": token, "password": PW})
+        assert ok.status_code == 204, ok.text
+    finally:
+        smtp.close()

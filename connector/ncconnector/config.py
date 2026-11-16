@@ -45,8 +45,34 @@ class Settings(BaseSettings):
     activity_sink: str = "db"
     activity_http_url: str | None = None
 
-    email_provider: str = "dummy"
-    sms_provider: str = "dummy"
+    #: Message delivery (backend/app/delivery.py, identical in the connector). "dummy" keeps messages
+    #: in memory and sends nothing (dev, tests).
+    email_provider: str = "dummy"  # dummy | smtp
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_security: str = "starttls"  # starttls (587) | ssl (465) | none (trusted relay, 25)
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_timeout_s: float = 15.0
+    mail_from: str | None = None
+    mail_from_name: str | None = None
+    mail_reply_to: str | None = None
+    sms_provider: str = "dummy"  # dummy | twilio | sns | http
+    #: Twilio "From" number, or the sender ID for SNS / the HTTP gateway (e.g. a DLT header).
+    sms_from: str | None = None
+    #: Added to numbers in the records that have no country code.
+    sms_default_country_code: str = "+91"
+    sms_timeout_s: float = 15.0
+    #: India (TRAI DLT): the principal entity ID and, per message, the registered template ID, as
+    #: JSON: {"patientInviteSms": "1207...", "reminderSms": "1207..."}.
+    sms_dlt_entity_id: str | None = None
+    sms_dlt_template_ids: str | None = None
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_messaging_service_sid: str | None = None
+    sms_aws_region: str = "ap-south-1"
+    sms_http_url: str | None = None
+    sms_http_token: str | None = None
     hospital_name: str = "Hospital"
     #: Dashboard origin(s) allowed to call this connector from the browser (CORS), comma-separated.
     #: Includes the Android app's WebView origin (clinic phones look up NCIDs).

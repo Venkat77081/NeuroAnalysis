@@ -245,8 +245,7 @@ class UploadClient(
                     } catch (e: IOException) {
                         throw UploadError(UploadError.Kind.NETWORK, e.javaClass.simpleName)
                     }
-                    if (res.status != 200 || res.etag == null) throw UploadError(UploadError.Kind.NETWORK, "part ${res.status}")
-                    etags[n] = res.etag.replace("\"", "")
+                    etags[n] = partTag(res, n) ?: throw UploadError(UploadError.Kind.NETWORK, "part ${res.status}")
                     sent += chunk.size
                     fileSent += chunk.size
                     onProgress(sent, total)
@@ -285,6 +284,17 @@ class UploadClient(
         for (i in 0 until files.length()) if (files.getJSONObject(i).getString("kind") == kind) return files.getJSONObject(i)
         throw UploadError(UploadError.Kind.PERMANENT, "file $kind missing from plan")
     }
+}
+
+/**
+ * The tag reported for an uploaded part. S3 and the platform's own storage answer 200 with an
+ * ETag. Azure Blob Storage (decision 037) answers a Put Block with 201 and no ETag: the server
+ * commits blocks by part number, so "azure-<n>" stands in. Anything else is a failed part.
+ */
+fun partTag(res: HttpResult, number: Int): String? = when {
+    res.status == 200 && res.etag != null -> res.etag.replace("\"", "")
+    res.status == 201 -> res.etag?.replace("\"", "") ?: "azure-$number"
+    else -> null
 }
 
 /** java.net client with timeouts; plain http is refused outside debug builds by the network config. */

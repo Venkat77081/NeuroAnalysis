@@ -220,9 +220,9 @@ export class UploadClient {
           } catch (e) {
             throw new UploadError('network', String(e));
           }
-          if (res.status !== 200 || !res.etag)
-            throw new UploadError('network', `part ${res.status}`);
-          etags.set(part.number, res.etag.replace(/"/g, ''));
+          const tag = partTag(res, part.number);
+          if (tag === null) throw new UploadError('network', `part ${res.status}`);
+          etags.set(part.number, tag);
           sent += chunk.length;
           report();
         }
@@ -260,4 +260,18 @@ export class UploadClient {
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const d = await globalThis.crypto.subtle.digest('SHA-256', new Uint8Array(bytes));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * The tag reported for an uploaded part (same rule as Kotlin `partTag`). S3 and the platform's own
+ * storage answer 200 with an ETag; Azure Blob Storage answers a Put Block with 201 and no ETag
+ * (decision 037), so "azure-<n>" stands in: the server commits blocks by part number.
+ */
+export function partTag(
+  res: { status: number; etag: string | null },
+  number: number,
+): string | null {
+  if (res.status === 200 && res.etag) return res.etag.replace(/"/g, '');
+  if (res.status === 201) return res.etag ? res.etag.replace(/"/g, '') : `azure-${number}`;
+  return null;
 }

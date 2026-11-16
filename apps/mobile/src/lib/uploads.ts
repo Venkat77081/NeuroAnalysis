@@ -287,6 +287,15 @@ export function closeBody(ctx: SessionContext, endedAt: string): Record<string, 
         at: 'at' in o ? o.at : null,
       };
     }),
+    // Decision 035: the measured fps of every take recorded, retakes included (numbers only), so
+    // the hospital's Phones list can show how often a phone records below the take minimum.
+    attempt_fps: ctx.takes
+      .flat()
+      .flatMap((t) =>
+        typeof t?.result?.effectiveFps === 'number'
+          ? [Math.round(t.result.effectiveFps * 100) / 100]
+          : [],
+      ),
   };
 }
 

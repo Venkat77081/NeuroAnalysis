@@ -65,23 +65,23 @@ function finishedSession(
   a.send({ type: 'SET_MED_STATE', medState: 'ON' });
   a.send({ type: 'SET_CONSENT', given: true, at });
   a.send({ type: 'START', at });
-  const take = (id: string, verdict: 'PASS' | 'RETAKE') => {
+  const take = (id: string, verdict: 'PASS' | 'RETAKE', fps: number) => {
     a.send({ type: 'CONTINUE' });
     a.send({ type: 'RECORD', takeId: id });
     a.send({ type: 'COUNTDOWN_DONE' });
     a.send({
       type: 'TAKE_FINISHED',
-      result: { takeId: id } as RecordingResult,
+      result: { takeId: id, effectiveFps: fps } as RecordingResult,
       verdict,
       reasons: [],
     });
   };
-  take('tk-ft1', 'RETAKE');
+  take('tk-ft1', 'RETAKE', 57.234);
   a.send({ type: 'RETAKE' });
-  take('tk-ft2', 'PASS');
+  take('tk-ft2', 'PASS', 59.9);
   a.send({ type: 'ACCEPT' });
   a.send({ type: 'SKIP', reason: 'patient_unable', at });
-  take('tk-fa1', 'RETAKE');
+  take('tk-fa1', 'RETAKE', 58);
   a.send({ type: 'KEEP' });
   a.send({ type: 'CONFIRM_KEEP', reason: 'patient_fatigue', at });
   return a.getSnapshot().context;
@@ -212,6 +212,8 @@ describe('upload glue (M7)', () => {
         at,
       },
     ]);
+    // Every recorded take's fps, retakes included (decision 035: Phones list).
+    expect(close).toMatchObject({ attempt_fps: [57.23, 59.9, 58] });
     // Free-text notes never leave the phone.
     expect(JSON.stringify(close)).not.toContain('note');
     expect(uploadPrefs({ wifiOnly: null, retentionHours: null }, config)).toEqual({

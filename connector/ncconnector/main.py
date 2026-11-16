@@ -64,9 +64,10 @@ app.add_middleware(
 
 doctor_or_admin = role("doctor", "hospital_admin")
 admin = role("hospital_admin")
-desk = role("hospital_admin", "receptionist")
+#: Decision 031: patients, invites and appointments are the front desk's (not the hospital admin).
+desk = role("receptionist")
 listing = role("doctor", "hospital_admin", "receptionist")
-clinic_staff = role("hospital_admin", "receptionist", "operator")
+clinic_staff = role("receptionist", "operator")
 doctor = role("doctor")
 #: Medical history, recordings, decrypted videos and review notes: assigned doctors only (user,
 #: 15 Nov 2026). Hospital admins and receptionists see names, never clinical data.

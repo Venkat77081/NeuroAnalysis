@@ -248,15 +248,15 @@ def main() -> None:
 
     rotate_take_key()
 
-    # --- Patient: invited by the hospital admin through the connector, accepts, records at home ---
+    # --- Patient: invited by the front desk through the connector, accepts, records at home ---
     from app.security import totp_code
 
     api = httpx.Client(base_url=f"http://127.0.0.1:{P_PORT}", timeout=30)
-    ch = api.post("/staff/login", json={"email": accounts["admin_email"], "password": PW}).json()[
+    ch = api.post("/staff/login", json={"email": accounts["desk_email"], "password": PW}).json()[
         "challenge_token"
     ]
     at = api.post(
-        "/staff/login/two-step", json={"challenge_token": ch, "code": totp_code(accounts["admin_totp"])}
+        "/staff/login/two-step", json={"challenge_token": ch, "code": totp_code(accounts["desk_totp"])}
     ).json()
     ct = api.post(
         "/hospital/connector-token", headers={"Authorization": f"Bearer {at['access_token']}"}

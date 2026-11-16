@@ -14,7 +14,7 @@ from app.models import Patient, PatientAssignment, StaffUser
 from app.security import Principal, require_role
 
 router = APIRouter(prefix="/hospital", tags=["assignments"])
-desk = require_role("receptionist", "hospital_admin")
+desk = require_role("receptionist")  # decision 031: not the hospital admin
 
 
 class DoctorOut(BaseModel):

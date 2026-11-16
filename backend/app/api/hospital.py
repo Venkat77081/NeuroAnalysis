@@ -34,6 +34,9 @@ from app.security import Principal, hash_password, new_secret, require_role, sha
 
 router = APIRouter(prefix="/hospital", tags=["hospital"])
 hospital_admin = require_role("hospital_admin")
+#: Decision 031: patients, join invites and appointments are the front desk's; the hospital admin
+#: sets the hospital up (team, phones, connector, storage).
+front_desk = require_role("receptionist")
 
 
 def site_of(db: DbSession, p: Principal) -> Site:
@@ -431,7 +434,7 @@ def _check_channel(site: Site, channel: str) -> None:
 @router.post("/patients/invite", response_model=PatientInviteOut, status_code=201)
 def invite_patient(
     body: PatientInviteIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(front_desk),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> PatientInviteOut:
     site = site_of(db, p)
@@ -482,7 +485,7 @@ class ReinviteIn(BaseModel):
 def reinvite_patient(
     ncid: str,
     body: ReinviteIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(front_desk),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> PatientInviteOut:
     """New invite (new phone, lost PIN, expired link). The old link and phone stop working."""

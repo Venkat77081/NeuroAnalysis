@@ -72,6 +72,13 @@ def connector(platform_api, monkeypatch):
     root_tok, _ = _two_step(platform_api, "root@example.org")
     site_id = onboard(platform_api, root_tok, "Sunrise Neuro Clinic", "admin@sunrise.example")
     admin_tok, admin_secret = sign_up(platform_api, "admin@sunrise.example")
+    # Decision 031: patients, invites and appointments are the front desk's.
+    platform_api.post(
+        "/hospital/staff",
+        headers=hdr(admin_tok),
+        json={"email": "frontdesk@sunrise.example", "role": "receptionist"},
+    )
+    desk_tok, _ = sign_up(platform_api, "frontdesk@sunrise.example")
 
     cs = get_settings()
     monkeypatch.setattr(cs, "site_id", site_id)
@@ -109,6 +116,7 @@ def connector(platform_api, monkeypatch):
         "root_tok": root_tok,
         "admin_tok": admin_tok,
         "admin_secret": admin_secret,
+        "desk_tok": desk_tok,
     }
     for f in (ncdb.get_engine, ncdb.factory):
         f.cache_clear()

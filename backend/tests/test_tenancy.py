@@ -115,7 +115,24 @@ def two_hospitals(api, platform):
     a_tok, a_secret = sign_up(api, "admin@sunrise.example")
     b = onboard(api, platform, "Lakeview Hospital", "admin@lakeview.example", sms=True)
     b_tok, _ = sign_up(api, "admin@lakeview.example")
-    return {"platform": platform, "a": a, "a_tok": a_tok, "a_secret": a_secret, "b": b, "b_tok": b_tok}
+    # Front desk of each hospital: patients and invites are theirs (decision 031).
+    desks = {}
+    for k, tok, email in (
+        ("a", a_tok, "frontdesk@sunrise.example"),
+        ("b", b_tok, "frontdesk@lakeview.example"),
+    ):
+        api.post("/hospital/staff", headers=hdr(tok), json={"email": email, "role": "receptionist"})
+        desks[k], _ = sign_up(api, email)
+    return {
+        "platform": platform,
+        "a": a,
+        "a_tok": a_tok,
+        "a_secret": a_secret,
+        "b": b,
+        "b_tok": b_tok,
+        "a_desk": desks["a"],
+        "b_desk": desks["b"],
+    }
 
 
 def register_phone(api, tok, label="Ward phone 1"):
@@ -240,7 +257,7 @@ def accept_patient(api, link, pin="2580"):
 
 def test_patient_invite_pin_and_home_session(api, two_hospitals):
     t = two_hospitals
-    r = api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "print"})
+    r = api.post("/hospital/patients/invite", headers=hdr(t["a_desk"]), json={"channel": "print"})
     assert r.status_code == 201, r.text
     ncid = r.json()["ncid"]
     assert re.fullmatch(r"nc_[0-9a-f]{32}", ncid) and r.json()["invite_link"].startswith("neurocapture://")
@@ -252,7 +269,7 @@ def test_patient_invite_pin_and_home_session(api, two_hospitals):
         {"channel": "print", "mrn": "00012388"},
         {"channel": "sms"},
     ):
-        assert api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json=body).status_code == 422
+        assert api.post("/hospital/patients/invite", headers=hdr(t["a_desk"]), json=body).status_code == 422
 
     link = r.json()["invite_link"]
 
@@ -318,7 +335,7 @@ def test_patient_invite_pin_and_home_session(api, two_hospitals):
 
 def test_patient_pin_lockout_and_reinvite(api, two_hospitals):
     t = two_hospitals
-    link = api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "print"}).json()
+    link = api.post("/hospital/patients/invite", headers=hdr(t["a_desk"]), json={"channel": "print"}).json()
     assert link["invite_link"].startswith("neurocapture://invite?t=")
     acc = accept_patient(api, link["invite_link"])
     creds = {"device_id": acc["device_id"], "device_secret": acc["device_secret"]}
@@ -335,7 +352,7 @@ def test_patient_pin_lockout_and_reinvite(api, two_hospitals):
     assert pts[0]["status"] == "locked"
     # Re-invite: old phone removed, new link works.
     r = api.post(
-        f"/hospital/patients/{link['ncid']}/reinvite", headers=hdr(t["a_tok"]), json={"channel": "print"}
+        f"/hospital/patients/{link['ncid']}/reinvite", headers=hdr(t["a_desk"]), json={"channel": "print"}
     )
     assert r.status_code == 200
     assert api.post("/patient/login", json={**creds, "pin": "2580"}).status_code == 401
@@ -352,7 +369,7 @@ def test_cross_hospital_isolation(api, two_hospitals):
     a, b = hdr(t["a_tok"]), hdr(t["b_tok"])
     op_a = api.post("/hospital/operators", headers=a, json={"code": "OP-07"}).json()
     dev_a = register_phone(api, t["a_tok"])
-    pat_a = api.post("/hospital/patients/invite", headers=a, json={"channel": "print"}).json()
+    pat_a = api.post("/hospital/patients/invite", headers=hdr(t["a_desk"]), json={"channel": "print"}).json()
     doc_a = api.post("/hospital/staff", headers=a, json={"email": "dr@sunrise.example"}).json()
     # Same operator ID is fine in another hospital.
     assert api.post("/hospital/operators", headers=b, json={"code": "OP-07"}).status_code == 201
@@ -373,7 +390,9 @@ def test_cross_hospital_isolation(api, two_hospitals):
     assert api.post(f"/auth/devices/{dev_a['device_id']}/revoke", headers=b).status_code == 404
     assert (
         api.post(
-            f"/hospital/patients/{pat_a['ncid']}/reinvite", headers=b, json={"channel": "print"}
+            f"/hospital/patients/{pat_a['ncid']}/reinvite",
+            headers=hdr(t["b_desk"]),
+            json={"channel": "print"},
         ).status_code
         == 404
     )
@@ -396,7 +415,7 @@ def test_cross_hospital_isolation(api, two_hospitals):
 
 def test_suspended_hospital_is_refused(api, two_hospitals):
     t = two_hospitals
-    pat = api.post("/hospital/patients/invite", headers=hdr(t["a_tok"]), json={"channel": "print"}).json()
+    pat = api.post("/hospital/patients/invite", headers=hdr(t["a_desk"]), json={"channel": "print"}).json()
     acc = accept_patient(api, pat["invite_link"])
     r = api.post(
         f"/platform/hospitals/{t['a']}/status", headers=hdr(t["platform"]), json={"status": "suspended"}
@@ -449,7 +468,7 @@ def test_platform_refuses_patient_identity(api, two_hospitals):
     t = two_hospitals
     r = api.post(
         "/hospital/patients/invite",
-        headers=hdr(t["a_tok"]),
+        headers=hdr(t["a_desk"]),
         json={"channel": "email", "contact": "patient@example.org", "mrn": "MRN-99887766"},
     )
     assert r.status_code == 422

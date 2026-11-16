@@ -33,7 +33,9 @@ def test_review_and_lookup(connector):
     assert rv.status_code == 201, rv.text
     got = c.get(f"/v1/patients/{r['ncid']}/reviews", headers=doc).json()
     assert [(x["take_id"], x["usable"], x["note"]) for x in got] == [(take_id, False, note)]
-    assert "take_reviewed" in [e["action"] for e in c.get("/v1/activity", headers=admin).json()]
+    assert "take_reviewed" in [
+        e["action"] for e in c.get("/v1/activity", headers=ctoken(env, env["admin_tok"])).json()
+    ]
     # The note (with a name in it) never reached the platform.
     dump = platform_dump(env)
     assert "retake on Friday" not in dump and "Asha" not in dump

@@ -13,7 +13,7 @@ from ncconnector.providers import OUTBOX
 
 
 def ctoken(env, tok=None) -> dict:
-    r = env["platform"].post("/hospital/connector-token", headers=hdr(tok or env["admin_tok"]))
+    r = env["platform"].post("/hospital/connector-token", headers=hdr(tok or env["desk_tok"]))
     assert r.status_code == 200, r.text
     assert r.json()["connector_url"] == "http://connector.test"
     return hdr(r.json()["token"])
@@ -35,8 +35,8 @@ def accept(env, link, pin="2580"):
 
 
 def assign(env, ncid: str, doctor_email: str) -> None:
-    """The receptionist's job (M14), done here by the hospital admin."""
-    a = hdr(env["admin_tok"])
+    """The receptionist's job (M14; decision 031: not the hospital admin)."""
+    a = hdr(env["desk_tok"])
     docs = {d["email"]: d["id"] for d in env["platform"].get("/hospital/doctors", headers=a).json()}
     r = env["platform"].put(
         f"/hospital/patients/{ncid}/doctor", headers=a, json={"doctor_id": docs[doctor_email]}
@@ -183,7 +183,7 @@ def test_full_flow(connector):
     )
 
     # Activity log at the hospital (the connector's database).
-    log = c.get("/v1/activity", headers=admin).json()
+    log = c.get("/v1/activity", headers=ctoken(env, env["admin_tok"])).json()  # the admin reads it
     actions = [e["action"] for e in log]
     for a in ("patients_searched", "patient_invited", "history_viewed", "recording_viewed"):
         assert a in actions
@@ -288,7 +288,7 @@ def test_tokens_and_signatures_are_enforced(connector):
     # The platform refuses contact details and MRNs.
     r = env["platform"].post(
         "/hospital/patients/invite",
-        headers=hdr(env["admin_tok"]),
+        headers=hdr(env["desk_tok"]),
         json={"channel": "email", "contact": "a@b.example", "mrn": "1"},
     )
     assert r.status_code == 422  # decision 027: the platform never takes contacts or MRNs

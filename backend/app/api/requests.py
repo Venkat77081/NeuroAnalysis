@@ -38,9 +38,9 @@ from app.policy import policy
 from app.security import Principal, current_principal, require_role, sha256_hex
 
 router = APIRouter(tags=["appointments"])
-desk = require_role("receptionist", "hospital_admin")
+desk = require_role("receptionist")  # decision 031: not the hospital admin
 doctor_only = require_role("doctor")
-staff = require_role("receptionist", "hospital_admin", "doctor")
+staff = require_role("receptionist", "doctor")
 
 TestCode = Literal["FT", "FTF", "FR", "SAW", "FA"]
 ORDER = ["FT", "FTF", "FR", "SAW", "FA"]

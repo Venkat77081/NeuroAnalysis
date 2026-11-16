@@ -22,7 +22,9 @@
 
 ## Consequences
 
-- The platform API still lets a hospital admin invite and manage appointments (as a fallback if a
-  hospital has no receptionist account yet); the dashboard does not show it.
+- The API enforces it too (user, 16 Nov 2026): a hospital admin is refused (403) for join invites,
+  appointments, doctor assignments and NCID look-ups, on the platform and on the connector. A
+  hospital with no front desk yet adds one under Team (several admins and front-desk staff are
+  allowed, each with their own login).
 - Deletion requests from phones before v3 are shown on the admin's Overview, only when there are
   any.

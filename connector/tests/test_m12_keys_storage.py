@@ -29,7 +29,7 @@ def env(connector, tmp_path, monkeypatch):
 def ctoken(env) -> dict:
     """A doctor assigned to every patient of the hospital (clinical data is doctors-only)."""
     ncids = [
-        p["ncid"] for p in env["platform"].get("/hospital/patients", headers=hdr(env["admin_tok"])).json()
+        p["ncid"] for p in env["platform"].get("/hospital/patients", headers=hdr(env["desk_tok"])).json()
     ]
     return doctor_for(env, *ncids)
 
@@ -101,7 +101,18 @@ def second_hospital(env):
     )
     r = signed(api, b_sign, b_site, "POST", "/connector/v1/keys", {"public_key_pem": pem.decode()})
     assert r.status_code == 201, r.text
-    return {"site": b_site, "tok": b_tok, "sign": b_sign, "take_key": b_take, "key_id": r.json()["key_id"]}
+    api.post(
+        "/hospital/staff", headers=hdr(b_tok), json={"email": "desk@lakeview.example", "role": "receptionist"}
+    )
+    b_desk, _ = sign_up(api, "desk@lakeview.example")
+    return {
+        "site": b_site,
+        "tok": b_tok,
+        "desk": b_desk,
+        "sign": b_sign,
+        "take_key": b_take,
+        "key_id": r.json()["key_id"],
+    }
 
 
 def test_take_readable_only_by_its_hospitals_connector(env):
@@ -112,7 +123,7 @@ def test_take_readable_only_by_its_hospitals_connector(env):
         key["key_id"]
     ]
 
-    ncid, acc, sess = patient_session(env, env["admin_tok"])
+    ncid, acc, sess = patient_session(env, env["desk_tok"])
     assert sess["encryption_key"]["owner"] == "hospital" and sess["encryption_key"]["key_id"] == key["key_id"]
     # A take wrapped with any other key (e.g. the platform's) is refused.
     wrong = {
@@ -148,7 +159,7 @@ def test_take_readable_only_by_its_hospitals_connector(env):
         unwrap_data_key(take.wrapped_data_key, b["take_key"])
 
     # And A's connector cannot read B's take: not served to A, and A's key cannot unwrap it.
-    b_ncid, b_acc, b_sess = patient_session(env, b["tok"], "home-b1")
+    b_ncid, b_acc, b_sess = patient_session(env, b["desk"], "home-b1")
     assert b_sess["encryption_key"]["key_id"] == b["key_id"]
     b_take_id = record(env, b_acc, b_sess, "tk-b1")
     link_ncid(b_ncid)  # even if A's map somehow held B's NCID
@@ -163,7 +174,7 @@ def test_take_readable_only_by_its_hospitals_connector(env):
 def test_rotation(env):
     api, c = env["platform"], env["client"]
     k1 = rotate_take_key()
-    ncid, acc, s1 = patient_session(env, env["admin_tok"])
+    ncid, acc, s1 = patient_session(env, env["desk_tok"])
     link_ncid(ncid)
     t1 = record(env, acc, s1, "tk-1")
     k2 = rotate_take_key()
@@ -212,7 +223,11 @@ def test_every_hospital_needs_a_key(env, monkeypatch):
     api = env["platform"]
     onboard(api, env["root_tok"], "Managed Clinic", "admin@managed.example")
     b_tok, _ = sign_up(api, "admin@managed.example")
-    inv = api.post("/hospital/patients/invite", headers=hdr(b_tok), json={"channel": "print"}).json()
+    api.post(
+        "/hospital/staff", headers=hdr(b_tok), json={"email": "desk@managed.example", "role": "receptionist"}
+    )
+    b_desk, _ = sign_up(api, "desk@managed.example")
+    inv = api.post("/hospital/patients/invite", headers=hdr(b_desk), json={"channel": "print"}).json()
     acc = api.post(
         "/patient/invite/accept",
         json={
@@ -319,7 +334,7 @@ def test_hospital_bucket_upload_only_role(env, aws, monkeypatch):
     )
 
     rotate_take_key()
-    ncid, acc, sess = patient_session(env, env["admin_tok"])
+    ncid, acc, sess = patient_session(env, env["desk_tok"])
     link_ncid(ncid)
     take_id = record(env, acc, sess, "tk-s3")
 

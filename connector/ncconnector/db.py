@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String, TypeDecorator, create_engine
+from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, TypeDecorator, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -89,6 +89,20 @@ class VisitRemark(Base):
     ncid: Mapped[str] = mapped_column(String(40), index=True)
     text: Mapped[str] = mapped_column(String(4000))
     author_id: Mapped[str] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+class MessagingSettings(Base):
+    """Decision 042: e-mail and SMS settings the hospital admin enters in the dashboard. One row.
+    The whole document is encrypted (AES-GCM, key derived from this connector's signing key);
+    values set in the connector's environment always win."""
+
+    __tablename__ = "nc_messaging_settings"
+    id: Mapped[str] = mapped_column(String(16), primary_key=True, default="default")
+    sealed: Mapped[str] = mapped_column(Text)
+    #: Result of the last test per channel: {"email": "working"|"failing", "sms": ..., "*_at": iso}.
+    tests: Mapped[dict | None] = mapped_column(JSON)
+    updated_by: Mapped[str | None] = mapped_column(String(64))
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 

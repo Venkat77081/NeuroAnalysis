@@ -6,6 +6,7 @@ import io
 import json
 import logging
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -45,8 +46,17 @@ def qr_png(link: str) -> bytes:
     return out.getvalue()
 
 
+def delivery_settings():
+    """Environment settings plus what the hospital admin saved in the dashboard (decision 042)."""
+    from ncconnector.db import factory
+    from ncconnector.messaging import effective
+
+    with factory()() as db:
+        return effective(db)
+
+
 def _email(to: str, subject: str, body: str, attachments: dict[str, bytes] | None = None) -> None:
-    s = get_settings()
+    s = delivery_settings()
     if s.email_provider == "dummy":
         OUTBOX.append(Message("email", to, subject, body, attachments or {}))
         log.info("e-mail queued (dummy provider)")
@@ -56,13 +66,26 @@ def _email(to: str, subject: str, body: str, attachments: dict[str, bytes] | Non
 
 
 def _sms(to: str, body: str, template: str) -> None:
-    s = get_settings()
+    s = delivery_settings()
     if s.sms_provider == "dummy":
         OUTBOX.append(Message("sms", to, "", body))
         log.info("SMS queued (dummy provider)")
         return
     send_sms_via(s, to, body, template)
     log.info("SMS sent")
+
+
+def send_test(channel: str, to: str) -> None:
+    """The dashboard's "Send a test" (decision 042). Raises DeliveryError on failure."""
+    hospital = get_settings().hospital_name
+    if channel == "email":
+        _email(
+            to, text("testEmail", "subject", hospital=hospital), text("testEmail", "body", hospital=hospital)
+        )
+    else:
+        # India: only DLT-registered texts are delivered, so the test uses the reminder template.
+        due = datetime.now(UTC).strftime("%d %b")
+        _sms(to, text("reminderSms", "body", hospital=hospital, due=due, appointment=""), "reminderSms")
 
 
 def send_invite(channel: str, to: str, link: str, days: int) -> None:

@@ -61,11 +61,13 @@
     "http_422": "Please check the form.",
     "not_a_doctor_here": "Choose an active doctor of this hospital.",
     "platform_unreachable": "The NeuroCapture service is not answering. Try again.",
-    "email_not_sent": "Saved, but the invite e-mail could not be sent. Check the mail settings, then use \"Resend invite\".",
+    "email_not_sent": "The test e-mail could not be sent. Check the server, port and password.",
     "azure_not_offered": "Azure storage is not set up on this NeuroCapture platform yet. Ask NeuroCapture.",
     "cannot_reset_self": "You cannot reset your own sign-in. Ask another admin (or the platform admin).",
     "not_signed_up": "This person has not signed up yet: use Resend invite instead.",
-    "bad_reason": "Choose a reason."
+    "bad_reason": "Choose a reason.",
+    "sms_not_sent": "The test SMS could not be sent. Check the provider settings.",
+    "dlt_templates_invalid": "The DLT template IDs are not valid."
   },
   "nav": {
     "hospitals": "Hospitals",
@@ -614,5 +616,210 @@
     },
     "hidden_one": "{{count}} older appointment hidden: choose a longer period above.",
     "hidden_other": "{{count}} older appointments hidden: choose a longer period above."
+  },
+  "overview": {
+    "countsOnly": "Counts only: NeuroCapture holds no patient names.",
+    "todo": "to do",
+    "check": "check",
+    "open": "Check",
+    "review": "Review",
+    "setUp": "Set up",
+    "chooseDoctor": "Choose doctor",
+    "patient": "Patient",
+    "noDoctor": "no doctor yet",
+    "flagged": "kept · flagged",
+    "empty": "Nothing here yet.",
+    "showTable": "Table",
+    "showChart": "Chart",
+    "weekOf": "Week of",
+    "day": "Day",
+    "count": "Count",
+    "tipWeek": "Week of {{date}}: {{count}}",
+    "tipDay": "{{date}}: {{count}}",
+    "periods": {
+      "4w": "4 weeks",
+      "12w": "12 weeks",
+      "1y": "1 year"
+    },
+    "place": {
+      "home": "home",
+      "clinic": "clinic"
+    },
+    "storage": {
+      "managed": "NeuroCapture storage",
+      "s3": "your S3 bucket",
+      "azure": "your Azure container"
+    },
+    "chart": {
+      "uploadsAll": "Recordings uploaded per week (all hospitals)",
+      "uploadsHospital": "Recordings per week (your hospital)",
+      "appointmentsAhead": "Appointments per day, next 14 days",
+      "uploadsMine": "Recordings received per week (my patients)"
+    },
+    "list": {
+      "platform_admin": "Hospitals needing attention",
+      "hospital_admin": "Set-up and health",
+      "receptionist": "Today",
+      "doctor": "Recent recordings"
+    },
+    "health": {
+      "connector": "Connector · last test {{at}}",
+      "takeKey": "Take key · since {{at}}",
+      "email": "E-mail (SMTP)",
+      "sms": "SMS",
+      "storage": "Storage · {{place}}"
+    },
+    "status": {
+      "ok": "OK",
+      "suspended": "left",
+      "admin_not_signed_up": "admin not signed up",
+      "connector_not_tested": "connector not tested",
+      "connector_failing": "connector failing",
+      "storage_not_tested": "storage not tested",
+      "storage_failing": "storage failing",
+      "pass": "pass",
+      "fail": "fail",
+      "missing": "not set up",
+      "active": "active",
+      "working": "working",
+      "failing": "failing",
+      "off": "off",
+      "unknown": "not set up",
+      "recorded": "Recorded",
+      "needDoctor": "Choose doctor",
+      "waitingTests": "Waiting for tests",
+      "clinicQueue": "Clinic queue",
+      "homeLink": "Home link sent",
+      "notJoined": "Not joined",
+      "new": "new"
+    },
+    "tiles": {
+      "hospitals": {
+        "title": "Hospitals onboarded",
+        "detail": "{{active}} active · {{settingUp}} setting up · +{{recent}} in {{days}} days"
+      },
+      "hospitalsLeft": {
+        "title": "Hospitals left",
+        "detail": "suspended or closed"
+      },
+      "patients": {
+        "title": "Patients (NCIDs)",
+        "detail": "{{inApp}} in the app · {{clinicOnly}} clinic only"
+      },
+      "phones": {
+        "title": "Clinic phones",
+        "detail": "{{borderline}} borderline camera check"
+      },
+      "operators": {
+        "title": "Operators",
+        "detail": "{{lockedOrOff}} locked or disabled"
+      },
+      "recordings": {
+        "title": "Recordings ({{days}} days)",
+        "detail": "{{retakenPct}}% retaken"
+      },
+      "staff": {
+        "title": "Doctors and front desk",
+        "detail": "{{doctors}} doctors · {{desk}} front desk · {{notSignedUp}} not signed up"
+      },
+      "today": {
+        "title": "Appointments today",
+        "detail": "{{queue}} in the clinic queue"
+      },
+      "needDoctor": {
+        "title": "Need a doctor",
+        "detail": "choose a doctor"
+      },
+      "waitingTests": {
+        "title": "Waiting for the doctor's tests",
+        "detail": "upcoming appointments"
+      },
+      "notInApp": {
+        "title": "Patients not in the app",
+        "detail": "with an appointment in the next {{days}} days"
+      },
+      "invitesSent": {
+        "title": "Invites sent ({{days}} days)",
+        "detail": "{{notOpened}} not opened yet"
+      },
+      "chooseTests": {
+        "title": "Choose tests",
+        "detail": "appointments waiting for you"
+      },
+      "upcoming": {
+        "title": "Upcoming appointments",
+        "detail": "next {{days}} days"
+      },
+      "newRecordings": {
+        "title": "New recordings",
+        "detail": "last {{days}} days"
+      },
+      "myPatients": {
+        "title": "My patients",
+        "detail": "appointment or completed visit"
+      },
+      "onTime": {
+        "title": "Recorded on time",
+        "detail": "{{links}} home links, last {{days}} days"
+      }
+    }
+  },
+  "messaging": {
+    "title": "Messages to patients: e-mail and SMS",
+    "keptAt": "Saved at your connector",
+    "intro": "Invites and reminders go out from your hospital's own accounts. These settings go straight from this browser to your hospital connector and are kept there, encrypted. NeuroCapture never receives them; passwords and keys are never shown again.",
+    "emailTitle": "E-mail (SMTP)",
+    "smsTitle": "SMS",
+    "setByIt": "set by IT",
+    "secretKept": "saved · type to replace",
+    "save": "Save at connector",
+    "saved": "Saved at your connector.",
+    "sendTestTo": "Send a test to",
+    "sendTestEmail": "Send test e-mail",
+    "sendTestSms": "Send test SMS",
+    "testSent": {
+      "email": "Test e-mail sent.",
+      "sms": "Test SMS sent."
+    },
+    "status": {
+      "off": "off",
+      "untested": "not tested",
+      "working": "working",
+      "failing": "failing"
+    },
+    "security": {
+      "starttls": "STARTTLS (587)",
+      "ssl": "SSL (465)",
+      "none": "None (trusted relay)"
+    },
+    "providers": {
+      "twilio": "Twilio",
+      "sns": "Amazon SNS",
+      "http": "Other gateway (HTTP)",
+      "off": "Off"
+    },
+    "dltHint": "India: texts must match your DLT templates (invite and reminder; see config/messages). The test SMS uses the reminder template.",
+    "emailFields": {
+      "host": "Server",
+      "port": "Port",
+      "security": "Security",
+      "username": "User name",
+      "password": "Password",
+      "from": "From address",
+      "from_name": "Sender name"
+    },
+    "smsFields": {
+      "account_sid": "Account SID",
+      "auth_token": "Auth token",
+      "messaging_service_sid": "Messaging service SID",
+      "from": "Sender (number or ID)",
+      "aws_region": "AWS region",
+      "http_url": "Gateway URL (https)",
+      "http_token": "Gateway token",
+      "country_code": "Country code for numbers without one",
+      "dlt_entity_id": "DLT entity ID (India)",
+      "dlt_invite": "DLT template · invite",
+      "dlt_reminder": "DLT template · reminder"
+    }
   }
 }

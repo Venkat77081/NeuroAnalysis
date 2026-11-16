@@ -12,6 +12,7 @@ import { call, hospital } from './api.ts';
 import { fromAudit, type AuditRow } from './platform.tsx';
 import { ActivityLog, type LogRow, type Who } from './activity.tsx';
 import { HospitalPermissions } from './permissions.tsx';
+import { MessagingCard } from './messaging.tsx';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
 
 function useLoad<T>(fn: () => Promise<T>): [T | null, unknown, () => void] {
@@ -366,6 +367,7 @@ export function Connections() {
         )}
         {checks(storage?.check ?? null)}
       </Card>
+      {conn?.url && <MessagingCard />}
     </Page>
   );
 }
@@ -735,7 +737,7 @@ interface Deletion {
 }
 
 /** Deletion requests from phones before v3 (the app no longer offers deletion; decision 030). */
-function DeletionRequests() {
+export function DeletionRequests() {
   const { t } = useTranslation();
   const [error, setError] = useState<unknown>(null);
   const [deletions, , reloadDel] = useLoad(() =>
@@ -856,39 +858,6 @@ export function Activity() {
       <Notice>{t('log.hospitalHint')}</Notice>
       <ErrorNote error={error} />
       <ActivityLog rows={rows ?? []} testId="activity-log" />
-    </Page>
-  );
-}
-
-export function Overview({ siteName }: { siteName: string }) {
-  const { t } = useTranslation();
-  const [conn] = useLoad(() => call<ConnectorInfo>('GET', '/hospital/connector'));
-  const [keys] = useLoad(() => call<KeyRow[]>('GET', '/hospital/keys'));
-  const [ops] = useLoad(() => call<Operator[]>('GET', '/hospital/operators'));
-  const [devs] = useLoad(() => call<DeviceRow[]>('GET', '/hospital/devices'));
-  const okConn = !!conn?.check && Object.values(conn.check).every((v) => v === 'pass');
-  return (
-    <Page title={siteName}>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card title={t('hospital.connectorTitle')}>
-          <Badge tone={okConn ? 'ok' : 'warn'}>{okConn ? t('app.pass') : t('app.warn')}</Badge>
-        </Card>
-        <Card title={t('hospital.keysTitle')}>
-          <Badge tone={(keys ?? []).some((k) => k.status === 'active') ? 'ok' : 'warn'}>
-            {(keys ?? []).length}
-          </Badge>
-        </Card>
-        <Card title={t('hospital.operatorsTitle')}>
-          <span className="text-[22px] font-bold">{(ops ?? []).length}</span>
-        </Card>
-        <Card title={t('hospital.phonesTitle')}>
-          <span className="text-[22px] font-bold">
-            {(devs ?? []).filter((d) => !d.revoked_at).length}
-          </span>
-        </Card>
-      </div>
-      <Notice>{t('hospital.deskDoes')}</Notice>
-      <DeletionRequests />
     </Page>
   );
 }

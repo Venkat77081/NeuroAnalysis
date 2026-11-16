@@ -19,6 +19,7 @@ test('platform admin lets doctors book appointments at one hospital, then resets
   await page.getByTestId('sign-out').click();
 
   await signIn(page, s.root_email, s.root_totp);
+  await page.getByTestId('nav-hospitals').click();
   await page.getByTestId('perms-Sunrise Neuro Clinic').click();
   const table = page.getByTestId('perm-table');
   await expect(table).toContainText('Assign and reassign the doctor');
@@ -54,6 +55,7 @@ test('platform admin lets doctors book appointments at one hospital, then resets
 
   // Reset to defaults.
   await signIn(page, s.root_email, s.root_totp);
+  await page.getByTestId('nav-hospitals').click();
   await page.getByTestId('perms-Sunrise Neuro Clinic').click();
   await page.getByTestId('perm-reason').fill('Back to the standard set');
   await page.getByTestId('perm-reset').click();

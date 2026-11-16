@@ -70,6 +70,7 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   // The doctor: both appointments wait for tests; history is shown next to the choice.
   await signIn(page, s.doctor_email, s.doctor_totp);
   await expect(page.getByTestId('choose-count')).toHaveText('2');
+  await page.getByTestId('nav-chooseTests').click();
   // Ravi is not in the app: only the clinic can record him.
   await page.getByTestId('choose-00012401').click();
   await expect(page.getByTestId('choose-not-joined')).toContainText(
@@ -116,6 +117,7 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
 
   // Reception sees where each will be recorded, and who did each step.
   await signIn(page, s.desk_email, s.desk_totp);
+  await page.getByTestId('nav-appointments').click();
   const row = page.getByTestId(`appt-${s.patient_mrn}`).first();
   await expect(row.getByTestId('appt-where')).toContainText('Home link');
   await expect(row.getByTestId('appt-where')).toContainText('Clinic queue');

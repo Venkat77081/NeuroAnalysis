@@ -60,6 +60,7 @@ test('v8: doctors see patients through their own appointments; one appointment, 
 
   // Dr. Iyer now sees Asha (history and every recording), and her appointment to choose tests for.
   await signIn(page, s.doctor2_email, s.doctor2_totp);
+  await page.getByTestId('nav-chooseTests').click();
   await expect(page.getByTestId(`choose-${s.patient_mrn}`)).toBeVisible();
   await myPatients(page);
   await expect(page.getByTestId('my-patients')).toContainText('Asha Testpatient');

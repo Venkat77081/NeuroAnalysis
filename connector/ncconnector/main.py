@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import hashlib
+import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
@@ -60,7 +61,7 @@ app = FastAPI(title="NeuroCapture hospital connector", version=__version__, life
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -682,3 +683,103 @@ def remarks(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(get
     require_access(s, ncid)
     q = select(VisitRemark).where(VisitRemark.ncid == ncid).order_by(VisitRemark.updated_at.desc())
     return [_remark_out(r) for r in db.scalars(q)]
+
+
+# --- E-mail and SMS settings (decision 042) ---
+
+
+class EmailSettingsIn(BaseModel):
+    host: str | None = Field(default=None, max_length=253)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    security: Literal["starttls", "ssl", "none"] | None = None
+    username: str | None = Field(default=None, max_length=254)
+    #: None keeps the saved password, "" clears it.
+    password: str | None = Field(default=None, max_length=500)
+    from_: str | None = Field(default=None, alias="from", max_length=254)
+    from_name: str | None = Field(default=None, max_length=120)
+
+
+class SmsSettingsIn(BaseModel):
+    provider: Literal["twilio", "sns", "http", "off"] | None = None
+    from_: str | None = Field(default=None, alias="from", max_length=40)
+    country_code: str | None = Field(default=None, pattern=r"^\+\d{1,4}$")
+    dlt_entity_id: str | None = Field(default=None, max_length=40)
+    #: JSON {"patientInviteSms": "...", "reminderSms": "..."}.
+    dlt_template_ids: str | None = Field(default=None, max_length=500)
+    account_sid: str | None = Field(default=None, max_length=64)
+    auth_token: str | None = Field(default=None, max_length=200)
+    messaging_service_sid: str | None = Field(default=None, max_length=64)
+    aws_region: str | None = Field(default=None, max_length=30)
+    http_url: str | None = Field(default=None, max_length=500, pattern=r"^https://")
+    http_token: str | None = Field(default=None, max_length=500)
+
+
+class MessagingIn(BaseModel):
+    email: EmailSettingsIn | None = None
+    sms: SmsSettingsIn | None = None
+
+
+class MessagingTestIn(BaseModel):
+    channel: Literal["email", "sms"]
+    to: str = Field(min_length=3, max_length=254)
+
+
+def _report_messaging(db: DbSession) -> dict[str, str]:
+    """Tell the platform "working / failing / off" (nothing else). Best effort."""
+    from ncconnector.messaging import status as messaging_status
+
+    st = messaging_status(db)
+    try:
+        platform.call("POST", "/connector/v1/messaging/status", st)
+    except platform.PlatformError:
+        log.warning("could not report e-mail / SMS status to the platform")
+    return st
+
+
+@app.get("/v1/settings/messaging")
+def get_messaging(_: Staff = Depends(admin), db: DbSession = Depends(get_db)) -> dict:
+    """The hospital admin's e-mail and SMS settings. Passwords and tokens: only whether set."""
+    from ncconnector.messaging import view
+
+    return view(db)
+
+
+@app.put("/v1/settings/messaging")
+def put_messaging(body: MessagingIn, s: Staff = Depends(admin), db: DbSession = Depends(get_db)) -> dict:
+    from ncconnector.messaging import save, view
+
+    if body.sms and body.sms.dlt_template_ids:
+        try:
+            ids = json.loads(body.sms.dlt_template_ids)
+            assert isinstance(ids, dict) and all(isinstance(v, str) for v in ids.values())
+        except (ValueError, AssertionError) as exc:
+            raise HTTPException(422, {"code": "dlt_templates_invalid"}) from exc
+    changed = save(
+        db,
+        s.user_id,
+        body.email.model_dump(exclude_unset=True, by_alias=True) if body.email else None,
+        body.sms.model_dump(exclude_unset=True, by_alias=True) if body.sms else None,
+    )
+    if changed:
+        activity.write(db, s.role, s.user_id, "messaging_settings_changed", None, fields=sorted(changed))
+    _report_messaging(db)
+    return view(db)
+
+
+@app.post("/v1/settings/messaging/test")
+def test_messaging(body: MessagingTestIn, s: Staff = Depends(admin), db: DbSession = Depends(get_db)) -> dict:
+    """Send one test message to an address or number the admin types. It is not stored."""
+    from ncconnector.messaging import record_test
+    from ncconnector.providers import send_test
+
+    try:
+        send_test(body.channel, body.to)
+        ok = True
+    except DeliveryError:
+        ok = False
+    record_test(db, body.channel, ok)
+    activity.write(db, s.role, s.user_id, "messaging_test_sent", None, channel=body.channel, ok=ok)
+    st = _report_messaging(db)
+    if not ok:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, {"code": f"{body.channel}_not_sent"})
+    return {"channel": body.channel, "status": st[body.channel]}

@@ -118,4 +118,34 @@ export interface PlatformConfig {
      */
     usageDays: number;
   };
+  /**
+   * v10 Overview pages (decision 042): time windows for the cards and the chart.
+   */
+  overview?: {
+    /**
+     * Chart periods offered (days back, counted per week).
+     */
+    periodsDays: {
+      '4w': number;
+      '12w': number;
+      '1y': number;
+    };
+    /**
+     * 'Recordings (30 days)', 'not used in 30 days', 'onboarded this month'.
+     */
+    recentDays: number;
+    /**
+     * Front desk: invites sent and patients not in the app with an appointment within this many days.
+     */
+    inviteDays: number;
+    /**
+     * Front desk chart: appointments per day for the next N days.
+     */
+    deskDays: number;
+    doctorUpcomingDays: number;
+    /**
+     * Doctor: home links recorded by their due date over this many days.
+     */
+    onTimeDays: number;
+  };
 }

@@ -471,6 +471,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/settings/messaging:
+    get:
+      summary: Get Messaging
+      description: 'The hospital admin''s e-mail and SMS settings. Passwords and tokens:
+        only whether set.'
+      operationId: get_messaging_v1_settings_messaging_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Get Messaging V1 Settings Messaging Get
+      security:
+      - HTTPBearer: []
+    put:
+      summary: Put Messaging
+      operationId: put_messaging_v1_settings_messaging_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessagingIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Put Messaging V1 Settings Messaging Put
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
+  /v1/settings/messaging/test:
+    post:
+      summary: Test Messaging
+      description: Send one test message to an address or number the admin types.
+        It is not stored.
+      operationId: test_messaging_v1_settings_messaging_test_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessagingTestIn'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Test Messaging V1 Settings Messaging Test Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /auth/connector-token:
     post:
       tags:
@@ -713,6 +785,28 @@ paths:
                   $ref: '#/components/schemas/RecordingOut'
                 title: Response Connector Takes Connector V1 Patients  Ncid  Takes
                   Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+  /connector/v1/messaging/status:
+    post:
+      tags:
+      - connector
+      summary: Connector Messaging Status
+      operationId: connector_messaging_status_connector_v1_messaging_status_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessagingStatusIn'
+        required: true
+      responses:
+        '204':
+          description: Successful Response
         '422':
           description: Validation Error
           content:
@@ -1172,6 +1266,56 @@ components:
       - expires_in
       - connector_url
       title: ConnectorTokenOut
+    EmailSettingsIn:
+      properties:
+        host:
+          anyOf:
+          - type: string
+            maxLength: 253
+          - type: 'null'
+          title: Host
+        port:
+          anyOf:
+          - type: integer
+            maximum: 65535.0
+            minimum: 1.0
+          - type: 'null'
+          title: Port
+        security:
+          anyOf:
+          - type: string
+            enum:
+            - starttls
+            - ssl
+            - none
+          - type: 'null'
+          title: Security
+        username:
+          anyOf:
+          - type: string
+            maxLength: 254
+          - type: 'null'
+          title: Username
+        password:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Password
+        from:
+          anyOf:
+          - type: string
+            maxLength: 254
+          - type: 'null'
+          title: From
+        from_name:
+          anyOf:
+          - type: string
+            maxLength: 120
+          - type: 'null'
+          title: From Name
+      type: object
+      title: EmailSettingsIn
     HTTPValidationError:
       properties:
         detail:
@@ -1358,6 +1502,59 @@ components:
       - mrn
       - records_available
       title: LookupRow
+    MessagingIn:
+      properties:
+        email:
+          anyOf:
+          - $ref: '#/components/schemas/EmailSettingsIn'
+          - type: 'null'
+        sms:
+          anyOf:
+          - $ref: '#/components/schemas/SmsSettingsIn'
+          - type: 'null'
+      type: object
+      title: MessagingIn
+    MessagingStatusIn:
+      properties:
+        email:
+          type: string
+          enum:
+          - working
+          - failing
+          - 'off'
+          title: Email
+        sms:
+          type: string
+          enum:
+          - working
+          - failing
+          - 'off'
+          title: Sms
+      type: object
+      required:
+      - email
+      - sms
+      title: MessagingStatusIn
+      description: 'Decision 042: whether the connector''s e-mail and SMS work. Never
+        the settings.'
+    MessagingTestIn:
+      properties:
+        channel:
+          type: string
+          enum:
+          - email
+          - sms
+          title: Channel
+        to:
+          type: string
+          maxLength: 254
+          minLength: 3
+          title: To
+      type: object
+      required:
+      - channel
+      - to
+      title: MessagingTestIn
     NcidIn:
       properties:
         mrn:
@@ -1752,6 +1949,81 @@ components:
       - reviewer_id
       - at
       title: ReviewOut
+    SmsSettingsIn:
+      properties:
+        provider:
+          anyOf:
+          - type: string
+            enum:
+            - twilio
+            - sns
+            - http
+            - 'off'
+          - type: 'null'
+          title: Provider
+        from:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+          title: From
+        country_code:
+          anyOf:
+          - type: string
+            pattern: ^\+\d{1,4}$
+          - type: 'null'
+          title: Country Code
+        dlt_entity_id:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+          title: Dlt Entity Id
+        dlt_template_ids:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Dlt Template Ids
+        account_sid:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Account Sid
+        auth_token:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Auth Token
+        messaging_service_sid:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Messaging Service Sid
+        aws_region:
+          anyOf:
+          - type: string
+            maxLength: 30
+          - type: 'null'
+          title: Aws Region
+        http_url:
+          anyOf:
+          - type: string
+            maxLength: 500
+            pattern: ^https://
+          - type: 'null'
+          title: Http Url
+        http_token:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Http Token
+      type: object
+      title: SmsSettingsIn
     TakeDownloadOut:
       properties:
         take_id:

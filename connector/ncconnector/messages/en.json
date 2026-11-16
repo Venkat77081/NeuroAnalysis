@@ -30,5 +30,9 @@
   "staffReset": {
     "subject": "Reset your NeuroCapture sign-in for {hospital}",
     "body": "Your NeuroCapture sign-in for {hospital} was reset by {by}.\n\nChoose a new password here (the link works once and expires in {hours} hours):\n{link}\n\nAfter that you will set up two-step sign-in with your authenticator app again.\n\nIf you did not ask for this, tell your hospital admin."
+  },
+  "testEmail": {
+    "subject": "NeuroCapture test e-mail from {hospital}",
+    "body": "This is a test from {hospital}'s NeuroCapture connector. E-mail to patients is working.\n\nNo reply is needed."
   }
 }

@@ -71,6 +71,7 @@ test('M14: platform admin — hospitals, set-up status, onboarding, platform log
 }) => {
   const s = stack();
   await signIn(page, s.root_email, s.root_totp);
+  await page.getByTestId('nav-hospitals').click(); // v10: every role starts on its Overview
   await expect(page.getByTestId('hospitals')).toContainText('Sunrise Neuro Clinic');
   await page.getByTestId('setup-Sunrise Neuro Clinic').click();
   const steps = page.getByTestId('setup-steps');

@@ -91,6 +91,9 @@ class Site(Base):
     #: Decision 033: {permission: [roles]} where this hospital differs from config/platform.json.
     permissions: Mapped[dict | None] = mapped_column(Json)
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
+    #: v10 (decision 042): what the connector reports about its e-mail and SMS, never the settings:
+    #: {"email": "working"|"failing"|"off", "sms": ..., "at": iso}.
+    messaging_status: Mapped[dict | None] = mapped_column(Json)
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
     onboarded_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 

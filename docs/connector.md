@@ -37,7 +37,8 @@ docker run -d --name nc-connector -p 8100:8100 -v nc-connector:/data --env-file 
 | `NCC_ACTIVITY_SINK`, `NCC_ACTIVITY_HTTP_URL`                        | `db` (default) or `http` (the hospital's log server; entries are queued while it is down)                                                                                                |
 | `NCC_HOSPITAL_NAME`                                                 | Name used in invite messages                                                                                                                                                             |
 | `NCC_CORS_ORIGINS`                                                  | Dashboard address(es) allowed to call the connector from the browser                                                                                                                     |
-| `NCC_EMAIL_PROVIDER`, `NCC_SMS_PROVIDER`                            | `dummy` for now (decision 024)                                                                                                                                                           |
+| `NCC_EMAIL_PROVIDER`, `NCC_SMTP_*`, `NCC_MAIL_FROM*`                | `smtp` with the hospital's mail server (host, port, `starttls`/`ssl`/`none`, user, password, sender); `dummy` sends nothing (decision 036)                                               |
+| `NCC_SMS_PROVIDER`, `NCC_TWILIO_*`, `NCC_SMS_*`                     | `twilio`, `sns` (Amazon SNS, AWS credentials from the environment) or `http` (any gateway behind a small adapter); DLT entity and template IDs for India; `dummy` sends nothing          |
 
 The connector must be reachable over HTTPS from the doctors' browsers (hospital network, VPN or
 a hospital-controlled endpoint) and from the NeuroCapture platform (for health checks).

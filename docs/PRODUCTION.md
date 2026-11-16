@@ -52,12 +52,12 @@ release workflow. Some pieces are **not finished yet**.
 
 ### Must be done before real patients
 
-| #   | Gap                                                                                                                                                                                              | Effect today                                                                                                                                                                                                                                     | What to do                                                                                                                                                                                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| B1  | **E-mail and SMS sending are stubs.** `backend/app/providers.py` and `connector/ncconnector/providers.py` only support `dummy`, which keeps messages in memory and sends nothing (decision 024). | Staff invites (hospital admins, doctors, front desk) are **never delivered**. Patient invites by e-mail or SMS and record-by reminders are not sent. **Printed QR invites work.** The first platform admin works too: the CLI prints their link. | Add a real e-mail provider (SMTP or Amazon SES) to the platform and the connector, and an SMS provider (for example MSG91 or Twilio) to the connector. A small, well-contained change behind the existing `send_email` / `send_sms` functions. Ask to have it built.           |
-| B2  | **The app's default server is the test server** (`config/session.json` → `upload.defaultEndpoint` is `fake://api`).                                                                              | A release app would make every user type the server address.                                                                                                                                                                                     | Set it to `https://api.<your-domain>` before building the release (section 6.1).                                                                                                                                                                                               |
-| B3  | **The release branch is not merged.** `main` only has milestones M0–M3; everything since is on `claude/v3-appointments` ([PR #3](https://github.com/Venkat77081/NeuroAnalysis/pull/3)).          | Deploying `main` would deploy an old version.                                                                                                                                                                                                    | Review and merge PR #3, then build releases from `main` (or from a tag such as `v1.0.0`).                                                                                                                                                                                      |
-| B4  | **Clinical and legal approvals** (not code).                                                                                                                                                     | —                                                                                                                                                                                                                                                | Ethics approval for the study, patient consent wording (`config/session.json` → `consentVersion`), a data-processing agreement with each hospital, a privacy policy (Play Store requires one), and compliance with India's DPDP Act 2023. Check these with your legal advisor. |
+| #   | Gap                                                                                                                                                                                                            | Effect today                                                 | What to do                                                                                                                                                                                                                                                                     |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| B1  | ~~E-mail and SMS sending are stubs.~~ **Done (decision 036).** E-mail goes over SMTP (Amazon SES, Azure Communication Services, a hospital mail server, …); SMS through Twilio, Amazon SNS or an HTTP gateway. | —                                                            | Configure `NC_SMTP_*` on the platform and `NCC_SMTP_*` / `NCC_SMS_*` on each connector (3.3, 5.3; cloud guides below). For SMS in India, register DLT templates first.                                                                                                         |
+| B2  | **The app's default server is the test server** (`config/session.json` → `upload.defaultEndpoint` is `fake://api`).                                                                                            | A release app would make every user type the server address. | Set it to `https://api.<your-domain>` before building the release (section 6.1).                                                                                                                                                                                               |
+| B3  | **The release branch is not merged.** `main` only has milestones M0–M3; everything since is on `claude/v3-appointments` ([PR #3](https://github.com/Venkat77081/NeuroAnalysis/pull/3)).                        | Deploying `main` would deploy an old version.                | Review and merge PR #3, then build releases from `main` (or from a tag such as `v1.0.0`).                                                                                                                                                                                      |
+| B4  | **Clinical and legal approvals** (not code).                                                                                                                                                                   | —                                                            | Ethics approval for the study, patient consent wording (`config/session.json` → `consentVersion`), a data-processing agreement with each hospital, a privacy policy (Play Store requires one), and compliance with India's DPDP Act 2023. Check these with your legal advisor. |
 
 ### Not built yet (does not block recording)
 
@@ -71,6 +71,13 @@ release workflow. Some pieces are **not finished yet**.
 ---
 
 ## 2. Choose where to host the platform
+
+Step-by-step cloud guides:
+
+- **Amazon Web Services:** [`deploy/aws.md`](deploy/aws.md)
+- **Microsoft Azure:** [`deploy/azure.md`](deploy/azure.md)
+
+The rest of this guide is the cloud-neutral reference they build on.
 
 Any cloud or a hospital-grade data centre works. The code defaults to AWS **ap-south-1
 (Mumbai)**, which keeps data in India. A simple, sensible production layout:
@@ -182,9 +189,16 @@ NC_STORAGE_DIR=/data/storage
 NC_REQUIRE_HOSPITAL_KEY=true
 NC_ALLOW_LEGACY_REF_HASH=false
 
-# --- Messages (see section 1, B1) ---
-NC_EMAIL_PROVIDER=dummy
-NC_SMS_PROVIDER=dummy
+# --- Staff invite e-mails over SMTP (decision 036) ---
+NC_EMAIL_PROVIDER=smtp
+NC_SMTP_HOST=email-smtp.ap-south-1.amazonaws.com     # Azure: smtp.azurecomm.net
+NC_SMTP_PORT=587
+NC_SMTP_SECURITY=starttls                            # starttls (587) | ssl (465) | none (trusted relay)
+NC_SMTP_USERNAME=<SMTP user>
+NC_SMTP_PASSWORD=<SMTP password>
+NC_MAIL_FROM=no-reply@example.in                     # a verified sender
+NC_MAIL_FROM_NAME=NeuroCapture
+# The platform sends no SMS (patient messages come from each hospital's connector).
 NC_INVITE_LINK_BASE=neurocapture://invite?t=
 
 # --- Rules, thresholds, texts (repo config/, mounted read-only) ---
@@ -365,10 +379,26 @@ NCC_ACTIVITY_SINK=db
 # NCC_ACTIVITY_SINK=http
 # NCC_ACTIVITY_HTTP_URL=https://logs.hospital.in/neurocapture
 
-# Reminders every 15 minutes (needs B1 for e-mail/SMS)
+# Reminders every 15 minutes
 NCC_REMINDER_INTERVAL_S=900
-NCC_EMAIL_PROVIDER=dummy
-NCC_SMS_PROVIDER=dummy
+
+# Patient invites and reminders: the HOSPITAL's own mail server and SMS account (decision 036)
+NCC_EMAIL_PROVIDER=smtp
+NCC_SMTP_HOST=smtp.hospital.in
+NCC_SMTP_PORT=587
+NCC_SMTP_SECURITY=starttls
+NCC_SMTP_USERNAME=<user>
+NCC_SMTP_PASSWORD=<password>
+NCC_MAIL_FROM=neurocapture@hospital.in
+NCC_MAIL_FROM_NAME=Sunrise Neuro Clinic
+NCC_SMS_PROVIDER=twilio                  # twilio | sns | http | dummy
+NCC_TWILIO_ACCOUNT_SID=AC...
+NCC_TWILIO_AUTH_TOKEN=<token>
+NCC_SMS_FROM=+1...                       # or NCC_TWILIO_MESSAGING_SERVICE_SID=MG...
+NCC_SMS_DEFAULT_COUNTRY_CODE=+91
+# India (TRAI DLT): entity ID and one registered template per message
+NCC_SMS_DLT_ENTITY_ID=1201...
+NCC_SMS_DLT_TEMPLATE_IDS={"patientInviteSms": "1207...", "reminderSms": "1207..."}
 
 # Only if the hospital stores recordings in its own S3 bucket (5.5):
 # NCC_S3_REGION=ap-south-1     (+ AWS credentials or instance role with read access to that prefix)
@@ -487,7 +517,7 @@ Output:
 ## 7. Bringing a hospital live (in order)
 
 1. **Platform admin** → Hospitals → add the hospital (name, region, modules) with the hospital
-   admin's e-mail. _(Until B1 is fixed, the invite e-mail is not delivered.)_
+   admin's e-mail. If the e-mail could not be sent, the dashboard says so; fix the mail settings and use "Resend invite".
 2. **Hospital IT:** set up the connector, register it, create the take key and run the test
    (section 5).
 3. **Hospital admin** → Team: add front desk, doctors and clinic operators (operator ID, name,
@@ -507,7 +537,7 @@ Output:
 ## 8. Production checklist
 
 - [ ] PR #3 merged; release built from `main` or a tag
-- [ ] E-mail and SMS providers built and configured (B1), or the hospital agrees to printed QR invites only
+- [ ] SMTP configured and tested on the platform (a staff invite arrives); each connector's SMTP and SMS tested (an invite by e-mail and by SMS arrives); DLT templates approved for India
 - [ ] `defaultEndpoint` set to the production API (B2)
 - [ ] PostgreSQL with backups; S3 (or disk) with backups or versioning
 - [ ] `NC_JWT_SECRET` random; keys generated and backed up offline; no `NC_SERVER_PRIVATE_KEY_PATH` on the server

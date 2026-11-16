@@ -117,7 +117,7 @@ export function SignIn({
     run(async () => {
       const tok = await publicCall<Tokens>('POST', '/staff/login/two-step', {
         challenge_token: challenge,
-        code: code.trim(),
+        code: digits(code),
       });
       setTokens(tok);
       onSignedIn(tok);
@@ -127,18 +127,10 @@ export function SignIn({
   if (challenge)
     return (
       <Shell title={t('auth.title')}>
-        <Field
-          id="code"
-          label={t('auth.code')}
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          data-testid="two-step-code"
-        />
+        <CodeField id="code" value={code} onChange={setCode} testId="two-step-code" />
         <ErrorNote error={error} />
         <Button
-          disabled={busy || code.trim().length < 6}
+          disabled={busy || !isCode(code)}
           onClick={() => void verify()}
           data-testid="two-step-verify"
         >
@@ -197,7 +189,7 @@ function TwoStepSetup({ onDone }: { onDone: (t: Tokens) => void }) {
   const confirm = async () => {
     setError(null);
     try {
-      const tok = await call<Tokens>('POST', '/staff/two-step/confirm', { code: code.trim() });
+      const tok = await call<Tokens>('POST', '/staff/two-step/confirm', { code: digits(code) });
       setTokens(tok);
       onDone(tok);
     } catch (e) {
@@ -216,22 +208,50 @@ function TwoStepSetup({ onDone }: { onDone: (t: Tokens) => void }) {
           </code>
         </p>
       )}
-      <Field
-        id="setup-code"
-        label={t('auth.code')}
-        inputMode="numeric"
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        data-testid="setup-code"
-      />
+      <CodeField id="setup-code" value={code} onChange={setCode} testId="setup-code" />
       <ErrorNote error={error} />
-      <Button
-        disabled={code.trim().length < 6}
-        onClick={() => void confirm()}
-        data-testid="setup-confirm"
-      >
+      <Button disabled={!isCode(code)} onClick={() => void confirm()} data-testid="setup-confirm">
         {t('auth.verify')}
       </Button>
     </Shell>
+  );
+}
+
+/** "482 913" → "482913". */
+const digits = (v: string) => v.replace(/\s/g, '');
+const isCode = (v: string) => /^\d{6}$/.test(digits(v));
+
+/** The 6-digit code; says so plainly when the set-up key is typed instead. */
+function CodeField({
+  id,
+  value,
+  onChange,
+  testId,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  testId: string;
+}) {
+  const { t } = useTranslation();
+  const v = digits(value);
+  const looksLikeKey = /[a-z]/i.test(v) || v.length > 6;
+  return (
+    <>
+      <Field
+        id={id}
+        label={t('auth.code')}
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        data-testid={testId}
+      />
+      {looksLikeKey && (
+        <p role="alert" className="text-[13px] text-bad" data-testid="code-hint">
+          {t('auth.codeNotKey')}
+        </p>
+      )}
+    </>
   );
 }

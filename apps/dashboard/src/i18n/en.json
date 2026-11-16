@@ -37,7 +37,8 @@
     "repeat": "Repeat password",
     "setPassword": "Set password",
     "inviteDone": "Password set. Sign in to continue.",
-    "mismatch": "The passwords do not match."
+    "mismatch": "The passwords do not match.",
+    "codeNotKey": "That looks like the set-up key. Enter the 6-digit code your authenticator app shows (it changes every 30 seconds)."
   },
   "errors": {
     "network": "Cannot reach the server.",

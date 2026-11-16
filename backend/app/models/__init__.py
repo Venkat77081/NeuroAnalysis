@@ -8,7 +8,7 @@ they are accounts, not patient data.
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -98,6 +98,9 @@ class Device(Base):
     #: clinic = registered by the hospital (operator mode only); patient = a patient's own phone.
     kind: Mapped[str] = mapped_column(String(10), default="clinic")
     label: Mapped[str | None] = mapped_column(String(60))
+    #: Camera check before the phone was added (user, 16 Nov 2026): measured frames per second.
+    check_fps: Mapped[float | None] = mapped_column(Float)
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     registered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -341,6 +344,9 @@ class PatientAccount(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     #: v3: when the patient withdrew from this hospital (status closed). Cleared on re-joining.
     withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: The patient's phone failed the camera check and they told the hospital (record in clinic).
+    camera_failed_fps: Mapped[float | None] = mapped_column(Float)
+    camera_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Appointment(Base):

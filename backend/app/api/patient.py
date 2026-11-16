@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.api.auth import ServerKey
 from app.audit import audit
+from app.camera_check import CameraCheckIn, require_passing
 from app.config import get_settings
 from app.db import get_db
 from app.keys import server_public_key
@@ -102,6 +103,8 @@ class AcceptIn(BaseModel):
     consent_version: str | None = Field(default=None, max_length=50)
     model: str = Field(max_length=100)
     os_version: str = Field(max_length=50)
+    #: The camera check the phone ran before joining (required; config `deviceCheck`).
+    camera_check: CameraCheckIn | None = None
 
 
 class AcceptOut(BaseModel):
@@ -114,6 +117,34 @@ class AcceptOut(BaseModel):
     tokens: PatientTokens
 
 
+class UnsuitableIn(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    camera_check: CameraCheckIn
+    model: str = Field(max_length=100)
+
+
+@router.post("/invite/phone-not-suitable", status_code=204)
+def phone_not_suitable(body: UnsuitableIn, db: DbSession = Depends(get_db)) -> None:  # noqa: B008
+    """The patient's phone failed the camera check and they tell the hospital (user, 16 Nov 2026):
+    the doctor sees "Phone not suitable" and can choose clinic recording. The invite is not used up
+    and still works on another phone. Only the measured fps and the phone model are kept."""
+    acc, site = _invited(db, body.token)
+    acc.camera_failed_fps = body.camera_check.effective_fps
+    acc.camera_failed_at = datetime.now(UTC)
+    audit(
+        db,
+        "patient",
+        acc.id,
+        "phone_not_suitable",
+        "patient",
+        acc.patient_id,
+        site_id=site.id,
+        fps=round(body.camera_check.effective_fps, 1),
+        model=body.model[:100],
+    )
+    db.commit()
+
+
 @router.post("/invite/accept", response_model=AcceptOut, status_code=201)
 def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:  # noqa: B008
     acc, site = _invited(db, body.token)
@@ -121,6 +152,8 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "pin_format"})
     if body.consent_version is not None and body.consent_version != policy()["consentVersion"]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "consent_version"})
+    # Before the invite is used: a phone that fails leaves the invite for another phone.
+    fps = require_passing(body.camera_check)
     secret = new_secret()
     dev = Device(
         site_id=site.id,
@@ -128,10 +161,14 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
         os_version=body.os_version,
         secret_hash=sha256_hex(secret),
         kind="patient",
+        check_fps=fps,
+        checked_at=datetime.now(UTC),
     )
     db.add(dev)
     db.flush()
     acc.status = "active"
+    acc.camera_failed_fps = None  # joined with a phone that passed
+    acc.camera_failed_at = None
     acc.pin_hash = hash_pin(body.pin)
     acc.failed_pins = 0
     acc.device_id = dev.id

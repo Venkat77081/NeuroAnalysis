@@ -46,6 +46,7 @@ def patient_session(env, admin_tok, client_session_id="home-1"):
             "consent_version": "home-consent@1",
             "model": "Galaxy",
             "os_version": "15",
+            "camera_check": {"effective_fps": 60},
         },
     ).json()
     s = api.post(
@@ -236,6 +237,7 @@ def test_every_hospital_needs_a_key(env, monkeypatch):
             "consent_version": "home-consent@1",
             "model": "G",
             "os_version": "1",
+            "camera_check": {"effective_fps": 60},
         },
     ).json()
     r = api.post("/sessions", headers=hdr(acc["tokens"]["access_token"]), json=SESSION)

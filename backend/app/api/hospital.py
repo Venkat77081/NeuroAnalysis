@@ -349,6 +349,9 @@ class DeviceOut(BaseModel):
     tier: str | None
     registered_at: datetime
     revoked_at: datetime | None
+    #: Camera check when the phone was added (frames per second).
+    check_fps: float | None = None
+    checked_at: datetime | None = None
 
 
 @router.get("/devices", response_model=list[DeviceOut])
@@ -372,6 +375,8 @@ def list_devices(
             tier=d.tier,
             registered_at=d.registered_at,
             revoked_at=d.revoked_at,
+            check_fps=d.check_fps,
+            checked_at=d.checked_at,
         )
         for d in db.scalars(q)
     ]
@@ -563,6 +568,8 @@ class PatientOut(BaseModel):
     last_session_at: datetime | None = None
     #: M14: the doctor this patient is assigned to (staff user ID), if any.
     doctor_id: str | None = None
+    #: The patient's phone failed the camera check and they told the hospital (record in clinic).
+    phone_unsuitable_fps: float | None = None
 
 
 @router.get("/patients", response_model=list[PatientOut])
@@ -600,6 +607,7 @@ def list_patients(
             sessions=n or 0,
             last_session_at=last,
             doctor_id=doc,
+            phone_unsuitable_fps=acc.camera_failed_fps if acc else None,
         )
         for pt, acc, n, last, doc in db.execute(q)
         if p.role != "doctor" or doc == p.actor_id

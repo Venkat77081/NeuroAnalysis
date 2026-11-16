@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.audit import audit
+from app.camera_check import CameraCheckIn, require_passing
 from app.config import get_settings
 from app.db import get_db
 from app.keys import server_public_key
@@ -31,6 +32,8 @@ class RegisterIn(BaseModel):
     enrollment_code: str = Field(min_length=6, max_length=100)
     model: str = Field(max_length=100)
     os_version: str = Field(max_length=50)
+    #: The camera check the phone ran before using the code (required; config `deviceCheck`).
+    camera_check: CameraCheckIn | None = None
 
 
 class ServerKey(BaseModel):
@@ -62,6 +65,8 @@ def device_register(body: RegisterIn, db: DbSession = Depends(get_db)) -> Regist
         site = db.scalar(select(Site).where(Site.enrollment_code_hash == sha256_hex(body.enrollment_code)))
     if not site or site.status == "suspended":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "unknown enrollment code")
+    # Checked before the code is used: a phone that fails leaves the code for another phone.
+    fps = require_passing(body.camera_check)
     secret = new_secret()
     dev = Device(
         site_id=site.id,
@@ -70,13 +75,17 @@ def device_register(body: RegisterIn, db: DbSession = Depends(get_db)) -> Regist
         secret_hash=sha256_hex(secret),
         kind="clinic",
         label=enr.label if enr else None,
+        check_fps=fps,
+        checked_at=now_,
     )
     db.add(dev)
     db.flush()
     if enr:
         enr.used_at = now_
         enr.device_id = dev.id
-    audit(db, "device", dev.id, "device_registered", "site", site.id, site_id=site.id, model=body.model)
+    audit(
+        db, "device", dev.id, "device_registered", "site", site.id, site_id=site.id, model=body.model, fps=fps
+    )
     db.commit()
     key_id, pem = server_public_key()
     return RegisterOut(

@@ -28,6 +28,7 @@ def accept(env, link, pin="2580"):
             "consent_version": "home-consent@1",
             "model": "Galaxy",
             "os_version": "15",
+            "camera_check": {"effective_fps": 60},
         },
     )
     assert r.status_code == 201, r.text

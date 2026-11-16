@@ -138,11 +138,23 @@ def two_hospitals(api, platform):
 def register_phone(api, tok, label="Ward phone 1"):
     code = api.post("/hospital/device-codes", headers=hdr(tok), json={"label": label}).json()["code"]
     r = api.post(
-        "/auth/device-register", json={"enrollment_code": code.lower(), "model": "Pixel", "os_version": "16"}
+        "/auth/device-register",
+        json={
+            "enrollment_code": code.lower(),
+            "model": "Pixel",
+            "os_version": "16",
+            "camera_check": {"effective_fps": 60},
+        },
     )
     assert r.status_code == 201, r.text
     again = api.post(
-        "/auth/device-register", json={"enrollment_code": code, "model": "Pixel", "os_version": "16"}
+        "/auth/device-register",
+        json={
+            "enrollment_code": code,
+            "model": "Pixel",
+            "os_version": "16",
+            "camera_check": {"effective_fps": 60},
+        },
     )
     assert again.status_code == 403  # one-time code
     return r.json()
@@ -233,7 +245,15 @@ def test_device_code_expires(api, two_hospitals):
         for e in db.query(DeviceEnrollment):
             e.expires_at = datetime.now(UTC) - timedelta(minutes=1)
         db.commit()
-    r = api.post("/auth/device-register", json={"enrollment_code": code, "model": "P", "os_version": "1"})
+    r = api.post(
+        "/auth/device-register",
+        json={
+            "enrollment_code": code,
+            "model": "P",
+            "os_version": "1",
+            "camera_check": {"effective_fps": 60},
+        },
+    )
     assert r.status_code == 403
 
 
@@ -249,6 +269,7 @@ def accept_patient(api, link, pin="2580"):
             "consent_version": "home-consent@1",
             "model": "Galaxy",
             "os_version": "15",
+            "camera_check": {"effective_fps": 60},
         },
     )
     assert r.status_code == 201, r.text
@@ -281,6 +302,7 @@ def test_patient_invite_pin_and_home_session(api, two_hospitals):
             "consent_version": "home-consent@1",
             "model": "G",
             "os_version": "1",
+            "camera_check": {"effective_fps": 60},
         },
     )
     assert bad.status_code == 422

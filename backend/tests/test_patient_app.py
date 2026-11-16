@@ -470,7 +470,13 @@ def test_joining_needs_no_consent(api, two_hospitals):
     ).json()
     r = api.post(
         "/patient/invite/accept",
-        json={"token": inv["invite_link"].split("t=", 1)[1], "pin": "2580", "model": "m", "os_version": "1"},
+        json={
+            "token": inv["invite_link"].split("t=", 1)[1],
+            "pin": "2580",
+            "model": "m",
+            "os_version": "1",
+            "camera_check": {"effective_fps": 60},
+        },
     )
     assert r.status_code == 201, r.text
 
@@ -768,3 +774,48 @@ def test_home_and_clinic_requests_and_the_clinic_queue(api, two_hospitals):
             not r.remind
             for r in db.scalars(select(RecordingRequest).where(RecordingRequest.place == "clinic"))
         )
+
+
+def test_camera_check_before_a_phone_is_added(api, two_hospitals):
+    """User, 16 Nov 2026: 55 fps or more, for clinic phones and patients; a failed check does not
+    use up the code or the invite; a patient whose phone fails can tell the hospital."""
+    t = two_hospitals
+    admin = hdr(t["a_tok"])
+    code = api.post("/hospital/device-codes", headers=admin, json={"label": "Ward 5"}).json()["code"]
+    reg = {"enrollment_code": code, "model": "Galaxy A12", "os_version": "13"}
+    r = api.post("/auth/device-register", json=reg)
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "camera_check_required"
+    r = api.post("/auth/device-register", json={**reg, "camera_check": {"effective_fps": 48}})
+    assert r.status_code == 422 and r.json()["detail"] == {
+        "code": "camera_check_failed",
+        "min_fps": 55.0,
+        "fps": 48.0,
+    }
+    # The code still works on another phone; 55 is enough.
+    ok = api.post(
+        "/auth/device-register", json={**reg, "model": "Pixel 8", "camera_check": {"effective_fps": 55}}
+    )
+    assert ok.status_code == 201, ok.text
+    devs = {d["id"]: d for d in api.get("/hospital/devices", headers=admin).json()}
+    assert devs[ok.json()["device_id"]]["check_fps"] == 55.0
+
+    # Patients: same minimum; "Tell my hospital" leaves the invite valid.
+    inv = api.post("/hospital/patients/invite", headers=hdr(t["a_desk"]), json={"channel": "print"}).json()
+    tok = inv["invite_link"].split("t=", 1)[1]
+    join = {"token": tok, "pin": "2580", "model": "m", "os_version": "1"}
+    bad = api.post("/patient/invite/accept", json={**join, "camera_check": {"effective_fps": 41}})
+    assert bad.status_code == 422 and bad.json()["detail"]["code"] == "camera_check_failed"
+    told = api.post(
+        "/patient/invite/phone-not-suitable",
+        json={"token": tok, "model": "old phone", "camera_check": {"effective_fps": 41}},
+    )
+    assert told.status_code == 204
+    rows = {p["ncid"]: p for p in api.get("/hospital/patients", headers=hdr(t["a_desk"])).json()}
+    assert rows[inv["ncid"]]["phone_unsuitable_fps"] == 41.0 and rows[inv["ncid"]]["status"] == "invited"
+    log = api.get("/hospital/audit", headers=admin).json()
+    assert any(e["action"] == "phone_not_suitable" and e["details"]["fps"] == 41.0 for e in log)
+    # A family member's phone passes: joins with the same invite; the warning clears.
+    good = api.post("/patient/invite/accept", json={**join, "camera_check": {"effective_fps": 59.6}})
+    assert good.status_code == 201, good.text
+    rows = {p["ncid"]: p for p in api.get("/hospital/patients", headers=hdr(t["a_desk"])).json()}
+    assert rows[inv["ncid"]]["phone_unsuitable_fps"] is None and rows[inv["ncid"]]["status"] == "active"

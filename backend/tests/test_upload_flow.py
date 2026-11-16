@@ -7,7 +7,12 @@ H = hashlib.sha256
 def register(api):
     r = api.post(
         "/auth/device-register",
-        json={"enrollment_code": "ENROL-123456", "model": "OnePlus", "os_version": "17"},
+        json={
+            "enrollment_code": "ENROL-123456",
+            "model": "OnePlus",
+            "os_version": "17",
+            "camera_check": {"effective_fps": 60},
+        },
     )
     assert r.status_code == 201, r.text
     return r.json()

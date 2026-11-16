@@ -31,6 +31,7 @@ P_PORT, C_PORT, F_PORT = 8001, 8101, 8180
 ORIGIN = "http://localhost:5174"
 PW = "correct-horse-42"  # noqa: S105 - e2e only
 PATIENT_MRN = "00012388"
+OTHER_MRN = "00012401"  # Ravi Samplename (no e-mail on file)
 
 
 def wait(url: str, timeout: float = 30) -> None:
@@ -276,8 +277,26 @@ def main() -> None:
             "consent_version": "home-consent@1",
             "model": "e2e",
             "os_version": "15",
+            "camera_check": {"effective_fps": 60},
         },
     ).json()
+    # Ravi's phone fails the camera check (decision 035); he tells the hospital, so reception and
+    # the doctor see "Phone not suitable". His invite stays valid.
+    ravi = httpx.post(
+        f"{ct['connector_url']}/v1/invites",
+        headers={"Authorization": f"Bearer {ct['token']}"},
+        json={"mrns": [OTHER_MRN], "channel": "print"},
+        timeout=30,
+    ).json()[0]
+    told = api.post(
+        "/patient/invite/phone-not-suitable",
+        json={
+            "token": ravi["invite_link"].split("t=", 1)[1],
+            "model": "e2e old phone",
+            "camera_check": {"effective_fps": 41},
+        },
+    )
+    assert told.status_code == 204, told.text
     ph = {"Authorization": f"Bearer {acc['tokens']['access_token']}"}
     sess = api.post(
         "/sessions",

@@ -312,6 +312,8 @@ export class FakeServer {
     if (path === '/auth/device-register' && init.method === 'POST') {
       if (body.enrollment_code !== this.enrollmentCode)
         return res(403, { detail: 'unknown enrollment code' });
+      const failed = this.cameraCheck(body, res);
+      if (failed) return failed;
       const id = this.id('dev');
       const secret = this.id('secret');
       this.devices.set(id, secret);
@@ -442,6 +444,24 @@ export class FakeServer {
     return res(404);
   };
 
+  /** Device check minimum (config/platform.json deviceCheck.minFps; the real server reads it). */
+  minCheckFps = 55;
+  /** Invite tokens whose patient said "my phone is not suitable" (fps measured). */
+  readonly phoneNotSuitable = new Map<string, number>();
+  private cameraCheck(
+    body: Record<string, unknown>,
+    res: (s: number, b?: unknown) => HttpResponse,
+  ): HttpResponse | null {
+    const c = body.camera_check as { effective_fps?: unknown } | undefined;
+    if (!c || typeof c.effective_fps !== 'number')
+      return res(422, { detail: { code: 'camera_check_required', min_fps: this.minCheckFps } });
+    if (c.effective_fps < this.minCheckFps)
+      return res(422, {
+        detail: { code: 'camera_check_failed', min_fps: this.minCheckFps, fps: c.effective_fps },
+      });
+    return null;
+  }
+
   /** Patient endpoints that need no access token (invite, PIN sign-in). */
   private patientPublic(
     path: string,
@@ -450,6 +470,13 @@ export class FakeServer {
     res: (s: number, b?: unknown) => HttpResponse,
   ): HttpResponse | null {
     if (init.method !== 'POST') return null;
+    if (path === '/patient/invite/phone-not-suitable') {
+      const inv = this.invites.get(String(body.token));
+      if (!inv || inv.used) return res(403, { detail: { code: 'invite_invalid' } });
+      const c = body.camera_check as { effective_fps?: number } | undefined;
+      this.phoneNotSuitable.set(String(body.token), Number(c?.effective_fps ?? 0));
+      return res(204);
+    }
     if (path === '/patient/invite/lookup' || path === '/patient/invite/accept') {
       const inv = this.invites.get(String(body.token));
       if (!inv || inv.used) return res(403, { detail: { code: 'invite_invalid' } });
@@ -463,6 +490,9 @@ export class FakeServer {
         });
       const pin = String(body.pin);
       if (!/^\d{4,6}$/.test(pin)) return res(422, { detail: { code: 'pin_format' } });
+      const failed = this.cameraCheck(body, res);
+      if (failed) return failed;
+      this.phoneNotSuitable.delete(String(body.token));
       // v3: no consent at joining (consent is asked for each recording session).
       inv.used = true;
       const acc = this.id('pa');
@@ -585,7 +615,8 @@ export class FakeServer {
       const q = new URLSearchParams(queue[1]);
       const from = Date.parse(q.get('from') ?? '');
       const to = Date.parse(q.get('to') ?? '');
-      if (!(to > from) || to - from > 48 * 3_600_000) return res(422, { detail: { code: 'bad_window' } });
+      if (!(to > from) || to - from > 48 * 3_600_000)
+        return res(422, { detail: { code: 'bad_window' } });
       return res(
         200,
         this.requests
@@ -612,7 +643,11 @@ export class FakeServer {
       const r = this.requests.find((x) => x.id === nd[1] && x.place === 'clinic');
       if (!r) return res(404);
       r.notDone = { reason: String(body.reason), by: me.id };
-      return res(200, { request_id: r.id, state: 'not_recorded', not_done_reason: r.notDone.reason });
+      return res(200, {
+        request_id: r.id,
+        state: 'not_recorded',
+        not_done_reason: r.notDone.reason,
+      });
     }
     const op = this.operators.get(me.id);
     if (path === '/auth/change-password' && init.method === 'POST') {

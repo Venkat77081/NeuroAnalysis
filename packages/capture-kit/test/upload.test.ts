@@ -10,6 +10,8 @@ import {
 } from '../src/index.ts';
 import type { UploadConfig, UploadStatus } from '../src/index.ts';
 
+const CC = { effective_fps: 60, ran_at: '2026-11-16T09:00:00Z' }; // camera check (decision 035)
+
 const until = async (cond: () => boolean | Promise<boolean>, ms = 4000) => {
   const end = Date.now() + ms;
   while (!(await cond())) {
@@ -27,7 +29,12 @@ async function setup() {
   const reg = (await (
     await srv.http('fake://api/auth/device-register', {
       method: 'POST',
-      body: JSON.stringify({ enrollment_code: srv.enrollmentCode, model: 'x', os_version: '1' }),
+      body: JSON.stringify({
+        enrollment_code: srv.enrollmentCode,
+        model: 'x',
+        os_version: '1',
+        camera_check: CC,
+      }),
     })
   ).json()) as {
     device_id: string;
@@ -214,7 +221,12 @@ describe('uploads (M7)', () => {
     const reg = (await (
       await srv.http('fake://api/auth/device-register', {
         method: 'POST',
-        body: JSON.stringify({ enrollment_code: srv.enrollmentCode, model: 'x', os_version: '1' }),
+        body: JSON.stringify({
+          enrollment_code: srv.enrollmentCode,
+          model: 'x',
+          os_version: '1',
+          camera_check: CC,
+        }),
       })
     ).json()) as { device_id: string; device_secret: string };
     const login = (await (

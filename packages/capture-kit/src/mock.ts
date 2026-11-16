@@ -81,6 +81,8 @@ export interface MockOptions {
   benchmarkMinutesPerSecond?: number;
   /** Highest fps the simulated camera supports (default 60); 30 exercises the fallback (decision 007). */
   maxFps?: 60 | 30;
+  /** Frame rate the qualification benchmark (camera check) measures; default effectiveFps. */
+  benchmarkFps?: number;
 }
 
 /**
@@ -101,6 +103,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
   private readonly sched: Scheduler;
   private readonly effectiveFps: number;
   private readonly droppedFrac: number;
+  /** Camera-check frame rate (e2e: `?benchFps=48` simulates a phone that is too slow). */
+  benchmarkFps: number | undefined;
   private listeners = new Map<CaptureKitEventName, Set<(e: never) => void>>();
   private frameTimer: unknown = null;
   private camera: OpenCameraOpts | null = null;
@@ -145,6 +149,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.sched = opts.scheduler ?? realScheduler;
     this.effectiveFps = opts.effectiveFps ?? 59.8;
     this.droppedFrac = opts.droppedFrac ?? 0.004;
+    this.benchmarkFps = opts.benchmarkFps;
     this.benchSpeed = opts.benchmarkMinutesPerSecond ?? 60;
     this.mockMaxFps = opts.maxFps ?? 60;
   }
@@ -188,7 +193,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const totalS = (opts.recordMinutes + opts.thermalMinutes) * 60;
     const realMs = (totalS / 60 / this.benchSpeed) * 1000;
     const started = this.sched.now();
-    const fps = Math.min(opts.targetFps, this.effectiveFps);
+    const fps = Math.min(opts.targetFps, this.benchmarkFps ?? this.effectiveFps);
     const progress = (phase: BenchmarkProgressEvent['phase'], elapsedS: number) =>
       this.emit('benchmarkProgress', {
         phase,

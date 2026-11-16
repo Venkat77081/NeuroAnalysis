@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { FakeServer, MockCaptureKit, sampleFixtures } from '../src/index.ts';
 
+const CC = { effective_fps: 60, ran_at: '2026-11-16T09:00:00Z' }; // camera check (decision 035)
+
 describe('app mode (M13)', () => {
   it('is set once; a clinic phone cannot become a patient phone; reset clears it', async () => {
     const kit = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] });
@@ -40,12 +42,14 @@ describe('fake server patient path (M13)', () => {
     const bad = await post(srv, '/patient/invite/accept', {
       token,
       pin: '12',
+      camera_check: CC,
       consent_version: 'home-consent@1',
     });
     expect(bad.status).toBe(422);
     const ok = await post(srv, '/patient/invite/accept', {
       token,
       pin: '2580',
+      camera_check: CC,
       consent_version: 'home-consent@1',
     });
     expect(ok.status).toBe(201);
@@ -99,7 +103,11 @@ describe('fake server patient path (M13)', () => {
     // Another hospital: its own name and NCID; the first hospital's requests stay there.
     const t3 = srv.issueInvite(undefined, { hospital: 'Lakeview Hospital', siteId: 'site2' });
     const other = (await (
-      await post(srv, '/patient/invite/accept', { token: t3.split('t=')[1], pin: '2580' })
+      await post(srv, '/patient/invite/accept', {
+        token: t3.split('t=')[1],
+        pin: '2580',
+        camera_check: CC,
+      })
     ).json()) as { hospital: string; site_id: string; ncid: string };
     expect([other.hospital, other.site_id]).toEqual(['Lakeview Hospital', 'site2']);
     expect(other.ncid).not.toBe(acc.ncid);
@@ -117,6 +125,7 @@ describe('fake server patient path (M13)', () => {
       await post(srv, '/patient/invite/accept', {
         token: t2,
         pin: '1357',
+        camera_check: CC,
         consent_version: 'home-consent@1',
       })
     ).json()) as { device_id: string; device_secret: string };
@@ -130,7 +139,10 @@ describe('fake server patient path (M13)', () => {
   it('operators: temporary password must be changed; NCID from the connector', async () => {
     const srv = new FakeServer();
     const reg = (await (
-      await post(srv, '/auth/device-register', { enrollment_code: srv.enrollmentCode })
+      await post(srv, '/auth/device-register', {
+        enrollment_code: srv.enrollmentCode,
+        camera_check: CC,
+      })
     ).json()) as { device_id: string; device_secret: string };
     const login = await post(srv, '/auth/login', {
       ...reg,

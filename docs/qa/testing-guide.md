@@ -387,6 +387,18 @@ Run at L2. Sign in with the accounts the stack prints.
 | I15 | Patient page: past appointments 30 / 90 / 180 days, 1 year, all           | Older appointments hidden with a count; upcoming always shown; the choice is remembered                                            |
 | I16 | Write a visit remark on your appointment; edit it; clear it               | Shown under the appointment; another doctor cannot write on it; the log says "visit remark written" without the text               |
 
+### K. Overview (v10, every role)
+
+| #   | Test                                                   | Expected                                                                                 |
+| --- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| K1  | Sign in as each role                                   | The first page is Overview: five cards, a chart and a list                               |
+| K2  | Platform admin: hover a bar; click Table               | A tooltip with the week and count; the table shows the same numbers; no patient anywhere |
+| K3  | Click a card (e.g. Hospitals onboarded, Clinic phones) | The page behind it opens                                                                 |
+| K4  | Hospital admin: SMS "not set up" → Set up              | Data connections → "Messages to patients: e-mail and SMS"                                |
+| K5  | Enter SMTP details, Save, Send test e-mail             | "Saved at your connector"; the password field is empty with "saved"; status "working"    |
+| K6  | Wrong SMS gateway, Send test SMS                       | "could not be sent"; Overview shows SMS "failing"                                        |
+| K7  | Front desk: chart                                      | 14 bars, one per day                                                                     |
+
 ### J. Privacy check (automated, any time)
 
 ```bash

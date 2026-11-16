@@ -72,3 +72,7 @@ Hospitals → Roles and permissions.
 pnpm --filter @neurocapture/dashboard dev         # http://localhost:5174, API at public/config.json
 pnpm e2e:dashboard                                # real platform + connector + FHIR stand-in, then the identity scan
 ```
+
+## Overview (v10, decision 042)
+
+Every role starts on **Overview**: five cards, one chart (hover for values, **Table** for the numbers) and a short list. The platform admin's page holds counts and hospital names only. The hospital admin's **Data connections** page has **Messages to patients: e-mail and SMS**, saved at the hospital connector (encrypted), with "Send a test".

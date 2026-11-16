@@ -332,14 +332,15 @@ image on a machine the clinic controls.
 
 Connector database tables (created by the connector, owned by the hospital):
 
-| Table              | Holds                                                                  |
-| ------------------ | ---------------------------------------------------------------------- |
-| `nc_ncid_map`      | NCID ↔ MRN, the only link between NeuroCapture and the real patient    |
-| `nc_activity_log`  | Clinical activity: who searched, invited, viewed history or recordings |
-| `nc_visit_remarks` | Doctors' visit remarks, one per appointment (decision 040)             |
-| `nc_reviews`       | Doctors' reviews of recordings (usable or not, with a note)            |
-| `nc_log_spool`     | Activity entries waiting while the hospital's log server is down       |
-| `nc_used_nonces`   | Replay protection for signed platform calls                            |
+| Table                   | Holds                                                                  |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `nc_ncid_map`           | NCID ↔ MRN, the only link between NeuroCapture and the real patient    |
+| `nc_activity_log`       | Clinical activity: who searched, invited, viewed history or recordings |
+| `nc_visit_remarks`      | Doctors' visit remarks, one per appointment (decision 040)             |
+| `nc_messaging_settings` | E-mail and SMS settings from the dashboard, encrypted (decision 042)   |
+| `nc_reviews`            | Doctors' reviews of recordings (usable or not, with a note)            |
+| `nc_log_spool`          | Activity entries waiting while the hospital's log server is down       |
+| `nc_used_nonces`        | Replay protection for signed platform calls                            |
 
 ```sql
 -- on the hospital's PostgreSQL

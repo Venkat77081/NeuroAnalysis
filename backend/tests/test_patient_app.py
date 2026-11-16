@@ -466,3 +466,52 @@ def test_joining_needs_no_consent(api, two_hospitals):
         json={"token": inv["invite_link"].split("t=", 1)[1], "pin": "2580", "model": "m", "os_version": "1"},
     )
     assert r.status_code == 201, r.text
+
+
+def test_reassigning_the_patient_moves_upcoming_appointments(api, two_hospitals):
+    """User, 16 Nov 2026: after a reassignment the new doctor must be able to choose the tests."""
+    t = two_hospitals
+    desk = _staff(api, t, "desk4@sunrise.example", "receptionist")
+    rao = _staff(api, t, "rao4@sunrise.example", "doctor")
+    iyer = _staff(api, t, "iyer4@sunrise.example", "doctor")
+    docs = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
+    ncid, _acc = home_patient(api, t["a_tok"])
+    soon = lambda d: (datetime.now(UTC) + timedelta(days=d)).isoformat()  # noqa: E731
+    a1 = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": ncid, "at": soon(2), "doctor_id": docs["rao4@sunrise.example"]},
+    ).json()
+    a2 = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": ncid, "at": soon(5), "source": "fhir", "external_id": "Appointment/r4"},
+    ).json()
+    assert a2["doctor_id"] is None
+    # Assigning the patient (Assign patients page) gives every upcoming appointment that doctor.
+    api.put(
+        f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": docs["iyer4@sunrise.example"]}
+    )
+    rows = {a["id"]: a for a in api.get("/hospital/appointments", headers=desk).json()}
+    assert {rows[a1["id"]]["doctor_name"], rows[a2["id"]]["doctor_name"]} == {
+        api.get("/staff/me", headers=iyer).json()["display_name"] or "iyer4@sunrise.example"
+    }
+    assert [a["stage"] for a in api.get("/hospital/appointments", headers=iyer).json()] == [
+        "needs_tests",
+        "needs_tests",
+    ]
+    # Dr. Iyer can send the link; Dr. Rao no longer can.
+    assert api.post(f"/hospital/appointments/{a1['id']}/request", headers=rao, json={}).status_code == 404
+    assert api.post(f"/hospital/appointments/{a1['id']}/request", headers=iyer, json={}).status_code == 201
+    # Reassigning one appointment (Appointments page) moves the patient and the other one too.
+    api.put(
+        f"/hospital/appointments/{a2['id']}", headers=desk, json={"doctor_id": docs["rao4@sunrise.example"]}
+    )
+    mine = api.get("/hospital/appointments", headers=rao).json()
+    assert {a["id"] for a in mine} == {a1["id"], a2["id"]}
+    assert all(a["doctor_id"] == docs["rao4@sunrise.example"] for a in mine)
+    assert api.get("/hospital/appointments", headers=iyer).json() == []
+    # Unassigning: the appointments need a doctor again.
+    api.put(f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": None})
+    stages = {a["id"]: a["stage"] for a in api.get("/hospital/appointments", headers=desk).json()}
+    assert stages[a2["id"]] == "needs_doctor"

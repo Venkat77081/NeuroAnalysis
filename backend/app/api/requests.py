@@ -217,8 +217,11 @@ def _assign(db: DbSession, p: Principal, patient: Patient, doctor_id: str | None
     """Booking with a doctor also assigns the patient to that doctor (they must see the recordings)."""
     if doctor_id is None:
         return
+    from app.assignments import follow_assignment
+
     a = db.get(PatientAssignment, patient.id)
     if a and a.doctor_id == doctor_id:
+        follow_assignment(db, patient.id, doctor_id)  # the patient's other upcoming ones too
         return
     if a:
         a.doctor_id, a.assigned_by, a.assigned_at = doctor_id, p.actor_id, datetime.now(UTC)
@@ -241,6 +244,7 @@ def _assign(db: DbSession, p: Principal, patient: Patient, doctor_id: str | None
         site_id=p.site_id,
         doctor=doctor_id,
         via="appointment",
+        appointments_moved=follow_assignment(db, patient.id, doctor_id),
     )
 
 

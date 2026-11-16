@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
+from app.assignments import follow_assignment
 from app.audit import audit
 from app.db import get_db
 from app.models import Patient, PatientAssignment, StaffUser
@@ -79,6 +80,7 @@ def assign(
                 previous=current.doctor_id,
             )
             db.delete(current)
+            follow_assignment(db, patient.id, None)  # back to "needs a doctor"
             db.commit()
         return AssignOut(ncid=ncid, doctor_id=None, assigned_at=None)
     doctor = db.get(StaffUser, body.doctor_id)
@@ -103,6 +105,7 @@ def assign(
         site_id=p.site_id,
         doctor=doctor.id,
         previous=previous,
+        appointments_moved=follow_assignment(db, patient.id, doctor.id),
     )
     db.commit()
     return AssignOut(ncid=ncid, doctor_id=doctor.id, assigned_at=current.assigned_at)

@@ -27,6 +27,10 @@
   4. Only now does the patient receive the record link (a recording request).
   - Only the assigned doctor can send the link: `POST /hospital/appointments/{id}/request` is
     doctor only, and the appointment must be theirs.
+- **Upcoming appointments follow the patient's doctor** (user, 16 Nov 2026). Assigning or
+  reassigning a patient, on either page, gives every booked appointment from today onwards the same
+  doctor. Unassigning sends them back to "needs a doctor". Past appointments keep their doctor. The
+  doctor who can see the patient is therefore always the one who chooses the tests.
 - **Appointment stages:** needs a doctor → waiting for the doctor's tests → link sent →
   recorded or missed; or cancelled. The stage is worked out on the platform.
 - **Recording every N days only when the doctor asks.** There are two ways:

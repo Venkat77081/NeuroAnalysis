@@ -31,8 +31,14 @@ export function stack(): Stack {
 }
 
 export function python(): string {
-  const venv = resolve('../../connector/.venv/bin/python');
-  return process.env.NC_E2E_PYTHON ?? (existsSync(venv) ? venv : 'python3');
+  if (process.env.NC_E2E_PYTHON) return process.env.NC_E2E_PYTHON;
+  // The repo's .venv (testing guide) or the connector's own; Windows keeps it under Scripts\.
+  const win = process.platform === 'win32';
+  for (const dir of ['../../.venv', '../../connector/.venv']) {
+    const exe = resolve(dir, win ? 'Scripts/python.exe' : 'bin/python');
+    if (existsSync(exe)) return exe;
+  }
+  return win ? 'python' : 'python3';
 }
 
 /** RFC 6238 code (30 s, 6 digits, SHA-1) — what an authenticator app shows. */

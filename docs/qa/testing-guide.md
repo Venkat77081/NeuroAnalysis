@@ -16,6 +16,17 @@ pnpm install
 python3 -m venv .venv && .venv/bin/pip install -e "backend[dev]" -e "connector[dev]"
 ```
 
+**On Windows** (Command Prompt): create the venv with `python -m venv .venv`, activate it with
+`.venv\Scripts\activate`, then use `python` wherever this guide says `.venv/bin/python`. Write
+paths with `\` and use a folder such as `C:\nc-stack` instead of `/tmp/nc-stack`. For example:
+
+```bash
+python apps\dashboard\e2e\stack\run_stack.py --dir C:\nc-stack --lan 192.168.1.20
+```
+
+For `--lan`, use the **IPv4 Address** under "Wireless LAN adapter Wi-Fi" in `ipconfig` (not the
+Default Gateway). If Windows Firewall asks about Python, allow it on private networks.
+
 ## Level 1 — app in the browser (mock mode)
 
 ```bash

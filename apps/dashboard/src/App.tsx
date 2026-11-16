@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { call, resume, signOut, type Tokens } from './api.ts';
 import { InviteAccept, SignIn } from './auth.tsx';
 import { Hospitals, PlatformLog } from './platform.tsx';
-import { Activity, Connections, Overview, Phones, Team } from './hospital.tsx';
+import { Activity, Connections, DeletionRequests, Phones, Team } from './hospital.tsx';
+import { OverviewPage } from './overview.tsx';
 import { InvitePatients } from './invites.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
 import { Appointments } from './appointments.tsx';
@@ -79,7 +80,21 @@ export function App() {
   if (permsFor) body = <PermissionsPage siteId={permsFor} onBack={() => setPermsFor(null)} />;
   else if (page === 'hospitals') body = <Hospitals onPermissions={setPermsFor} />;
   else if (page === 'platformLog') body = <PlatformLog />;
-  else if (page === 'overview') body = <Overview siteName={me.site_name ?? ''} />;
+  else if (page === 'overview')
+    body = (
+      <OverviewPage
+        title={t('nav.overview')}
+        onOpen={(p) => {
+          if (nav.includes(p)) setPage(p);
+        }}
+        onPatient={(ncid) => {
+          setPage('myPatients');
+          setPatient(ncid);
+        }}
+      >
+        {me.role === 'hospital_admin' && <DeletionRequests />}
+      </OverviewPage>
+    );
   else if (page === 'connections') body = <Connections />;
   else if (page === 'team') body = <Team />;
   else if (page === 'phones') body = <Phones />;

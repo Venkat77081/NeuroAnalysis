@@ -9,9 +9,14 @@ export function usePerms(): ReadonlySet<string> {
 
 /** Menu entries in order, each shown when the person has any of its permissions. */
 export const MENU: { page: string; perms: string[]; roles?: string[] }[] = [
+  // v10 (decision 042): every role starts on its Overview.
+  {
+    page: 'overview',
+    perms: [],
+    roles: ['platform_admin', 'hospital_admin', 'receptionist', 'doctor'],
+  },
   { page: 'hospitals', perms: [], roles: ['platform_admin'] },
   { page: 'platformLog', perms: [], roles: ['platform_admin'] },
-  { page: 'overview', perms: [], roles: ['hospital_admin'] },
   { page: 'chooseTests', perms: ['requests.send'] },
   { page: 'myPatients', perms: [], roles: ['doctor'] },
   { page: 'appointments', perms: ['appointments.view', 'appointments.add', 'appointments.assign'] },

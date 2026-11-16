@@ -34,11 +34,38 @@ def test_operator_ncid_lookup_then_clinic_session(connector, monkeypatch):
     assert c.get(f"/v1/patients/{ncid}", headers=otok).status_code == 403
     assert c.post("/v1/invites", headers=otok, json={"mrns": ["00012388"]}).status_code == 403
     assert c.get(f"/v1/patients/{ncid}/recordings", headers=otok).status_code == 403
+    # Names only for patients in the clinic queue: none yet.
+    assert c.post("/v1/patients/lookup", headers=otok, json={"ncids": [ncid]}).json() == []
 
     s = api.post(
         "/sessions", headers=hdr(tok), json={**SESSION, "client_session_id": "c-1", "patient": {"ncid": ncid}}
     )
     assert s.status_code == 201, s.text
+    # A doctor puts the patient in the clinic queue: now the phone may show the name.
+    from datetime import UTC, datetime, timedelta
+
+    from test_e2e import doctor_for
+
+    doctor_for(connector, ncid, email="queue.dr@sunrise.example")
+    desk = hdr(connector["desk_tok"])
+    docs = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
+    at = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
+    appt = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": ncid, "at": at, "doctor_id": docs["queue.dr@sunrise.example"]},
+    ).json()
+    from test_tenancy import staff_login
+
+    dr_tok = staff_login(api, "queue.dr@sunrise.example", connector["readers"]["queue.dr@sunrise.example"])
+    r = api.post(
+        f"/hospital/appointments/{appt['id']}/request",
+        headers=hdr(dr_tok["access_token"]),
+        json={"places": ["clinic"]},
+    )
+    assert r.status_code == 201, r.text
+    names = c.post("/v1/patients/lookup", headers=otok, json={"ncids": [ncid]}).json()
+    assert names[0]["mrn"] == "00012388" and names[0]["name"] == "Asha Testpatient"
     # The platform never saw the MRN.
     from test_e2e import platform_dump
 

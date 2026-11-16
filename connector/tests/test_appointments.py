@@ -1,5 +1,6 @@
-"""v3 on the connector: reception sees appointments live from the hospital's FHIR system (names and
-NCIDs next to them); reminders for open record links are sent with the hospital's contact details."""
+"""v3 on the connector: reminders for open home record links are sent with the hospital's contact
+details. (Appointments are added by hand on the platform; nothing is read from the hospital's
+appointment system.)"""
 
 from datetime import UTC, datetime, timedelta
 
@@ -12,23 +13,6 @@ def _staff(env, email, role):
     api.post("/hospital/staff", headers=hdr(env["admin_tok"]), json={"email": email, "role": role})
     _, secret = sign_up(api, email)
     return staff_login(api, email, secret)["access_token"]
-
-
-def test_reception_sees_fhir_appointments(connector):
-    env, c = connector, connector["client"]
-    desk_pt = _staff(env, "desk@sunrise.example", "receptionist")
-    dr_pt = _staff(env, "dr@sunrise.example", "doctor")
-    desk = ctoken(env, desk_pt)
-    inv = c.post("/v1/invites", headers=desk, json={"mrns": ["00012388"], "channel": "print"}).json()[0]
-
-    rows = c.get("/v1/appointments", headers=desk).json()
-    assert [(r["external_id"], r["mrn"], r["practitioner"]) for r in rows] == [
-        ("Appointment/a1", "00012388", "Dr. Rao"),
-        ("Appointment/a2", "00012401", "Dr. Rao"),
-    ]  # the cancelled one is left out
-    assert rows[0]["name"] == "Asha Testpatient" and rows[0]["ncid"] == inv["ncid"]
-    assert rows[1]["ncid"] is None  # not invited yet
-    assert c.get("/v1/appointments", headers=ctoken(env, dr_pt)).status_code == 403
 
 
 def test_reminder_sent_once_with_hospital_contacts(connector):

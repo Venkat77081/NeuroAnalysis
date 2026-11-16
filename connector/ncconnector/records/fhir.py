@@ -3,12 +3,11 @@
 The MRN is the Patient identifier whose system is NCC_FHIR_MRN_SYSTEM.
 """
 
-from datetime import date, datetime
+from datetime import date
 
 import httpx
 
 from ncconnector.records import (
-    AppointmentRecord,
     History,
     HistoryItem,
     PatientRecord,
@@ -129,38 +128,3 @@ class FhirRecords:
             for e in self._entries("Encounter", {"patient": ref, "_sort": "-date", "_count": "20"})
         ]
         return History(conditions, meds, encounters)
-
-    def appointments(self, start: datetime, end: datetime) -> list[AppointmentRecord]:
-        """FHIR Appointment search by date; the patient participant's MRN is read from Patient."""
-        found = self._entries(
-            "Appointment",
-            {"date": [f"ge{start.isoformat()}", f"le{end.isoformat()}"], "_count": "200"},
-        )
-        mrns: dict[str, str | None] = {}
-        out = []
-        for a in found:
-            if a.get("status") in ("cancelled", "entered-in-error", "noshow"):
-                continue
-            ref = practitioner = None
-            for part in a.get("participant") or []:
-                r = (part.get("actor") or {}).get("reference", "")
-                if r.startswith("Patient/"):
-                    ref = r
-                elif r.startswith("Practitioner/"):
-                    practitioner = (part.get("actor") or {}).get("display")
-            if not ref or not a.get("start"):
-                continue
-            if ref not in mrns:
-                p = self._get(ref, {})
-                mrns[ref] = self._mrn(p)
-            mrn = mrns[ref]
-            if mrn:
-                out.append(
-                    AppointmentRecord(
-                        external_id=f"Appointment/{a.get('id')}",
-                        at=datetime.fromisoformat(a["start"].replace("Z", "+00:00")),
-                        mrn=mrn,
-                        practitioner=practitioner,
-                    )
-                )
-        return sorted(out, key=lambda x: x.at)

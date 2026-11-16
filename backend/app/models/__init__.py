@@ -377,7 +377,12 @@ class RecordingRequest(Base):
     due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     remind: Mapped[bool] = mapped_column(Boolean, default=True)
     reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str] = mapped_column(String(10), default="open")  # open | cancelled
+    status: Mapped[str] = mapped_column(String(10), default="open")  # open | cancelled | not_done
+    #: home = record link in the patient's app; clinic = the clinic phones' queue (user, 16 Nov 2026).
+    place: Mapped[str] = mapped_column(String(6), default="home")
+    #: Clinic requests the operator could not record: reason code and operator.
+    not_done_reason: Mapped[str | None] = mapped_column(String(30))
+    not_done_by: Mapped[str | None] = mapped_column(String(32))
     created_by: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 

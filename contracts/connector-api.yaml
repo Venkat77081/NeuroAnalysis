@@ -280,40 +280,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /v1/appointments:
-    get:
-      summary: Appointments
-      description: Booked appointments from now (minus a day) to `days` ahead, with
-        names, read live.
-      operationId: appointments_v1_appointments_get
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: days
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 60
-          minimum: 1
-          default: 7
-          title: Days
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AppointmentRow'
-                title: Response Appointments V1 Appointments Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /v1/takes/{take_id}/review:
     post:
       summary: Review Take
@@ -970,42 +936,6 @@ components:
       - ncid
       - details
       title: ActivityOut
-    AppointmentRow:
-      properties:
-        external_id:
-          type: string
-          title: External Id
-        at:
-          type: string
-          format: date-time
-          title: At
-        mrn:
-          type: string
-          title: Mrn
-        name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Name
-        ncid:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Ncid
-        practitioner:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Practitioner
-      type: object
-      required:
-      - external_id
-      - at
-      - mrn
-      - name
-      - ncid
-      - practitioner
-      title: AppointmentRow
     CheckIn:
       properties:
         sample_mrn:

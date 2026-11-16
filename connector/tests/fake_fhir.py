@@ -60,27 +60,6 @@ ENCOUNTERS = [
 app = FastAPI()
 
 
-def appointments_now():
-    """Two booked appointments, 3 and 5 days from now (computed at request time), and a cancelled one."""
-    from datetime import UTC, datetime, timedelta
-
-    now = datetime.now(UTC).replace(microsecond=0, second=0)
-
-    def appt(i, pid, days, status="booked"):
-        return {
-            "resourceType": "Appointment",
-            "id": f"a{i}",
-            "status": status,
-            "start": (now + timedelta(days=days)).isoformat(),
-            "participant": [
-                {"actor": {"reference": f"Patient/{pid}"}},
-                {"actor": {"reference": "Practitioner/d1", "display": "Dr. Rao"}},
-            ],
-        }
-
-    return [appt(1, "p1", 3), appt(2, "p2", 5), appt(3, "p1", 4, "cancelled")]
-
-
 REQUESTS: list[str] = []
 DOWN = {"value": False}
 
@@ -120,22 +99,6 @@ def _for(resources, patient):
 @app.get("/fhir/Patient/{pid}")
 def patient(pid: str):
     return next(p for p in PATIENTS if p["id"] == pid)
-
-
-@app.get("/fhir/Appointment")
-def appointment_search(request: Request):
-    from datetime import datetime
-
-    bounds = request.query_params.getlist("date")
-    lo = next((datetime.fromisoformat(b[2:]) for b in bounds if b.startswith("ge")), None)
-    hi = next((datetime.fromisoformat(b[2:]) for b in bounds if b.startswith("le")), None)
-    out = [
-        a
-        for a in appointments_now()
-        if (lo is None or datetime.fromisoformat(a["start"]) >= lo)
-        and (hi is None or datetime.fromisoformat(a["start"]) <= hi)
-    ]
-    return bundle(out)
 
 
 @app.get("/fhir/Condition")

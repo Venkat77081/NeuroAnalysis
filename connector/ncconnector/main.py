@@ -67,10 +67,17 @@ admin = role("hospital_admin")
 # Decision 033: who may do what is set per hospital on the platform and carried in the token.
 search = perm("patients.search")
 desk = perm("invites.send")
-#: The live list from the hospital system (all patients' names): reception's booking work.
-booking = perm("appointments.add")
 activity_log = perm("setup.activity")
-listing = role("doctor", "hospital_admin", "receptionist")
+_listing_roles = role("doctor", "hospital_admin", "receptionist", "operator")
+
+
+def listing(s: Staff = Depends(_listing_roles)) -> Staff:
+    """Names for NCIDs: dashboard staff, and clinic phones for their queue (clinic.record)."""
+    if s.role == "operator" and "clinic.record" not in s.perms:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
+    return s
+
+
 #: Linking an MRN to an NCID: searching patients, booking, inviting, or a clinic phone recording.
 clinic_staff = perm("patients.search", "appointments.add", "invites.send", "clinic.record")
 doctor = role("doctor")
@@ -80,11 +87,12 @@ clinical = doctor
 
 
 def allowed(s: Staff, ncids: list[str]) -> set[str]:
-    """M14: which of these patients this staff member may see. Doctors: only those assigned to them,
-    asked of the platform on every request (a reassignment takes effect at once)."""
+    """M14: which of these patients this staff member may see. Doctors: only those assigned to them;
+    clinic phones: only patients in the hospital's clinic queue. Asked of the platform on every
+    request (a reassignment takes effect at once)."""
     if s.role in ("hospital_admin", "receptionist"):
         return set(ncids)
-    if s.role != "doctor" or not ncids:
+    if s.role not in ("doctor", "operator") or not ncids:
         return set()
     try:
         out = platform.call("POST", "/connector/v1/access", {"user_id": s.user_id, "ncids": ncids})
@@ -489,58 +497,6 @@ def take_file(
             "Content-Disposition": f'inline; filename="{FILE_NAMES[kind]}"',
         },
     )
-
-
-# --- Appointments (v3): live from the hospital's system ---
-
-
-class AppointmentRow(BaseModel):
-    #: The hospital system's ID (e.g. "Appointment/123"); the platform stores only its hash.
-    external_id: str
-    at: datetime
-    mrn: str
-    name: str | None
-    ncid: str | None
-    practitioner: str | None
-
-
-@app.get("/v1/appointments", response_model=list[AppointmentRow])
-def appointments(
-    days: int = Query(7, ge=1, le=60), s: Staff = Depends(booking), db: DbSession = Depends(get_db)
-) -> list[AppointmentRow]:
-    """Booked appointments from now (minus a day) to `days` ahead, with names, read live."""
-    from datetime import UTC, timedelta
-
-    now_ = datetime.now(UTC)
-    try:
-        found = records().appointments(now_ - timedelta(days=1), now_ + timedelta(days=days))
-    except RecordsUnavailableError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "records_unavailable"}) from exc
-    except AttributeError as exc:  # an adapter without appointments
-        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, {"code": "no_appointments_source"}) from exc
-    links = {
-        m.mrn: m.ncid for m in db.scalars(select(NcidMap).where(NcidMap.mrn.in_([a.mrn for a in found])))
-    }
-    names: dict[str, str | None] = {}
-    for a in found:
-        if a.mrn not in names:
-            try:
-                rec = records().get(a.mrn)
-            except RecordsUnavailableError:
-                rec = None
-            names[a.mrn] = rec.name if rec else None
-    activity.write(db, s.role, s.user_id, "appointments_listed", results=len(found))
-    return [
-        AppointmentRow(
-            external_id=a.external_id,
-            at=a.at,
-            mrn=a.mrn,
-            name=names.get(a.mrn),
-            ncid=links.get(a.mrn),
-            practitioner=a.practitioner,
-        )
-        for a in found
-    ]
 
 
 # --- Reviews (M14): kept at the hospital ---

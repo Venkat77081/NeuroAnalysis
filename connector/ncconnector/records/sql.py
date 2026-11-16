@@ -2,17 +2,17 @@
 
 Views: nc_patients(mrn, full_name, birth_date, sex, email, phone),
 nc_conditions(mrn, description, onset_date), nc_medications(mrn, description, dosage, start_date),
-nc_encounters(mrn, encounter_date, kind, reason) and (v3, optional) nc_appointments(appointment_id,
-mrn, start_at, practitioner). The connector only ever runs SELECTs with bound parameters.
+nc_encounters(mrn, encounter_date, kind, reason). Appointments are not read from the hospital
+(user, 16 Nov 2026: reception adds the relevant ones by hand). The connector only ever runs SELECTs
+with bound parameters.
 """
 
-from datetime import UTC, date, datetime
+from datetime import date
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from ncconnector.records import (
-    AppointmentRecord,
     History,
     HistoryItem,
     PatientRecord,
@@ -90,25 +90,3 @@ class SqlRecords:
             [HistoryItem(r["description"], _s(r["start_date"]), r["dosage"]) for r in meds],
             [HistoryItem(r["kind"], _s(r["encounter_date"]), r["reason"]) for r in enc],
         )
-
-    def appointments(self, start: datetime, end: datetime) -> list[AppointmentRecord]:
-        rows = self._rows(
-            "SELECT appointment_id, mrn, start_at, practitioner FROM nc_appointments "
-            "WHERE start_at >= :a AND start_at <= :b ORDER BY start_at",
-            a=start.replace(tzinfo=None).isoformat(sep=" "),
-            b=end.replace(tzinfo=None).isoformat(sep=" "),
-        )
-
-        def at(v) -> datetime:
-            d = v if isinstance(v, datetime) else datetime.fromisoformat(str(v))
-            return d if d.tzinfo else d.replace(tzinfo=UTC)
-
-        return [
-            AppointmentRecord(
-                external_id=f"sql:{r['appointment_id']}",
-                at=at(r["start_at"]),
-                mrn=str(r["mrn"]),
-                practitioner=r["practitioner"],
-            )
-            for r in rows
-        ]

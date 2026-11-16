@@ -605,6 +605,28 @@ def connector_access(
     from app.assignments import ALL_PATIENTS_ROLES
     from app.models import PatientAssignment, StaffUser
 
+    from app.models import Operator, RecordingRequest
+
+    op = db.get(Operator, body.user_id)
+    if op is not None:
+        # Clinic phones: only patients with a clinic request at this hospital from the last 2 days
+        # on (their queue), never any other patient.
+        if not op.active or op.site_id != site.id:
+            return AccessOut(allowed=[])
+        since = datetime.now(UTC) - timedelta(days=2)
+        q = (
+            select(Patient.ncid)
+            .join(RecordingRequest, RecordingRequest.patient_id == Patient.id)
+            .where(
+                Patient.site_id == site.id,
+                Patient.ncid.in_(body.ncids),
+                RecordingRequest.place == "clinic",
+                RecordingRequest.status != "cancelled",
+                RecordingRequest.due_at >= since,
+            )
+            .distinct()
+        )
+        return AccessOut(allowed=list(db.scalars(q)))
     user = db.get(StaffUser, body.user_id)
     if not user or not user.active or user.site_id != site.id:
         return AccessOut(allowed=[])

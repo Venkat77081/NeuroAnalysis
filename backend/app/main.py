@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.api.assignments import router as assignments_router
 from app.api.auth import router as auth_router
+from app.api.clinic import router as clinic_router
 from app.api.connector_link import router as connector_router
 from app.api.devices import router as devices_router
 from app.api.diagnostics import router as diagnostics_router
@@ -63,3 +64,4 @@ app.include_router(hospital_storage_router)
 app.include_router(plans_router)
 app.include_router(assignments_router)
 app.include_router(requests_router)
+app.include_router(clinic_router)

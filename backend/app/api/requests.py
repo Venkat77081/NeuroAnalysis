@@ -83,7 +83,8 @@ def _doctor_name(db: DbSession, doctor_id: str | None) -> str | None:
 
 
 def request_state(db: DbSession, r: RecordingRequest) -> str:
-    """open → recorded (a session for it has an uploaded take); expired once past due; cancelled."""
+    """open → recorded (a session for it has an uploaded take); missed once past due; cancelled;
+    not_recorded (a clinic request the operator could not record, with a reason)."""
     if r.status == "cancelled":
         return "cancelled"
     done = db.scalar(
@@ -94,6 +95,8 @@ def request_state(db: DbSession, r: RecordingRequest) -> str:
     )
     if done:
         return "recorded"
+    if r.status == "not_done":
+        return "not_recorded"
     if aware(r.due_at) < datetime.now(UTC):
         return "missed"
     return "open"
@@ -102,6 +105,9 @@ def request_state(db: DbSession, r: RecordingRequest) -> str:
 class RequestOut(BaseModel):
     id: str
     kind: str
+    #: home = record link in the patient's app; clinic = the clinic phones' queue.
+    place: str = "home"
+    not_done_reason: str | None = None
     tests: list[str]
     med_state: str
     due_at: datetime
@@ -114,6 +120,8 @@ def _req_out(db: DbSession, r: RecordingRequest) -> RequestOut:
     return RequestOut(
         id=r.id,
         kind=r.kind,
+        place=r.place,
+        not_done_reason=r.not_done_reason,
         tests=list(r.tests),
         med_state=r.med_state,
         due_at=r.due_at,
@@ -186,6 +194,7 @@ def _staff_name(db: DbSession, user_id: str | None) -> str | None:
 
 #: Patient events that belong to an appointment's history.
 PATIENT_ACTIONS = (
+    "clinic_not_recorded",
     "patient_created",
     "patient_invited",
     "patient_reinvited",
@@ -195,7 +204,19 @@ PATIENT_ACTIONS = (
     "recording_requested",
     "request_cancelled",
 )
-SAFE_DETAILS = ("channel", "source", "status", "tests", "kind", "med_state", "due", "via", "at")
+SAFE_DETAILS = (
+    "channel",
+    "source",
+    "status",
+    "tests",
+    "kind",
+    "med_state",
+    "due",
+    "via",
+    "at",
+    "place",
+    "reason",
+)
 
 
 def appointment_events(db: DbSession, a: Appointment) -> list[EventOut]:
@@ -253,8 +274,11 @@ def appointment_stage(a: Appointment, reqs: list[RequestOut]) -> str:
     live = [r for r in reqs if r.state != "cancelled"]
     if not live:
         return "needs_tests"
-    last = live[-1].state
-    return {"open": "sent"}.get(last, last)  # recorded | missed
+    # Home and clinic may both be asked for: open beats recorded beats not recorded beats missed.
+    for state, stage in (("open", "sent"), ("recorded", "recorded"), ("not_recorded", "not_recorded")):
+        if any(r.state == state for r in live):
+            return stage
+    return "missed"
 
 
 def external_hash(site_id: str, external_id: str) -> str:
@@ -453,6 +477,11 @@ class RequestIn(BaseModel):
     remind: bool = True
     #: Doctor only: also record at home every N days until the next appointment (periodic plan).
     repeat_every_days: int | None = Field(default=None, ge=1, le=90)
+    #: Where to record (user, 16 Nov 2026): at home (record link), in the clinic (operator
+    #: queue), or both.
+    places: list[Literal["home", "clinic"]] = Field(
+        default_factory=lambda: ["home"], min_length=1, max_length=2
+    )
 
 
 def _new_request(
@@ -464,10 +493,12 @@ def _new_request(
     kind: str,
     appointment: Appointment | None,
     default_due: datetime,
+    place: str = "home",
 ) -> RecordingRequest:
-    acc = db.scalar(select(PatientAccount).where(PatientAccount.patient_id == pt.id))
-    if not acc or acc.status != "active":
-        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "not_joined"})
+    if place == "home":
+        acc = db.scalar(select(PatientAccount).where(PatientAccount.patient_id == pt.id))
+        if not acc or acc.status != "active":
+            raise HTTPException(status.HTTP_409_CONFLICT, {"code": "not_joined"})
     tests, med = _plan_defaults(db, pt.id)
     if body.tests:
         tests = [t for t in ORDER if t in body.tests]
@@ -478,8 +509,9 @@ def _new_request(
         kind=kind,
         tests=tests,
         med_state=body.med_state or med,
-        due_at=body.due_at or default_due,
-        remind=body.remind,
+        due_at=body.due_at or default_due if place == "home" else default_due,
+        remind=body.remind and place == "home",  # the connector reminds for home links only
+        place=place,
         created_by=p.actor_id,
     )
     db.add(r)
@@ -493,6 +525,7 @@ def _new_request(
         pt.id,
         site_id=p.site_id,
         kind=kind,
+        place=place,
         tests=tests,
         med_state=r.med_state,
         due=aware(r.due_at).date().isoformat(),
@@ -524,7 +557,7 @@ def _set_periodic(db: DbSession, p: Principal, pt: Patient, tests: list[str], me
     )
 
 
-@router.post("/hospital/appointments/{appt_id}/request", response_model=RequestOut, status_code=201)
+@router.post("/hospital/appointments/{appt_id}/request", response_model=list[RequestOut], status_code=201)
 def request_for_appointment(
     appt_id: str, body: RequestIn, p: Principal = Depends(can_send), db: DbSession = Depends(get_db)
 ):
@@ -535,15 +568,33 @@ def request_for_appointment(
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_your_appointment"})
     if a.status == "cancelled":
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "appointment_cancelled"})
-    due = aware(a.at) - timedelta(days=policy()["requests"]["defaultDueDaysBefore"])
-    r = _new_request(db, p, pt, body, kind="appointment", appointment=a, default_due=due)
-    if body.repeat_every_days:
-        _set_periodic(db, p, pt, list(r.tests), r.med_state, body.repeat_every_days)
+    home_due = aware(a.at) - timedelta(days=policy()["requests"]["defaultDueDaysBefore"])
+    clinic_due = aware(a.at) + timedelta(hours=12)  # recorded at the visit, that day
+    made = [
+        _new_request(
+            db,
+            p,
+            pt,
+            body,
+            kind="appointment",
+            appointment=a,
+            default_due=home_due if place == "home" else clinic_due,
+            place=place,
+        )
+        for place in _places(body)
+    ]
+    if body.repeat_every_days and "home" in body.places:
+        _set_periodic(db, p, pt, list(made[0].tests), made[0].med_state, body.repeat_every_days)
     db.commit()
-    return _req_out(db, r)
+    return [_req_out(db, r) for r in made]
 
 
-@router.post("/hospital/patients/{ncid}/rerecord", response_model=RequestOut, status_code=201)
+def _places(body: "RequestIn") -> list[str]:
+    """Home first, then clinic; each once."""
+    return [x for x in ("home", "clinic") if x in body.places]
+
+
+@router.post("/hospital/patients/{ncid}/rerecord", response_model=list[RequestOut], status_code=201)
 def rerecord(
     ncid: str,
     body: RequestIn,
@@ -553,11 +604,14 @@ def rerecord(
     """The doctor asks to record again (all of the plan, or some tests)."""
     pt = _patient(db, p, ncid)
     due = datetime.now(UTC) + timedelta(days=policy()["requests"]["rerecordDueDays"])
-    r = _new_request(db, p, pt, body, kind="rerecord", appointment=None, default_due=due)
-    if body.repeat_every_days:
-        _set_periodic(db, p, pt, list(r.tests), r.med_state, body.repeat_every_days)
+    made = [
+        _new_request(db, p, pt, body, kind="rerecord", appointment=None, default_due=due, place=place)
+        for place in _places(body)
+    ]
+    if body.repeat_every_days and "home" in body.places:
+        _set_periodic(db, p, pt, list(made[0].tests), made[0].med_state, body.repeat_every_days)
     db.commit()
-    return _req_out(db, r)
+    return [_req_out(db, r) for r in made]
 
 
 @router.post("/hospital/requests/{req_id}/cancel", response_model=RequestOut)
@@ -647,6 +701,8 @@ def history(
 class PatientRequest(BaseModel):
     id: str
     kind: str
+    #: clinic = recorded at the visit by the clinic (shown as information, no record button).
+    place: str = "home"
     appointment_at: datetime | None
     doctor_name: str | None
     tests: list[str]
@@ -676,6 +732,7 @@ def patient_requests(
             PatientRequest(
                 id=r.id,
                 kind=r.kind,
+                place=r.place,
                 appointment_at=a.at if a else None,
                 doctor_name=_doctor_name(db, doctor),
                 tests=list(r.tests),
@@ -713,6 +770,7 @@ def reminders_due(
             RecordingRequest.site_id == site.id,
             RecordingRequest.status == "open",
             RecordingRequest.remind.is_(True),
+            RecordingRequest.place == "home",
             RecordingRequest.reminder_sent_at.is_(None),
             PatientAccount.status == "active",
         )

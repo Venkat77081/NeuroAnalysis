@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
 from test_readiness_api import _upload_take
 from test_tenancy import (  # noqa: F401 - fixtures
     SESSION,
@@ -317,7 +318,7 @@ def test_appointment_request_record_and_history(api, two_hospitals):
     # Tests from the plan, due a day before.
     rq = api.post(url, headers=dr, json={})
     assert rq.status_code == 201, rq.text
-    req = rq.json()
+    req = rq.json()[0]
     stages = {a["id"]: a["stage"] for a in api.get("/hospital/appointments", headers=desk).json()}
     assert stages[appt["id"]] == "sent"
     assert req["tests"] == ["FT", "FTF", "FR", "SAW", "FA"] and req["state"] == "open"
@@ -341,7 +342,7 @@ def test_appointment_request_record_and_history(api, two_hospitals):
 
     # The doctor asks to record again: a second request (re-record).
     rr = api.post(f"/hospital/patients/{ncid}/rerecord", headers=dr, json={"tests": ["FA"]})
-    assert rr.status_code == 201 and rr.json()["kind"] == "rerecord" and rr.json()["tests"] == ["FA"]
+    assert rr.status_code == 201 and rr.json()[0]["kind"] == "rerecord" and rr.json()[0]["tests"] == ["FA"]
     hist = api.get(f"/hospital/patients/{ncid}/history", headers=dr).json()
     assert [a["requests"][0]["state"] for a in hist["appointments"] if a["requests"]] == ["recorded"]
     assert [r["kind"] for r in hist["other_requests"]] == ["rerecord"]
@@ -377,7 +378,7 @@ def test_doctor_can_add_repeat_every_n_days(api, two_hospitals):
         json={"tests": ["FA", "FT"], "med_state": "OFF", "repeat_every_days": 7},
     )
     assert r.status_code == 201, r.text
-    assert r.json()["tests"] == ["FT", "FA"]
+    assert r.json()[0]["tests"] == ["FT", "FA"]
     plan = api.get(f"/hospital/patients/{ncid}/plan", headers=dr).json()
     assert plan["periodic"] and plan["every_days"] == 7 and plan["tests"] == ["FT", "FA"]
     # Until the next appointment: it ends at the appointment (5 days away), not after it.
@@ -678,3 +679,92 @@ def test_hospital_can_switch_off_clinic_recording(api, two_hospitals):
     api.put(url, headers=hdr(t["platform"]), json={"roles": {"clinic.record": []}, "reason": "Home only"})
     r = api.post("/auth/login", json=login)
     assert r.status_code == 403 and r.json()["detail"]["code"] == "not_permitted"
+
+
+def test_home_and_clinic_requests_and_the_clinic_queue(api, two_hospitals):
+    """User, 16 Nov 2026: the doctor chooses home, clinic or both; clinic requests appear in the
+    clinic phones' queue for the visit day; the operator records or marks "not recorded"."""
+    from test_tenancy import register_phone
+
+    t = two_hospitals
+    desk = hdr(t["a_desk"])
+    dr = _staff(api, t, "where.dr@sunrise.example", "doctor")
+    dr_id = next(
+        d["id"]
+        for d in api.get("/hospital/doctors", headers=desk).json()
+        if d["email"] == "where.dr@sunrise.example"
+    )
+    joined, acc = home_patient(api, t["a_desk"])
+    # A patient with an NCID who has not joined the app (clinic patient).
+    inv = api.post("/hospital/patients/invite", headers=desk, json={"channel": "print"}).json()
+    walkin = inv["ncid"]
+    visit = (datetime.now(UTC) + timedelta(hours=3)).replace(microsecond=0)
+    a1 = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": joined, "at": visit.isoformat(), "doctor_id": dr_id},
+    ).json()
+    a2 = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": walkin, "at": visit.isoformat(), "doctor_id": dr_id},
+    ).json()
+
+    both = api.post(
+        f"/hospital/appointments/{a1['id']}/request",
+        headers=dr,
+        json={"places": ["clinic", "home"], "tests": ["FT"]},
+    )
+    assert both.status_code == 201, both.text
+    assert [r["place"] for r in both.json()] == ["home", "clinic"]
+    # Home needs the app; clinic does not.
+    no = api.post(f"/hospital/appointments/{a2['id']}/request", headers=dr, json={"places": ["home"]})
+    assert no.status_code == 409 and no.json()["detail"]["code"] == "not_joined"
+    ok = api.post(f"/hospital/appointments/{a2['id']}/request", headers=dr, json={"places": ["clinic"]})
+    assert ok.status_code == 201 and ok.json()[0]["place"] == "clinic"
+    # The patient's app shows the clinic request as information only.
+    mine = api.get("/patient/requests", headers=hdr(acc["tokens"]["access_token"])).json()
+    assert sorted(m["place"] for m in mine) == ["clinic", "home"]
+
+    # The clinic phone's queue for today: both clinic requests, by NCID (names come from the connector).
+    dev = register_phone(api, t["a_tok"])
+    op = api.post(
+        "/hospital/operators", headers=hdr(t["a_tok"]), json={"code": "OP-Q", "name": "Kavya R"}
+    ).json()
+    login = {
+        "device_id": dev["device_id"],
+        "device_secret": dev["device_secret"],
+        "operator_code": "OP-Q",
+        "password": op["temporary_password"],
+    }
+    otok = hdr(api.post("/auth/login", json=login).json()["access_token"])
+    day = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    win = {"from": (day - timedelta(hours=12)).isoformat(), "to": (day + timedelta(hours=36)).isoformat()}
+    q = api.get("/clinic/queue", headers=otok, params=win)
+    assert q.status_code == 200, q.text
+    assert {i["ncid"] for i in q.json()} == {joined, walkin} and all(i["state"] == "open" for i in q.json())
+    assert api.get("/clinic/queue", headers=desk, params=win).status_code == 403  # clinic phones only
+    too_long = {"from": win["from"], "to": (day + timedelta(days=5)).isoformat()}
+    assert api.get("/clinic/queue", headers=otok, params=too_long).status_code == 422
+
+    # Not recorded, with a reason from the config list; logged by name.
+    rid = next(i["request_id"] for i in q.json() if i["ncid"] == walkin)
+    assert (
+        api.post(f"/clinic/requests/{rid}/not-done", headers=otok, json={"reason": "bored"}).status_code
+        == 422
+    )
+    nd = api.post(f"/clinic/requests/{rid}/not-done", headers=otok, json={"reason": "did_not_attend"}).json()
+    assert nd["state"] == "not_recorded" and nd["recorded_by"] == "Kavya R (OP-Q)"
+    stages = {a["id"]: a["stage"] for a in api.get("/hospital/appointments", headers=desk).json()}
+    assert stages[a2["id"]] == "not_recorded" and stages[a1["id"]] == "sent"
+    hist = api.get(f"/hospital/appointments/{a2['id']}/history", headers=desk).json()
+    assert any(e["action"] == "clinic_not_recorded" and e["actor_name"] == "Kavya R (OP-Q)" for e in hist)
+    # Reminders go out for home links only.
+    from app.db import _factory
+    from app.models import RecordingRequest
+
+    with _factory()() as db:
+        assert all(
+            not r.remind
+            for r in db.scalars(select(RecordingRequest).where(RecordingRequest.place == "clinic"))
+        )

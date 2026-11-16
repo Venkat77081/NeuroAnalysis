@@ -1,7 +1,7 @@
 """Live patient records (PLATFORM_PLAN §3): read on each request, never cached or copied."""
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from functools import lru_cache
 from typing import Protocol
 
@@ -35,21 +35,10 @@ class History:
 
 
 @dataclass
-class AppointmentRecord:
-    """An appointment in the hospital's system (v3)."""
-
-    external_id: str
-    at: datetime
-    mrn: str
-    practitioner: str | None = None
-    status: str = "booked"
-
-
 class Records(Protocol):
     def search(self, query: str, limit: int) -> list[PatientRecord]: ...
     def get(self, mrn: str) -> PatientRecord | None: ...
     def history(self, mrn: str) -> History: ...
-    def appointments(self, start: datetime, end: datetime) -> list[AppointmentRecord]: ...
 
 
 #: Tests inject a records instance (or an httpx client for FHIR).

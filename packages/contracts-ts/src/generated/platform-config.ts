@@ -60,6 +60,16 @@ export interface PlatformConfig {
     rerecordDueDays: number;
     reminderHoursBefore: number;
     appointmentWindowDays: number;
+    /**
+     * Why an operator could not record a clinic request (codes; texts are in the app's i18n).
+     *
+     * @minItems 1
+     */
+    clinicNotDoneReasons: [string, ...string[]];
+    /**
+     * Longest time window a clinic phone may ask the queue for.
+     */
+    clinicQueueMaxHours: number;
   };
   /**
    * Per-hospital permissions (decision 033): what each role may do by default, and which roles a platform admin may grant it to. Clinical data, patient identity, consent and logging are fixed in code and are not listed here.

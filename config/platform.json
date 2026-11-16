@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "PLATFORM@1.4.0",
+  "configVersion": "PLATFORM@1.5.0",
   "invites": {
     "patientTtlDays": 7,
     "staffTtlDays": 7,
@@ -44,7 +44,15 @@
     "defaultDueDaysBefore": 1,
     "rerecordDueDays": 3,
     "reminderHoursBefore": 24,
-    "appointmentWindowDays": 7
+    "appointmentWindowDays": 7,
+    "clinicNotDoneReasons": [
+      "did_not_attend",
+      "unwell",
+      "refused",
+      "no_time",
+      "other"
+    ],
+    "clinicQueueMaxHours": 48
   },
   "permissions": {
     "patients.search": {

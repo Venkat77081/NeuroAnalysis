@@ -10,20 +10,29 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MockCaptureKit } from '@neurocapture/capture-kit';
 import { capture } from '../lib/capture.ts';
+import { testModeOn, testServer } from '../lib/testmode.ts';
+import { useApp } from '../app/AppContext.tsx';
 import { Button, Sheet } from '../ui/kit.tsx';
 
 const NAMES = ['Asha Testpatient', 'Ravi Samplename', 'Meena Demo', 'Arjun Example'];
 
 export const TEST_PANEL =
-  import.meta.env.VITE_PRODUCTION !== '1' && capture.kit instanceof MockCaptureKit;
+  import.meta.env.VITE_PRODUCTION !== '1' &&
+  (capture.kit instanceof MockCaptureKit || testModeOn());
+
+/** The pretend hospital: the browser's fake server, or the debug APK's test mode (decision 041). */
+function pretendHospital() {
+  return capture.kit instanceof MockCaptureKit ? capture.kit.fakeServer : testServer();
+}
 
 export function TestPanel() {
   const { t } = useTranslation();
+  const { resetApp } = useApp();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
   if (!TEST_PANEL) return null;
-  const fake = (capture.kit as MockCaptureKit).fakeServer;
+  const fake = pretendHospital();
 
   const invite = () => {
     const l = fake.issueInvite();
@@ -37,6 +46,15 @@ export function TestPanel() {
     fake.sendRequest(ncids[ncids.length - 1]!);
     setNote(t('testPanel.homeDone'));
   };
+  const clinicRecording = () => {
+    const ncids = fake.joinedNcids();
+    if (ncids.length === 0) return setNote(t('testPanel.joinFirst'));
+    fake.sendRequest(ncids[ncids.length - 1]!, {
+      place: 'clinic',
+      tests: ['FT', 'FTF', 'FR', 'SAW', 'FA'],
+    });
+    setNote(t('testMode.clinicRecordingDone'));
+  };
   const clinic = () => {
     const mrn = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
     const name = NAMES[Math.floor(Math.random() * NAMES.length)]!;
@@ -44,6 +62,10 @@ export function TestPanel() {
     setNote(t('testPanel.clinicDone', { name, mrn }));
   };
   const startAgain = () => {
+    if (testModeOn()) {
+      void resetApp(); // test mode: wipe the app (stays in test mode)
+      return;
+    }
     try {
       globalThis.localStorage?.clear();
       globalThis.sessionStorage?.clear();
@@ -63,6 +85,14 @@ export function TestPanel() {
       >
         {t('testPanel.open')}
       </button>
+      {testModeOn() && (
+        <div
+          className="fixed top-0 right-0 left-0 z-40 bg-[#6B2FB3] px-4 py-1 text-center text-[11px] font-bold text-white"
+          data-testid="test-mode-banner"
+        >
+          {t('testMode.banner')}
+        </div>
+      )}
       {open && (
         <Sheet title={t('testPanel.title')} onClose={() => setOpen(false)} testId="test-panel">
           <p className="m-0 text-[13px] leading-[19px] text-[#3D4552]">{t('testPanel.signIns')}</p>
@@ -71,6 +101,9 @@ export function TestPanel() {
           </Button>
           <Button variant="secondary" onClick={homeLink} data-testid="tp-home-link">
             {t('testPanel.homeLink')}
+          </Button>
+          <Button variant="secondary" onClick={clinicRecording} data-testid="tp-clinic-recording">
+            {t('testMode.clinicRecording')}
           </Button>
           <Button variant="secondary" onClick={clinic} data-testid="tp-clinic">
             {t('testPanel.clinic')}

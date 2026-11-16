@@ -17,7 +17,8 @@ export function DeviceCheck({
   onResult,
   failExtra,
 }: {
-  who: 'clinic' | 'patient';
+  /** check = the frame-rate check from the long-press menu (decision 041). */
+  who: 'clinic' | 'patient' | 'check';
   /** The latest result (null while a check runs). */
   onResult: (r: DeviceCheckResult | null) => void;
   failExtra?: (r: DeviceCheckResult) => ReactNode;

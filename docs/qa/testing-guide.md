@@ -56,11 +56,21 @@ The app runs with its fake server and fake camera, served from your computer.
      address.
 3. Use the same sign-ins and flags as in path A.
 
-### Path C — the installed app (APK) with no server
+### Path C — the installed app (APK) with no server: test mode
 
-Install the debug APK ("app-debug-apk" from the latest CI run). Without a server the app stops at
-"Register this clinic phone" or the patient invite screen, because both need a server. The
-on-device camera checks need a signed-in operator, so for real testing use path E.
+Install the debug APK ("app-debug-apk" from the CI run of the latest commit on `main`). Then:
+
+1. On the first screen ("How will this phone be used?"), press and hold the logo for about one
+   second. The menu opens.
+2. Tick **Test mode** and confirm. The app wipes its data and restarts with a purple "Test mode"
+   banner. Nothing is sent anywhere; recordings stay on the phone.
+3. **Clinic phone:** choose Clinic phone → **Use the test hospital** → camera check → set a
+   password. Open the **Test** tab on the right edge: add queue patients or send a clinic
+   recording notice.
+4. **Patient:** choose Patient app → **Join the test hospital** → choose a PIN. In the Test tab,
+   send record links, then record them.
+5. **Camera frame-rate check:** the same menu, any time. It records and sends nothing.
+6. To leave test mode, untick it in the menu (the app's data is wiped again).
 
 ### Path D — dashboards against your computer (no cloud, no real accounts)
 
@@ -360,7 +370,7 @@ Run at L2. Sign in with the accounts the stack prints.
 
 | #   | Test                                                                      | Expected                                                                                                                           |
 | --- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| I1  | My patients                                                               | Patients you have an appointment with or sent a request to, with names (live from the hospital)                                    |
+| I1  | My patients                                                               | Patients with a booked appointment with you (today or later) or a completed one; not cancelled, moved or missed first visits       |
 | I2  | Open Asha                                                                 | MRN, birth date, diagnoses, medicines, visits; "fetched just now"                                                                  |
 | I3  | Play the recording                                                        | The video plays (decrypted by the connector)                                                                                       |
 | I4  | Review: Not usable + note                                                 | "Reviewed: Not usable"; the note stays at the hospital                                                                             |
@@ -374,6 +384,8 @@ Run at L2. Sign in with the accounts the stack prints.
 | I10 | "Also repeat every 7 days" when sending                                   | The patient page plan shows it ticked with 7 and "Repeats stop at the next appointment, …"                                         |
 | I11 | Patient page: "Appointments and record links"                             | Each appointment with its link, the tests, and what was recorded                                                                   |
 | I12 | Try to send a link for another doctor's appointment (API)                 | Refused (covered by the backend tests)                                                                                             |
+| I15 | Patient page: past appointments 30 / 90 / 180 days, 1 year, all           | Older appointments hidden with a count; upcoming always shown; the choice is remembered                                            |
+| I16 | Write a visit remark on your appointment; edit it; clear it               | Shown under the appointment; another doctor cannot write on it; the log says "visit remark written" without the text               |
 
 ### J. Privacy check (automated, any time)
 

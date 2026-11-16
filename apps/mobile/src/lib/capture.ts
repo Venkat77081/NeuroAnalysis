@@ -2,6 +2,7 @@ import { createCaptureKit, MockCaptureKit, type Implementation } from '@neurocap
 import type { TestConfig } from '@neurocapture/contracts-ts';
 import type { ScenarioName, Side, TakeVariant } from '@neurocapture/quality-core';
 import { createCameraOwner } from './camera-owner.ts';
+import { testModeOn, withTestHospital } from './testmode.ts';
 
 const params = new URLSearchParams(globalThis.location?.search ?? '');
 
@@ -13,7 +14,12 @@ function preferredImpl(): Implementation | undefined {
 
 /** `?mockSpeed=20` speeds up mock recordings and UI countdowns (development and e2e only). */
 const requested = Number(params.get('mockSpeed') ?? '1');
-export const capture = createCaptureKit(preferredImpl(), { speed: requested > 0 ? requested : 1 });
+const created = createCaptureKit(preferredImpl(), { speed: requested > 0 ? requested : 1 });
+/** Decision 041: in test mode (debug APK) a pretend hospital answers the server calls. */
+export const capture =
+  testModeOn() && created.implementation !== 'mock'
+    ? { ...created, kit: withTestHospital(created.kit) }
+    : created;
 export const clockSpeed = capture.implementation === 'mock' && requested > 0 ? requested : 1;
 export const camera = createCameraOwner(capture.kit);
 

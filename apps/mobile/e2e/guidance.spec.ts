@@ -49,7 +49,7 @@ test('M5: a tracker error shows "Tracking…", not an error prompt', async ({ pa
 });
 
 test('M5: engineering "gate off" lets Record work while prompts still show', async ({ page }) => {
-  await page.goto('/?mode=clinic-local&mockSpeed=4&scenario=too_far');
+  await page.goto('/?mode=clinic-local&mockSpeed=4&scenario=too_far&tools=1');
   const logo = page.getByTestId('logo');
   await logo.dispatchEvent('pointerdown');
   await page.waitForTimeout(1400);

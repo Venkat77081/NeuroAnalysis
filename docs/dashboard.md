@@ -36,6 +36,9 @@ Hospitals → Roles and permissions.
 - **Hospital admin:** set-up only (overview, data connections, team, phones, activity).
 - **Front desk (receptionist):** appointments, join invites (e-mail, SMS or printed QR) and
   the doctor of each appointment (decision 038; there is no separate "Assign patients" page).
+  A doctor sees a patient with a booked appointment with them today or later, or a completed one
+  (decision 040). The doctor's patient page has a past-appointments period and visit remarks,
+  stored at the connector.
 - **Doctor:** choose tests, my patients (history, recordings, reviews, plan).
 
 ## Doctors and access (decision 038)

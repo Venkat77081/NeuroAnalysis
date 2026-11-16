@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { builtInServer, SERVER_FIELD_SHOWN } from '../../lib/server.ts';
+import { TEST_ENDPOINT, testModeOn } from '../../lib/testmode.ts';
 import { capture } from '../../lib/capture.ts';
 import { changePassword, errorCode, operatorSignIn } from '../../lib/accounts.ts';
 import { enroll, uploadPrefs } from '../../lib/uploads.ts';
@@ -21,12 +22,12 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
   // Decision 035: the code is asked for (and used) only after the camera check passes.
   const [check, setCheck] = useState<DeviceCheckResult | null>(null);
   const passed = !!check && check.outcome !== 'fail';
-  const submit = () =>
+  const submit = (ep = endpoint, cd = code) =>
     attempt(setBusy, setError, async () => {
       const link = await enroll(
         capture.kit,
-        endpoint,
-        code,
+        ep,
+        cd,
         {
           model: caps?.device.model ?? 'unknown',
           osVersion: caps?.device.osVersion ?? 'unknown',
@@ -44,6 +45,18 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
       {passed && (
         <>
           <h2 className="text-[17px] font-bold">{t('modes.deviceCheck.step2')}</h2>
+          {testModeOn() && (
+            <div className="flex flex-col gap-1.5 rounded-2xl border-2 border-[#6B2FB3] bg-[#F5EFFC] p-3">
+              <Button
+                onClick={() => void submit(TEST_ENDPOINT, 'DEMO-SITE-1')}
+                disabled={busy}
+                data-testid="clinic-use-test"
+              >
+                {t('testMode.useClinic')}
+              </Button>
+              <span className="text-[13px] text-[#6B2FB3]">{t('testMode.useClinicHint')}</span>
+            </div>
+          )}
           {SERVER_FIELD_SHOWN && (
             <Field
               id="clinic-server"

@@ -12,6 +12,7 @@ import { stepTakes, summarizeOutcomes } from '../../session/machine.ts';
 import { useSession } from '../../session/useSession.ts';
 import { Button, Card } from '../../ui/kit.tsx';
 import { stepTitle } from './TestIntro.tsx';
+import { testModeOn } from '../../lib/testmode.ts';
 
 const chip: Record<string, string> = {
   accepted: 'bg-ok-soft text-[#145F38]',
@@ -129,7 +130,14 @@ export function Summary() {
           </p>
         ) : (
           <section className="flex flex-col gap-2" data-testid="upload-panel">
-            {!settings.server ? (
+            {testModeOn() ? (
+              <p
+                className="m-0 rounded-2xl bg-[#F5EFFC] px-4 py-3 text-sm text-[#6B2FB3]"
+                data-testid="test-mode-summary"
+              >
+                {t('testMode.summary')}
+              </p>
+            ) : !settings.server ? (
               <p className="m-0 text-[13px] text-muted" data-testid="upload-not-linked">
                 {t('uploads.notLinked')}
               </p>
@@ -212,7 +220,8 @@ function useSessionUploads(): Record<string, UploadStatus> {
 
   const training = ctx.training;
   useEffect(() => {
-    if (!server || training) return; // practice takes are never uploaded
+    // Practice takes and test mode (decision 041) are never uploaded.
+    if (!server || training || testModeOn()) return;
     let cancelled = false;
     let ids: string[] = [];
     const handle = capture.kit.addListener('uploadProgress', (u: UploadStatus) => {

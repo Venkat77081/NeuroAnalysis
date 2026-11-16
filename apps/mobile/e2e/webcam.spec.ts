@@ -17,7 +17,7 @@ test('MediaPipe for Web loads and emits analysis frames; a take is recorded', as
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/?mode=clinic-local&impl=webcam');
+  await page.goto('/?mode=clinic-local&impl=webcam&tools=1');
   await openDeviceCheck(page);
   await page.getByTestId('open-tracking-test').click();
   await page.getByTestId('tracking-test-select').selectOption('FT');

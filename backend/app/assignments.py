@@ -1,13 +1,20 @@
-"""Which patients a doctor may open (decision 038, user 16 Nov 2026: each appointment keeps its own
-doctor). A doctor sees a patient they have an appointment with (upcoming or past, not cancelled),
-a patient they sent a recording request to, or one assigned to them before v8. For such a patient
-they see the whole record: history and every recording, whichever doctor's appointment it was."""
+"""Which patients a doctor may open (decision 040, user 16 Nov 2026).
+
+A doctor sees a patient when they are, or were, truly that patient's doctor:
+- a booked appointment with them today or later; or
+- an appointment with them that was completed (a recording for it was uploaded), at any time.
+
+Then they see the whole record: history, every past appointment, recording and remark. A first
+appointment that was cancelled, moved to another doctor or missed before it was completed gives
+nothing. Assignments from before v8 no longer count."""
+
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session as DbSession
 
-from app.models import Appointment, Patient, PatientAssignment, RecordingRequest
+from app.models import Appointment, Patient, RecordingRequest, Session, Take
 from app.security import Principal
 
 #: Hospital staff who see every patient of their hospital (a doctor sees only their own).
@@ -16,12 +23,18 @@ ALL_PATIENTS_ROLES = {"hospital_admin", "receptionist"}
 
 def doctor_patients_clause(doctor_id: str):
     """SQL condition on Patient.id: patients this doctor may open."""
-    by_appointment = select(Appointment.patient_id).where(
-        Appointment.doctor_id == doctor_id, Appointment.status != "cancelled"
+    since = datetime.now(UTC) - timedelta(days=1)  # today's appointments count as upcoming
+    upcoming = select(Appointment.patient_id).where(
+        Appointment.doctor_id == doctor_id, Appointment.status == "booked", Appointment.at >= since
     )
-    by_request = select(RecordingRequest.patient_id).where(RecordingRequest.created_by == doctor_id)
-    legacy = select(PatientAssignment.patient_id).where(PatientAssignment.doctor_id == doctor_id)
-    return or_(Patient.id.in_(by_appointment), Patient.id.in_(by_request), Patient.id.in_(legacy))
+    completed = (
+        select(Appointment.patient_id)
+        .join(RecordingRequest, RecordingRequest.appointment_id == Appointment.id)
+        .join(Session, Session.request_id == RecordingRequest.id)
+        .join(Take, Take.session_id == Session.id)
+        .where(Appointment.doctor_id == doctor_id, Take.status == "complete")
+    )
+    return or_(Patient.id.in_(upcoming), Patient.id.in_(completed))
 
 
 def doctor_patient_ids(db: DbSession, doctor_id: str) -> set[str]:

@@ -120,7 +120,7 @@ phone number or address.** A test enforces this: `test_no_patient_identity_colum
 | `devices`, `device_enrollments`                         | Registered phones (model, camera check fps) and one-time registration codes                                  |
 | `patients`                                              | A patient per hospital, by NCID only                                                                         |
 | `patient_accounts`, `patient_refresh_tokens`            | A patient's app account (PIN hash, status) and sign-ins                                                      |
-| `patient_assignments`                                   | Doctor assignments made before v8 (decision 038: access now comes from appointments)                         |
+| `patient_assignments`                                   | Doctor assignments made before v8; give no access (decision 040)                                             |
 | `appointments`, `recording_requests`, `recording_plans` | Appointments (time, doctor), "please record these tests" requests (home or clinic), repeat plans             |
 | `sessions`, `takes`, `take_files`                       | Recording sessions, takes (verdict, quality numbers), uploaded files (size, checksum, where stored)          |
 | `site_keys`                                             | Each hospital's **public** take key; its private key never leaves the hospital                               |
@@ -332,13 +332,14 @@ image on a machine the clinic controls.
 
 Connector database tables (created by the connector, owned by the hospital):
 
-| Table             | Holds                                                                  |
-| ----------------- | ---------------------------------------------------------------------- |
-| `nc_ncid_map`     | NCID ↔ MRN, the only link between NeuroCapture and the real patient    |
-| `nc_activity_log` | Clinical activity: who searched, invited, viewed history or recordings |
-| `nc_reviews`      | Doctors' reviews of recordings (usable or not, with a note)            |
-| `nc_log_spool`    | Activity entries waiting while the hospital's log server is down       |
-| `nc_used_nonces`  | Replay protection for signed platform calls                            |
+| Table              | Holds                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| `nc_ncid_map`      | NCID ↔ MRN, the only link between NeuroCapture and the real patient    |
+| `nc_activity_log`  | Clinical activity: who searched, invited, viewed history or recordings |
+| `nc_visit_remarks` | Doctors' visit remarks, one per appointment (decision 040)             |
+| `nc_reviews`       | Doctors' reviews of recordings (usable or not, with a note)            |
+| `nc_log_spool`     | Activity entries waiting while the hospital's log server is down       |
+| `nc_used_nonces`   | Replay protection for signed platform calls                            |
 
 ```sql
 -- on the hospital's PostgreSQL

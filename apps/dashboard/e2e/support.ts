@@ -96,7 +96,10 @@ export async function apiToken(email: string, secret: string): Promise<string> {
     .access_token!;
 }
 
-/** The receptionist assigns the seeded patient to a doctor (API, for tests that need it). */
+/**
+ * The front desk books the seeded patient with a doctor in 2 days (API, for tests that need it).
+ * Decision 040: an upcoming appointment is what lets a doctor open a patient.
+ */
 export async function assignPatient(doctorEmail: string): Promise<void> {
   const s = stack();
   const tok = await apiToken(s.desk_email, s.desk_totp);
@@ -108,10 +111,14 @@ export async function assignPatient(doctorEmail: string): Promise<void> {
     email: string;
   }[];
   const id = docs.find((d) => d.email === doctorEmail)!.id;
-  const r = await fetch(`${s.platform_url}/hospital/patients/${s.patient_ncid}/doctor`, {
-    method: 'PUT',
+  const r = await fetch(`${s.platform_url}/hospital/appointments`, {
+    method: 'POST',
     headers: h,
-    body: JSON.stringify({ doctor_id: id }),
+    body: JSON.stringify({
+      ncid: s.patient_ncid,
+      at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      doctor_id: id,
+    }),
   });
-  if (!r.ok) throw new Error(`assign failed: ${r.status}`);
+  if (!r.ok) throw new Error(`booking failed: ${r.status}`);
 }

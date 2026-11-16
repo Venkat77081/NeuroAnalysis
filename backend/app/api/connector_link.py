@@ -443,6 +443,31 @@ class TakeDownloadOut(BaseModel):
     files: list[TakeFileOut]
 
 
+class AppointmentInfoOut(BaseModel):
+    """Who an appointment belongs to (decision 040: only its doctor writes its visit remarks)."""
+
+    id: str
+    ncid: str
+    doctor_id: str | None
+    at: datetime
+    status: str
+
+
+@router.get("/connector/v1/appointments/{appt_id}", response_model=AppointmentInfoOut)
+def connector_appointment(
+    appt_id: str,
+    site: Site = Depends(signed_connector),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> AppointmentInfoOut:
+    from app.models import Appointment
+
+    a = db.get(Appointment, appt_id)
+    patient = db.get(Patient, a.patient_id) if a else None
+    if not a or not patient or a.site_id != site.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "appointment not found")
+    return AppointmentInfoOut(id=a.id, ncid=patient.ncid, doctor_id=a.doctor_id, at=a.at, status=a.status)
+
+
 @router.get("/connector/v1/takes/{take_id}", response_model=TakeDownloadOut)
 def connector_take(
     take_id: str,

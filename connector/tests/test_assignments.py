@@ -1,12 +1,13 @@
-"""M14: on the connector a doctor sees only assigned patients (checked with the platform on every
-request); a receptionist finds patients and assigns them but sees no history or recordings."""
+"""On the connector a doctor sees only their own patients (decision 040: an upcoming or completed
+appointment with them; checked with the platform on every request); a receptionist finds patients
+and books them but sees no history or recordings."""
 
 from test_e2e import accept, ctoken
 from test_readiness_api import _upload_take
 from test_tenancy import SESSION, hdr, sign_up, staff_login
 
 
-def test_doctor_access_follows_assignment(connector):
+def test_doctor_access_follows_appointments(connector):
     env, c, api = connector, connector["client"], connector["platform"]
     admin = ctoken(env)
     inv = c.post("/v1/invites", headers=admin, json={"mrns": ["00012388"], "channel": "print"}).json()[0]
@@ -58,19 +59,22 @@ def test_doctor_access_follows_assignment(connector):
         d["email"]: d["id"]
         for d in api.get("/hospital/doctors", headers=hdr(toks["desk@sunrise.example"])).json()
     }
-    api.put(
-        f"/hospital/patients/{ncid}/doctor",
+    from datetime import UTC, datetime, timedelta
+
+    soon = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    appt = api.post(
+        "/hospital/appointments",
         headers=hdr(toks["desk@sunrise.example"]),
-        json={"doctor_id": docs["dr1@sunrise.example"]},
-    )
+        json={"ncid": ncid, "at": soon, "doctor_id": docs["dr1@sunrise.example"]},
+    ).json()
     assert c.get(f"/v1/patients/{ncid}", headers=dr1).json()["name"] == "Asha Testpatient"
     assert c.get(f"/v1/takes/{take_id}/files/video", headers=dr1).status_code == 200
     assert c.post("/v1/patients/lookup", headers=dr1, json={"ncids": [ncid]}).json()[0]["mrn"] == "00012388"
     assert c.get(f"/v1/patients/{ncid}", headers=dr2).status_code == 404
 
-    # Reassign: takes effect on the very next request.
+    # The appointment moves to Dr. 2 before it was completed: takes effect on the very next request.
     api.put(
-        f"/hospital/patients/{ncid}/doctor",
+        f"/hospital/appointments/{appt['id']}",
         headers=hdr(toks["desk@sunrise.example"]),
         json={"doctor_id": docs["dr2@sunrise.example"]},
     )

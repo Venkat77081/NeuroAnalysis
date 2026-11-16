@@ -52,7 +52,7 @@
     "operator_id_in_use": "This operator ID is already used.",
     "connector_not_registered": "Register the hospital connector first (Data connections).",
     "not_an_ed25519_key": "That is not a connector public key.",
-    "storage_check_failed": "The storage test failed. Check the role and bucket.",
+    "storage_check_failed": "The storage test failed. Check the role, the bucket or container, and the tenant ID.",
     "records_unavailable": "Your hospital records are not answering right now.",
     "generic": "Something went wrong. Try again.",
     "http_403": "Not allowed.",
@@ -61,7 +61,8 @@
     "http_422": "Please check the form.",
     "not_a_doctor_here": "Choose an active doctor of this hospital.",
     "platform_unreachable": "The NeuroCapture service is not answering. Try again.",
-    "email_not_sent": "Saved, but the invite e-mail could not be sent. Check the mail settings, then use \"Resend invite\"."
+    "email_not_sent": "Saved, but the invite e-mail could not be sent. Check the mail settings, then use \"Resend invite\".",
+    "azure_not_offered": "Azure storage is not set up on this NeuroCapture platform yet. Ask NeuroCapture."
   },
   "nav": {
     "hospitals": "Hospitals",
@@ -193,7 +194,21 @@
     "usageTakes_other": "{{count}} takes",
     "usageBelow_one": "{{count}} below {{fps}} fps",
     "usageBelow_other": "{{count}} below {{fps}} fps",
-    "result_not_delivered": "Not sent: the e-mail or SMS could not be delivered. Try again, or print the QR code."
+    "result_not_delivered": "Not sent: the e-mail or SMS could not be delivered. Try again, or print the QR code.",
+    "storageAzure": "Your own Azure Blob container: {{account}} / {{container}} (write-only role)",
+    "storageOwn": "Use your own storage",
+    "ownS3": "Your own Amazon S3 bucket",
+    "ownAzure": "Your own Azure Blob container",
+    "useManaged": "Use NeuroCapture storage",
+    "azureStep1": "A Global Administrator of your Microsoft Entra tenant approves the NeuroCapture app once:",
+    "azureConsent": "open the approval page",
+    "azureStep2": "In your subscription, create the custom role below (it can write blobs only: no read, list or delete).",
+    "azureStep3": "On your storage account, assign the NeuroCapture app the role \"Storage Blob Delegator\"; on the container, assign it the custom role.",
+    "azureStep4": "Give your hospital connector \"Storage Blob Data Reader\" on the container (its managed identity), then enter the details and test.",
+    "azureRole": "Custom role (JSON for the Azure portal or az role definition create)",
+    "azAccount": "Storage account",
+    "azContainer": "Container",
+    "azTenant": "Tenant (directory) ID"
   },
   "doctor": {
     "patientsTitle": "My patients",

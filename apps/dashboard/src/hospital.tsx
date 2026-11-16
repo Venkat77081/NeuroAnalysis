@@ -74,6 +74,11 @@ interface StorageInfo {
   trust_policy: unknown;
   permissions_policy: unknown;
   check: Record<string, string> | null;
+  /** Decision 037: the hospital's own Azure Blob container. */
+  azure: Record<string, string> | null;
+  azure_app_client_id: string | null;
+  azure_consent_url: string | null;
+  azure_role_definition: unknown;
 }
 
 export function Connections() {
@@ -92,6 +97,13 @@ export function Connections() {
     role_arn: '',
     prefix: 'neurocapture/',
   });
+  const [az, setAz] = useState({
+    account: '',
+    container: '',
+    tenant_id: '',
+    prefix: 'neurocapture/',
+  });
+  const [own, setOwn] = useState<'s3' | 'azure' | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
@@ -112,11 +124,20 @@ export function Connections() {
         setBusy(false);
       }
     });
-  const saveStorage = (kind: 'managed' | 's3') =>
+  const saveStorage = (kind: 'managed' | 's3' | 'azure') =>
     attempt(setError, async () => {
-      await call('PUT', '/hospital/storage', kind === 'managed' ? { kind } : { kind, s3 });
-      reloadStorage();
+      try {
+        await call(
+          'PUT',
+          '/hospital/storage',
+          kind === 'managed' ? { kind } : kind === 's3' ? { kind, s3 } : { kind, azure: az },
+        );
+      } finally {
+        reloadStorage(); // a failed test is shown in the check results
+      }
     });
+  const showing =
+    own ?? (storage?.kind === 'azure' ? 'azure' : storage?.kind === 's3' ? 's3' : null);
 
   return (
     <Page title={t('nav.connections')}>
@@ -197,55 +218,150 @@ export function Connections() {
           ))}
         </ul>
       </Card>
-      <Card title={t('hospital.storageTitle')}>
-        <p className="text-[14px]">
-          {storage?.kind === 's3' ? t('hospital.storageS3') : t('hospital.storageManaged')}
+      <Card title={t('hospital.storageTitle')} testId="storage-card">
+        <p className="text-[14px]" data-testid="storage-now">
+          {storage?.kind === 's3'
+            ? t('hospital.storageS3')
+            : storage?.kind === 'azure'
+              ? t('hospital.storageAzure', {
+                  account: storage.azure?.account,
+                  container: storage.azure?.container,
+                })
+              : t('hospital.storageManaged')}
         </p>
-        {storage?.external_id && (
-          <p className="text-[13px] text-muted">
-            {t('hospital.externalId')}: <code className="text-ink">{storage.external_id}</code>
-          </p>
-        )}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <Field
-            id="s-bucket"
-            label={t('hospital.bucket')}
-            value={s3.bucket}
-            onChange={(e) => setS3({ ...s3, bucket: e.target.value })}
-          />
-          <Field
-            id="s-region"
-            label={t('hospital.s3region')}
-            value={s3.region}
-            onChange={(e) => setS3({ ...s3, region: e.target.value })}
-          />
-          <Field
-            id="s-role"
-            label={t('hospital.roleArn')}
-            value={s3.role_arn}
-            onChange={(e) => setS3({ ...s3, role_arn: e.target.value })}
-          />
-          <Field
-            id="s-prefix"
-            label={t('hospital.prefix')}
-            value={s3.prefix}
-            onChange={(e) => setS3({ ...s3, prefix: e.target.value })}
-          />
-        </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t('hospital.storageOwn')}>
           <Button
-            variant="secondary"
-            disabled={!s3.bucket || !s3.role_arn}
-            onClick={() => void saveStorage('s3')}
+            variant={showing === 's3' ? 'secondary' : 'ghost'}
+            onClick={() => setOwn('s3')}
+            data-testid="storage-show-s3"
           >
-            {t('hospital.saveStorage')}
+            {t('hospital.ownS3')}
           </Button>
-          {storage?.kind === 's3' && (
+          {storage?.azure_app_client_id && (
+            <Button
+              variant={showing === 'azure' ? 'secondary' : 'ghost'}
+              onClick={() => setOwn('azure')}
+              data-testid="storage-show-azure"
+            >
+              {t('hospital.ownAzure')}
+            </Button>
+          )}
+          {storage?.kind !== 'managed' && (
             <Button variant="ghost" onClick={() => void saveStorage('managed')}>
-              {t('hospital.storageManaged')}
+              {t('hospital.useManaged')}
             </Button>
           )}
         </div>
+        {showing === 's3' && (
+          <>
+            {storage?.external_id && (
+              <p className="text-[13px] text-muted">
+                {t('hospital.externalId')}: <code className="text-ink">{storage.external_id}</code>
+              </p>
+            )}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <Field
+                id="s-bucket"
+                label={t('hospital.bucket')}
+                value={s3.bucket}
+                onChange={(e) => setS3({ ...s3, bucket: e.target.value })}
+              />
+              <Field
+                id="s-region"
+                label={t('hospital.s3region')}
+                value={s3.region}
+                onChange={(e) => setS3({ ...s3, region: e.target.value })}
+              />
+              <Field
+                id="s-role"
+                label={t('hospital.roleArn')}
+                value={s3.role_arn}
+                onChange={(e) => setS3({ ...s3, role_arn: e.target.value })}
+              />
+              <Field
+                id="s-prefix"
+                label={t('hospital.prefix')}
+                value={s3.prefix}
+                onChange={(e) => setS3({ ...s3, prefix: e.target.value })}
+              />
+            </div>
+            <div>
+              <Button
+                variant="secondary"
+                disabled={!s3.bucket || !s3.role_arn}
+                onClick={() => void saveStorage('s3')}
+              >
+                {t('hospital.saveStorage')}
+              </Button>
+            </div>
+          </>
+        )}
+        {showing === 'azure' && storage && (
+          <div className="flex flex-col gap-3" data-testid="storage-azure">
+            <ol className="m-0 flex list-decimal flex-col gap-1.5 pl-5 text-[13px] leading-[19px]">
+              <li>
+                {t('hospital.azureStep1')}{' '}
+                {storage.azure_consent_url && (
+                  <a
+                    href={storage.azure_consent_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-brand underline"
+                  >
+                    {t('hospital.azureConsent')}
+                  </a>
+                )}
+              </li>
+              <li>{t('hospital.azureStep2')}</li>
+              <li>{t('hospital.azureStep3')}</li>
+              <li>{t('hospital.azureStep4')}</li>
+            </ol>
+            <details>
+              <summary className="cursor-pointer text-[13px] font-semibold">
+                {t('hospital.azureRole')}
+              </summary>
+              <pre className="overflow-x-auto rounded-lg bg-[#F4F6F8] p-3 text-[12px]">
+                {JSON.stringify(storage.azure_role_definition, null, 2)}
+              </pre>
+            </details>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <Field
+                id="az-account"
+                label={t('hospital.azAccount')}
+                value={az.account}
+                onChange={(e) => setAz({ ...az, account: e.target.value.trim().toLowerCase() })}
+              />
+              <Field
+                id="az-container"
+                label={t('hospital.azContainer')}
+                value={az.container}
+                onChange={(e) => setAz({ ...az, container: e.target.value.trim().toLowerCase() })}
+              />
+              <Field
+                id="az-tenant"
+                label={t('hospital.azTenant')}
+                value={az.tenant_id}
+                onChange={(e) => setAz({ ...az, tenant_id: e.target.value.trim() })}
+              />
+              <Field
+                id="az-prefix"
+                label={t('hospital.prefix')}
+                value={az.prefix}
+                onChange={(e) => setAz({ ...az, prefix: e.target.value })}
+              />
+            </div>
+            <div>
+              <Button
+                variant="secondary"
+                disabled={!az.account || !az.container || az.tenant_id.length < 36}
+                onClick={() => void saveStorage('azure')}
+                data-testid="az-save"
+              >
+                {t('hospital.saveStorage')}
+              </Button>
+            </div>
+          </div>
+        )}
         {checks(storage?.check ?? null)}
       </Card>
     </Page>

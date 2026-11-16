@@ -36,8 +36,11 @@ Release builds are not debuggable, so the app only talks to an **https** server.
 
 ## Each release
 
-1. Actions → **Release (pilot)** → Run workflow. Set the version (e.g. `0.9.0`) and, to send to
-   testers, the Firebase groups (e.g. `pilot-operators`).
+1. Actions → **Release (pilot)** → Run workflow.
+   - Set the version (e.g. `0.9.0`).
+   - Set **server_url**, the NeuroCapture API built into the app (`https://…`). Release apps
+     have no server field (decision 038).
+   - To send to testers, set the Firebase groups (e.g. `pilot-operators`).
 2. The build number (versionCode) is the workflow run number, so it always increases.
 3. The AAB and APK are attached to the run. Upload the AAB to the Play internal or closed
    track, or rely on the Firebase invite e-mail for the APK.

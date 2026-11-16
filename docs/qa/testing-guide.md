@@ -166,10 +166,17 @@ pnpm --filter @neurocapture/mobile dev        # open the printed address, ideall
   - server `fake://api`, code `DEMO-SITE-1`;
   - operator `OP-NEW`, temporary password `temp-pass-1234`, then choose a new password;
   - or `OP-07` / `2468`.
-- **Patient:**
-  - choose "I am a patient";
-  - in the browser console, run `__ncMock.fakeServer.issueInvite()`, copy the link it prints, and
-    paste it on the invite screen.
+- **Patient:** choose "I am a patient", then tap the **Test** tab on the right edge → **Patient
+  invite**. The join screen opens with the invite. (Or, in the browser console:
+  `__ncMock.fakeServer.issueInvite()`.)
+- **Test tab** (fake mode only): plays the hospital.
+  - **Patient invite**.
+  - **Doctor sends a home record link**.
+  - **Doctor adds a patient to today's clinic queue**: then tap Refresh on the queue.
+  - **Start again**.
+- **Clinic phones show only the queue:** there is no "New patient"; use the Test tab to add one.
+- **The fake server lives in the page:** reloading forgets registered phones and new passwords,
+  and sign-in then fails. Use **Start again**.
 - **Start again:** clear the site's storage (F12 → Application → Clear storage), then reload.
 - The camera is simulated, so every take passes. Add `?scenario=too_far` (or `one_hand`, `dark`,
   `tilted`) to the address to see the guidance prompts.
@@ -327,6 +334,7 @@ Run at L2. Sign in with the accounts the stack prints.
 | G6  | Menu                                                                                                        | Overview, Data connections, Team, Phones, Activity log only (no patients, invites or appointments)                                                                                                                                                                        |
 | G8  | Deletion requests (only from phones before v3)                                                              | Shown on Overview when there are any; Mark done                                                                                                                                                                                                                           |
 | G9  | Activity log                                                                                                | One table: each row shows the person (name, e-mail, role), what they did and the patient (name live); filter by person; Download CSV                                                                                                                                      |
+| G14 | Team → Reset sign-in (another person)                                                                       | Reason asked; they are signed out at once; e-mail with a 24-hour link; with e-mail off, the link shows once instead. Not offered for yourself                                                                                                                             |
 | G13 | Data connections → Recording storage → "Your own Azure Blob container" (platform with `NC_AZURE_CLIENT_ID`) | Steps, approval link and custom role shown; a wrong container fails the test and keeps the old storage; a right one says upload pass, read blocked pass                                                                                                                   |
 | G12 | Mail server down (wrong `NC_SMTP_PORT`), then invite a doctor                                               | "Saved, but the invite e-mail could not be sent"; the doctor is listed; after fixing the setting, "Resend invite" delivers it                                                                                                                                             |
 | G11 | Phones list                                                                                                 | \"Camera check\" column: Passed / Borderline with the fps; phones added before the check say \"Not checked\". \"In use (last 30 days)\": takes recorded and how many were below 59 fps, retakes included (record a session with a retake on a clinic phone, then refresh) |
@@ -334,31 +342,32 @@ Run at L2. Sign in with the accounts the stack prints.
 
 ### H. Receptionist
 
-| #   | Test                                                                      | Expected                                                                                                                                      |
-| --- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| H1  | Menu                                                                      | "Appointments", "Invite patients" and "Assign patients" only (no team, phones or settings)                                                    |
-| H2  | Appointments                                                              | Nothing from the hospital system; "Add an appointment" at the top; find by name or MRN                                                        |
-| H3  | Assign Dr. Rao to Asha's appointment                                      | "Waiting for doctor's tests"; nothing is sent to the patient yet                                                                              |
-| H4  | Add an appointment by hand (find "asha")                                  | Listed as "Added by hand"                                                                                                                     |
-| H5  | Ravi: "Send join invite"                                                  | E-mail, SMS or print; with print the QR code shows on screen                                                                                  |
-| H6  | After the doctor sends the link (I9)                                      | "Doctor sent record link · due …"; after the patient records, "Recorded · uploaded"                                                           |
-| H7  | Assign patients: add Ravi, assign, reassign                               | Each doctor sees only their assigned patients; a reassigned doctor loses access at once                                                       |
-| H9  | Invite patients: search "ravi", tick, choose e-mail / SMS / print, Send   | Live results ("Missing" e-mail); print shows a QR; Send is greyed out once sent                                                               |
-| H11 | Ravi told the hospital his phone is not suitable (seeded in the L2 stack) | App column: "Not joined" and "Phone not suitable · 41 fps"; the doctor's Choose tests says the phone failed the camera check                  |
-| H10 | Appointments: "History" on a row                                          | Who added it, invites, doctor assigned and reassigned, the record link, each with name and e-mail; "Last change" column shows the latest step |
+| #   | Test                                                                                 | Expected                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| H1  | Menu                                                                                 | "Appointments" and "Invite patients" only (no team, phones, settings or "Assign patients")                                                                         |
+| H2  | Appointments                                                                         | Nothing from the hospital system; "Add an appointment" at the top; find by name or MRN                                                                             |
+| H3  | Assign Dr. Rao to Asha's appointment                                                 | "Waiting for doctor's tests"; nothing is sent to the patient yet                                                                                                   |
+| H4  | Add an appointment by hand (find "asha")                                             | Listed as "Added by hand"                                                                                                                                          |
+| H5  | Ravi: "Send join invite"                                                             | E-mail, SMS or print; with print the QR code shows on screen                                                                                                       |
+| H6  | After the doctor sends the link (I9)                                                 | "Doctor sent record link · due …"; after the patient records, "Recorded · uploaded"                                                                                |
+| H7  | Book Ravi with Dr. Rao (20 Nov) and Dr. Iyer (27 Nov); then change the 27 Nov doctor | Both appointments keep their own doctor; both doctors can open Ravi; changing one appointment changes only that one ("Doctor changed for …: Dr. Iyer → Dr. Mehta") |
+| H12 | Date range: Next 7 / 30 / 60 days, Past 30 days                                      | Appointments beyond 7 days show with 30 or 60; the choice is remembered after reload                                                                               |
+| H9  | Invite patients: search "ravi", tick, choose e-mail / SMS / print, Send              | Live results ("Missing" e-mail); print shows a QR; Send is greyed out once sent                                                                                    |
+| H11 | Ravi told the hospital his phone is not suitable (seeded in the L2 stack)            | App column: "Not joined" and "Phone not suitable · 41 fps"; the doctor's Choose tests says the phone failed the camera check                                       |
+| H10 | Appointments: "History" on a row                                                     | Who added it, invites, doctor assigned and reassigned, the record link, each with name and e-mail; "Last change" column shows the latest step                      |
 
 ### I. Doctor
 
 | #   | Test                                                                      | Expected                                                                                                                           |
 | --- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| I1  | My patients                                                               | Only assigned patients, with names (live from the hospital)                                                                        |
+| I1  | My patients                                                               | Patients you have an appointment with or sent a request to, with names (live from the hospital)                                    |
 | I2  | Open Asha                                                                 | MRN, birth date, diagnoses, medicines, visits; "fetched just now"                                                                  |
 | I3  | Play the recording                                                        | The video plays (decrypted by the connector)                                                                                       |
 | I4  | Review: Not usable + note                                                 | "Reviewed: Not usable"; the note stays at the hospital                                                                             |
 | I5  | Plan: tick "Also record every N days", change tests, days, medicine; Save | "Plan saved"; the patient's app shows the plan (C14)                                                                               |
 | I6  | Ask to record again                                                       | Patient's app: a request "Your doctor asks you to record again" (C6)                                                               |
 | I7  | Stop the FHIR stand-in (`pkill -f "port 8180"`), then open Asha           | "Your hospital system is not answering"; recordings still open                                                                     |
-| I8  | A patient assigned to another doctor                                      | Not in My patients; the connector refuses it (covered by the automated tests)                                                      |
+| I8  | A patient with no appointment with you                                    | Not in My patients; the connector refuses it (covered by the automated tests)                                                      |
 | I9  | Choose tests (v3)                                                         | The menu shows the count; the history is next to the choice; "Same as last time", "Hands only", "All 5"; Send → "Record link sent" |
 | I13 | Choose tests for a patient not in the app                                 | "At home" greyed out with a hint; "In the clinic" ticked; button "Add to the clinic queue"                                         |
 | I14 | Tick both "At home" and "In the clinic"                                   | Button "Send the link and add to the clinic queue"; Appointments shows Home link and Clinic queue                                  |

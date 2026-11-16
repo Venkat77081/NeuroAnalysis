@@ -35,13 +35,27 @@ Hospitals → Roles and permissions.
 
 - **Hospital admin:** set-up only (overview, data connections, team, phones, activity).
 - **Front desk (receptionist):** appointments, join invites (e-mail, SMS or printed QR) and
-  doctor assignments.
+  the doctor of each appointment (decision 038; there is no separate "Assign patients" page).
 - **Doctor:** choose tests, my patients (history, recordings, reviews, plan).
+
+## Doctors and access (decision 038)
+
+- **Each appointment has its own doctor.** A patient can see Dr. Rao one day and Dr. Iyer another.
+- **A doctor sees a patient** (history and all recordings) once they have an appointment with
+  them, or have sent them a recording request.
+- **Appointments has a date range:** next 7, 30 or 60 days, or the past 30 days.
+
+## Staff sign-in reset (decision 039)
+
+- **Team → Reset sign-in** (hospital admin) and **Hospitals → Set-up → Hospital admins**
+  (platform admin).
+- The person is signed out everywhere and gets a link (24 hours) to choose a new password and set
+  up the authenticator again.
 
 ## Appointments and record links (v3, decision 030)
 
 - **Reception → Appointments** lists the next 7 days. Appointments are added by hand (decision
-  034); nothing is read from the hospital's appointment system. Reception assigns the doctor and sends join
+  034); nothing is read from the hospital's appointment system. Reception chooses the doctor of each appointment and sends join
   invites to patients who have not joined the app.
 - **Doctor → Choose tests** lists the appointments waiting for that doctor. The doctor chooses the
   tests, the medicine state, the record-by date and, if wanted, "repeat every N days", then sends

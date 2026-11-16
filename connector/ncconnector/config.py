@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     #: (standard AWS environment / instance role). Endpoint only for S3-compatible stores.
     s3_endpoint: str | None = None
     s3_region: str = "ap-south-1"
+    #: The hospital's own Azure Blob container (decision 037): read with the connector's identity:
+    #: the VM's managed identity or AZURE_CLIENT_ID/AZURE_TENANT_ID/AZURE_CLIENT_SECRET (needs the
+    #: "Storage Blob Data Reader" role), or this storage account key.
+    azure_storage_key: str | None = None
 
     #: The connector's own database: NCID <-> MRN map, clinical activity log, log spool.
     database_url: str = "sqlite+pysqlite:///./connector.db"

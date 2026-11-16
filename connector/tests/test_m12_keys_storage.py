@@ -2,6 +2,8 @@
 two hospitals' takes cannot be read with each other's keys. Also: rotation, and the hospital's
 own S3 bucket through an upload-only role (moto)."""
 
+import os
+
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -367,3 +369,116 @@ def test_hospital_bucket_upload_only_role(env, aws, monkeypatch):
     with _factory()() as db:
         f = db.query(TakeFile).filter(TakeFile.take_id == take_id, TakeFile.kind == "landmarks").one()
         assert f.checksum_verified is False
+
+
+# --- The hospital's own Azure Blob container (Azurite; decision 037) ---
+
+AZURITE = "http://127.0.0.1:10000/devstoreaccount1"
+AZ_KEY = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="  # noqa: S105 - Azurite's public dev key
+
+
+def _azurite_up() -> bool:
+    import httpx
+
+    try:
+        httpx.get(f"{AZURITE}?comp=list", timeout=1)
+        return True
+    except httpx.HTTPError:
+        return False
+
+
+@pytest.mark.skipif(
+    not _azurite_up() and not os.environ.get("NC_REQUIRE_AZURITE"), reason="Azurite is not running"
+)
+def test_hospital_azure_container_write_only(env, monkeypatch):
+    import uuid
+
+    import httpx
+    import test_upload_flow
+    from app.config import get_settings as platform_settings
+    from app.storage import sites
+    from azure.storage.blob import BlobServiceClient
+
+    from ncconnector import storage as nc_storage
+    from ncconnector.config import get_settings
+
+    api, c = env["platform"], env["client"]
+    service = BlobServiceClient(
+        AZURITE, credential={"account_name": "devstoreaccount1", "account_key": AZ_KEY}
+    )
+    container = f"sunrise-{uuid.uuid4().hex[:8]}"
+    service.create_container(container)
+    # Production signs in as NeuroCapture's app in the hospital's tenant (user delegation SAS);
+    # Azurite only offers account keys, so the test signs with the key.
+    monkeypatch.setattr(sites, "hospital_azure_service", lambda cfg: (service, AZ_KEY))
+    monkeypatch.setattr(platform_settings(), "azure_client_id", "00000000-0000-0000-0000-00000000c1d0")
+    monkeypatch.setattr(platform_settings(), "azure_client_secret", "test")
+    monkeypatch.setattr(get_settings(), "azure_storage_key", AZ_KEY)
+    nc_storage.azure_service.cache_clear()
+    sites.clear_cache()
+
+    original_put = test_upload_flow.put
+
+    def put(api_, url, data):
+        if url.startswith("http://testserver"):
+            return original_put(api_, url, data)
+        r = httpx.put(url, content=data, timeout=10)
+        assert r.status_code == 201, r.text  # Azure Put Block: 201, no ETag (the phone sends azure-<n>)
+        return httpx.Response(200, headers={"ETag": "azure"})
+
+    monkeypatch.setattr(test_upload_flow, "put", put)
+
+    info = api.get("/hospital/storage", headers=hdr(env["admin_tok"])).json()
+    assert info["azure_consent_url"].endswith("client_id=00000000-0000-0000-0000-00000000c1d0")
+    assert info["azure_role_definition"]["DataActions"] == [
+        "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/write",
+        "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/add/action",
+    ]
+    tenant = "11111111-2222-3333-4444-555555555555"
+    azure = {
+        "account": "devstoreaccount1",
+        "tenant_id": tenant,
+        "endpoint": AZURITE,
+        "prefix": "neurocapture/",
+    }
+    bad = api.put(
+        "/hospital/storage",
+        headers=hdr(env["admin_tok"]),
+        json={"kind": "azure", "azure": {**azure, "container": "no-such-container"}},
+    )
+    assert bad.status_code == 422 and bad.json()["detail"]["upload"] == "fail"
+    r = api.put(
+        "/hospital/storage",
+        headers=hdr(env["admin_tok"]),
+        json={"kind": "azure", "azure": {**azure, "container": container}},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["kind"] == "azure" and r.json()["check"]["upload"] == "pass"
+
+    rotate_take_key()
+    ncid, acc, sess = patient_session(env, env["desk_tok"])
+    link_ncid(ncid)
+    take_id = record(env, acc, sess, "tk-azure")
+
+    # The blobs are in the hospital's container under its prefix; nothing in platform storage.
+    names = [b.name for b in service.get_container_client(container).list_blobs()]
+    assert names and all(n.startswith(f"neurocapture/{env['site_id']}/") and "_check" not in n for n in names)
+    from app.db import _factory
+    from app.models import TakeFile
+    from app.storage import get_storage
+
+    assert not list((get_storage().root / "objects").rglob("*.enc"))
+    with _factory()() as db:
+        files = db.query(TakeFile).filter(TakeFile.take_id == take_id).all()
+        assert {f.checksum_verified for f in files} == {None}  # write-only: the platform cannot check
+
+    # The connector reads with the hospital's own credentials, decrypts, checks SHA-256.
+    r = c.get(f"/v1/takes/{take_id}/files/video", headers=ctoken(env))
+    assert r.status_code == 200 and r.content == b"\x00" * 3000
+    with _factory()() as db:
+        f = db.query(TakeFile).filter(TakeFile.take_id == take_id, TakeFile.kind == "video").one()
+        assert f.checksum_verified is True
+    # A blob changed in the hospital's storage is reported as a mismatch.
+    lm = next(n for n in names if n.endswith("landmarks.enc"))
+    service.get_blob_client(container, lm).upload_blob(b"tampered", overwrite=True)
+    assert c.get(f"/v1/takes/{take_id}/files/landmarks", headers=ctoken(env)).status_code == 502

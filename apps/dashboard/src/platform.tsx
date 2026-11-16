@@ -2,7 +2,8 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call } from './api.ts';
-import { Badge, Button, Card, ErrorNote, Field, Page, Table, fmt } from './ui.tsx';
+import { ActivityLog, type LogRow } from './activity.tsx';
+import { Badge, Button, Card, ErrorNote, Field, Page, Table } from './ui.tsx';
 
 interface Hospital {
   id: string;
@@ -37,6 +38,27 @@ export interface AuditRow {
   action: string;
   target_type: string | null;
   details: Record<string, unknown> | null;
+  actor_name?: string | null;
+  actor_email?: string | null;
+  actor_role?: string | null;
+  site_name?: string | null;
+  target_ncid?: string | null;
+}
+
+/** A platform audit row as a log row (the person comes with it). */
+export function fromAudit(r: AuditRow): LogRow {
+  return {
+    at: r.at,
+    who: {
+      name: r.actor_name ?? r.actor_type,
+      email: r.actor_email ?? null,
+      role: r.actor_role ?? r.actor_type,
+    },
+    action: r.action,
+    details: r.details,
+    patient: r.target_ncid ?? null,
+    hospital: r.site_name ?? null,
+  };
 }
 
 export function Hospitals() {
@@ -271,23 +293,6 @@ function Onboard({ onDone }: { onDone: () => void }) {
   );
 }
 
-export function AuditTable({ rows, testId }: { rows: AuditRow[]; testId?: string }) {
-  const { t } = useTranslation();
-  if (rows.length === 0) return <p className="text-[14px] text-muted">{t('app.none')}</p>;
-  return (
-    <Table head={['', '', '', '']} testId={testId}>
-      {rows.map((r, i) => (
-        <tr key={i} className="border-t border-[#EDF0F3] text-[13px]">
-          <td className="px-4 py-2 whitespace-nowrap text-muted">{fmt(r.at)}</td>
-          <td className="px-4 py-2 font-semibold">{r.action}</td>
-          <td className="px-4 py-2">{r.actor_type}</td>
-          <td className="px-4 py-2 text-muted">{r.details ? JSON.stringify(r.details) : ''}</td>
-        </tr>
-      ))}
-    </Table>
-  );
-}
-
 export function PlatformLog() {
   const { t } = useTranslation();
   const [rows, setRows] = useState<AuditRow[]>([]);
@@ -299,7 +304,12 @@ export function PlatformLog() {
   return (
     <Page title={t('platform.logTitle')}>
       <ErrorNote error={error} />
-      <AuditTable rows={rows} testId="platform-log" />
+      <ActivityLog
+        rows={rows.map(fromAudit)}
+        showHospital
+        showPatient={false}
+        testId="platform-log"
+      />
     </Page>
   );
 }

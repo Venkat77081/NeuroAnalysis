@@ -22,6 +22,8 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
 
   await page.getByTestId('nav-team').click();
   await page.getByTestId('op-code').fill('OP-E2E');
+  await expect(page.getByTestId('op-add')).toBeDisabled(); // a name is required
+  await page.getByTestId('op-name').fill('Kavya R');
   await page.getByTestId('op-add').click();
   await expect(page.getByTestId('temp-password')).toContainText('OP-E2E');
   await expect(page.getByTestId('operators')).toContainText('must change password');
@@ -31,8 +33,11 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
   await expect(page.getByTestId('d-code-text')).toHaveText(/^[A-Z2-9]{10}$/);
 
   await page.getByTestId('nav-activity').click();
-  await expect(page.getByTestId('clinical-log')).toBeVisible();
-  await expect(page.getByTestId('hospital-log')).toContainText('operator_created');
+  // One log, by person: name, e-mail and role on every row.
+  const log = page.getByTestId('activity-log');
+  await expect(log).toContainText('Added a clinic phone operator');
+  await expect(log).toContainText(`${s.admin_email} · Hospital admin`);
+  await expect(page.getByTestId('log-csv')).toBeVisible();
 });
 
 test('M14: platform admin — hospitals, set-up status, onboarding, platform log', async ({
@@ -52,5 +57,6 @@ test('M14: platform admin — hospitals, set-up status, onboarding, platform log
   await page.getByTestId('h-create').click();
   await expect(page.getByTestId('hospitals')).toContainText('Lakeview Hospital');
   await page.getByTestId('nav-platformLog').click();
-  await expect(page.getByTestId('platform-log')).toContainText('hospital_onboarded');
+  await expect(page.getByTestId('platform-log')).toContainText('Onboarded the hospital');
+  await expect(page.getByTestId('platform-log')).toContainText('Platform admin');
 });

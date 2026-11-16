@@ -174,7 +174,11 @@
     "activityTitle": "Activity",
     "platformEvents": "Platform events (accounts, phones, invites)",
     "clinicalEvents": "Clinical activity (kept in your hospital's database)",
-    "deskDoes": "Patients, join invites, appointments and doctor assignments are handled by the front desk (receptionist accounts, added under Team)."
+    "deskDoes": "Patients, join invites, appointments and doctor assignments are handled by the front desk (receptionist accounts, added under Team).",
+    "personName": "Full name",
+    "teamHint": "Add as many hospital admins, front-desk staff and doctors as you need. Everyone signs in with their own e-mail, password and authenticator code, and everyone with the same role sees the same pages. Do not share logins: the activity log records each person by name.",
+    "lastActive": "Last signed in {{at}}",
+    "neverSignedIn": "Not signed in yet"
   },
   "doctor": {
     "patientsTitle": "My patients",
@@ -283,7 +287,13 @@
     "afterAssign": "After you assign a doctor, the appointment goes to that doctor to choose the tests. The patient gets the record link only when the doctor sends it.",
     "addAndAssign": "Add appointment and assign",
     "added": "Appointment added.",
-    "inviteFor": "Send a join invite to {{name}}"
+    "inviteFor": "Send a join invite to {{name}}",
+    "lastChange": "Last change",
+    "history": "History",
+    "hideHistory": "Hide history",
+    "historyLabel": "History of this appointment",
+    "addedBy": "Added by hand · {{name}}",
+    "by": "by"
   },
   "choose": {
     "title": "Choose tests for upcoming appointments",
@@ -328,5 +338,83 @@
     "title": "Invite patients to the app",
     "yes": "Yes",
     "qrAlt": "Join invite QR code for MRN {{mrn}}"
+  },
+  "log": {
+    "person": "Person",
+    "everyone": "Everyone",
+    "what": "What",
+    "from": "From",
+    "csv": "Download CSV",
+    "when": "When",
+    "who": "Who",
+    "hospital": "Hospital",
+    "patient": "Patient",
+    "hospitalHint": "One log for everyone at your hospital, by person. Patient names are read live from your records for this view; NeuroCapture keeps only the staff member and the patient's NCID.",
+    "kind": {
+      "all": "All activity",
+      "invites": "Invites",
+      "appointments": "Appointments and doctors",
+      "recordings": "Recordings and reviews",
+      "setup": "Team, phones and settings"
+    },
+    "channel": {
+      "email": "e-mail",
+      "sms": "SMS",
+      "print": "printed QR",
+      "none": "no invite"
+    },
+    "source": {
+      "fhir": "from the hospital system",
+      "manual": "by hand"
+    },
+    "actor": {
+      "operator": "Clinic phone operator",
+      "patient": "Patient (app)",
+      "device": "Clinic phone",
+      "connector": "Hospital connector",
+      "system": "NeuroCapture",
+      "staff": "Staff"
+    },
+    "action": {
+      "appointment_added": "Appointment added {{source}} ({{when}})",
+      "appointment_changed": "Appointment changed ({{status}})",
+      "patient_assigned": "Doctor assigned: {{doctor_name}}",
+      "patient_reassigned": "Reassigned: {{previous_name}} → {{doctor_name}}",
+      "patient_unassigned": "Doctor removed",
+      "patient_created": "New patient ID created; join invite by {{channel}}",
+      "patient_invited": "Join invite sent by {{channel}}",
+      "patient_reinvited": "New join invite sent by {{channel}}",
+      "recording_requested": "Record link sent · {{tests}} · due {{due}}",
+      "request_cancelled": "Record link cancelled",
+      "reminder_sent": "Reminder sent to the patient",
+      "invite_accepted": "Accepted the invite and set up sign-in",
+      "staff_invited": "Invited a team member",
+      "staff_login": "Signed in",
+      "login": "Signed in on a clinic phone",
+      "operator_created": "Added a clinic phone operator",
+      "operator_password_reset": "Reset an operator's password",
+      "operator_password_changed": "Changed their password",
+      "device_code_created": "Created a phone registration code",
+      "device_registered": "Registered a clinic phone",
+      "device_revoked": "Removed a clinic phone",
+      "connector_registered": "Registered the hospital connector",
+      "connector_checked": "Tested the hospital connector",
+      "hospital_onboarded": "Onboarded the hospital",
+      "hospital_activated": "Hospital activated",
+      "two_step_enabled": "Set up two-step sign-in",
+      "patients_searched": "Searched the hospital records",
+      "patients_listed": "Opened the patient list",
+      "appointments_listed": "Opened the appointments",
+      "history_viewed": "Viewed a patient's medical history",
+      "recording_viewed": "Watched a recording",
+      "take_reviewed": "Reviewed a recording",
+      "ncid_created": "Linked a patient to a NeuroCapture ID",
+      "take_uploaded": "Uploaded a recording",
+      "session_created": "Started a recording session",
+      "plan_set": "Changed the home recording plan",
+      "plan_changed": "Set repeat every {{every_days}} days",
+      "patient_closed": "Patient left home recording",
+      "consent_withdrawn": "Patient withdrew from this hospital"
+    }
   }
 }

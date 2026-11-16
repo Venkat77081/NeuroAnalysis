@@ -5,11 +5,12 @@
  * then waits for that doctor to choose the tests. The patient gets the record link only when the
  * doctor sends it. Names and MRNs come live from the connector and are never stored here.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, call, hospital } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
 import { InviteBox } from './invites.tsx';
+import { describe, roleText } from './activity.tsx';
 
 export type Stage = 'needs_doctor' | 'needs_tests' | 'sent' | 'recorded' | 'missed' | 'cancelled';
 
@@ -32,6 +33,17 @@ export interface Appointment {
   status: 'booked' | 'cancelled';
   stage: Stage;
   requests: RequestOut[];
+  /** Who added it by hand (null: from the hospital system). */
+  booked_by_name: string | null;
+  last_event: HistoryEvent | null;
+}
+export interface HistoryEvent {
+  at: string;
+  action: string;
+  actor_name: string;
+  actor_email: string | null;
+  actor_role: string;
+  details: Record<string, unknown>;
 }
 interface LiveRow {
   external_id: string;
@@ -155,6 +167,8 @@ export function Appointments() {
     }
   };
   /** The patient reception is inviting (the three ways show below the table). */
+  /** The appointment whose history is open. */
+  const [open, setOpen] = useState<string | null>(null);
   const [inviting, setInviting] = useState<{ mrn: string; name: string } | null>(null);
   const invite = (mrn: string, name: string | null) => {
     setNotice(null);
@@ -186,74 +200,103 @@ export function Appointments() {
           t('appts.app'),
           t('appts.doctor'),
           t('appts.status'),
+          t('appts.lastChange'),
+          '',
         ]}
         testId="appointments"
       >
         {(appts ?? []).map((a) => {
           const i = ident[a.ncid];
           return (
-            <tr
-              key={a.id}
-              className="border-t border-[#EDF0F3]"
-              data-testid={`appt-${i?.mrn ?? a.ncid}`}
-            >
-              <td className="px-4 py-3 font-semibold">
-                {fmt(a.at)}
-                <span className="block text-[12px] font-normal text-muted">
-                  {t(`appts.source.${a.source}`)}
-                </span>
-              </td>
-              <td className="px-4 py-3">
-                {i?.name ?? <code className="text-[12px] text-muted">{a.ncid}</code>}
-                {i && <span className="block text-[12px] text-muted">MRN {i.mrn}</span>}
-              </td>
-              <td className="px-4 py-3">
-                <Badge tone={joined(a.ncid) ? 'ok' : 'neutral'}>
-                  {t(joined(a.ncid) ? 'appts.joined' : 'appts.notJoined')}
-                </Badge>
-              </td>
-              <td className="px-4 py-3">
-                {a.stage === 'needs_doctor' || a.stage === 'needs_tests' ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      aria-label={t('appts.doctor')}
-                      value={choice[a.id] ?? a.doctor_id ?? ''}
-                      onChange={(e) => setChoice((c) => ({ ...c, [a.id]: e.target.value }))}
-                      className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2"
-                      data-testid="appt-doctor"
-                    >
-                      <option value="">{t('assign.choose')}</option>
-                      {docs.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {docName(d)}
-                        </option>
-                      ))}
-                    </select>
-                    {choice[a.id] && choice[a.id] !== a.doctor_id && (
-                      <Button onClick={() => void assign(a)} data-testid="appt-assign">
-                        {t(a.doctor_id ? 'assign.reassign' : 'appts.assign')}
+            <Fragment key={a.id}>
+              <tr className="border-t border-[#EDF0F3]" data-testid={`appt-${i?.mrn ?? a.ncid}`}>
+                <td className="px-4 py-3 font-semibold">
+                  {fmt(a.at)}
+                  <span className="block text-[12px] font-normal text-muted">
+                    {a.source === 'manual' && a.booked_by_name
+                      ? t('appts.addedBy', { name: a.booked_by_name })
+                      : t(`appts.source.${a.source}`)}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {i?.name ?? <code className="text-[12px] text-muted">{a.ncid}</code>}
+                  {i && <span className="block text-[12px] text-muted">MRN {i.mrn}</span>}
+                </td>
+                <td className="px-4 py-3">
+                  <Badge tone={joined(a.ncid) ? 'ok' : 'neutral'}>
+                    {t(joined(a.ncid) ? 'appts.joined' : 'appts.notJoined')}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  {a.stage === 'needs_doctor' || a.stage === 'needs_tests' ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label={t('appts.doctor')}
+                        value={choice[a.id] ?? a.doctor_id ?? ''}
+                        onChange={(e) => setChoice((c) => ({ ...c, [a.id]: e.target.value }))}
+                        className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2"
+                        data-testid="appt-doctor"
+                      >
+                        <option value="">{t('assign.choose')}</option>
+                        {docs.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {docName(d)}
+                          </option>
+                        ))}
+                      </select>
+                      {choice[a.id] && choice[a.id] !== a.doctor_id && (
+                        <Button onClick={() => void assign(a)} data-testid="appt-assign">
+                          {t(a.doctor_id ? 'assign.reassign' : 'appts.assign')}
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    a.doctor_name
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-col items-start gap-1.5">
+                    <StageBadge a={a} />
+                    {!joined(a.ncid) && i && a.stage !== 'cancelled' && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => invite(i.mrn, i.name)}
+                        data-testid="appt-invite"
+                      >
+                        {t('appts.sendInvite')}
                       </Button>
                     )}
                   </div>
-                ) : (
-                  a.doctor_name
-                )}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex flex-col items-start gap-1.5">
-                  <StageBadge a={a} />
-                  {!joined(a.ncid) && i && a.stage !== 'cancelled' && (
-                    <Button
-                      variant="secondary"
-                      onClick={() => invite(i.mrn, i.name)}
-                      data-testid="appt-invite"
-                    >
-                      {t('appts.sendInvite')}
-                    </Button>
+                </td>
+                <td className="px-4 py-3 text-[13px]" data-testid="appt-last">
+                  {a.last_event && (
+                    <>
+                      {describe(t, a.last_event.action, a.last_event.details)}
+                      <span className="block text-muted">
+                        {a.last_event.actor_name} · {fmt(a.last_event.at)}
+                      </span>
+                    </>
                   )}
-                </div>
-              </td>
-            </tr>
+                </td>
+                <td className="px-4 py-3">
+                  <Button
+                    variant="secondary"
+                    aria-expanded={open === a.id}
+                    onClick={() => setOpen(open === a.id ? null : a.id)}
+                    data-testid="appt-history-btn"
+                  >
+                    {open === a.id ? t('appts.hideHistory') : t('appts.history')}
+                  </Button>
+                </td>
+              </tr>
+              {open === a.id && (
+                <tr>
+                  <td colSpan={7} className="bg-[#F9FBFD] px-4 pb-4">
+                    <AppointmentHistory id={a.id} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           );
         })}
         {notJoined.map((r) => (
@@ -285,6 +328,8 @@ export function Appointments() {
                 {t('appts.sendInvite')}
               </Button>
             </td>
+            <td />
+            <td />
           </tr>
         ))}
       </Table>
@@ -423,5 +468,37 @@ function ManualAppointment({ docs, onAdded }: { docs: Doctor[]; onAdded: () => v
         {t('appts.addAndAssign')}
       </Button>
     </Card>
+  );
+}
+
+/** Who did what for one appointment, oldest first (user, 16 Nov 2026). */
+export function AppointmentHistory({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const [events, setEvents] = useState<HistoryEvent[] | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => {
+    call<HistoryEvent[]>('GET', `/hospital/appointments/${id}/history`).then(setEvents, setError);
+  }, [id]);
+  return (
+    <div className="flex flex-col gap-2">
+      <ErrorNote error={error} />
+      <ol
+        aria-label={t('appts.historyLabel')}
+        className="flex flex-col gap-2.5 rounded-xl border border-line bg-white px-4 py-3.5 text-[13px]"
+        data-testid="appt-history"
+      >
+        {(events ?? []).map((e, n) => (
+          <li key={n} className="grid grid-cols-[120px_1fr] gap-3">
+            <span className="text-muted">{fmt(e.at)}</span>
+            <span>
+              <b>{describe(t, e.action, e.details)}</b> · {t('appts.by')} {e.actor_name}{' '}
+              <span className="text-muted">
+                ({[e.actor_email, roleText(t, e.actor_role)].filter(Boolean).join(' · ')})
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

@@ -101,9 +101,19 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   );
   await page.getByTestId('sign-out').click();
 
-  // Reception sees the link went out.
+  // Reception sees the link went out, and who did each step.
   await signIn(page, s.desk_email, s.desk_totp);
   await expect(page.getByTestId('appointments')).toContainText('Doctor sent record link · due');
+  const first = page.getByTestId(`appt-${s.patient_mrn}`).first();
+  await expect(first.getByTestId('appt-last')).toContainText('Record link sent');
+  await expect(first.getByTestId('appt-last')).toContainText('Dr. Rao');
+  await first.getByTestId('appt-history-btn').click();
+  const hist = page.getByTestId('appt-history');
+  await expect(hist).toContainText('Doctor assigned: Dr. Rao');
+  await expect(hist).toContainText(`Front desk`);
+  await expect(hist).toContainText(s.desk_email);
+  await expect(hist).toContainText('Record link sent');
+  await expect(page.getByTestId('appointments')).toContainText('Added by hand · Front desk');
 
   const scan = scanPlatform(['Asha', 'Testpatient', 'Ravi', 'Samplename', s.patient_mrn]);
   expect(scan.found).toEqual([]);

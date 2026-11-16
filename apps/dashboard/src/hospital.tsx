@@ -7,7 +7,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import { call, hospital } from './api.ts';
-import { AuditTable, type AuditRow } from './platform.tsx';
+import { fromAudit, type AuditRow } from './platform.tsx';
+import { ActivityLog, type LogRow, type Who } from './activity.tsx';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
 
 function useLoad<T>(fn: () => Promise<T>): [T | null, unknown, () => void] {
@@ -254,6 +255,7 @@ export function Connections() {
 interface Operator {
   id: string;
   code: string;
+  name: string | null;
   role: string;
   active: boolean;
   must_change_password: boolean;
@@ -268,6 +270,7 @@ interface StaffRow {
   active: boolean;
   invited: boolean;
   locked: boolean;
+  last_login_at: string | null;
 }
 
 export function Team() {
@@ -275,6 +278,7 @@ export function Team() {
   const [ops, , reloadOps] = useLoad(() => call<Operator[]>('GET', '/hospital/operators'));
   const [staff, , reloadStaff] = useLoad(() => call<StaffRow[]>('GET', '/hospital/staff'));
   const [code, setCode] = useState('');
+  const [opName, setOpName] = useState('');
   const [temp, setTemp] = useState<{ code: string; pw: string } | null>(null);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -284,6 +288,9 @@ export function Team() {
     o.temporary_password && setTemp({ code: o.code, pw: o.temporary_password });
   return (
     <Page title={t('hospital.teamTitle')}>
+      <p className="max-w-3xl text-[14px] leading-[21px] text-[#3D4552]">
+        {t('hospital.teamHint')}
+      </p>
       <ErrorNote error={error} />
       <Card title={t('hospital.operatorsTitle')}>
         {temp && (
@@ -299,12 +306,25 @@ export function Team() {
             onChange={(e) => setCode(e.target.value)}
             data-testid="op-code"
           />
+          <Field
+            id="op-name"
+            label={t('hospital.personName')}
+            value={opName}
+            onChange={(e) => setOpName(e.target.value)}
+            data-testid="op-name"
+          />
           <Button
-            disabled={code.length < 2}
+            disabled={code.length < 2 || opName.trim().length < 2}
             onClick={() =>
               void attempt(setError, async () => {
-                showTemp(await call<Operator>('POST', '/hospital/operators', { code }));
+                showTemp(
+                  await call<Operator>('POST', '/hospital/operators', {
+                    code,
+                    name: opName.trim(),
+                  }),
+                );
                 setCode('');
+                setOpName('');
                 reloadOps();
               })
             }
@@ -317,6 +337,7 @@ export function Team() {
           {(ops ?? []).map((o) => (
             <li key={o.id} className="flex flex-wrap items-center gap-2 py-2 text-[14px]">
               <span className="w-28 font-semibold">{o.code}</span>
+              <span>{o.name ?? ''}</span>
               {!o.active && <Badge tone="bad">{t('hospital.disable')}d</Badge>}
               {o.locked && <Badge tone="bad">{t('hospital.locked')}</Badge>}
               {o.must_change_password && <Badge tone="warn">{t('hospital.mustChange')}</Badge>}
@@ -363,9 +384,10 @@ export function Team() {
           />
           <Field
             id="st-name"
-            label={t('hospital.staffName')}
+            label={t('hospital.personName')}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            data-testid="st-name"
           />
           <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
             {t('hospital.role')}
@@ -380,10 +402,10 @@ export function Team() {
             </select>
           </label>
           <Button
-            disabled={!email.includes('@')}
+            disabled={!email.includes('@') || name.trim().length < 2}
             onClick={() =>
               void attempt(setError, async () => {
-                await call('POST', '/hospital/staff', { email, display_name: name || null, role });
+                await call('POST', '/hospital/staff', { email, display_name: name.trim(), role });
                 setEmail('');
                 setName('');
                 reloadStaff();
@@ -402,6 +424,11 @@ export function Team() {
               <Badge>{t(`roles.${u.role}`)}</Badge>
               {u.invited && <Badge tone="warn">invited</Badge>}
               {u.locked && <Badge tone="bad">{t('hospital.locked')}</Badge>}
+              <span className="text-[13px] text-muted">
+                {u.last_login_at
+                  ? t('hospital.lastActive', { at: fmt(u.last_login_at) })
+                  : t('hospital.neverSignedIn')}
+              </span>
               <span className="flex-1" />
               <Button
                 variant="ghost"
@@ -561,20 +588,89 @@ function DeletionRequests() {
 
 // --- Activity ---
 
+interface ClinicalRow {
+  at: string;
+  actor_type: string;
+  actor_id: string | null;
+  action: string;
+  ncid: string | null;
+  details: Record<string, unknown> | null;
+}
+
+/** One log for everyone: platform events and the connector's clinical events, by person. */
 export function Activity() {
   const { t } = useTranslation();
-  const [platform, platErr] = useLoad(() => call<AuditRow[]>('GET', '/hospital/audit?limit=200'));
-  const [clinical, clinErr] = useLoad(() => hospital<AuditRow[]>('GET', '/v1/activity?limit=200'));
+  const [rows, setRows] = useState<LogRow[] | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => {
+    let off = false;
+    void (async () => {
+      try {
+        const [platform, staff, ops] = await Promise.all([
+          call<AuditRow[]>('GET', '/hospital/audit?limit=500'),
+          call<StaffRow[]>('GET', '/hospital/staff'),
+          call<Operator[]>('GET', '/hospital/operators'),
+        ]);
+        // The connector logs platform user IDs only; names come from the team list.
+        const people = new Map<string, Who>();
+        for (const u of staff)
+          people.set(u.id, { name: u.display_name ?? u.email, email: u.email, role: u.role });
+        for (const o of ops)
+          people.set(o.id, {
+            name: o.name ? `${o.name} (${o.code})` : o.code,
+            email: null,
+            role: 'operator',
+          });
+        let clinical: ClinicalRow[] = [];
+        try {
+          clinical = await hospital<ClinicalRow[]>('GET', '/v1/activity?limit=500');
+        } catch (e) {
+          setError(e); // the hospital system is down: show the platform events anyway
+        }
+        const all: LogRow[] = [
+          ...platform.map(fromAudit),
+          ...clinical.map((c) => ({
+            at: c.at,
+            who: people.get(c.actor_id ?? '') ?? {
+              name: t(`log.actor.${c.actor_type}`, { defaultValue: c.actor_type }),
+              email: null,
+              role: c.actor_type,
+            },
+            action: c.action,
+            details: c.details,
+            patient: c.ncid,
+          })),
+        ].sort((x, y) => y.at.localeCompare(x.at));
+        // Patient names, live from the hospital (not stored).
+        const ncids = [...new Set(all.map((r) => r.patient).filter((n): n is string => !!n))];
+        if (ncids.length) {
+          try {
+            const ids = await hospital<{ ncid: string; mrn: string; name: string | null }[]>(
+              'POST',
+              '/v1/patients/lookup',
+              { ncids },
+            );
+            const name = new Map(ids.map((i) => [i.ncid, `${i.name ?? ''} · MRN ${i.mrn}`]));
+            for (const r of all)
+              if (r.patient && name.has(r.patient)) r.patient = name.get(r.patient)!;
+          } catch {
+            /* names stay NCIDs */
+          }
+        }
+        if (!off) setRows(all);
+      } catch (e) {
+        if (!off) setError(e);
+      }
+    })();
+    return () => {
+      off = true;
+    };
+  }, [t]);
   return (
     <Page title={t('hospital.activityTitle')}>
-      <Card title={t('hospital.clinicalEvents')}>
-        <ErrorNote error={clinErr} />
-        <AuditTable rows={clinical ?? []} testId="clinical-log" />
-      </Card>
-      <Card title={t('hospital.platformEvents')}>
-        <ErrorNote error={platErr} />
-        <AuditTable rows={platform ?? []} testId="hospital-log" />
-      </Card>
+      <Notice>{t('log.hospitalHint')}</Notice>
+      <ErrorNote error={error} />
+      <ActivityLog rows={rows ?? []} testId="activity-log" />
     </Page>
   );
 }

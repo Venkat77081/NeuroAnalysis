@@ -22,6 +22,7 @@ test('v10: overviews for platform, hospital admin, front desk and doctor', async
   // Hospital admin: set-up and health, then the e-mail and SMS card at the connector.
   await signIn(page, s.admin_email, s.admin_totp);
   await expect(page.getByTestId('tile-staff')).toContainText('front desk');
+  await expect(page.getByTestId('tile-recordings')).toContainText('Recordings (30 days)');
   const sms = page.getByTestId('overview-item-sms');
   await expect(sms).toContainText('not set up');
   await sms.getByRole('button', { name: 'Set up' }).click();

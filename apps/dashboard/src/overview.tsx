@@ -96,7 +96,7 @@ function StatTile({ tile, onOpen }: { tile: Tile; onOpen: (page: string) => void
   const k = `overview.tiles.${tile.key}`;
   const body = (
     <>
-      <span className="text-[13px] font-semibold text-muted">{t(`${k}.title`)}</span>
+      <span className="text-[13px] font-semibold text-muted">{t(`${k}.title`, tile.detail)}</span>
       <span className="text-[30px] leading-9 font-bold" data-testid={`tile-${tile.key}-value`}>
         {tile.value === null
           ? '–'

@@ -22,6 +22,7 @@ import { BackButton, Button, Card } from '../../ui/kit.tsx';
 import { QrScanner } from './QrScanner.tsx';
 import { attempt, ErrorText, Field, Screen } from '../modes/Common.tsx';
 import { DeviceCheck } from '../modes/DeviceCheck.tsx';
+import { TEST_ENDPOINT, testModeOn, testServer } from '../../lib/testmode.ts';
 
 export function InviteFlow({
   initialToken,
@@ -138,6 +139,20 @@ export function InviteFlow({
           />
         )}
         <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('modes.invite.hint')}</p>
+        {testModeOn() && (
+          <div className="flex flex-col gap-1.5 rounded-2xl border-2 border-[#6B2FB3] bg-[#F5EFFC] p-3">
+            <Button
+              onClick={() => {
+                setEndpoint(TEST_ENDPOINT);
+                void look(testServer().issueInvite());
+              }}
+              data-testid="invite-join-test"
+            >
+              {t('testMode.joinTest')}
+            </Button>
+            <span className="text-[13px] text-[#6B2FB3]">{t('testMode.joinTestHint')}</span>
+          </div>
+        )}
         <Button onClick={() => setScanning(true)} data-testid="invite-scan">
           {t('modes.invite.scan')}
         </Button>

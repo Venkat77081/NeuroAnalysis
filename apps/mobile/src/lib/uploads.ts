@@ -14,6 +14,7 @@ import {
   type UploadConfig,
 } from '@neurocapture/capture-kit';
 import type { CameraCheck } from './devicecheck.ts';
+import { testModeOn, testServer } from './testmode.ts';
 import type { LoadedConfig } from './config.ts';
 import { APP_VERSION } from './evidence.ts';
 import {
@@ -52,9 +53,9 @@ export class ServerError extends Error {
 /** fake:// uses the built-in test server (mock/webcam mode); anything else uses fetch. */
 export function httpFor(kit: CaptureKitPlugin, endpoint: string): Http {
   if (endpoint.startsWith('fake://')) {
-    if (!(kit instanceof MockCaptureKit))
-      throw new ServerError('network', 'fake server: mock only');
-    return kit.fakeServer.http;
+    if (kit instanceof MockCaptureKit) return kit.fakeServer.http;
+    if (testModeOn()) return testServer().http; // decision 041: debug APK test mode
+    throw new ServerError('network', 'fake server: mock or test mode only');
   }
   return async (url, init) => {
     const r = await fetch(url, {

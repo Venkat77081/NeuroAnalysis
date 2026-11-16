@@ -5,9 +5,11 @@
  * Debug and browser builds still show the field, for testing against a computer on the Wi-Fi.
  */
 import type { LoadedConfig } from './config.ts';
+import { TEST_ENDPOINT, testModeOn } from './testmode.ts';
 
 export const SERVER_FIELD_SHOWN = import.meta.env.VITE_PRODUCTION !== '1';
 
 export function builtInServer(config: LoadedConfig): string {
+  if (testModeOn()) return TEST_ENDPOINT; // decision 041
   return import.meta.env.VITE_SERVER_URL || config.session.upload?.defaultEndpoint || '';
 }

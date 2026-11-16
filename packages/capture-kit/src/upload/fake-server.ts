@@ -76,7 +76,13 @@ export class FakeServer {
     ['OP-07', { password: '2468', mustChange: false }],
     ['OP-NEW', { password: 'temp-pass-1234', mustChange: true }],
   ]);
-  readonly hospital = 'Demo Hospital';
+  hospital = 'Demo Hospital';
+  /**
+   * Test mode on a real phone (debug APK): the server lives in the app's memory and is gone after
+   * the app restarts, so sign-ins from before are accepted again (a phone or patient it does not
+   * know is taken as new). Never used against real data.
+   */
+  lenient = false;
   /** Home recording plan the (fake) doctor set. */
   homePlan = {
     tests: ['FT', 'FTF', 'FR', 'SAW', 'FA'],
@@ -327,6 +333,8 @@ export class FakeServer {
     }
     if (url.startsWith('fake://connector/')) return this.connector(path, init, body, res);
     if (path === '/auth/login' && init.method === 'POST') {
+      if (this.lenient && !this.devices.has(String(body.device_id)))
+        this.devices.set(String(body.device_id), String(body.device_secret));
       if (this.devices.get(String(body.device_id)) !== body.device_secret) return res(401);
       const op = this.operators.get(String(body.operator_code));
       const secret = String(body.password ?? body.pin ?? '');
@@ -519,9 +527,23 @@ export class FakeServer {
       });
     }
     if (path === '/patient/login') {
-      const entry = [...this.patients.entries()].find(
+      let entry = [...this.patients.entries()].find(
         ([, p]) => p.deviceId === body.device_id && p.deviceSecret === body.device_secret,
       );
+      if (!entry && this.lenient) {
+        const acc = this.id('pa');
+        this.patients.set(acc, {
+          ncid: this.ncid(),
+          hospital: this.hospital,
+          siteId: 'site1',
+          pin: String(body.pin),
+          deviceId: String(body.device_id),
+          deviceSecret: String(body.device_secret),
+          status: 'active',
+          failed: 0,
+        });
+        entry = [acc, this.patients.get(acc)!];
+      }
       if (!entry || entry[1].status === 'closed') return res(401);
       const [acc, p] = entry;
       if (p.status === 'locked') return res(403, { detail: { code: 'pin_locked' } });

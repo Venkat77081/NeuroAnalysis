@@ -688,7 +688,9 @@
       "withdrawnBody": "You stopped recording for {{hospital}}. They will not send you new requests.",
       "withdrawnBack": "Your past recordings stay with {{hospital}} as part of your hospital record. To start again, ask the hospital's reception: they send you a new join invite.",
       "othersUnaffected": "Read only. Other hospitals you joined are not affected.",
-      "withdrawWhere": "To leave a hospital, open it from My hospitals and choose ‘Leave this hospital’."
+      "withdrawWhere": "To leave a hospital, open it from My hospitals and choose ‘Leave this hospital’.",
+      "clinicTitle": "At your visit",
+      "clinicBody": "{{doctor}} will record your movement tests at the clinic on {{date}}. Nothing to do at home."
     },
     "consent": {
       "forVisit": "{{hospital}} · request for {{date}}",
@@ -701,6 +703,32 @@
       "open": "Open the camera",
       "notNow": "Not now",
       "every": "Asked every session. Ticking it is saved with this session only."
+    }
+  },
+  "clinicQueue": {
+    "title": "Clinic queue · today",
+    "refresh": "Refresh",
+    "live": "Names read live from your hospital's records · not saved",
+    "noName": "Name not available",
+    "start": "Start",
+    "notRecorded": "Not recorded",
+    "why": "Why was it not recorded?",
+    "med": {
+      "OFF": "medicine OFF",
+      "ON": "medicine ON",
+      "ANY": "medicine: ask"
+    },
+    "reason": {
+      "did_not_attend": "Did not attend",
+      "unwell": "Unwell",
+      "refused": "Refused",
+      "no_time": "No time",
+      "other": "Other"
+    },
+    "state": {
+      "recorded": "Recorded · uploaded",
+      "not_recorded": "Not recorded: {{reason}}",
+      "missed": "Not recorded"
     }
   }
 }

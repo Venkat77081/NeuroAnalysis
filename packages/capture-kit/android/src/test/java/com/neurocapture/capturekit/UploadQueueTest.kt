@@ -272,6 +272,18 @@ class UploadQueueTest {
     }
 
     @Test
+    fun clinicQueuePathsAreAllowedAndNothingElse() {
+        val ok = listOf(
+            "/clinic/queue?from=2026-11-16T00%3A00%3A00%2B05%3A30&to=2026-11-17T00%3A00%3A00%2B05%3A30",
+            "/clinic/requests/abc123/not-done",
+            "/patient/requests",
+        )
+        val no = listOf("/clinic/queue", "/clinic/requests/../takes/not-done", "/takes", "/clinic/queue?x=<y>")
+        ok.forEach { assertTrue(it, UploadQueue.API_PATHS.matches(it)) }
+        no.forEach { assertFalse(it, UploadQueue.API_PATHS.matches(it)) }
+    }
+
+    @Test
     fun retryAndWaitingStatesAndMissingFiles() {
         val srv = FakeServer()
         val q = UploadQueue(MapKv(), { now })

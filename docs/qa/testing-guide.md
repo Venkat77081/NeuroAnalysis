@@ -139,6 +139,15 @@ means it can be done in the browser; the rest need a real phone (L3).
 | C14 | Doctor asked "repeat every N days"                          | The hospital page shows the plan with "Due now" or the next date, and "Until your appointment on …"; nothing more is due after that appointment | L3     |
 | C15 | Reminder (connector `python -m ncconnector send-reminders`) | The patient gets "please record by …" the day before the record-by date (dummy outbox)                                                          | L2     |
 
+### B2. Clinic queue (clinic phone)
+
+| #   | Test                                         | Expected                                                                                                  | Level  |
+| --- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
+| B20 | Doctor adds a clinic request for today (I13) | The clinic phone's home shows "Clinic queue · today" with the patient's name and MRN, time, doctor, tests | L1, L3 |
+| B21 | Tap Start                                    | Patient and tests filled in; Start session needs the consent tick                                         | L1, L3 |
+| B22 | Record and upload                            | The request shows "Recorded in clinic" on the dashboard, with the operator's name                         | L1, L3 |
+| B23 | Not recorded → Did not attend                | "Not recorded: Did not attend" on the phone and the dashboard; in the activity log by name                | L1, L3 |
+
 ### D. Recording quality (real phone only; see also `docs/qa/pre-pilot-test-plan.md`)
 
 | #   | Test                                                 | Expected                                                                 |
@@ -193,7 +202,7 @@ Run at L2. Sign in with the accounts the stack prints.
 | #   | Test                                                                    | Expected                                                                                                                                      |
 | --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | H1  | Menu                                                                    | "Appointments", "Invite patients" and "Assign patients" only (no team, phones or settings)                                                    |
-| H2  | Appointments                                                            | "From your hospital system · live"; Asha's appointment "Needs a doctor"; Ravi "Not joined"                                                    |
+| H2  | Appointments                                                            | Nothing from the hospital system; "Add an appointment" at the top; find by name or MRN                                                        |
 | H3  | Assign Dr. Rao to Asha's appointment                                    | "Waiting for doctor's tests"; nothing is sent to the patient yet                                                                              |
 | H4  | Add an appointment by hand (find "asha")                                | Listed as "Added by hand"                                                                                                                     |
 | H5  | Ravi: "Send join invite"                                                | E-mail, SMS or print; with print the QR code shows on screen                                                                                  |
@@ -201,7 +210,6 @@ Run at L2. Sign in with the accounts the stack prints.
 | H7  | Assign patients: add Ravi, assign, reassign                             | Each doctor sees only their assigned patients; a reassigned doctor loses access at once                                                       |
 | H9  | Invite patients: search "ravi", tick, choose e-mail / SMS / print, Send | Live results ("Missing" e-mail); print shows a QR; Send is greyed out once sent                                                               |
 | H10 | Appointments: "History" on a row                                        | Who added it, invites, doctor assigned and reassigned, the record link, each with name and e-mail; "Last change" column shows the latest step |
-| H8  | Stop the FHIR stand-in, open Appointments                               | "cannot be reached: showing appointments already known"; adding by hand still works                                                           |
 
 ### I. Doctor
 
@@ -216,6 +224,8 @@ Run at L2. Sign in with the accounts the stack prints.
 | I7  | Stop the FHIR stand-in (`pkill -f "port 8180"`), then open Asha           | "Your hospital system is not answering"; recordings still open                                                                     |
 | I8  | A patient assigned to another doctor                                      | Not in My patients; the connector refuses it (covered by the automated tests)                                                      |
 | I9  | Choose tests (v3)                                                         | The menu shows the count; the history is next to the choice; "Same as last time", "Hands only", "All 5"; Send → "Record link sent" |
+| I13 | Choose tests for a patient not in the app                                 | "At home" greyed out with a hint; "In the clinic" ticked; button "Add to the clinic queue"                                         |
+| I14 | Tick both "At home" and "In the clinic"                                   | Button "Send the link and add to the clinic queue"; Appointments shows Home link and Clinic queue                                  |
 | I10 | "Also repeat every 7 days" when sending                                   | The patient page plan shows it ticked with 7 and "Repeats stop at the next appointment, …"                                         |
 | I11 | Patient page: "Appointments and record links"                             | Each appointment with its link, the tests, and what was recorded                                                                   |
 | I12 | Try to send a link for another doctor's appointment (API)                 | Refused (covered by the backend tests)                                                                                             |

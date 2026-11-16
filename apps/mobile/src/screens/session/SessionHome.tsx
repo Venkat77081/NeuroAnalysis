@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ClinicQueue } from './ClinicQueue.tsx';
 import { useApp } from '../../app/AppContext.tsx';
 import { errorCode, ncidForMrn } from '../../lib/accounts.ts';
 import { ErrorText } from '../modes/Common.tsx';
@@ -163,6 +164,12 @@ export function SessionHome({
             <span className="text-xs text-muted">{t('session.practice.detail')}</span>
           </span>
         </label>
+
+        {!training &&
+          settings.server &&
+          settings.signedIn &&
+          !settings.localDev &&
+          !ctx.patient && <ClinicQueue />}
 
         {!training && (
           <>

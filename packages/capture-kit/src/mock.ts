@@ -736,7 +736,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     profile?: string;
   }): Promise<{ json: string }> {
     const allowed =
-      /^\/(patient\/(plan|sessions|me|requests|consent\/withdraw)|auth\/(connector-token|change-password))$/;
+      /^\/(patient\/(plan|sessions|me|requests|consent\/withdraw)|auth\/(connector-token|change-password)|clinic\/queue\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic\/requests\/[A-Za-z0-9]{1,40}\/not-done)$/;
     if ((opts.method !== 'GET' && opts.method !== 'POST') || !allowed.test(opts.path))
       throw new Error('not_allowed');
     const cfg = this.uploadCfgs.get(profileOf(opts.profile));

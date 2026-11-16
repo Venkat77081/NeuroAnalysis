@@ -65,7 +65,12 @@ export class FakeServer {
     med_state: string;
     due_at: string;
     cancelled?: boolean;
+    /** home = record link in the app; clinic = the clinic phones' queue (user, 16 Nov 2026). */
+    place: 'home' | 'clinic';
+    notDone?: { reason: string; by: string };
   }[] = [];
+  /** The fake connector's records: NCID → name (for the clinic queue's live names). */
+  readonly connectorNames = new Map<string, string>();
   /** Operators: ID → password (M13). OP-07 keeps the pre-M13 PIN; OP-NEW must change its temporary one. */
   readonly operators = new Map<string, { password: string; mustChange: boolean; failed?: number }>([
     ['OP-07', { password: '2468', mustChange: false }],
@@ -157,6 +162,7 @@ export class FakeServer {
       dueDays?: number;
       appointmentDays?: number | null;
       doctor?: string;
+      place?: 'home' | 'clinic';
     } = {},
   ): string {
     const id = this.id('rq');
@@ -173,8 +179,58 @@ export class FakeServer {
       tests: opts.tests ?? ['FT', 'FTF', 'FR', 'SAW', 'FA'],
       med_state: 'OFF',
       due_at: new Date(Date.now() + (opts.dueDays ?? 2) * day).toISOString(),
+      place: opts.place ?? 'home',
     });
     return id;
+  }
+
+  /**
+   * Test hook: the doctor asks for a clinic recording today for a patient in the hospital records
+   * (MRN, name); returns the request ID. The patient need not have joined the app.
+   */
+  addClinicRequest(
+    mrn: string,
+    name: string,
+    opts: { tests?: string[]; inHours?: number; doctor?: string; medState?: string } = {},
+  ): string {
+    let ncid = this.connectorMap.get(mrn);
+    if (!ncid) {
+      ncid = this.ncid();
+      this.connectorMap.set(mrn, ncid);
+    }
+    this.connectorNames.set(ncid, name);
+    const at = new Date(Date.now() + (opts.inHours ?? 1) * 3_600_000).toISOString();
+    const id = this.id('rq');
+    this.requests.push({
+      id,
+      ncid,
+      kind: 'appointment',
+      appointment_at: at,
+      doctor_name: opts.doctor ?? 'Dr. Rao',
+      tests: opts.tests ?? ['FT', 'FA'],
+      med_state: opts.medState ?? 'OFF',
+      due_at: new Date(Date.parse(at) + 12 * 3_600_000).toISOString(),
+      place: 'clinic',
+    });
+    return id;
+  }
+
+  /** Test hook: what the server knows of a request (state, not-done reason). */
+  requestInfo(id: string) {
+    const r = this.requests.find((x) => x.id === id);
+    return r ? { state: this.requestState(r), notDone: r.notDone ?? null } : null;
+  }
+
+  private requestState(r: FakeServer['requests'][number]): string {
+    const done = [...this.sessions.values()].some(
+      (s) =>
+        s.requestId === r.id &&
+        [...this.takes.values()].some((t) => t.sessionId === s.id && t.status === 'complete'),
+    );
+    if (r.cancelled) return 'cancelled';
+    if (done) return 'recorded';
+    if (r.notDone) return 'not_recorded';
+    return Date.parse(r.due_at) < Date.now() ? 'missed' : 'open';
   }
 
   /** v3 test hook: the NCIDs of the patients who joined, newest last. */
@@ -470,28 +526,14 @@ export class FakeServer {
         status: patient!.status,
       });
     if (path === '/patient/requests' && init.method === 'GET') {
-      const now = Date.now();
       return res(
         200,
         this.requests
           .filter((r) => r.ncid === patient!.ncid)
           .reverse()
-          .map(({ ncid: _n, cancelled, ...r }) => {
-            const done = [...this.sessions.values()].some(
-              (s) =>
-                s.requestId === r.id &&
-                [...this.takes.values()].some(
-                  (t) => t.sessionId === s.id && t.status === 'complete',
-                ),
-            );
-            const state = cancelled
-              ? 'cancelled'
-              : done
-                ? 'recorded'
-                : Date.parse(r.due_at) < now
-                  ? 'missed'
-                  : 'open';
-            return { ...r, state };
+          .map((full) => {
+            const { ncid: _n, cancelled: _c, notDone: _d, ...r } = full;
+            return { ...r, state: this.requestState(full) };
           }),
       );
     }
@@ -537,6 +579,41 @@ export class FakeServer {
       });
     }
     if (me.kind !== 'operator') return null;
+    // The clinic queue (user, 16 Nov 2026): clinic requests in the phone's day.
+    const queue = /^\/clinic\/queue\?(.*)$/.exec(path);
+    if (queue && init.method === 'GET') {
+      const q = new URLSearchParams(queue[1]);
+      const from = Date.parse(q.get('from') ?? '');
+      const to = Date.parse(q.get('to') ?? '');
+      if (!(to > from) || to - from > 48 * 3_600_000) return res(422, { detail: { code: 'bad_window' } });
+      return res(
+        200,
+        this.requests
+          .filter((r) => r.place === 'clinic' && !r.cancelled)
+          .filter((r) => {
+            const at = Date.parse(r.appointment_at ?? r.due_at);
+            return at >= from && at < to;
+          })
+          .map((r) => ({
+            request_id: r.id,
+            ncid: r.ncid,
+            at: r.appointment_at ?? r.due_at,
+            doctor_name: r.doctor_name,
+            tests: r.tests,
+            med_state: r.med_state,
+            state: this.requestState(r),
+            recorded_by: r.notDone?.by ?? null,
+            not_done_reason: r.notDone?.reason ?? null,
+          })),
+      );
+    }
+    const nd = /^\/clinic\/requests\/([^/]+)\/not-done$/.exec(path);
+    if (nd && init.method === 'POST') {
+      const r = this.requests.find((x) => x.id === nd[1] && x.place === 'clinic');
+      if (!r) return res(404);
+      r.notDone = { reason: String(body.reason), by: me.id };
+      return res(200, { request_id: r.id, state: 'not_recorded', not_done_reason: r.notDone.reason });
+    }
     const op = this.operators.get(me.id);
     if (path === '/auth/change-password' && init.method === 'POST') {
       if (!op || op.password !== body.current_password) return res(401);
@@ -562,6 +639,15 @@ export class FakeServer {
     res: (s: number, b?: unknown) => HttpResponse,
   ): HttpResponse {
     if (!init.headers?.Authorization?.startsWith('Bearer ct-')) return res(401);
+    if (path === '/v1/patients/lookup' && init.method === 'POST') {
+      const want = new Set((body.ncids as string[] | undefined) ?? []);
+      return res(
+        200,
+        [...this.connectorMap.entries()]
+          .filter(([, n]) => want.has(n) && this.connectorNames.has(n))
+          .map(([mrn, n]) => ({ ncid: n, mrn, name: this.connectorNames.get(n) })),
+      );
+    }
     if (path !== '/v1/ncid' || init.method !== 'POST') return res(403);
     const mrn = String(body.mrn ?? '').trim();
     if (!mrn) return res(422);

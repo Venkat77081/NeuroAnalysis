@@ -11,7 +11,7 @@ const URL = '/?mockSpeed=20';
 
 interface Fake {
   issueInvite(token?: string, opts?: { hospital?: string; siteId?: string }): string;
-  sendRequest(ncid: string, opts?: { tests?: string[] }): string;
+  sendRequest(ncid: string, opts?: { tests?: string[]; place?: 'home' | 'clinic' }): string;
   joinedNcids(): string[];
   homeSessions(): { requestId: string | null }[];
   takeKeyIds: string[];
@@ -63,11 +63,14 @@ test('v3: join → record link → consent → home session; second hospital; wi
   // The doctor chooses the tests and sends the record link.
   const rq = await page.evaluate(() => {
     const f = (globalThis as unknown as W).__ncMock.fakeServer;
+    // Also in the clinic (both places): shown as information, not counted as a request.
+    f.sendRequest(f.joinedNcids()[0]!, { place: 'clinic' });
     return f.sendRequest(f.joinedNcids()[0]!);
   });
   // (The fake server lives in the page: no reload here.) Opening the hospital fetches it live.
   await page.getByTestId('hospital-card').click();
   await expect(page.getByTestId('request-card')).toContainText('Dr. Rao asks for 5 tests');
+  await expect(page.getByTestId('request-clinic')).toContainText('at the clinic');
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByTestId('hospital-badge')).toHaveText('1 request');
   await page.getByTestId('hospital-card').click();

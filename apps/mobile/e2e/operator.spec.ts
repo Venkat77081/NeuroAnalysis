@@ -116,3 +116,71 @@ test('M13: an idle clinic phone locks itself', async ({ page }) => {
   await registerAndSignIn(page, `${URL}&lockAfterMs=1500`);
   await expect(page.getByTestId('unlock-secret')).toBeVisible({ timeout: 5_000 });
 });
+
+test('clinic queue: names live, start fills the session, "not recorded" with a reason', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto(URL);
+  type Fake = {
+    addClinicRequest(mrn: string, name: string, o?: { tests?: string[]; doctor?: string }): string;
+    requestInfo(id: string): { state: string; notDone: { reason: string } | null } | null;
+  };
+  const ids = await page.evaluate(() => {
+    const f = (globalThis as unknown as { __ncMock: { fakeServer: Fake } }).__ncMock.fakeServer;
+    return {
+      asha: f.addClinicRequest('00012388', 'Asha Testpatient', { tests: ['FT', 'FA'] }),
+      ravi: f.addClinicRequest('00012401', 'Ravi Samplename', { doctor: 'Dr. Iyer' }),
+    };
+  });
+  // (Registration and sign-in as in the test above.)
+  await page.getByTestId('role-clinic').click();
+  await page.getByTestId('clinic-code').fill('DEMO-SITE-1');
+  await page.getByTestId('clinic-register').click();
+  await page.getByTestId('op-id').fill('op-07');
+  await page.getByTestId('op-password').fill('2468');
+  await page.getByTestId('op-sign-in').click();
+
+  const queue = page.getByTestId('clinic-queue');
+  await expect(queue.getByTestId('queue-item')).toHaveCount(2);
+  await expect(queue).toContainText('Asha Testpatient');
+  await expect(queue).toContainText('MRN 00012388 · Dr. Rao');
+  await expect(queue).toContainText('Finger Tapping');
+  await page.screenshot({ path: 'test-results/clinic-queue.png', fullPage: true });
+
+  // Ravi did not come: not recorded, with a reason.
+  const ravi = queue.getByTestId('queue-item').filter({ hasText: 'Ravi Samplename' });
+  await ravi.getByTestId('queue-skip').click();
+  await ravi.getByTestId('reason-did_not_attend').click();
+  await expect(ravi.getByTestId('queue-state')).toHaveText('Not recorded: Did not attend');
+
+  // Asha: the session is filled in; the operator confirms consent and records the two tests.
+  await queue
+    .getByTestId('queue-item')
+    .filter({ hasText: 'Asha Testpatient' })
+    .getByTestId('queue-start')
+    .click();
+  await expect(page.getByTestId('patient-ref')).toContainText('••••2388');
+  await expect(page.getByTestId('start-session')).toBeDisabled(); // consent first
+  await page.getByTestId('consent').check();
+  await page.getByTestId('start-session').click();
+  for (let i = 0; i < 2; i++) {
+    await expect(page.getByTestId('test-of')).toHaveText(`Test ${i + 1} of 2`);
+    await page.getByTestId('set-up-camera').click();
+    await page.getByTestId('record').click();
+    await expect(page.getByTestId('verdict-card')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('accept').click();
+  }
+  await expect(page.getByTestId('upload-summary')).toContainText('All takes uploaded', {
+    timeout: 20_000,
+  });
+  const info = await page.evaluate((x) => {
+    const f = (globalThis as unknown as { __ncMock: { fakeServer: Fake } }).__ncMock.fakeServer;
+    return { asha: f.requestInfo(x.asha), ravi: f.requestInfo(x.ravi) };
+  }, ids);
+  expect(info.asha?.state).toBe('recorded'); // the session answered the doctor's request
+  expect(info.ravi?.notDone?.reason).toBe('did_not_attend');
+  expect(errors).toEqual([]);
+});

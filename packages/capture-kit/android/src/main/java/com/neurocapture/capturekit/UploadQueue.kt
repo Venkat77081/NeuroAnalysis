@@ -334,7 +334,11 @@ class UploadQueue(
 
     companion object {
         /** Paths the app may call through [api] (M13); nothing that uploads or changes takes. */
-        val API_PATHS = Regex("^/(patient/(plan|sessions|me|requests|consent/withdraw)|auth/(connector-token|change-password))$")
+        val API_PATHS = Regex(
+            "^/(patient/(plan|sessions|me|requests|consent/withdraw)|auth/(connector-token|change-password)" +
+                // Clinic phones (user, 16 Nov 2026): the day's clinic queue and "not recorded".
+                "|clinic/queue\\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic/requests/[A-Za-z0-9]{1,40}/not-done)$"
+        )
         const val DEFAULT_PROFILE = "default"
         private val PROFILE = Regex("^[a-z0-9][a-z0-9_-]{0,39}$")
         fun requireProfile(p: String) = require(PROFILE.matches(p)) { "invalid profile" }

@@ -40,8 +40,8 @@ Hospitals → Roles and permissions.
 
 ## Appointments and record links (v3, decision 030)
 
-- **Reception → Appointments** lists the next 7 days. Appointments come live from the hospital
-  system (through the connector) or are added by hand. Reception assigns the doctor and sends join
+- **Reception → Appointments** lists the next 7 days. Appointments are added by hand (decision
+  034); nothing is read from the hospital's appointment system. Reception assigns the doctor and sends join
   invites to patients who have not joined the app.
 - **Doctor → Choose tests** lists the appointments waiting for that doctor. The doctor chooses the
   tests, the medicine state, the record-by date and, if wanted, "repeat every N days", then sends

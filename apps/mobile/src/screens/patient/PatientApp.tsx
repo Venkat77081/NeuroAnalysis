@@ -160,8 +160,12 @@ function useHospitalData(h: PatientHospital): HospitalData | null {
 
 const openRequests = (d: HospitalData | null) =>
   (d?.requests ?? [])
-    .filter((r) => r.state === 'open')
+    .filter((r) => r.state === 'open' && r.place !== 'clinic')
     .sort((a, b) => a.due_at.localeCompare(b.due_at));
+
+/** Clinic requests: recorded by the hospital at the visit (information only). */
+const clinicVisits = (d: HospitalData | null) =>
+  (d?.requests ?? []).filter((r) => r.state === 'open' && r.place === 'clinic');
 
 function HospitalList({
   hospitals,
@@ -386,6 +390,20 @@ function HospitalView({
             </Card>
           );
         })}
+      {!h.withdrawnAt &&
+        clinicVisits(data).map((r) => (
+          <Card key={r.id} className="flex flex-col gap-1" data-testid="request-clinic">
+            <span className="text-[12px] font-bold text-[#0B5FAA]">
+              {t('modes.hospitals.clinicTitle').toUpperCase()}
+            </span>
+            <span className="text-[15px] leading-[22px]">
+              {t('modes.hospitals.clinicBody', {
+                date: fmtDate(r.appointment_at ?? r.due_at, i18n.language),
+                doctor: r.doctor_name ?? t('modes.hospitals.yourDoctor'),
+              })}
+            </span>
+          </Card>
+        ))}
       {!h.withdrawnAt && plan && !plan.default && plan.next_due && (
         <Card className="flex flex-col gap-2" data-testid="home-plan">
           <div className="flex items-center justify-between">

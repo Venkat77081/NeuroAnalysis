@@ -25,6 +25,8 @@ export interface PatientHospital {
 export interface PatientRequest {
   id: string;
   kind: 'appointment' | 'rerecord';
+  /** clinic = recorded at the visit by the hospital: shown as information, no record button. */
+  place?: 'home' | 'clinic';
   appointment_at: string | null;
   doctor_name: string | null;
   tests: string[];

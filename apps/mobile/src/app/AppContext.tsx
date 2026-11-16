@@ -16,6 +16,7 @@ import { browserStore, kitStore, memoryStorage } from '../data/store.ts';
 import { defaultSettings, newId, repo, type Repo, type Settings } from '../data/repo.ts';
 import {
   SELF_REF,
+  type Patient,
   summarizeOutcomes,
   type PlanStep,
   type SessionInput,
@@ -42,6 +43,16 @@ export interface AppServices {
     medState: 'ON' | 'OFF',
     opts?: { profile: string; requestId: string | null; consentVersion: string; consentAt: string },
   ): Promise<void>;
+  /**
+   * Clinic phones (user, 16 Nov 2026): a session for a clinic queue request: the doctor's tests,
+   * the patient and the request; the operator still confirms consent and starts it.
+   */
+  startClinicRequest(r: {
+    tests: string[];
+    requestId: string;
+    patient: Patient;
+    medState: 'ON' | 'OFF' | null;
+  }): Promise<void>;
   /** M13: wipe this phone (after withdrawing consent): CaptureKit data, app data, app mode. */
   resetApp(): Promise<void>;
 }
@@ -196,6 +207,17 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
           at: opts?.consentAt ?? new Date().toISOString(), // ticked for this session
         });
         a.send({ type: 'START', at: new Date().toISOString() });
+        setActor(a);
+      },
+      async startClinicRequest({ tests, requestId, patient, medState }) {
+        await saving.current;
+        actor.stop();
+        await r.clearSession();
+        const a = watch(
+          startSession({ ...inputFor(config, settings.operatorId, tests), requestId }),
+        );
+        a.send({ type: 'SET_PATIENT', patient });
+        if (medState) a.send({ type: 'SET_MED_STATE', medState });
         setActor(a);
       },
       async resetApp() {

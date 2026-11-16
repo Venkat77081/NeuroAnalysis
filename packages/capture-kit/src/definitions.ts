@@ -324,7 +324,7 @@ export interface CaptureKitPlugin {
   /**
    * M13: one signed-in API call made with the tokens the plugin holds (the app never sees them).
    * Allowed paths only: /patient/{plan,sessions,me,requests,consent/withdraw}, /auth/{connector-token,
-   * change-password}. Resolves with the response body; rejects with "login_required", "network",
+   * change-password}, /clinic/queue?…, /clinic/requests/{id}/not-done. Resolves with the response body; rejects with "login_required", "network",
    * "not_allowed" or the server's error code. v3: `profile` picks the hospital's sign-in.
    */
   apiRequest(opts: {

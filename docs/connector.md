@@ -96,11 +96,8 @@ user `SELECT` on these views only. The connector runs SELECTs with bound paramet
 
 ## 5. Appointments and reminders (v3)
 
-- **Appointments:** `GET /v1/appointments` (reception) reads booked appointments live: FHIR
-  `Appointment` search by date (cancelled, no-show and entered-in-error are left out), or the
-  optional SQL view `nc_appointments`
-  (`sql/sample_views.sql`). An adapter without appointments answers 501; reception then adds
-  them by hand.
+- **Appointments:** none are read from the hospital (decision 034). Reception adds the relevant
+  ones by hand on the platform.
 - **Reminders:** every `NCC_REMINDER_INTERVAL_S` seconds (0 = off), or with
   `python -m ncconnector send-reminders`, the connector asks the platform which record links are
   due soon. It reads the patient's e-mail or mobile from the hospital records and sends "please

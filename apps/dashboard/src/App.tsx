@@ -7,7 +7,6 @@ import { Hospitals, PlatformLog } from './platform.tsx';
 import { Activity, Connections, Overview, Phones, Team } from './hospital.tsx';
 import { InvitePatients } from './invites.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
-import { Assign } from './assign.tsx';
 import { Appointments } from './appointments.tsx';
 import { ChooseTests, waitingForTests } from './choose.tsx';
 import { PermsContext, menuFor } from './perms.ts';
@@ -86,7 +85,6 @@ export function App() {
   else if (page === 'phones') body = <Phones />;
   else if (page === 'invite') body = <InvitePatients />;
   else if (page === 'activity') body = <Activity />;
-  else if (page === 'assign') body = <Assign />;
   else if (page === 'appointments') body = <Appointments />;
   else if (page === 'chooseTests') body = <ChooseTests meId={me.id} onCount={setWaiting} />;
   else if (patient) body = <PatientView ncid={patient} onBack={() => setPatient(null)} />;

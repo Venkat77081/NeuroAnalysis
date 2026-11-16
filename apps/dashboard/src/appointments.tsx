@@ -134,6 +134,24 @@ export function WhereBadges({ a }: { a: Appointment }) {
   );
 }
 
+type Range = '7' | '30' | '60' | 'past30';
+const RANGES: Range[] = ['7', '30', '60', 'past30'];
+const RANGE_QUERY: Record<Range, string> = {
+  '7': 'days=7',
+  '30': 'days=30',
+  '60': 'days=60',
+  past30: 'past_days=30',
+};
+const RANGE_KEY = 'nc.appointments.range';
+function savedRange(): Range {
+  try {
+    const v = localStorage.getItem(RANGE_KEY) as Range | null;
+    return v && RANGES.includes(v) ? v : '7';
+  } catch {
+    return '7';
+  }
+}
+
 export function Appointments() {
   const { t } = useTranslation();
   // Decision 033: what this person may do here (set per hospital).
@@ -151,13 +169,23 @@ export function Appointments() {
   const [notice, setNotice] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+  // Decision 038: the date range (remembered on this computer).
+  const [range, setRange] = useState<Range>(savedRange);
+  const pickRange = (r: Range) => {
+    setRange(r);
+    try {
+      localStorage.setItem(RANGE_KEY, r);
+    } catch {
+      /* private window: not remembered */
+    }
+  };
 
   useEffect(() => {
     let off = false;
     void (async () => {
       try {
         const [list, doctors, patients] = await Promise.all([
-          call<Appointment[]>('GET', '/hospital/appointments'),
+          call<Appointment[]>('GET', `/hospital/appointments?${RANGE_QUERY[range]}`),
           call<Doctor[]>('GET', '/hospital/doctors'),
           call<PatientRow[]>('GET', '/hospital/patients'),
         ]);
@@ -184,7 +212,7 @@ export function Appointments() {
     return () => {
       off = true;
     };
-  }, [version]);
+  }, [version, range]);
 
   const assign = async (a: Appointment) => {
     setError(null);
@@ -210,7 +238,28 @@ export function Appointments() {
   return (
     <Page title={t('appts.title')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[13px] text-muted">{t('appts.window')}</span>
+        <span className="text-[13px] text-muted" data-testid="appts-window">
+          {t(`appts.range.${range}`)}
+          {appts ? ` · ${t('appts.count', { count: appts.length })}` : ''}
+        </span>
+        <div
+          role="group"
+          aria-label={t('appts.rangeLabel')}
+          className="flex overflow-hidden rounded-xl border border-[#C9CFD8] bg-white"
+        >
+          {RANGES.map((r) => (
+            <button
+              key={r}
+              type="button"
+              aria-pressed={range === r}
+              onClick={() => pickRange(r)}
+              className={`min-h-11 px-3 text-[13px] font-semibold ${range === r ? 'bg-brand text-white' : 'text-ink'}`}
+              data-testid={`range-${r}`}
+            >
+              {t(`appts.rangeButton.${r}`)}
+            </button>
+          ))}
+        </div>
       </div>
       <Notice>{t('app.notStored')}</Notice>
       <ErrorNote error={error} />
@@ -286,7 +335,7 @@ export function Appointments() {
                       </select>
                       {choice[a.id] && choice[a.id] !== a.doctor_id && (
                         <Button onClick={() => void assign(a)} data-testid="appt-assign">
-                          {t(a.doctor_id ? 'assign.reassign' : 'appts.assign')}
+                          {t(a.doctor_id ? 'appts.changeDoctor' : 'appts.assign')}
                         </Button>
                       )}
                     </div>

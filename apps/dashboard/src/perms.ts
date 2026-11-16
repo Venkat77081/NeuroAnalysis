@@ -16,7 +16,6 @@ export const MENU: { page: string; perms: string[]; roles?: string[] }[] = [
   { page: 'myPatients', perms: [], roles: ['doctor'] },
   { page: 'appointments', perms: ['appointments.view', 'appointments.add', 'appointments.assign'] },
   { page: 'invite', perms: ['invites.send', 'patients.search'] },
-  { page: 'assign', perms: ['appointments.assign'] },
   { page: 'connections', perms: ['setup.connections'] },
   { page: 'team', perms: ['setup.team'] },
   { page: 'phones', perms: ['setup.phones'] },

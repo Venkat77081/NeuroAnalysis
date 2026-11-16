@@ -27,6 +27,14 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
   await page.getByTestId('op-add').click();
   await expect(page.getByTestId('temp-password')).toContainText('OP-E2E');
   await expect(page.getByTestId('operators')).toContainText('must change password');
+  // Decision 039: reset a staff member's sign-in (opened, then cancelled: later tests sign in as them).
+  const iyer = page.getByTestId('staff').locator('li', { hasText: 'Dr. Iyer' });
+  await iyer.getByTestId('st-reset').click();
+  const panel = page.getByTestId('reset-panel');
+  await expect(panel).toContainText('valid 24 hours');
+  await expect(panel.getByTestId('reset-reason')).toContainText('Lost or new phone');
+  await panel.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByTestId('reset-panel')).toHaveCount(0);
 
   await page.getByTestId('nav-phones').click();
   await page.getByTestId('d-new').click();
@@ -66,6 +74,9 @@ test('M14: platform admin — hospitals, set-up status, onboarding, platform log
   await expect(page.getByTestId('hospitals')).toContainText('Sunrise Neuro Clinic');
   await page.getByTestId('setup-Sunrise Neuro Clinic').click();
   const steps = page.getByTestId('setup-steps');
+  // Decision 039: the platform admin can reset the hospital admin's sign-in from here.
+  await expect(page.getByTestId('hospital-admins')).toContainText(s.admin_email);
+  await expect(page.getByTestId('admin-reset')).toBeVisible();
   await expect(steps).toContainText('Connector registered');
   await expect(steps.locator('li', { hasText: 'Hospital take key registered' })).toContainText(
     'pass',

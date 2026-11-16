@@ -4,6 +4,7 @@
  * hospital connector by this browser; the platform only ever sees NCIDs.
  */
 import { deviceCheck } from './config.ts';
+import { ResetSignIn } from './reset.tsx';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
@@ -553,6 +554,14 @@ export function Team() {
                   : t('hospital.neverSignedIn')}
               </span>
               <span className="flex-1" />
+              {!u.invited && (
+                <ResetSignIn
+                  url={`/hospital/staff/${u.id}/reset-sign-in`}
+                  name={u.display_name ?? u.email}
+                  email={u.email}
+                  testId="st-reset"
+                />
+              )}
               <Button
                 variant="ghost"
                 onClick={() =>

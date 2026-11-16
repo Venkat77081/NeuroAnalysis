@@ -62,7 +62,10 @@
     "not_a_doctor_here": "Choose an active doctor of this hospital.",
     "platform_unreachable": "The NeuroCapture service is not answering. Try again.",
     "email_not_sent": "Saved, but the invite e-mail could not be sent. Check the mail settings, then use \"Resend invite\".",
-    "azure_not_offered": "Azure storage is not set up on this NeuroCapture platform yet. Ask NeuroCapture."
+    "azure_not_offered": "Azure storage is not set up on this NeuroCapture platform yet. Ask NeuroCapture.",
+    "cannot_reset_self": "You cannot reset your own sign-in. Ask another admin (or the platform admin).",
+    "not_signed_up": "This person has not signed up yet: use Resend invite instead.",
+    "bad_reason": "Choose a reason."
   },
   "nav": {
     "hospitals": "Hospitals",
@@ -105,7 +108,9 @@
     "stepKey": "Hospital take key registered",
     "stepStorage": "Storage",
     "stepTeam": "Doctors and operators added",
-    "logTitle": "Platform activity"
+    "logTitle": "Platform activity",
+    "admins": "Hospital admins",
+    "notSignedUp": "Not signed up yet"
   },
   "hospital": {
     "overviewTitle": "Overview",
@@ -284,7 +289,7 @@
     "when": "Appointment",
     "patient": "Patient",
     "app": "App",
-    "doctor": "Doctor",
+    "doctor": "Doctor (this appointment)",
     "status": "Status",
     "source": {
       "fhir": "From the hospital system",
@@ -293,7 +298,7 @@
     "joined": "Joined",
     "notJoined": "Not joined",
     "assign": "Assign doctor",
-    "assigned": "Doctor assigned. The appointment now waits for the doctor's tests.",
+    "assigned": "Doctor set for this appointment only; it waits for the doctor to choose the tests. The patient's other appointments keep their doctors.",
     "sendInvite": "Send join invite",
     "stage": {
       "needs_doctor": "Needs a doctor",
@@ -349,7 +354,23 @@
       "no_time": "no time",
       "other": "other"
     },
-    "phoneUnsuitable": "Phone not suitable · {{fps}} fps"
+    "phoneUnsuitable": "Phone not suitable · {{fps}} fps",
+    "range": {
+      "7": "From yesterday to the next 7 days",
+      "30": "From yesterday to the next 30 days",
+      "60": "From yesterday to the next 60 days",
+      "past30": "The past 30 days"
+    },
+    "rangeButton": {
+      "7": "Next 7 days",
+      "30": "Next 30 days",
+      "60": "Next 60 days",
+      "past30": "Past 30 days"
+    },
+    "rangeLabel": "Which appointments",
+    "count_one": "{{count}} appointment",
+    "count_other": "{{count}} appointments",
+    "changeDoctor": "Change doctor"
   },
   "choose": {
     "title": "Choose tests for upcoming appointments",
@@ -488,7 +509,10 @@
       "consent_withdrawn": "Patient withdrew from this hospital",
       "permissions_changed": "Changed roles and permissions · \"{{reason}}\"",
       "clinic_not_recorded": "Not recorded in the clinic ({{reason}})",
-      "invite_not_delivered": "Invite could not be delivered"
+      "invite_not_delivered": "Invite could not be delivered",
+      "appointment_added_doctor": "Appointment added {{source}} with {{doctor_name}} ({{when}})",
+      "appointment_doctor_changed": "Doctor changed for the {{when}} appointment: {{previous_name}} → {{doctor_name}}",
+      "staff_sign_in_reset": "Reset the sign-in of a {{role}} ({{reason}})"
     },
     "place": {
       "home": "home link",
@@ -554,5 +578,22 @@
     "neverChanged": "Using the defaults (never changed).",
     "readOnlyTitle": "Who can do what at this hospital",
     "readOnlyHint": "Set by NeuroCapture's platform admin. Ask them if your hospital works differently."
+  },
+  "reset": {
+    "button": "Reset sign-in",
+    "title": "Reset {{name}}'s sign-in?",
+    "explain": "They are signed out everywhere at once. We e-mail {{email}} a link (valid {{hours}} hours) to choose a new password and set up the authenticator app again.",
+    "reason": "Reason (kept in the activity log)",
+    "reasons": {
+      "forgot_password": "Forgot password",
+      "lost_phone": "Lost or new phone (authenticator)",
+      "misuse": "Account may be misused"
+    },
+    "cancel": "Cancel",
+    "confirm": "Reset and send link",
+    "sent": "Sign-in reset. A link was sent to {{email}} (valid {{hours}} hours).",
+    "notSent": "Sign-in reset, but the e-mail could not be sent. Hand this link to {{name}} in person (shown once):",
+    "copy": "Copy link",
+    "copied": "Copied"
   }
 }

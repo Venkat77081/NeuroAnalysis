@@ -56,8 +56,14 @@ export function describe(t: TFunction, action: string, d: Record<string, unknown
   if (Array.isArray(x.tests)) params.tests = x.tests.map((c) => t(`tests.${c}`)).join(', ');
   if (typeof x.due === 'string') params.due = fmtDate(x.due);
   if (typeof x.at === 'string') params.when = fmt(x.at);
+  if (typeof x.role === 'string') params.role = t(`roles.${x.role}`, { defaultValue: x.role });
+  if (action === 'staff_sign_in_reset' && typeof x.reason === 'string')
+    params.reason = t(`reset.reasons.${x.reason}`, { defaultValue: x.reason });
   const fallback = action.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
-  return t(`log.action.${action}`, { ...params, defaultValue: fallback });
+  // Decision 038: a booking names its doctor.
+  const key =
+    action === 'appointment_added' && params.doctor_name ? 'appointment_added_doctor' : action;
+  return t(`log.action.${key}`, { ...params, defaultValue: fallback });
 }
 
 function csv(rows: LogRow[], t: TFunction): string {

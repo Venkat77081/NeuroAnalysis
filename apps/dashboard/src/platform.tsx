@@ -2,6 +2,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, call } from './api.ts';
+import { ResetSignIn } from './reset.tsx';
 import { ActivityLog, type LogRow } from './activity.tsx';
 import { Badge, Button, Card, ErrorNote, Field, Page, Table } from './ui.tsx';
 
@@ -174,17 +175,58 @@ function SetupSteps({ id }: { id: string }) {
     [t('platform.stepTeam'), s.doctors > 0 && (s.operators > 0 || s.devices >= 0)],
   ];
   return (
-    <ol
-      className="flex flex-col gap-1.5 rounded-xl bg-ground p-3 text-[14px]"
-      data-testid="setup-steps"
-    >
-      {steps.map(([label, ok]) => (
-        <li key={label} className="flex items-center gap-2">
-          <Badge tone={ok ? 'ok' : 'warn'}>{ok ? t('app.pass') : t('app.warn')}</Badge>
-          {label}
-        </li>
+    <div className="flex flex-col gap-3 rounded-xl bg-ground p-3">
+      <ol className="flex flex-col gap-1.5 text-[14px]" data-testid="setup-steps">
+        {steps.map(([label, ok]) => (
+          <li key={label} className="flex items-center gap-2">
+            <Badge tone={ok ? 'ok' : 'warn'}>{ok ? t('app.pass') : t('app.warn')}</Badge>
+            {label}
+          </li>
+        ))}
+      </ol>
+      <HospitalAdmins id={id} />
+    </div>
+  );
+}
+
+interface AdminRow {
+  id: string;
+  email: string;
+  display_name: string | null;
+  signed_up: boolean;
+  last_login_at: string | null;
+}
+
+/** Decision 039: the platform admin resets a hospital admin's sign-in. */
+function HospitalAdmins({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const [admins, setAdmins] = useState<AdminRow[] | null>(null);
+  useEffect(
+    () =>
+      void call<AdminRow[]>('GET', `/platform/hospitals/${id}/admins`).then(setAdmins, () => {}),
+    [id],
+  );
+  if (!admins?.length) return null;
+  return (
+    <div className="flex flex-col gap-1.5" data-testid="hospital-admins">
+      <span className="text-[13px] font-semibold text-muted">{t('platform.admins')}</span>
+      {admins.map((a) => (
+        <div key={a.id} className="flex flex-wrap items-center gap-2 text-[14px]">
+          <span className="font-semibold">{a.display_name ?? a.email}</span>
+          <span className="text-muted">{a.email}</span>
+          {!a.signed_up && <Badge tone="warn">{t('platform.notSignedUp')}</Badge>}
+          <span className="flex-1" />
+          {a.signed_up && (
+            <ResetSignIn
+              url={`/platform/staff/${a.id}/reset-sign-in`}
+              name={a.display_name ?? a.email}
+              email={a.email}
+              testId="admin-reset"
+            />
+          )}
+        </div>
       ))}
-    </ol>
+    </div>
   );
 }
 

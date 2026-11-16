@@ -33,3 +33,19 @@ Page "v3 · Appointments and consent per recording" on the platform canvas
 (https://claude.ai/artifact/1G8hAap1unUqHbomhA1XA1): the journey, joining with a PIN (no
 consent), my hospitals, a hospital's requests and history, consent before the camera, withdrawn,
 reception appointments, the doctor's "Choose tests", and the doctor's timeline. Decision 030.
+
+## v4–v7 mockups (16 Nov 2026)
+
+Further pages on the same platform canvas:
+
+- **v4 · Who did what:** the activity log by person, and appointment history (decision 032).
+- **v5 · Permissions per hospital:** set by the platform admin (decision 033).
+- **v6 · Home or clinic recording:** appointments added by hand, and the clinic phones' queue
+  (decision 034).
+- **v7 · Camera check:**
+  - the clinic phone set-up check;
+  - the patient join check, with "Tell my hospital";
+  - the Phones list with check results.
+
+  Agreed with a 55 fps cut-off for clinic and patient phones (decision 035). The mockups show
+  59, the take minimum, which is unchanged.

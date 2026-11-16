@@ -95,14 +95,16 @@ means it can be done in the browser; the rest need a real phone (L3).
 
 ### A. First run and app modes
 
-| #   | Test                                             | Expected                                                               | Level  |
-| --- | ------------------------------------------------ | ---------------------------------------------------------------------- | ------ |
-| A1  | First start                                      | "How will this phone be used?" with patient and clinic choices         | L1     |
-| A2  | Register a clinic phone with a wrong code        | "not accepted"; stays on the screen                                    | L1     |
-| A3  | Register with a valid one-time code              | Operator sign-in appears; the same code cannot register a second phone | L1, L3 |
-| A4  | Clinic phone: open a patient invite link or QR   | "This is a clinic phone": patient mode never opens                     | L1, L3 |
-| A5  | Clinic phone after closing and reopening the app | Still a clinic phone, opens at the lock screen                         | L1, L3 |
-| A6  | Patient phone after accepting an invite          | Can never switch to clinic mode                                        | L3     |
+| #   | Test                                                | Expected                                                                                                                           | Level  |
+| --- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| A1  | First start                                         | "How will this phone be used?" with patient and clinic choices                                                                     | L1     |
+| A2  | Register a clinic phone with a wrong code           | "not accepted"; stays on the screen                                                                                                | L1     |
+| A3  | Register with a valid one-time code                 | Operator sign-in appears; the same code cannot register a second phone                                                             | L1, L3 |
+| A4  | Clinic phone: open a patient invite link or QR      | "This is a clinic phone": patient mode never opens                                                                                 | L1, L3 |
+| A5  | Clinic phone after closing and reopening the app    | Still a clinic phone, opens at the lock screen                                                                                     | L1, L3 |
+| A6  | Patient phone after accepting an invite             | Can never switch to clinic mode                                                                                                    | L3     |
+| A7  | Clinic set-up: camera check (`?benchFps=48` in L1)  | Step 1 "Checking this phone". Below 55 fps: "cannot record well enough", no code field, the code still works after a passing check | L1, L3 |
+| A8  | Camera check between 55 and 59 fps (`?benchFps=57`) | "Borderline" warning; the phone can still be registered; Phones list shows "Borderline · 57.0 fps"                                 | L1, L3 |
 
 ### B. Operator (clinic)
 
@@ -121,23 +123,24 @@ means it can be done in the browser; the rest need a real phone (L3).
 
 ### C. Patient (home), v3
 
-| #   | Test                                                        | Expected                                                                                                                                        | Level  |
-| --- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| C1  | Scan the join invite QR with the in-app scanner             | "Choose a PIN" with the hospital name                                                                                                           | L3     |
-| C2  | Paste the invite link or SMS code                           | Same as C1                                                                                                                                      | L1     |
-| C3  | A used or expired invite                                    | "not accepted … used or expired"                                                                                                                | L1     |
-| C4  | PINs that don't match / too short                           | Clear message. There is no consent box at joining, only "How your recordings are used"                                                          | L1     |
-| C5  | My hospitals, right after joining                           | One card, "Joined", "No recording requests"; opening it says there is nothing to record now                                                     | L1     |
-| C6  | Doctor sends a record link (dashboard I9)                   | Card shows "1 request" and "Record before your visit on … (by …)"; the hospital page lists the tests                                            | L1, L3 |
-| C7  | Start recording, then "Not now" / no tick                   | The consent screen comes first; "Open the camera" is disabled until ticked                                                                      | L1     |
-| C8  | Walking test at home                                        | "Someone to help?": Yes records, No skips it with "No helper"                                                                                   | L1, L3 |
-| C9  | Full session for the request                                | "Session complete" and "All takes uploaded" (on Wi-Fi); the request moves to the history as "Recorded · uploaded"                               | L1, L3 |
-| C10 | Lock, then reopen the app                                   | PIN needed; 5 wrong PINs locks the account (a new invite fixes it)                                                                              | L1, L3 |
-| C11 | Join a second hospital ("Join another hospital")            | Same PIN; two cards; each hospital shows only its own requests                                                                                  | L1, L3 |
-| C12 | Leave one hospital (withdraw)                               | That hospital shows "Withdrawn", its history read only; the other hospital is not affected                                                      | L1, L3 |
-| C13 | Reception sends a new join invite to a withdrawn patient    | Joining again brings the same hospital back, history kept                                                                                       | L3     |
-| C14 | Doctor asked "repeat every N days"                          | The hospital page shows the plan with "Due now" or the next date, and "Until your appointment on …"; nothing more is due after that appointment | L3     |
-| C15 | Reminder (connector `python -m ncconnector send-reminders`) | The patient gets "please record by …" the day before the record-by date (dummy outbox)                                                          | L2     |
+| #   | Test                                                        | Expected                                                                                                                                                                                         | Level  |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| C1  | Scan the join invite QR with the in-app scanner             | "Choose a PIN" with the hospital name                                                                                                                                                            | L3     |
+| C2  | Paste the invite link or SMS code                           | Same as C1                                                                                                                                                                                       | L1     |
+| C3  | A used or expired invite                                    | "not accepted … used or expired"                                                                                                                                                                 | L1     |
+| C4  | PINs that don't match / too short                           | Clear message. There is no consent box at joining, only "How your recordings are used"                                                                                                           | L1     |
+| C5  | My hospitals, right after joining                           | One card, "Joined", "No recording requests"; opening it says there is nothing to record now                                                                                                      | L1     |
+| C6  | Doctor sends a record link (dashboard I9)                   | Card shows "1 request" and "Record before your visit on … (by …)"; the hospital page lists the tests                                                                                             | L1, L3 |
+| C7  | Start recording, then "Not now" / no tick                   | The consent screen comes first; "Open the camera" is disabled until ticked                                                                                                                       | L1     |
+| C8  | Walking test at home                                        | "Someone to help?": Yes records, No skips it with "No helper"                                                                                                                                    | L1, L3 |
+| C9  | Full session for the request                                | "Session complete" and "All takes uploaded" (on Wi-Fi); the request moves to the history as "Recorded · uploaded"                                                                                | L1, L3 |
+| C10 | Lock, then reopen the app                                   | PIN needed; 5 wrong PINs locks the account (a new invite fixes it)                                                                                                                               | L1, L3 |
+| C11 | Join a second hospital ("Join another hospital")            | Same PIN; two cards; each hospital shows only its own requests                                                                                                                                   | L1, L3 |
+| C12 | Leave one hospital (withdraw)                               | That hospital shows "Withdrawn", its history read only; the other hospital is not affected                                                                                                       | L1, L3 |
+| C13 | Reception sends a new join invite to a withdrawn patient    | Joining again brings the same hospital back, history kept                                                                                                                                        | L3     |
+| C14 | Doctor asked "repeat every N days"                          | The hospital page shows the plan with "Due now" or the next date, and "Until your appointment on …"; nothing more is due after that appointment                                                  | L3     |
+| C16 | Join with a phone below 55 fps (`?benchFps=41` in L1)       | Camera check fails before the PIN; "Tell my hospital" → "has been told"; reception sees "Phone not suitable · 41 fps" (H11); "Run the check again" on a passing phone joins with the same invite | L1, L3 |
+| C15 | Reminder (connector `python -m ncconnector send-reminders`) | The patient gets "please record by …" the day before the record-by date (dummy outbox)                                                                                                           | L2     |
 
 ### B2. Clinic queue (clinic phone)
 
@@ -195,21 +198,23 @@ Run at L2. Sign in with the accounts the stack prints.
 | G6  | Menu                                                                  | Overview, Data connections, Team, Phones, Activity log only (no patients, invites or appointments)                                   |
 | G8  | Deletion requests (only from phones before v3)                        | Shown on Overview when there are any; Mark done                                                                                      |
 | G9  | Activity log                                                          | One table: each row shows the person (name, e-mail, role), what they did and the patient (name live); filter by person; Download CSV |
+| G11 | Phones list                                                           | "Camera check" column: Passed / Borderline with the fps; phones added before the check say "Not checked"                             |
 | G10 | Hospital admin or receptionist tries a patient's history or recording | Refused: medical history, recordings and review notes are for the assigned doctor only                                               |
 
 ### H. Receptionist
 
-| #   | Test                                                                    | Expected                                                                                                                                      |
-| --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| H1  | Menu                                                                    | "Appointments", "Invite patients" and "Assign patients" only (no team, phones or settings)                                                    |
-| H2  | Appointments                                                            | Nothing from the hospital system; "Add an appointment" at the top; find by name or MRN                                                        |
-| H3  | Assign Dr. Rao to Asha's appointment                                    | "Waiting for doctor's tests"; nothing is sent to the patient yet                                                                              |
-| H4  | Add an appointment by hand (find "asha")                                | Listed as "Added by hand"                                                                                                                     |
-| H5  | Ravi: "Send join invite"                                                | E-mail, SMS or print; with print the QR code shows on screen                                                                                  |
-| H6  | After the doctor sends the link (I9)                                    | "Doctor sent record link · due …"; after the patient records, "Recorded · uploaded"                                                           |
-| H7  | Assign patients: add Ravi, assign, reassign                             | Each doctor sees only their assigned patients; a reassigned doctor loses access at once                                                       |
-| H9  | Invite patients: search "ravi", tick, choose e-mail / SMS / print, Send | Live results ("Missing" e-mail); print shows a QR; Send is greyed out once sent                                                               |
-| H10 | Appointments: "History" on a row                                        | Who added it, invites, doctor assigned and reassigned, the record link, each with name and e-mail; "Last change" column shows the latest step |
+| #   | Test                                                                      | Expected                                                                                                                                      |
+| --- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| H1  | Menu                                                                      | "Appointments", "Invite patients" and "Assign patients" only (no team, phones or settings)                                                    |
+| H2  | Appointments                                                              | Nothing from the hospital system; "Add an appointment" at the top; find by name or MRN                                                        |
+| H3  | Assign Dr. Rao to Asha's appointment                                      | "Waiting for doctor's tests"; nothing is sent to the patient yet                                                                              |
+| H4  | Add an appointment by hand (find "asha")                                  | Listed as "Added by hand"                                                                                                                     |
+| H5  | Ravi: "Send join invite"                                                  | E-mail, SMS or print; with print the QR code shows on screen                                                                                  |
+| H6  | After the doctor sends the link (I9)                                      | "Doctor sent record link · due …"; after the patient records, "Recorded · uploaded"                                                           |
+| H7  | Assign patients: add Ravi, assign, reassign                               | Each doctor sees only their assigned patients; a reassigned doctor loses access at once                                                       |
+| H9  | Invite patients: search "ravi", tick, choose e-mail / SMS / print, Send   | Live results ("Missing" e-mail); print shows a QR; Send is greyed out once sent                                                               |
+| H11 | Ravi told the hospital his phone is not suitable (seeded in the L2 stack) | App column: "Not joined" and "Phone not suitable · 41 fps"; the doctor's Choose tests says the phone failed the camera check                  |
+| H10 | Appointments: "History" on a row                                          | Who added it, invites, doctor assigned and reassigned, the record link, each with name and e-mail; "Last change" column shows the latest step |
 
 ### I. Doctor
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FR@1.1.0",
+  "configVersion": "FR@2.4.0",
   "code": "FR",
   "name": "Forearm Roll",
   "biomarkers": [
@@ -17,16 +17,16 @@
     "FR11",
     "FR12"
   ],
-  "sides": ["R", "L"],
+  "sides": [],
   "minTier": "A",
   "trackers": ["hand", "pose"],
   "camera": {
     "facing": "back",
     "resolution": "1080p",
     "targetFps": 60,
-    "fallbackFps": 30,
-    "minEffectiveFps": 29.5,
-    "orientation": "landscape",
+    "minEffectiveFps": 59,
+    "orientation": "portrait",
+    "allowedOrientations": ["portrait", "landscape"],
     "lock": {
       "ae": true,
       "af": true,
@@ -38,28 +38,38 @@
   },
   "setup": {
     "view": "front_centred",
-    "distanceM": [1.0, 1.5],
+    "distanceM": [1.5, 2.0],
     "heightRef": "chest",
-    "checklist": ["sleeve_rolled", "phone_on_stand", "light_in_front", "seated_no_armrest"]
+    "checklist": ["phone_on_stand", "light_in_front", "seated_no_armrest", "sleeve_rolled"]
   },
   "framing": {
-    "overlay": "upper_body",
+    "overlay": "upper_body_forearms",
     "requiredLandmarks": {
-      "pose": [13, 14, 15, 16],
+      "pose": [0, 11, 12, 13, 14, 15, 16],
       "hand": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     },
     "safeZoneMargin": 0.05,
     "subjectSize": {
       "metric": "upper_body_height",
-      "min": 0.4,
-      "max": 0.8
+      "min": 0.45,
+      "max": 0.85
     },
-    "handednessMustMatchSide": true
+    "bothHandsRequired": true,
+    "singlePerson": true
   },
   "task": {
     "detector": "rotation_counter",
     "durationS": 15,
-    "noMotionTimeoutS": 3
+    "noMotionTimeoutS": 3,
+    "detectorParams": {
+      "minCutoff": 3,
+      "beta": 0.5,
+      "motionThreshold": 0.05,
+      "motionWindowS": 0.8,
+      "minProminence": 0.05,
+      "minDistanceS": 0.2,
+      "minEvents": 5
+    }
   },
   "verdict": {
     "minLandmarkVisibleFrac": 0.95,

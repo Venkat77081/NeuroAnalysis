@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/platform-config.schema.json",
+  "title": "PlatformConfig",
+  "description": "Account and invite policy for hospitals, staff, operators and patients (PLATFORM_PLAN M10). Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "configVersion",
+    "invites",
+    "passwords",
+    "patientPin",
+    "staff",
+    "consentVersion",
+    "defaultPlan",
+    "app",
+    "operators",
+    "requests",
+    "permissions",
+    "deviceCheck"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "configVersion": {
+      "type": "string",
+      "pattern": "^PLATFORM@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "invites": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["patientTtlDays", "staffTtlDays", "deviceCodeTtlHours", "deviceCodeLength"],
+      "properties": {
+        "patientTtlDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "staffTtlDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "deviceCodeTtlHours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168
+        },
+        "deviceCodeLength": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 16
+        }
+      }
+    },
+    "passwords": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minLength", "temporaryLength"],
+      "properties": {
+        "minLength": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 64
+        },
+        "temporaryLength": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 32
+        }
+      }
+    },
+    "patientPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minDigits", "maxDigits", "maxFailures"],
+      "properties": {
+        "minDigits": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 8
+        },
+        "maxDigits": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 8
+        },
+        "maxFailures": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 10
+        }
+      }
+    },
+    "staff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["twoStepRequired", "maxFailedLogins", "resetTtlHours", "resetReasons"],
+      "properties": {
+        "twoStepRequired": {
+          "type": "boolean"
+        },
+        "maxFailedLogins": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 20
+        },
+        "resetTtlHours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 72,
+          "description": "Staff sign-in reset link lifetime (decision 039)."
+        },
+        "resetReasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          },
+          "description": "Reasons an admin picks when resetting someone's sign-in (kept in the log)."
+        }
+      }
+    },
+    "consentVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50
+    },
+    "defaultPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tests", "everyDays", "medState"],
+      "description": "Recording plan for a patient until their doctor sets one (M13).",
+      "properties": {
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["FT", "FTF", "FR", "SAW", "FA"]
+          }
+        },
+        "everyDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90
+        },
+        "medState": {
+          "enum": ["OFF", "ON", "ANY"]
+        }
+      }
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operatorAutoLockMin", "patientAutoLockMin", "homeSawNeedsHelper"],
+      "properties": {
+        "operatorAutoLockMin": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "patientAutoLockMin": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "homeSawNeedsHelper": {
+          "type": "boolean",
+          "description": "Home walking test only with a helper holding the phone."
+        }
+      }
+    },
+    "operators": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxFailedLogins"],
+      "description": "Clinic operators (M13): wrong passwords in a row before the account locks; a hospital admin unlocks it.",
+      "properties": {
+        "maxFailedLogins": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 20
+        }
+      }
+    },
+    "requests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultDueDaysBefore",
+        "rerecordDueDays",
+        "reminderHoursBefore",
+        "appointmentWindowDays",
+        "clinicNotDoneReasons",
+        "clinicQueueMaxHours"
+      ],
+      "description": "Recording requests for appointments (v3): when they are due, re-record deadline, reminder lead time, how far ahead reception sees appointments.",
+      "properties": {
+        "defaultDueDaysBefore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 14
+        },
+        "rerecordDueDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "reminderHoursBefore": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168
+        },
+        "appointmentWindowDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "clinicNotDoneReasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          },
+          "description": "Why an operator could not record a clinic request (codes; texts are in the app's i18n)."
+        },
+        "clinicQueueMaxHours": {
+          "type": "integer",
+          "minimum": 12,
+          "maximum": 168,
+          "description": "Longest time window a clinic phone may ask the queue for."
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Per-hospital permissions (decision 033): what each role may do by default, and which roles a platform admin may grant it to. Clinical data, patient identity, consent and logging are fixed in code and are not listed here.",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z]+\\.[a-z]+$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["group", "default", "eligible"],
+          "properties": {
+            "group": {
+              "enum": ["patients", "appointments", "requests", "clinic", "setup"]
+            },
+            "default": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": ["hospital_admin", "receptionist", "doctor", "operator"]
+              }
+            },
+            "eligible": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["hospital_admin", "receptionist", "doctor", "operator"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "deviceCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minFps", "warnBelowFps", "durationS", "facing", "resolution", "usageDays"],
+      "description": "Camera check before a phone is added (user, 16 Nov 2026): clinic phones before their registration code is used, patients before their invite is accepted.",
+      "properties": {
+        "minFps": {
+          "type": "number",
+          "minimum": 30,
+          "maximum": 60
+        },
+        "warnBelowFps": {
+          "type": "number",
+          "minimum": 30,
+          "maximum": 60,
+          "description": "Passed but below this: 'borderline', some takes may need repeating (takes fail below the session minimum, 59 by default)."
+        },
+        "durationS": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 120
+        },
+        "facing": {
+          "enum": ["back", "front"]
+        },
+        "resolution": {
+          "enum": ["1080p", "720p"]
+        },
+        "usageDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Phones list: takes recorded on each phone over this many days, and how many were below warnBelowFps."
+        }
+      }
+    }
+  }
+}

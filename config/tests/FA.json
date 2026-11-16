@@ -1,18 +1,38 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FA@1.1.0",
+  "configVersion": "FA@1.7.0",
   "code": "FA",
   "name": "Facial Activation",
-  "biomarkers": "TBD",
+  "biomarkers": [
+    "FA1",
+    "FA2",
+    "FA3",
+    "FA4",
+    "FA5",
+    "FA6",
+    "FA7",
+    "FA8",
+    "FA9",
+    "FA10",
+    "FA11",
+    "FA12",
+    "FA13",
+    "FA14",
+    "FA15",
+    "FA16",
+    "FA17",
+    "FA18"
+  ],
   "sides": [],
-  "minTier": "B",
+  "minTier": "A",
   "trackers": ["face"],
   "camera": {
     "facing": "back",
     "resolution": "1080p",
-    "targetFps": 30,
-    "minEffectiveFps": 29.5,
+    "targetFps": 60,
+    "minEffectiveFps": 59,
     "orientation": "portrait",
+    "allowedOrientations": ["portrait", "landscape"],
     "lock": {
       "ae": true,
       "af": true,
@@ -49,7 +69,19 @@
     "detector": "expression_sequence",
     "durationS": 15,
     "noMotionTimeoutS": 5,
-    "detectorParams": "TBD"
+    "detectorParams": {
+      "minCutoff": 3,
+      "beta": 0.5,
+      "motionThreshold": 0.1,
+      "motionWindowS": 0.8,
+      "browKeys": ["browInnerUp", "browOuterUpLeft", "browOuterUpRight"],
+      "smileKeys": ["mouthSmileLeft", "mouthSmileRight"],
+      "minPeak": 0.4,
+      "minProminence": 0.25,
+      "minDistanceS": 1,
+      "minEach": 2,
+      "restAfterComplete": true
+    }
   },
   "verdict": {
     "minLandmarkVisibleFrac": 0.98,
@@ -60,6 +92,6 @@
   },
   "instructions": {
     "demoVideo": "TBD",
-    "stepKeys": ["fa.step1", "fa.step2"]
+    "stepKeys": ["fa.step1", "fa.step2", "fa.step3"]
   }
 }

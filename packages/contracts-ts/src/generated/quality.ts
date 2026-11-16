@@ -62,8 +62,24 @@ export interface QualityReport {
           status: 'COMPUTABLE' | 'PARTIAL' | 'NOT_COMPUTABLE';
           reason?: string;
           retakeFixable?: boolean;
+          missing?: ('fps' | 'duration' | 'tracker' | 'landmarks' | 'phases' | 'sensors')[];
         }
       | string;
+  };
+  /**
+   * What tools/replay needs to recompute this verdict from the take's own files (M8). Optional for takes recorded before quality-core 0.5.0.
+   */
+  replayInputs?: {
+    /**
+     * recorded = landmarks.bin/sensors.bin; live = analysis events (file unreadable)
+     */
+    source: 'recorded' | 'live';
+    landmarksSha256: string | null;
+    sensorsSha256: string | null;
+    minEffectiveFps: number;
+    hasSensors: boolean;
+    orientation: 'portrait' | 'landscape';
+    firstSampleNs: string | null;
   };
 }
 export interface Window {

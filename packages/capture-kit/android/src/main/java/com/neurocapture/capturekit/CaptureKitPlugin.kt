@@ -9,7 +9,6 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
-import com.google.crypto.tink.integration.android.AndroidKeystoreKmsClient
 import java.io.File
 import java.util.concurrent.Executors
 
@@ -17,7 +16,7 @@ import java.util.concurrent.Executors
  * CaptureKit Capacitor plugin (DEV_PLAN §5.3). Capabilities, camera + preview, fixed-duration
  * recording with per-frame timestamps and sensors, encrypted takes (Tink, Keystore-wrapped keys),
  * evidence, playback, crash recovery, sharpness calibration and the qualification benchmark.
- * Upload arrives in M7.
+ * Background upload (M7) runs in [UploadWorker] through the persistent [UploadQueue].
  */
 @CapacitorPlugin(
     name = "CaptureKit",
@@ -28,16 +27,25 @@ class CaptureKitPlugin : Plugin() {
     private var benchmark: Benchmark? = null
     private var pendingStop: PluginCall? = null
     private lateinit var vault: TakeVault
+    private lateinit var store: SecureStore
+    private lateinit var uploads: UploadQueue
     private val io = Executors.newSingleThreadExecutor { Thread(it, "nc-vault") }
     @Volatile private var recovered: List<String> = emptyList()
 
     override fun load() {
         session = CameraSession(activity, bridge.webView) { event, data -> notifyListeners(event, data) }
-        val master = AndroidKeystoreKmsClient.getOrGenerateNewAeadKey(MASTER_KEY_URI)
-        vault = TakeVault(takesDir(), master)
+        vault = Services.vault(context)
+        store = Services.store(context)
+        uploads = Services.queue(context)
+        // Upload progress from the background worker reaches JS while the plugin is loaded.
+        Services.uploadListener = { status -> notifyListeners("uploadProgress", JSObject(status.toString())) }
+        watchThermal()
+        CrashReporter.install(uploads, PLUGIN_VERSION)
         io.execute {
             playbackDir().deleteRecursively() // decrypted playback copies never survive a restart
             recovered = try { vault.recover() } catch (_: Exception) { emptyList() }
+            // Pending uploads continue (WorkManager also restarts them after a reboot).
+            if (uploads.pending()) Services.kickUploads(context)
         }
     }
 
@@ -65,7 +73,9 @@ class CaptureKitPlugin : Plugin() {
     @PluginMethod
     fun getCapabilities(call: PluginCall) {
         try {
-            call.resolve(DeviceInfo.capabilities(context, PLUGIN_VERSION))
+            call.resolve(DeviceInfo.capabilities(context, PLUGIN_VERSION).apply {
+                session.trackingGpu?.let { put("gpuDelegate", it) }
+            })
         } catch (e: Exception) {
             call.reject("capabilities failed: ${e.message}", e)
         }
@@ -87,6 +97,8 @@ class CaptureKitPlugin : Plugin() {
             analysisFps = (call.getInt("analysisFps", 30)!!).coerceIn(1, 60),
             fallbackFps = call.getInt("fallbackFps")?.takeIf { it == 30 },
             debugAnalysisDelayMs = (call.getInt("debugAnalysisDelayMs", 0)!!).coerceIn(0, 200),
+            trackers = try { call.getArray("trackers")?.toList<String>() ?: emptyList() } catch (_: Exception) { emptyList() },
+            trackerDelegate = call.getString("trackerDelegate", "auto")!!.takeIf { it in setOf("auto", "gpu", "cpu", "mixed") } ?: "auto",
         )
         session.open(cfg) { result, err -> if (err != null) call.reject(err) else call.resolve(result) }
     }
@@ -108,6 +120,10 @@ class CaptureKitPlugin : Plugin() {
         if (durationS <= 0 || durationS > 600) return call.reject("durationS out of range")
         val cfg = session.config ?: return call.reject("camera not open")
         if (vault.takeDir(takeId).exists()) return call.reject("take already exists")
+        // §15 StorageLow: block new takes below the configured free space.
+        val minFree = call.getDouble("minFreeBytes")?.toLong() ?: 0L
+        if (minFree > 0 && takesDir().apply { mkdirs() }.usableSpace < minFree) return call.reject("storage low", "STORAGE_LOW")
+        val stopBelow = call.getDouble("stopBelowFreeBytes")?.toLong() ?: 0L
         val video = File(vault.takeDir(takeId), "video.mp4") // plaintext only while recording; encrypted at stop
         session.startRecording(takeId, video, durationS, onDone = { outcome ->
             // Recording thread: no JS involved (DEV_PLAN §3).
@@ -116,6 +132,9 @@ class CaptureKitPlugin : Plugin() {
                 TakeFinalizer.finalize(
                     vault, outcome, cfg.targetFps, session.isTimestampRealtime(), offset, session.sensors.clockOffsetMs(),
                     stopLeadMs = session.stopLeadNs / 1e6,
+                    trackers = cfg.trackers,
+                    orientation = cfg.orientation,
+                    mirrored = cfg.facing == "front",
                 )
             } catch (e: Exception) {
                 null.also { notifyListeners("recordingState", JSObject().apply {
@@ -123,7 +142,16 @@ class CaptureKitPlugin : Plugin() {
                     put("reason", "finalize failed: ${e.javaClass.simpleName}")
                 }) }
             }
-            if (result != null) {
+            if (result != null && outcome.interrupted != null) {
+                // Interrupted by the system: encrypted partial kept as RetainedForRecovery.
+                try { File(vault.takeDir(takeId), TakeVault.RECOVERY_MARKER).writeText("RetainedForRecovery\n") } catch (_: Exception) {}
+                recovered = recovered + takeId
+                notifyListeners("recordingState", JSObject().apply {
+                    put("takeId", takeId); put("state", "interrupted")
+                    put("elapsedS", result.getDouble("durationS")); put("reason", outcome.interrupted)
+                })
+                pendingStop?.reject("interrupted: ${outcome.interrupted}")
+            } else if (result != null) {
                 val error = outcome.error
                 // Learn the stop lead from this take's measured duration error (decision 010).
                 if (error == null && !outcome.stoppedEarly) session.learnStopLead(result.getDouble("durationErrorMs"))
@@ -139,7 +167,7 @@ class CaptureKitPlugin : Plugin() {
                 pendingStop?.reject("finalize failed")
             }
             pendingStop = null
-        }, started = { err ->
+        }, stopBelowFreeBytes = stopBelow, started = { err ->
             if (err != null) {
                 call.reject(err)
             } else {
@@ -273,6 +301,40 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** Decrypted landmarks.bin of a take as base64 (replay overlay); data = null when absent. */
+    @PluginMethod
+    fun readLandmarks(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
+        io.execute {
+            try {
+                val bytes = vault.openDecrypting(takeId, "landmarks.bin").use { it.readBytes() }
+                call.resolve(JSObject().apply { put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)) })
+            } catch (e: java.io.FileNotFoundException) {
+                call.resolve(JSObject().apply { put("data", org.json.JSONObject.NULL) })
+            } catch (e: Exception) {
+                call.reject("readLandmarks failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    /** Decrypted sensors.bin of a take as base64 (M8: verdict from recorded evidence); null when absent. */
+    @PluginMethod
+    fun readSensors(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
+        io.execute {
+            try {
+                val bytes = vault.openDecrypting(takeId, "sensors.bin").use { it.readBytes() }
+                call.resolve(JSObject().apply { put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)) })
+            } catch (e: java.io.FileNotFoundException) {
+                call.resolve(JSObject().apply { put("data", org.json.JSONObject.NULL) })
+            } catch (e: Exception) {
+                call.reject("readSensors failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
     @PluginMethod
     fun closePlayback(call: PluginCall) {
         val takeId = call.getString("takeId")
@@ -321,6 +383,125 @@ class CaptureKitPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun secureGet(call: PluginCall) {
+        val key = call.getString("key") ?: return call.reject("key required")
+        io.execute {
+            try {
+                call.resolve(JSObject().apply { put("json", store.get(key) ?: org.json.JSONObject.NULL) })
+            } catch (e: Exception) {
+                call.reject("secureGet failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun securePut(call: PluginCall) {
+        val key = call.getString("key") ?: return call.reject("key required")
+        if (key.startsWith(AppMode.RESERVED)) return call.reject("reserved key")
+        val json = call.getString("json") ?: return call.reject("json required")
+        io.execute {
+            try {
+                org.json.JSONTokener(json).nextValue()
+                store.put(key, json)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("securePut failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun secureDelete(call: PluginCall) {
+        val key = call.getString("key") ?: return call.reject("key required")
+        if (key.startsWith(AppMode.RESERVED)) return call.reject("reserved key")
+        io.execute {
+            try {
+                store.delete(key)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("secureDelete failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun secureKeys(call: PluginCall) {
+        val prefix = call.getString("prefix") ?: ""
+        io.execute {
+            call.resolve(JSObject().apply { put("keys", com.getcapacitor.JSArray().apply { store.keys(prefix).forEach { put(it) } }) })
+        }
+    }
+
+    /** M13: one signed-in API call with the tokens the plugin holds (allow-listed paths only). */
+    @PluginMethod
+    fun apiRequest(call: PluginCall) {
+        val method = call.getString("method") ?: return call.reject("method required")
+        val path = call.getString("path") ?: return call.reject("path required")
+        io.execute {
+            try {
+                val body = uploads.api(UrlConnectionHttp(), method, path, call.getString("body"), profileOf(call))
+                call.resolve(JSObject().apply { put("json", body.ifBlank { "null" }) })
+            } catch (e: UploadError) {
+                val code = when (e.kind) {
+                    UploadError.Kind.AUTH -> "login_required"
+                    UploadError.Kind.NETWORK -> "network"
+                    UploadError.Kind.PERMANENT -> e.code ?: "error"
+                }
+                call.reject(code, code)
+            } catch (e: IllegalArgumentException) {
+                call.reject("not_allowed", "not_allowed")
+            }
+        }
+    }
+
+    /** M13: clinic or patient mode, set once natively; JS cannot change it (AppMode). */
+    @PluginMethod
+    fun getAppMode(call: PluginCall) {
+        io.execute { call.resolve(JSObject().apply { put("mode", AppMode.get(store) ?: org.json.JSONObject.NULL) }) }
+    }
+
+    @PluginMethod
+    fun lockAppMode(call: PluginCall) {
+        val mode = call.getString("mode") ?: return call.reject("mode required")
+        io.execute {
+            try {
+                call.resolve(JSObject().apply { put("mode", AppMode.lock(store, mode)) })
+            } catch (e: AppMode.LockedException) {
+                call.reject("mode_locked", "mode_locked")
+            } catch (e: IllegalArgumentException) {
+                call.reject("invalid mode")
+            }
+        }
+    }
+
+    /** Wipes the app on this phone: secure store (with the app mode), upload queue, local takes. */
+    @PluginMethod
+    fun resetDevice(call: PluginCall) {
+        io.execute {
+            try {
+                uploads.clearAll()
+                vault.listTakeIds().forEach { vault.delete(it) }
+                store.keys("").forEach { store.delete(it) }
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("resetDevice failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    /** v3: the upload profile named by the app (one per hospital); "default" when left out. */
+    private fun profileOf(call: PluginCall): String = call.getString("profile") ?: UploadQueue.DEFAULT_PROFILE
+
+    private fun refreshPath(p: String?): String =
+        if (p == "/patient/refresh") p else "/auth/refresh" // only the two server paths are allowed
+
+    /** Canonical clock (elapsedRealtimeNanos) for JS latency measurement (DEV_PLAN §5.5). */
+    @PluginMethod
+    fun clockNow(call: PluginCall) {
+        call.resolve(JSObject().apply { put("elapsedRealtimeNs", android.os.SystemClock.elapsedRealtimeNanos().toString()) })
+    }
+
+    @PluginMethod
     fun calibrateSharpness(call: PluginCall) {
         if (!session.isOpen) return call.reject("camera not open")
         val durationS = (call.getDouble("durationS") ?: 3.0).coerceIn(1.0, 10.0)
@@ -330,13 +511,172 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /** Upload settings; tokens only at sign-in (later calls keep the rotated tokens the queue holds). */
     @PluginMethod
-    fun enqueueUpload(call: PluginCall) = call.unimplemented("upload arrives in M7")
+    fun configureUploads(call: PluginCall) {
+        val endpoint = call.getString("endpoint") ?: return call.reject("endpoint required")
+        val keyId = call.getString("serverKeyId") ?: return call.reject("serverKeyId required")
+        val pem = call.getString("serverPublicKeyPem") ?: return call.reject("serverPublicKeyPem required")
+        if (!endpoint.startsWith("https://") && !(debuggable() && endpoint.startsWith("http://")))
+            return call.reject("endpoint must use https")
+        io.execute {
+            try {
+                KeyWrap.publicKey(pem) // reject a bad key now, not at upload time
+                uploads.configure(UploadSettings(
+                    endpoint.trimEnd('/'), call.getString("accessToken"), call.getString("refreshToken"), keyId, pem,
+                    call.getBoolean("wifiOnly", true)!!, call.getDouble("retentionHours") ?: 24.0,
+                    refreshPath(call.getString("refreshPath")),
+                ), profileOf(call))
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("configureUploads failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
 
     @PluginMethod
-    fun getUploadStatus(call: PluginCall) = call.unimplemented("upload arrives in M7")
+    fun clearUploadCredentials(call: PluginCall) {
+        io.execute {
+            try { uploads.clearCredentials(profileOf(call)); call.resolve() }
+            catch (e: IllegalArgumentException) { call.reject("invalid profile") }
+        }
+    }
+
+    @PluginMethod
+    fun enqueueUpload(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        val sid = call.getString("clientSessionId") ?: return call.reject("clientSessionId required")
+        val sessionBody = call.getString("session") ?: return call.reject("session required")
+        val takeBody = call.getString("take") ?: return call.reject("take required")
+        if (!TAKE_ID.matches(takeId)) return call.reject("invalid takeId")
+        io.execute {
+            try {
+                org.json.JSONObject(sessionBody); org.json.JSONObject(takeBody)
+                val files = VaultTakeFiles(vault, takeId)
+                if (files.kinds.isEmpty()) return@execute call.reject("unknown take")
+                uploads.enqueue(
+                    UploadJob(takeId, sid, sessionBody, takeBody, profile = profileOf(call)),
+                    files.kinds.sumOf { files.size(it) },
+                )
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("enqueueUpload failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun enqueueDiagnostic(call: PluginCall) {
+        val body = call.getString("body") ?: return call.reject("body required")
+        io.execute {
+            try {
+                org.json.JSONObject(body)
+                uploads.enqueueDiagnostic(body)
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("enqueueDiagnostic failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun enqueueSessionClose(call: PluginCall) {
+        val sid = call.getString("clientSessionId") ?: return call.reject("clientSessionId required")
+        val body = call.getString("body") ?: return call.reject("body required")
+        io.execute {
+            try {
+                org.json.JSONObject(body)
+                uploads.enqueueClose(sid, body)
+                Services.kickUploads(context)
+                call.resolve()
+            } catch (e: Exception) {
+                call.reject("enqueueSessionClose failed: ${e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    @PluginMethod
+    fun getUploadStatus(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        io.execute {
+            val s = uploads.record(takeId)?.status()
+                ?: org.json.JSONObject().put("takeId", takeId).put("state", "failed_permanent")
+                    .put("bytesSent", 0).put("bytesTotal", 0).put("reason", "unknown")
+            call.resolve(JSObject(s.toString()))
+        }
+    }
+
+    @PluginMethod
+    fun listUploads(call: PluginCall) {
+        io.execute {
+            val arr = com.getcapacitor.JSArray()
+            uploads.records().forEach { arr.put(it.status()) }
+            call.resolve(JSObject().apply { put("uploads", arr) })
+        }
+    }
+
+    @PluginMethod
+    fun retryUploads(call: PluginCall) {
+        io.execute { uploads.retry(); Services.kickUploads(context); call.resolve() }
+    }
+
+    @PluginMethod
+    fun setAnalysisFps(call: PluginCall) {
+        if (!::session.isInitialized) return call.reject("camera not open")
+        val fps = call.getDouble("fps")?.toInt()
+        session.analysisFpsOverride = fps?.coerceAtLeast(1)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun getThermalStatus(call: PluginCall) {
+        call.resolve(JSObject().apply { put("status", thermalStatus()) })
+    }
+
+    private fun thermalStatus(): String {
+        if (android.os.Build.VERSION.SDK_INT < 29) return "unsupported"
+        val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        return Benchmark.thermalName(pm.currentThermalStatus)
+    }
+
+    private var thermalListener: Any? = null
+
+    /** Thermal changes go to JS as 'thermal' events (M9 policy is applied in the app). */
+    private fun watchThermal() {
+        if (android.os.Build.VERSION.SDK_INT < 29) return
+        val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        val l = android.os.PowerManager.OnThermalStatusChangedListener { level ->
+            notifyListeners("thermal", JSObject().apply { put("status", Benchmark.thermalName(level)) })
+        }
+        pm.addThermalStatusListener(context.mainExecutor, l)
+        thermalListener = l
+    }
+
+    @PluginMethod
+    fun getStorageStatus(call: PluginCall) {
+        val dir = takesDir().apply { mkdirs() }
+        call.resolve(JSObject().apply { put("freeBytes", dir.usableSpace); put("totalBytes", dir.totalSpace) })
+    }
+
+    /** §15 AppBackgrounded (also an incoming call taking the screen): stop now, take = Interrupted. */
+    override fun handleOnPause() {
+        if (::session.isInitialized && session.isRecording) session.interrupt("app_backgrounded")
+        super.handleOnPause()
+    }
+
+    private fun debuggable() =
+        (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     override fun handleOnDestroy() {
+        Services.uploadListener = null
+        if (android.os.Build.VERSION.SDK_INT >= 29)
+            (thermalListener as? android.os.PowerManager.OnThermalStatusChangedListener)?.let {
+                (context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager)
+                    .removeThermalStatusListener(it)
+            }
         benchmark?.cancel()
         if (::session.isInitialized) {
             session.close()
@@ -346,8 +686,7 @@ class CaptureKitPlugin : Plugin() {
     }
 
     companion object {
-        const val PLUGIN_VERSION = "0.4.0"
-        private const val MASTER_KEY_URI = "android-keystore://neurocapture_master_v1"
+        const val PLUGIN_VERSION = "0.9.0"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")
     }

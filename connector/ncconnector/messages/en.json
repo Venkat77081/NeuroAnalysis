@@ -1,0 +1,34 @@
+{
+  "_comment": "Server-sent message text (e-mail, SMS). {placeholders} are filled by the server. Never put patient names here; the patient's name is only added by the hospital connector.",
+  "staffInvite": {
+    "subject": "You are invited to NeuroCapture for {hospital}",
+    "body": "You have been added to NeuroCapture for {hospital} as {role}.\n\nSet your password here (the link works once and expires in {days} days):\n{link}\n\nAfter that you will set up two-step sign-in with an authenticator app."
+  },
+  "patientInviteEmail": {
+    "subject": "{hospital} invites you to record movement tests at home",
+    "body": "{hospital} has invited you to record short movement tests at home with the NeuroCapture app.\n\nOpen this link on your phone, or scan the QR code attached (it works once and expires in {days} days):\n{link}\n\nYou will then choose a PIN. You do not need your MRN."
+  },
+  "patientInviteSms": {
+    "body": "{hospital}: record your movement tests at home with NeuroCapture. Open {link} (works once, {days} days)."
+  },
+  "roles": {
+    "platform_admin": "platform admin",
+    "hospital_admin": "hospital admin",
+    "doctor": "doctor",
+    "receptionist": "receptionist"
+  },
+  "reminderEmail": {
+    "subject": "{hospital}: please record your movement tests by {due}",
+    "body": "{hospital} asks you to record your movement tests in the NeuroCapture app by {due}{appointment}.\n\nOpen the app, choose {hospital} and tap Start recording."
+  },
+  "reminderSms": {
+    "body": "{hospital}: please record your movement tests in the NeuroCapture app by {due}{appointment}."
+  },
+  "reminderAppointment": {
+    "suffix": ", before your appointment on {appointment}"
+  },
+  "staffReset": {
+    "subject": "Reset your NeuroCapture sign-in for {hospital}",
+    "body": "Your NeuroCapture sign-in for {hospital} was reset by {by}.\n\nChoose a new password here (the link works once and expires in {hours} hours):\n{link}\n\nAfter that you will set up two-step sign-in with your authenticator app again.\n\nIf you did not ask for this, tell your hospital admin."
+  }
+}

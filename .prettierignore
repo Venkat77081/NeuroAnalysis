@@ -11,3 +11,7 @@ playwright-report
 test-results
 packages/capture-kit/fixtures
 tools/device_qualification/reports
+apps/mobile/public/mediapipe
+contracts/tests/readiness/
+contracts/connector-api.yaml
+connector

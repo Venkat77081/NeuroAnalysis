@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
+  checkBiomarkerRegistry,
+  checkQualityConfig,
   validate,
   formatIssues,
   checkTestConfig,
@@ -9,7 +11,7 @@ import {
   schemaNames,
   isSchemaName,
 } from '../src/index.ts';
-import type { TestConfig, SessionConfig } from '../src/index.ts';
+import type { TestConfig, SessionConfig, QualityConfig, BiomarkerRegistry } from '../src/index.ts';
 
 const root = resolve(import.meta.dirname, '../../..');
 const read = <T>(p: string): T => JSON.parse(readFileSync(join(root, p), 'utf8')) as T;
@@ -22,19 +24,20 @@ describe('config files', () => {
     expect(checkTestConfig(cfg, code)).toEqual([]);
   });
 
-  it('uses fixed durations: 15 s, and 30 s for SAW (decision 002)', () => {
+  it('uses fixed durations: 15 s, and 45 s for SAW (decisions 002, 013)', () => {
     for (const code of testCodes) {
       const cfg = read<TestConfig>(`config/tests/${code}.json`);
-      expect(cfg.task.durationS).toBe(code === 'SAW' ? 30 : 15);
+      expect(cfg.task.durationS).toBe(code === 'SAW' ? 45 : 15);
     }
   });
 
-  it('uses the interim fps policy: RETAKE only below 29.5 fps, drops not enforced (decision 007)', () => {
+  it('records every test at 60 fps with no 30 fps fallback; below 59 fps fails (decision 015)', () => {
     for (const code of testCodes) {
       const cfg = read<TestConfig>(`config/tests/${code}.json`);
-      expect(cfg.camera.minEffectiveFps).toBe(29.5);
+      expect(cfg.camera.targetFps).toBe(60);
+      expect(cfg.camera.fallbackFps).toBeUndefined();
+      expect(cfg.camera.minEffectiveFps).toBe(59);
       expect(cfg.verdict.maxDroppedFrac).toBeNull();
-      expect(cfg.camera.fallbackFps).toBe(cfg.camera.targetFps === 60 ? 30 : undefined);
     }
   });
 
@@ -98,16 +101,36 @@ describe('semantic checks', () => {
 
   it('flags landmarks for a tracker that is not enabled, and handedness on an unsided test', () => {
     const bad: TestConfig = structuredClone(ft);
-    bad.framing.requiredLandmarks = { ...bad.framing.requiredLandmarks, pose: [11] };
+    bad.trackers = ['hand'];
+    bad.framing.requiredLandmarks = { hand: [0], pose: [11] };
+    bad.framing.handednessMustMatchSide = true;
     bad.sides = [];
     const paths = checkTestConfig(bad).map((i) => i.path);
     expect(paths).toContain('/framing/requiredLandmarks/pose');
     expect(paths).toContain('/framing/handednessMustMatchSide');
   });
 
+  it('flags detector parameters missing for the test detector', () => {
+    const bad: TestConfig = structuredClone(ft);
+    bad.task.detectorParams = { minCutoff: 1 };
+    const issue = checkTestConfig(bad).find((i) => i.path === '/task/detectorParams');
+    expect(issue?.message).toMatch(/beta.*minEvents/);
+    expect(checkTestConfig(ft).find((i) => i.path === '/task/detectorParams')).toBeUndefined();
+  });
+
+  it('flags allowed orientations that leave out the default', () => {
+    const bad: TestConfig = structuredClone(ft);
+    bad.camera.orientation = 'landscape';
+    bad.camera.allowedOrientations = ['portrait'];
+    expect(checkTestConfig(bad).map((i) => i.path)).toContain('/camera/allowedOrientations');
+    bad.camera.allowedOrientations = ['portrait', 'landscape'];
+    expect(checkTestConfig(bad).map((i) => i.path)).not.toContain('/camera/allowedOrientations');
+  });
+
   it('flags unknown tests and wrong sides in the session order', () => {
+    const sidedFt: TestConfig = { ...structuredClone(ft), sides: ['R', 'L'] };
     const tests = new Map([
-      ['FT', ft],
+      ['FT', sidedFt],
       ['SAW', read<TestConfig>('config/tests/SAW.json')],
     ]);
     const session = read<SessionConfig>('config/session.json');
@@ -129,5 +152,56 @@ describe('validate()', () => {
     const res = validate('meta', 42);
     expect(res.valid).toBe(false);
     expect(res.issues[0]?.path).toBe('');
+  });
+});
+
+describe('checkQualityConfig', () => {
+  it('accepts the bundled config and flags inverted ranges', () => {
+    const q = read<QualityConfig>('config/quality.json');
+    expect(validate('quality-config', q).issues).toEqual([]);
+    expect(checkQualityConfig(q)).toEqual([]);
+    const bad = structuredClone(q);
+    bad.engine.warnExitFrac = 0.7;
+    bad.checks.brightness.lumaMin = 250;
+    bad.checks.face_light_balance.min = 2;
+    expect(checkQualityConfig(bad).map((i) => i.path)).toEqual([
+      '/engine/warnExitFrac',
+      '/checks/brightness',
+      '/checks/face_light_balance',
+    ]);
+  });
+});
+
+describe('checkBiomarkerRegistry (M8)', () => {
+  const tests = new Map(testCodes.map((c) => [c, read<TestConfig>(`config/tests/${c}.json`)]));
+  const reg = read<BiomarkerRegistry>('config/biomarker-registry.json');
+
+  it('config/biomarker-registry.json is valid and matches the test configs', () => {
+    expect(validate('biomarker-registry', reg).issues).toEqual([]);
+    expect(checkBiomarkerRegistry(reg, tests)).toEqual([]);
+    expect(reg.biomarkers).toHaveLength(75);
+  });
+
+  it('flags duplicates, wrong prefixes, unrecorded trackers and unlisted IDs', () => {
+    const b0 = reg.biomarkers[0]!;
+    const bad: BiomarkerRegistry = {
+      ...reg,
+      biomarkers: [
+        ...reg.biomarkers.slice(1),
+        b0,
+        b0,
+        { ...b0, id: 'FA77' },
+        { ...b0, id: 'FT13', inputs: { trackers: ['face'], landmarks: { face: [1] } } },
+      ],
+    };
+    const msgs = checkBiomarkerRegistry(bad, tests).map((i) => i.message);
+    expect(msgs).toContain('duplicate id FT1');
+    expect(msgs).toContain('id FA77 does not start with FT');
+    expect(msgs).toContain('FT does not record face');
+    expect(msgs).toContain('FT13 is registered but FT does not list it');
+    const missing = { ...reg, biomarkers: reg.biomarkers.slice(1) };
+    expect(checkBiomarkerRegistry(missing, tests).map((i) => i.message)).toContain(
+      'FT lists FT1, which is not registered',
+    );
   });
 });

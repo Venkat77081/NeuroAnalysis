@@ -21,9 +21,19 @@ The full plan is in `DEV_PLAN.md` (v3.1). The agreed UI mockups are linked from 
 
 ## Agreed product decisions (mockup review, 13 Nov 2026)
 
-- Takes are **fixed duration**: 15 s (FT, FR, FTF, FA), 30 s (SAW). The native timer stops recording; detectors never do.
+- Takes are **fixed duration**: 15 s (FT, FR, FTF, FA), 45 s (SAW). The native timer stops recording; detectors never do.
+- Capture follows the **DNE protocol** (decision 013): FT, FTF, FR with both hands in one take, patient seated facing the camera; SAW back and forth 15 ft. The per-hand variant lives on branch `claude/variant-per-hand-protocol`.
+- Every test records at **60 fps** with no 30 fps fallback; below **59 fps** a take fails; a doctor may change the limit in settings (decision 015).
 - Biomarker readiness is **never shown to operators**. Retake-fixable readiness failures become plain RETAKE reasons.
 - Override = **"Keep this take…"** → reason required → "Keep and flag for review" → shown as "Kept · flagged".
+
+## Agreed platform decisions (mockup review, 15 Nov 2026; `docs/PLATFORM_PLAN.md`, decision 023)
+
+- The app has two modes: **patients** (home recording by invite → PIN) and **operators** (ID + password on hospital-registered phones).
+- **Hospital-owned data**: NeuroCapture stores patients only by a random **NCID**. Names, MRNs, records, videos, clinical logs and biomarker results stay in the hospital's systems, reached through the **hospital connector**. Never store patient identity on the platform.
+- Biomarkers are computed **at the hospital** (next to the connector) from the 60 fps video; NeuroCapture servers never hold a decryptable recording (decision 027). Phone landmarks are only for guidance and capture quality.
+- Every hospital has its own take key; the platform never accepts a patient's contact details or MRN; connectors pin the platform key (decision 027).
+- FA biomarker formulas follow the JBHI 2024 appendix.
 
 ## Commands
 
@@ -36,8 +46,14 @@ pnpm --filter @neurocapture/mobile dev      # web app in mock mode
 pnpm e2e                  # Playwright smoke test (mock mode)
 docker compose up -d      # api + postgres (storage profile: see docs/decisions/004); GET http://localhost:8000/health
 cd backend && pytest && ruff check .
+cd connector && pytest && ruff check .   # hospital connector, tested against the platform in-process (M11)
+cd connector && python -m scripts.gen_contract   # regenerate contracts/connector-api.yaml
+python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack [--lan <wifi ip>]   # real platform + connector + FHIR stand-in, seeded; prints sign-ins
+pnpm dev:dashboard        # dashboards against that stack (http://localhost:5174); see docs/qa/testing-guide.md
+pnpm e2e:dashboard        # dashboards against the real platform + connector, then the no-identity scan
+cd backend && python -m app.admin create-platform-admin --email you@example.org   # prints a one-time invite link (M10)
 ```
 
 ## Layout
 
-See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI).
+See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI), `connector` (hospital connector, FastAPI, docs/connector.md), `apps/dashboard` (web dashboards, docs/dashboard.md).

@@ -24,5 +24,13 @@ export interface BiomarkerRegistry {
       requiresSensors?: boolean;
       requiresPhases?: string[];
     };
+    /**
+     * Name as in the DNE paper (JBHI 2024, Table A-II).
+     */
+    name?: string;
+    /**
+     * Where the definition comes from, e.g. 'DNE JBHI 2024 Table A-II'.
+     */
+    source?: string;
   }[];
 }

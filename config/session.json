@@ -1,14 +1,12 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "SESSION@1.0.0",
+  "configVersion": "SESSION@2.5.0",
   "order": [
-    ["FT", "R"],
-    ["FT", "L"],
-    ["FR", "R"],
-    ["FR", "L"],
+    ["FT", null],
     ["FTF", null],
-    ["FA", null],
-    ["SAW", null]
+    ["FR", null],
+    ["SAW", null],
+    ["FA", null]
   ],
   "maxRetakes": 3,
   "skipReasons": [
@@ -16,8 +14,49 @@
     "patient_declined",
     "time_constraint",
     "equipment_issue",
+    "no_helper",
     "other"
   ],
   "overrideReasons": ["clinically_adequate", "patient_fatigue", "max_retakes_reached", "other"],
-  "medStates": ["ON", "OFF", "NA"]
+  "abortReasons": [
+    "patient_unwell",
+    "patient_withdrew",
+    "time_constraint",
+    "equipment_issue",
+    "other"
+  ],
+  "medStates": ["ON", "OFF", "NA"],
+  "countdownS": 3,
+  "consentVersion": "CONSENT@1.0",
+  "minFpsOptions": [59, 58, 57, 55, 50, 45, 40, 30],
+  "upload": {
+    "defaultRetentionHours": 24,
+    "retentionHoursOptions": [24, 72, 168],
+    "wifiOnlyDefault": true,
+    "defaultEndpoint": "fake://api"
+  },
+  "storage": {
+    "minFreeGbToStart": 2,
+    "stopBelowMb": 500
+  },
+  "thermal": {
+    "moderate": {
+      "analysisFps": 10,
+      "overlays": true,
+      "warn": false,
+      "blockNewTakes": false
+    },
+    "severe": {
+      "analysisFps": 5,
+      "overlays": false,
+      "warn": true,
+      "blockNewTakes": false
+    },
+    "critical": {
+      "analysisFps": 5,
+      "overlays": false,
+      "warn": true,
+      "blockNewTakes": true
+    }
+  }
 }

@@ -63,6 +63,8 @@ export interface OpenCameraOpts {
   /** Record at this rate when targetFps is unsupported (interim policy, decision 007). */
   fallbackFps?: 30;
   /** Engineering only: sleep this long in every analysis frame (M2 isolation test). */
+  /** MediaPipe delegate: 'auto' (GPU, CPU on failure, default), 'gpu' or 'cpu' (decision 016). */
+  trackerDelegate?: 'auto' | 'gpu' | 'cpu' | 'mixed';
   debugAnalysisDelayMs?: number;
 }
 
@@ -85,6 +87,8 @@ export interface Mp4Alignment {
   /** MP4 samples with no logged frame within half a frame period (decision 009). */
   unmatchedSamples: number;
   anchor: 'pattern' | 'earliest_candidate';
+  /** Canonical time (ns, decimal string) of MP4 sample 0: video time τ ↔ firstSampleNs + τ. */
+  firstSampleNs?: string;
 }
 
 export interface RecordingResult {
@@ -109,6 +113,8 @@ export interface RecordingResult {
   framesInVideoSpan: number | null;
   mp4: Mp4Alignment | null;
   sensorSamples: number;
+  /** Analysis frames written to landmarks.bin (null when the test uses no trackers). */
+  landmarkFrames?: number | null;
   sensorClockOffsetMs: number | null;
   /** How early stop() was called before durationS for this take (learned per device, decision 010). */
   stopLeadMs?: number | null;
@@ -138,7 +144,43 @@ export interface UploadStatus {
   bytesSent: number;
   bytesTotal: number;
   reason?: string;
+  /** v3: the upload profile (hospital) this take goes to. */
+  profile?: string;
+  /** Server confirmation time (ISO); local files are deleted retentionHours after it. */
+  confirmedAt?: string;
+  /** Local files deleted after confirmation + retention. */
+  localDeleted?: boolean;
 }
+
+export interface UploadConfig {
+  /** Server base URL, e.g. https://api.example.in (plain http only in debug builds). */
+  endpoint: string;
+  /**
+   * Set at operator sign-in. Omit to keep the tokens the plugin already holds (it rotates them
+   * itself and stores them, so the app never needs the current pair).
+   */
+  accessToken?: string;
+  refreshToken?: string;
+  /** Server RSA-OAEP public key (PEM) that wraps each take's data key, and its ID (§14). */
+  serverKeyId: string;
+  serverPublicKeyPem: string;
+  wifiOnly: boolean;
+  /** Local copies are deleted this long after the server confirms all checksums (§14). */
+  retentionHours: number;
+  /** M13: where tokens are refreshed. Operators: /auth/refresh (default); patients: /patient/refresh. */
+  refreshPath?: '/auth/refresh' | '/patient/refresh';
+  /**
+   * v3: the upload profile these settings belong to: one per hospital a patient joined (its own
+   * tokens and take key). Clinic phones use the default profile. Pattern: [a-z0-9][a-z0-9_-]{0,39}.
+   */
+  profile?: string;
+}
+
+/** v3: the profile used when none is given (clinic phones, and pre-v3 patient installs). */
+export const DEFAULT_UPLOAD_PROFILE = 'default';
+
+/** M13: which app this phone is. */
+export type AppMode = 'clinic' | 'patient';
 
 export interface AnalysisFrameEvent {
   seq: number;
@@ -154,6 +196,18 @@ export interface AnalysisFrameEvent {
   face?: { lm: string; blendshapes?: string; yawDeg: number; pitchDeg: number; rollDeg: number };
   stats: { lumaMean: number; clippedFrac: number; sharpness: number; faceLumaRatio?: number };
   trackerStatus: Record<TrackerName, 'ok' | 'no_result' | 'error' | 'off'>;
+  /** People/hands detected (for single_person and both-hands checks, §9.2). */
+  counts?: { hands: number; poses: number; faces: number };
+  /** Canonical time when native emitted the event (latency = JS receipt − tsNs, §5.5). */
+  emitNs?: string;
+  /** Native processing time for this frame (analysis + tracking), ms. */
+  /** Native preparation time before MediaPipe (stats, copy, grid), ms. */
+  prepMs?: number;
+  procMs?: number;
+}
+
+export interface TrackingErrorEvent {
+  message: string;
 }
 
 export interface SensorSample {
@@ -174,11 +228,15 @@ export interface RecordingStateEvent {
   elapsedS: number;
   /** Present when state is 'completed' (timer reached durationS, or stopped early). */
   result?: RecordingResult;
+  /** For 'interrupted': 'storage_low' | 'app_backgrounded' (§15); the partial take is kept encrypted. */
   reason?: string;
 }
 
+export type ThermalStatus =
+  'none' | 'light' | 'moderate' | 'severe' | 'critical' | 'emergency' | 'shutdown' | 'unsupported';
+
 export interface ThermalEvent {
-  status: 'none' | 'light' | 'moderate' | 'severe' | 'critical' | 'emergency' | 'shutdown';
+  status: ThermalStatus;
 }
 
 export type UploadProgressEvent = UploadStatus;
@@ -190,6 +248,7 @@ export interface CaptureKitEvents {
   thermal: ThermalEvent;
   uploadProgress: UploadProgressEvent;
   benchmarkProgress: BenchmarkProgressEvent;
+  trackingError: TrackingErrorEvent;
 }
 
 export type CaptureKitEventName = keyof CaptureKitEvents;
@@ -207,7 +266,23 @@ export interface CaptureKitPlugin {
   ): Promise<{ previewTransform: PreviewTransform; actualFps: number }>;
   lockCameraSettings(opts: { ae: boolean; af: boolean; awb: boolean }): Promise<void>;
   /** The native side stops recording at durationS on its own timer, independent of JS (decision 002). */
-  startRecording(opts: { takeId: string; durationS: number }): Promise<{ startedAtNs: string }>;
+  startRecording(opts: {
+    takeId: string;
+    durationS: number;
+    /** §15: refuse to start (code STORAGE_LOW) with less free space than this. */
+    minFreeBytes?: number;
+    /** §15: stop gracefully (interrupted, reason storage_low) when free space falls below this. */
+    stopBelowFreeBytes?: number;
+  }): Promise<{ startedAtNs: string }>;
+  /**
+   * M9 thermal policy: lower (or restore, null) the analysis rate while the camera is open. Only
+   * tracking slows down; the recording frame rate is never changed.
+   */
+  setAnalysisFps(opts: { fps: number | null }): Promise<void>;
+  /** Current thermal status; changes also arrive as 'thermal' events. */
+  getThermalStatus(): Promise<ThermalEvent>;
+  /** Free space where takes are stored (§15 StorageLow). */
+  getStorageStatus(): Promise<{ freeBytes: number; totalBytes: number }>;
   /** Early stop by the operator. */
   stopRecording(): Promise<RecordingResult>;
   closeCamera(): Promise<void>;
@@ -220,23 +295,80 @@ export interface CaptureKitPlugin {
   /** Decrypts into a temporary in-app file; always call closePlayback when the player closes. */
   playTake(opts: { takeId: string }): Promise<{ playerUrl: string }>;
   closePlayback(opts: { takeId?: string }): Promise<void>;
+  /** Decrypted landmarks.bin of a take (NCLM-v1, base64), for the replay overlay; null if none. */
+  readLandmarks(opts: { takeId: string }): Promise<{ data: string | null }>;
+  /** Decrypted sensors.bin of a take as base64 (M8 verdict from recorded evidence); null when absent. */
+  readSensors(opts: { takeId: string }): Promise<{ data: string | null }>;
   /** Takes found as plaintext after a crash at the last start, now encrypted and marked RetainedForRecovery. */
   getRecoveredTakes(): Promise<{ takeIds: string[] }>;
   /** Median Laplacian-variance sharpness over durationS of a static target (device baseline, §9.2). */
   calibrateSharpness(opts: { durationS: number }): Promise<{ baseline: number; frames: number }>;
+  /** Canonical clock now (elapsedRealtimeNanos), to estimate camera → JS latency. */
+  clockNow(): Promise<{ elapsedRealtimeNs: string }>;
   /** Stored takes on this device, newest first (survives app restarts). */
   listTakes(): Promise<{ takes: StoredTake[] }>;
+  /** Encrypted key–value store for app data (keys: [a-z0-9][a-z0-9._-]*, values: JSON text). Decision 011. */
+  secureGet(opts: { key: string }): Promise<{ json: string | null }>;
+  securePut(opts: { key: string; json: string }): Promise<void>;
+  secureDelete(opts: { key: string }): Promise<void>;
+  secureKeys(opts: { prefix: string }): Promise<{ keys: string[] }>;
   /** Engineering only (M2 crash test): the next take kills the app after afterS seconds. */
   debugArmCrash(opts: { afterS: number }): Promise<void>;
   deleteTake(opts: { takeId: string; reason: string }): Promise<void>;
 
+  /**
+   * Server access for the native upload worker (M7, decision 019). Kept in the encrypted store so
+   * uploads continue without the WebView; the worker refreshes the access token itself.
+   */
+  configureUploads(opts: UploadConfig): Promise<void>;
+  /**
+   * M13: one signed-in API call made with the tokens the plugin holds (the app never sees them).
+   * Allowed paths only: /patient/{plan,sessions,me,requests,consent/withdraw}, /auth/{connector-token,
+   * change-password}, /clinic/queue?…, /clinic/requests/{id}/not-done. Resolves with the response body; rejects with "login_required", "network",
+   * "not_allowed" or the server's error code. v3: `profile` picks the hospital's sign-in.
+   */
+  apiRequest(opts: {
+    method: 'GET' | 'POST';
+    path: string;
+    body?: string;
+    profile?: string;
+  }): Promise<{ json: string }>;
+  /** M13: the app mode set on this phone, or null before the first set-up. */
+  getAppMode(): Promise<{ mode: AppMode | null }>;
+  /**
+   * M13: sets the app mode once, natively (JS cannot write it). Rejects with "mode_locked" when a
+   * different mode is already set: a clinic phone can never open patient mode, nor the reverse,
+   * unless the phone is reset.
+   */
+  lockAppMode(opts: { mode: AppMode }): Promise<{ mode: AppMode }>;
+  /** M13: wipes the app on this phone (secure store and app mode, upload queue, local takes). */
+  resetDevice(): Promise<void>;
+  /** Forget server credentials (operator logout); queued uploads pause until configured again. */
+  clearUploadCredentials(opts?: { profile?: string }): Promise<void>;
+  /**
+   * Queue a stored take for upload. `session` and `take` are the JSON bodies for POST /sessions and
+   * POST /takes (without files, checksums and the wrapped key, which native adds). Idempotent.
+   */
   enqueueUpload(opts: {
     takeId: string;
-    sessionId: string;
-    endpoint: string;
-    token: string;
+    clientSessionId: string;
+    session: string;
+    take: string;
+    /** v3: the hospital's upload profile (default when left out). */
+    profile?: string;
   }): Promise<void>;
+  /** PATCH /sessions/{id} once the session's takes are queued (ended_at, aborted). */
+  enqueueSessionClose(opts: { clientSessionId: string; body: string }): Promise<void>;
+  /**
+   * M9: queue a PII-safe diagnostic (crash report JSON, already redacted by the caller) for
+   * POST /diagnostics. Kept until the operator is signed in; native crashes are queued by the
+   * plugin itself at the next start.
+   */
+  enqueueDiagnostic(opts: { body: string }): Promise<void>;
   getUploadStatus(opts: { takeId: string }): Promise<UploadStatus>;
+  listUploads(): Promise<{ uploads: UploadStatus[] }>;
+  /** Retry failed uploads now (operator action on the Summary screen). */
+  retryUploads(): Promise<void>;
 
   addListener<E extends CaptureKitEventName>(
     eventName: E,

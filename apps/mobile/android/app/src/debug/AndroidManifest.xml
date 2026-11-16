@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only (merged over src/main): allow plain http, so a test phone can reach a server
+  running on a computer on the same Wi-Fi (docs/qa/testing-guide.md, level 3). Release builds keep
+  Android's default (https only); CaptureKit also refuses http endpoints in release builds.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:usesCleartextTraffic="true" />
+</manifest>

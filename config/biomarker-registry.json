@@ -1,0 +1,1407 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryVersion": "REG@0.3.0",
+  "biomarkers": [
+    {
+      "id": "FT1",
+      "testCode": "FT",
+      "name": "Tapping amplitude (R)",
+      "family": "FT amplitude",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over cycles of (max - min) of d_ft, right hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT2",
+      "testCode": "FT",
+      "name": "Tapping amplitude (L)",
+      "family": "FT amplitude",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT3",
+      "testCode": "FT",
+      "name": "Tapping amplitude asymmetry",
+      "family": "FT amplitude",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym(A_r, A_l) = |A_r - A_l| / (A_r + A_l); d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT4",
+      "testCode": "FT",
+      "name": "Tapping period (R)",
+      "family": "FT period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean time between consecutive minima of d_ft, right hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT5",
+      "testCode": "FT",
+      "name": "Tapping period (L)",
+      "family": "FT period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT6",
+      "testCode": "FT",
+      "name": "Tapping period asymmetry",
+      "family": "FT period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym(T_r, T_l); d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT7",
+      "testCode": "FT",
+      "name": "Max tapping speed (R)",
+      "family": "FT speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over cycles of max |d d_ft/dt|, right hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT8",
+      "testCode": "FT",
+      "name": "Max tapping speed (L)",
+      "family": "FT speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT9",
+      "testCode": "FT",
+      "name": "Max tapping speed asymmetry",
+      "family": "FT speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym of max speed; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT10",
+      "testCode": "FT",
+      "name": "Max tapping acceleration (R)",
+      "family": "FT acceleration",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over cycles of max |d2 d_ft/dt2|, right hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT11",
+      "testCode": "FT",
+      "name": "Max tapping acceleration (L)",
+      "family": "FT acceleration",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left hand; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FT12",
+      "testCode": "FT",
+      "name": "Max tapping acceleration asymmetry",
+      "family": "FT acceleration",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym of max acceleration; d_ft = ||thumb tip (hand 4) - index tip (hand 8)||, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [4, 8],
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF1",
+      "testCode": "FTF",
+      "name": "Mean period (L)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean cycle period (top-bottom-top of the vertical position), left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF2",
+      "testCode": "FTF",
+      "name": "Mean period (R)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF3",
+      "testCode": "FTF",
+      "name": "STD period (L)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD cycle period, left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF4",
+      "testCode": "FTF",
+      "name": "STD period (R)",
+      "family": "FTF period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD cycle period, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF5",
+      "testCode": "FTF",
+      "name": "Mean speed (L)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean of (distance travelled in half a cycle / half period), left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF6",
+      "testCode": "FTF",
+      "name": "Mean speed (R)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF7",
+      "testCode": "FTF",
+      "name": "STD speed (L)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD of half-cycle speed, left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF8",
+      "testCode": "FTF",
+      "name": "STD speed (R)",
+      "family": "FTF speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD of half-cycle speed, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF9",
+      "testCode": "FTF",
+      "name": "Mean path smoothness (L)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over cycles of path length / length of a fitted 2nd-order polynomial curve, left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF10",
+      "testCode": "FTF",
+      "name": "Mean path smoothness (R)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF11",
+      "testCode": "FTF",
+      "name": "STD path smoothness (L)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD path smoothness, left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF12",
+      "testCode": "FTF",
+      "name": "STD path smoothness (R)",
+      "family": "FTF path smoothness",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD path smoothness, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF13",
+      "testCode": "FTF",
+      "name": "Mean velocity angle symmetry (L)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean of pairwise CC between cycles of theta = atan2(dy/dt, dx/dt), left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF14",
+      "testCode": "FTF",
+      "name": "Mean velocity angle symmetry (R)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF15",
+      "testCode": "FTF",
+      "name": "STD velocity angle symmetry (L)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD of those CCs, left; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF16",
+      "testCode": "FTF",
+      "name": "STD velocity angle symmetry (R)",
+      "family": "FTF velocity angle",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD of those CCs, right; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF17",
+      "testCode": "FTF",
+      "name": "Horizontal finger symmetry",
+      "family": "FTF finger symmetry",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "CC(x_l, x_r) of the index joint horizontal trajectories, per cycle; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FTF18",
+      "testCode": "FTF",
+      "name": "Vertical finger symmetry",
+      "family": "FTF finger symmetry",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "CC(y_l, y_r) of the vertical trajectories, per cycle; index finger middle joint (hand 6) trajectory, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["hand", "pose"],
+        "landmarks": {
+          "hand": [6],
+          "pose": [11, 12, 13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR1",
+      "testCode": "FR",
+      "name": "Rolling amplitude (R)",
+      "family": "FR amplitude",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over cycles of (max - min) of y, right; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR2",
+      "testCode": "FR",
+      "name": "Rolling amplitude (L)",
+      "family": "FR amplitude",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR3",
+      "testCode": "FR",
+      "name": "Rolling amplitude asymmetry",
+      "family": "FR amplitude",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym of amplitude; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR4",
+      "testCode": "FR",
+      "name": "Rolling period (R)",
+      "family": "FR period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean cycle period of y, right; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR5",
+      "testCode": "FR",
+      "name": "Rolling period (L)",
+      "family": "FR period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR6",
+      "testCode": "FR",
+      "name": "Rolling period asymmetry",
+      "family": "FR period",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym of period; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR7",
+      "testCode": "FR",
+      "name": "Max rolling speed (R)",
+      "family": "FR speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over cycles of max |dy/dt|, right; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR8",
+      "testCode": "FR",
+      "name": "Max rolling speed (L)",
+      "family": "FR speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR9",
+      "testCode": "FR",
+      "name": "Max rolling speed asymmetry",
+      "family": "FR speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym of max speed; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR10",
+      "testCode": "FR",
+      "name": "Max rolling acceleration (R)",
+      "family": "FR acceleration",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over cycles of max |d2y/dt2|, right; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR11",
+      "testCode": "FR",
+      "name": "Max rolling acceleration (L)",
+      "family": "FR acceleration",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "same, left; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FR12",
+      "testCode": "FR",
+      "name": "Max rolling acceleration asymmetry",
+      "family": "FR acceleration",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "Asym of max acceleration; y = wrist (pose 16 right / 15 left) vertical position, normalised by forearm length",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [13, 14, 15, 16]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "SAW1",
+      "testCode": "SAW",
+      "name": "STD step time",
+      "family": "SAW step time",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD step time (time between consecutive maxima of d_saw); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW2",
+      "testCode": "SAW",
+      "name": "Mean step length",
+      "family": "SAW step length",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean step length (local maxima of d_saw); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW3",
+      "testCode": "SAW",
+      "name": "Median step length",
+      "family": "SAW step length",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "median step length; d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW4",
+      "testCode": "SAW",
+      "name": "Mean step width",
+      "family": "SAW step width",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean step width (local minima of d_saw); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW5",
+      "testCode": "SAW",
+      "name": "STD step width",
+      "family": "SAW step width",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD step width; d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW6",
+      "testCode": "SAW",
+      "name": "Median knee angle symmetry",
+      "family": "SAW knee angle",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "median over walking segments of CC(aligned left knee angle, right knee angle); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 25, 26, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW7",
+      "testCode": "SAW",
+      "name": "Mean knee angle symmetry",
+      "family": "SAW knee angle",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean knee angle symmetry; d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 25, 26, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW8",
+      "testCode": "SAW",
+      "name": "STD knee angle symmetry",
+      "family": "SAW knee angle",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD knee angle symmetry; d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 25, 26, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW9",
+      "testCode": "SAW",
+      "name": "Mean step symmetry",
+      "family": "SAW step symmetry",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean over strides of CC(aligned left/right foot horizontal position); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW10",
+      "testCode": "SAW",
+      "name": "Mean cadence",
+      "family": "SAW cadence",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean cadence (steps / walking segment duration); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW11",
+      "testCode": "SAW",
+      "name": "STD cadence",
+      "family": "SAW cadence",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD cadence; d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW12",
+      "testCode": "SAW",
+      "name": "Mean walking speed",
+      "family": "SAW walking speed",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean walking speed (pelvis distance / walking segment duration); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "SAW13",
+      "testCode": "SAW",
+      "name": "Mean turning time",
+      "family": "SAW turning time",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean turning time (duration of each turn segment); d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["turn"]
+      }
+    },
+    {
+      "id": "SAW14",
+      "testCode": "SAW",
+      "name": "STD turning time",
+      "family": "SAW turning time",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "STD turning time; d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["turn"]
+      }
+    },
+    {
+      "id": "SAW15",
+      "testCode": "SAW",
+      "name": "Mean step time",
+      "family": "SAW step time",
+      "source": "DNE JBHI 2024 Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209) Table III, Sec. V-D",
+      "formula": "mean step time; d_saw = ||ankle_r - ankle_l|| (3D pose), walking segments only, normalised by trunk (pelvis-neck)",
+      "formulaVersion": "DNE-2022-arXiv-2205.07209",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 44.9,
+        "trackers": ["pose"],
+        "landmarks": {
+          "pose": [11, 12, 23, 24, 27, 28]
+        },
+        "minLandmarkVisibleFrac": 0.8,
+        "requiresPhases": ["walk_out", "walk_back"]
+      }
+    },
+    {
+      "id": "FA1",
+      "testCode": "FA",
+      "name": "STD eye opening (R)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(d_oe^r)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 362]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA2",
+      "testCode": "FA",
+      "name": "STD eye opening (L)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(d_oe^l)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [133, 249, 362, 373, 374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA3",
+      "testCode": "FA",
+      "name": "STD mouth opening",
+      "family": "FA mouth opening",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(d_om), d_om = (d_om^l + d_om^r)/2",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA4",
+      "testCode": "FA",
+      "name": "STD mouth width",
+      "family": "FA mouth width",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(d_mw)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [78, 133, 308, 362]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA5",
+      "testCode": "FA",
+      "name": "STD jaw opening",
+      "family": "FA jaw opening",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(d_ja)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [13, 80, 81, 82, 133, 140, 170, 171, 175, 310, 311, 312, 362, 369, 395, 396]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA6",
+      "testCode": "FA",
+      "name": "STD eye opening speed (R)",
+      "family": "FA eye opening speed",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(diff(d_oe^r))",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 362]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA7",
+      "testCode": "FA",
+      "name": "STD eye opening speed (L)",
+      "family": "FA eye opening speed",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(diff(d_oe^l))",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [133, 249, 362, 373, 374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA8",
+      "testCode": "FA",
+      "name": "STD eyebrow lift speed (R)",
+      "family": "FA eyebrow lift",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(diff(d_ebh^r))",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [63, 66, 70, 105, 107, 133, 157, 158, 159, 160, 161, 362]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA9",
+      "testCode": "FA",
+      "name": "STD eyebrow lift speed (L)",
+      "family": "FA eyebrow lift",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(diff(d_ebh^l))",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [133, 293, 296, 300, 334, 336, 362, 384, 385, 386, 387, 388]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA10",
+      "testCode": "FA",
+      "name": "STD mouth opening speed",
+      "family": "FA mouth opening speed",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "STD(diff(d_om))",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA11",
+      "testCode": "FA",
+      "name": "Normalized IQR eye opening (R)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "NIQR(d_oe^r)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 362]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA12",
+      "testCode": "FA",
+      "name": "Normalized IQR eye opening (L)",
+      "family": "FA eye opening",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "NIQR(d_oe^l)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [133, 249, 362, 373, 374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA13",
+      "testCode": "FA",
+      "name": "Normalized IQR mouth opening",
+      "family": "FA mouth opening",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "NIQR(d_om)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA14",
+      "testCode": "FA",
+      "name": "Normalized IQR mouth width",
+      "family": "FA mouth width",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "NIQR(d_mw)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [78, 133, 308, 362]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA15",
+      "testCode": "FA",
+      "name": "Eyes opening symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "CC(d_oe^l, d_oe^r)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [
+            7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 249, 362, 373,
+            374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466
+          ]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA16",
+      "testCode": "FA",
+      "name": "Mouth opening symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "CC(d_om^l, d_om^r)",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA17",
+      "testCode": "FA",
+      "name": "Eyes opening speed symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "CC(diff(d_oe^l), diff(d_oe^r))",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [
+            7, 133, 144, 145, 153, 154, 155, 157, 158, 159, 160, 161, 163, 173, 246, 249, 362, 373,
+            374, 380, 381, 382, 384, 385, 386, 387, 388, 390, 398, 466
+          ]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    },
+    {
+      "id": "FA18",
+      "testCode": "FA",
+      "name": "Mouth opening speed symmetry",
+      "family": "FA symmetry",
+      "source": "DNE JBHI 2024 Table A-II and Appendix B",
+      "formula": "CC(diff(d_om^l), diff(d_om^r))",
+      "formulaVersion": "DNE-JBHI-2024",
+      "inputs": {
+        "minEffectiveFps": 58,
+        "minDurationS": 14.9,
+        "trackers": ["face"],
+        "landmarks": {
+          "face": [80, 81, 82, 87, 88, 133, 178, 310, 311, 312, 317, 318, 362, 402]
+        },
+        "minLandmarkVisibleFrac": 0.9
+      }
+    }
+  ]
+}

@@ -17,7 +17,12 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "build:web": "pnpm --filter @neurocapture/mobile build",
-    "e2e": "pnpm --filter @neurocapture/mobile e2e"
+    "e2e": "pnpm --filter @neurocapture/mobile e2e",
+    "build:dashboard": "pnpm --filter @neurocapture/dashboard build",
+    "e2e:dashboard": "pnpm --filter @neurocapture/dashboard e2e",
+    "replay": "pnpm --filter @neurocapture/replay replay",
+    "models": "node tools/models/fetch-models.mjs",
+    "dev:dashboard": "pnpm --filter @neurocapture/dashboard dev:stack"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

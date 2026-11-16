@@ -70,6 +70,9 @@ class CameraSession(
         val analysisFps: Int,
         val fallbackFps: Int? = null,
         val debugAnalysisDelayMs: Int = 0,
+        val trackers: List<String> = emptyList(),
+        /** "auto" = GPU then CPU; "gpu" or "cpu" to force one (device tuning, decision 016). */
+        val trackerDelegate: String = "auto",
     )
 
     data class Outcome(
@@ -77,12 +80,18 @@ class CameraSession(
         val file: File,
         val log: TimestampLog,
         val sensorLog: SensorLog,
+        val landmarks: List<LandmarkFormat.Record>,
         val requestedDurationS: Double,
         val actualFps: Int,
         val mp4Frames: Int?,
         val mp4DurationS: Double?,
         val stoppedEarly: Boolean,
         val error: String?,
+        /** Analysis image size (upright) for the landmarks.bin header. */
+        val imageW: Int = 0,
+        val imageH: Int = 0,
+        /** §15: 'storage_low' or 'app_backgrounded' when the take was cut short by the system. */
+        val interrupted: String? = null,
     )
 
     private val main = ContextCompat.getMainExecutor(activity)
@@ -118,6 +127,8 @@ class CameraSession(
     private val analysisFrames = AtomicInteger(0)
     private val processingMs = ArrayList<Double>()
     private var lastAnalysisTs = 0L
+    /** M9 thermal policy: lower analysis rate while hot (null = config). Recording fps is untouched. */
+    @Volatile var analysisFpsOverride: Int? = null
     private var analysisSeq = 0
     @Volatile var emitAnalysisEvents = true
     private var sharpnessSamples: ArrayList<Double>? = null
@@ -128,6 +139,9 @@ class CameraSession(
     private var recordingTakeId: String? = null
     private var recordingFile: File? = null
     private var stoppedEarly = false
+    @Volatile private var interruptReason: String? = null
+    @Volatile private var lastImageW = 0
+    @Volatile private var lastImageH = 0
     private var recordStartElapsed = 0L
     private var onRecordingDone: ((Outcome) -> Unit)? = null
     private val stopRunnable = Runnable { stopRecording(early = false) }
@@ -190,6 +204,7 @@ class CameraSession(
         main.execute {
             try {
                 config = cfg
+                analysisFpsOverride = null
                 activity.requestedOrientation =
                     if (cfg.orientation == "landscape") ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 val rotation = if (cfg.orientation == "landscape") Surface.ROTATION_90 else Surface.ROTATION_0
@@ -220,6 +235,9 @@ class CameraSession(
 
                 val analysisBuilder = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                    // Upright frames: MediaPipe returns landmarks in its input image's frame, so feed it upright.
+                    .setOutputImageRotationEnabled(true)
                     .setResolutionSelector(
                         ResolutionSelector.Builder()
                             .setAspectRatioStrategy(AspectRatioStrategy(AspectRatio.RATIO_16_9, AspectRatioStrategy.FALLBACK_RULE_AUTO))
@@ -311,78 +329,199 @@ class CameraSession(
         }
     }
 
+    /** Per-frame data kept until the trackers' results for that frame arrive. */
+    private class FrameInfo(
+        val seq: Int,
+        val tsNs: Long,
+        val w: Int,
+        val h: Int,
+        val stats: FrameMath.Stats,
+        /** Small RGBA copy (≈ 80 px wide) for the face light-balance ratio. */
+        val grid: java.nio.ByteBuffer,
+        val gw: Int,
+        val gh: Int,
+        val startNs: Long,
+        /** Analysis start → submit to MediaPipe (stats, copy, grid). */
+        val prepNs: Long = 0,
+    )
+
+    private val pendingFrames = java.util.concurrent.ConcurrentHashMap<Long, FrameInfo>()
+    private var tracking: Tracking? = null
+    private val bitmapPool = arrayOfNulls<android.graphics.Bitmap>(3)
+    private var poolIndex = 0
+    private var lastFrameMs = 0L
+    @Volatile private var landmarkLog: ArrayList<LandmarkFormat.Record>? = null
+    val trackingGpu: Boolean? get() = tracking?.gpu
+
     private fun analyze(image: ImageProxy) {
         try {
             val cfg = config ?: return
             val ts = image.imageInfo.timestamp
-            val minGap = 1_000_000_000L / cfg.analysisFps * 9 / 10
+            val fps = analysisFpsOverride?.coerceIn(1, cfg.analysisFps) ?: cfg.analysisFps
+            val minGap = 1_000_000_000L / fps * 9 / 10
             if (ts - lastAnalysisTs < minGap) return
+            // Tracker still busy with the previous frame: skip this one entirely (no queue).
+            if (tracking?.ready() == false) return
             lastAnalysisTs = ts
             val t0 = System.nanoTime()
-            // Dummy analyzer for M1: mean luma and clipped fraction of the Y plane (sampled). MediaPipe arrives in M4.
-            val plane = image.planes[0]
+            val plane = image.planes[0] // RGBA_8888, single plane
             val buf = plane.buffer
             val rowStride = plane.rowStride
-            var sum = 0L
-            var n = 0
-            var clipped = 0
-            var y = 0
-            while (y < image.height) {
-                var x = 0
-                while (x < image.width) {
-                    val v = buf.get(y * rowStride + x).toInt() and 0xFF
-                    sum += v
-                    if (v <= 2 || v >= 253) clipped++
-                    n++
-                    x += 8
-                }
-                y += 8
-            }
-            val sharp = laplacianVariance(buf, rowStride, image.width, image.height)
-            sharpnessSamples?.let { synchronized(it) { it.add(sharp) } }
+            val w = image.width
+            val h = image.height
+            // One bulk copy into a reused, tightly packed array; stats and the bitmap use the copy.
+            val frameSize = w * h * 4
+            val bytes = frameBytes?.takeIf { it.size == frameSize } ?: ByteArray(frameSize).also { frameBytes = it }
+            buf.rewind()
+            if (rowStride == w * 4) buf.get(bytes, 0, frameSize)
+            else for (row in 0 until h) { buf.position(row * rowStride); buf.get(bytes, row * w * 4, w * 4) }
+            val stats = FrameMath.stats(bytes, w, h, w * 4)
+            sharpnessSamples?.let { synchronized(it) { it.add(stats.sharpness.toDouble()) } }
             if (cfg.debugAnalysisDelayMs > 0) Thread.sleep(cfg.debugAnalysisDelayMs.toLong()) // M2 isolation test only
-            val ms = (System.nanoTime() - t0) / 1e6
             analysisFrames.incrementAndGet()
-            synchronized(processingMs) { if (processingMs.size < 200_000) processingMs.add(ms) }
-            if (!emitAnalysisEvents) return
-            val rotated = image.imageInfo.rotationDegrees % 180 != 0
-            emit("analysisFrame", JSObject().apply {
-                put("seq", analysisSeq++)
-                put("tsNs", toCanonical(ts).toString())
-                put("imageW", if (rotated) image.height else image.width)
-                put("imageH", if (rotated) image.width else image.height)
-                put("stats", JSObject().apply {
-                    put("lumaMean", if (n > 0) sum.toDouble() / n else 0.0)
-                    put("clippedFrac", if (n > 0) clipped.toDouble() / n else 0.0)
-                    put("sharpness", sharp)
-                })
-                put("trackerStatus", JSObject().apply {
-                    put("hand", "off"); put("pose", "off"); put("face", "off")
-                })
-            })
+            synchronized(processingMs) { if (processingMs.size < 200_000) processingMs.add((System.nanoTime() - t0) / 1e6) }
+            val rotation = image.imageInfo.rotationDegrees
+            val rotated = rotation % 180 != 0
+            val seq = analysisSeq++
+            val canonical = toCanonical(ts)
+            val enabled = cfg.trackers.filter { it in LandmarkFormat.TRACKERS.keys }.toSet()
+            if (enabled.isEmpty()) {
+                if (emitAnalysisEvents) emit("analysisFrame", statsOnlyEvent(seq, canonical, if (rotated) h else w, if (rotated) w else h, stats, t0))
+                return
+            }
+            val tr = tracking ?: Tracking(activity, enabled, cfg.trackerDelegate, ::onTracked) { msg -> emit("trackingError", JSObject().apply { put("message", msg) }) }
+                .also { tracking = it }
+            var bmp = nextBitmap(w, h)
+            bmp.copyPixelsFromBuffer(java.nio.ByteBuffer.wrap(bytes))
+            // Normally 0 (rotation done by CameraX); rotate here if a device ignores that setting.
+            if (rotation != 0) {
+                val m = android.graphics.Matrix().apply { postRotate(rotation.toFloat()) }
+                bmp = android.graphics.Bitmap.createBitmap(bmp, 0, 0, w, h, m, false)
+            }
+            val uw = bmp.width
+            val uh = bmp.height
+            // Small upright grid (≈ 80 px wide) for the face light-balance ratio.
+            val gw = 80
+            val gh = maxOf(1, uh * gw / maxOf(uw, 1))
+            // One native scale + copy instead of 3600 getPixel calls. ARGB_8888 bytes are RGBA.
+            val small = android.graphics.Bitmap.createScaledBitmap(bmp, gw, gh, false)
+            val grid = java.nio.ByteBuffer.allocate(gw * gh * 4)
+            small.copyPixelsToBuffer(grid)
+            small.recycle()
+            grid.rewind()
+            // MediaPipe live stream needs strictly increasing millisecond timestamps.
+            val frameMs = maxOf(canonical / 1_000_000L, lastFrameMs + 1).also { lastFrameMs = it }
+            pendingFrames[frameMs] = FrameInfo(seq, canonical, uw, uh, stats, grid, gw, gh, t0, System.nanoTime() - t0)
+            if (pendingFrames.size > 16) pendingFrames.keys.sorted().take(pendingFrames.size - 16).forEach { pendingFrames.remove(it) }
+            tr.submit(bmp, 0, frameMs)
+        } catch (e: Exception) {
+            emit("trackingError", JSObject().apply { put("message", "analysis: ${e.javaClass.simpleName}") })
         } finally {
             image.close()
         }
     }
 
-    /** Variance of the 4-neighbour Laplacian over the central 50 % of the Y plane (step 2). */
-    private fun laplacianVariance(buf: java.nio.ByteBuffer, stride: Int, w: Int, h: Int): Double {
-        val x0 = w / 4; val x1 = w * 3 / 4; val y0 = h / 4; val y1 = h * 3 / 4
-        var sum = 0.0; var sumSq = 0.0; var n = 0
-        fun px(x: Int, y: Int) = (buf.get(y * stride + x).toInt() and 0xFF)
-        var y = maxOf(y0, 1)
-        while (y < minOf(y1, h - 1)) {
-            var x = maxOf(x0, 1)
-            while (x < minOf(x1, w - 1)) {
-                val l = (px(x - 1, y) + px(x + 1, y) + px(x, y - 1) + px(x, y + 1) - 4 * px(x, y)).toDouble()
-                sum += l; sumSq += l * l; n++
-                x += 2
+    private var frameBytes: ByteArray? = null
+
+    private fun nextBitmap(w: Int, h: Int): android.graphics.Bitmap {
+        poolIndex = (poolIndex + 1) % bitmapPool.size
+        val cur = bitmapPool[poolIndex]
+        if (cur != null && cur.width == w && cur.height == h) return cur
+        return android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888).also { bitmapPool[poolIndex] = it }
+    }
+
+    private fun statsOnlyEvent(seq: Int, tsNs: Long, w: Int, h: Int, stats: FrameMath.Stats, t0: Long) = JSObject().apply {
+        put("seq", seq)
+        put("tsNs", tsNs.toString())
+        put("imageW", w)
+        put("imageH", h)
+        put("stats", JSObject().apply {
+            put("lumaMean", stats.lumaMean.toDouble()); put("clippedFrac", stats.clippedFrac.toDouble()); put("sharpness", stats.sharpness.toDouble())
+        })
+        put("trackerStatus", JSObject().apply { put("hand", "off"); put("pose", "off"); put("face", "off") })
+        put("emitNs", SystemClock.elapsedRealtimeNanos().toString())
+        put("procMs", (System.nanoTime() - t0) / 1e6)
+    }
+
+    private fun b64(f: FloatArray): String {
+        val bb = java.nio.ByteBuffer.allocate(f.size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        f.forEach { bb.putFloat(it) }
+        return android.util.Base64.encodeToString(bb.array(), android.util.Base64.NO_WRAP)
+    }
+
+    private val statusNames = arrayOf("off", "ok", "no_result", "error")
+
+    /** Joined tracker results for one frame → analysisFrame event (+ landmarks.bin record while recording). */
+    private fun onTracked(j: Tracking.Joined) {
+        val info = pendingFrames.remove(j.frameMs) ?: return
+        val hands = ArrayList<LandmarkFormat.Hand>()
+        j.hand?.let { r ->
+            r.landmarks().forEachIndexed { i, lms ->
+                val cat = r.handedness().getOrNull(i)?.firstOrNull()
+                val pts = FloatArray(LandmarkFormat.HAND_VALUES)
+                lms.forEachIndexed { k, p ->
+                    if (k < 21) {
+                        pts[k * 4] = p.x(); pts[k * 4 + 1] = p.y(); pts[k * 4 + 2] = p.z()
+                        pts[k * 4 + 3] = p.visibility().orElse(p.presence().orElse(1f))
+                    }
+                }
+                hands.add(LandmarkFormat.Hand(cat?.categoryName() == "Right", cat?.score() ?: 0f, pts))
             }
-            y += 2
         }
-        if (n == 0) return 0.0
-        val mean = sum / n
-        return sumSq / n - mean * mean
+        val poseCount = j.pose?.landmarks()?.size ?: 0
+        val pose = j.pose?.landmarks()?.firstOrNull()?.let { lms ->
+            FloatArray(LandmarkFormat.POSE_VALUES).also { pts ->
+                lms.forEachIndexed { k, p ->
+                    if (k < 33) { pts[k * 4] = p.x(); pts[k * 4 + 1] = p.y(); pts[k * 4 + 2] = p.z(); pts[k * 4 + 3] = p.visibility().orElse(0f) }
+                }
+            }
+        }
+        val faceCount = j.face?.faceLandmarks()?.size ?: 0
+        var faceRatio: Float? = null
+        val face = j.face?.faceLandmarks()?.firstOrNull()?.let { lms ->
+            val pts = FloatArray(LandmarkFormat.FACE_VALUES)
+            lms.forEachIndexed { k, p -> if (k < 478) { pts[k * 3] = p.x(); pts[k * 3 + 1] = p.y(); pts[k * 3 + 2] = p.z() } }
+            val blend = j.face.faceBlendshapes().orElse(null)?.firstOrNull()?.let { cats ->
+                FloatArray(LandmarkFormat.BLEND_VALUES).also { b -> cats.forEachIndexed { k, c -> if (k < 52) b[k] = c.score() } }
+            }
+            val angles = j.face.facialTransformationMatrixes().orElse(null)?.firstOrNull()?.let { FrameMath.faceAngles(it) }
+                ?: FrameMath.Angles(0f, 0f, 0f)
+            faceRatio = FrameMath.faceLumaRatio(info.grid.also { it.rewind() }, info.gw, info.gh, info.gw * 4, pts)
+            LandmarkFormat.Face(angles.yawDeg, angles.pitchDeg, angles.rollDeg, pts, blend)
+        }
+        val record = LandmarkFormat.Record(
+            info.tsNs, info.seq, j.statusOf("hand"), j.statusOf("pose"), j.statusOf("face"),
+            info.stats.lumaMean, info.stats.clippedFrac, info.stats.sharpness, faceRatio, hands, pose, face,
+        )
+        landmarkLog?.let { synchronized(it) { if (it.size < MAX_LANDMARK_FRAMES) it.add(record) } }
+        lastImageW = info.w
+        lastImageH = info.h
+        if (!emitAnalysisEvents) return
+        emit("analysisFrame", JSObject().apply {
+            put("seq", info.seq)
+            put("tsNs", info.tsNs.toString())
+            put("imageW", info.w)
+            put("imageH", info.h)
+            if (hands.isNotEmpty()) put("hands", com.getcapacitor.JSArray().apply {
+                hands.forEach { hd -> put(JSObject().apply { put("handedness", if (hd.labelRight) "Right" else "Left"); put("score", hd.score.toDouble()); put("lm", b64(hd.pts)) }) }
+            })
+            if (pose != null) put("pose", JSObject().apply { put("lm", b64(pose)) })
+            if (face != null) put("face", JSObject().apply {
+                put("lm", b64(face.pts)); face.blend?.let { put("blendshapes", b64(it)) }
+                put("yawDeg", face.yaw.toDouble()); put("pitchDeg", face.pitch.toDouble()); put("rollDeg", face.roll.toDouble())
+            })
+            put("counts", JSObject().apply { put("hands", hands.size); put("poses", poseCount); put("faces", faceCount) })
+            put("stats", JSObject().apply {
+                put("lumaMean", info.stats.lumaMean.toDouble()); put("clippedFrac", info.stats.clippedFrac.toDouble()); put("sharpness", info.stats.sharpness.toDouble())
+                faceRatio?.let { put("faceLumaRatio", it.toDouble()) }
+            })
+            put("trackerStatus", JSObject().apply {
+                put("hand", statusNames[j.statusOf("hand")]); put("pose", statusNames[j.statusOf("pose")]); put("face", statusNames[j.statusOf("face")])
+            })
+            put("emitNs", SystemClock.elapsedRealtimeNanos().toString())
+            put("procMs", (System.nanoTime() - info.startNs) / 1e6)
+            put("prepMs", info.prepNs / 1e6)
+        })
     }
 
     /** Collects per-frame sharpness for [durationS] and returns the median (device baseline, §9.2). */
@@ -439,7 +578,10 @@ class CameraSession(
 
     /** Starts recording to [file]; the native timer stops it after [durationS] (decision 002). */
     @SuppressLint("MissingPermission")
-    fun startRecording(takeId: String, file: File, durationS: Double, onDone: (Outcome) -> Unit, started: (String?) -> Unit) {
+    fun startRecording(
+        takeId: String, file: File, durationS: Double, onDone: (Outcome) -> Unit, started: (String?) -> Unit,
+        stopBelowFreeBytes: Long = 0,
+    ) {
         main.execute {
             val vc = videoCapture
             if (vc == null) return@execute started("camera not open")
@@ -450,8 +592,12 @@ class CameraSession(
             // Log from the request on, so the first encoded frame is always in the log (k ≥ 0).
             recordingLog = log
             sensors.recordingLog = sLog
+            val lLog = ArrayList<LandmarkFormat.Record>()
+            landmarkLog = lLog
             val fps = actualFps
             stoppedEarly = false
+            interruptReason = null
+            var lastSpaceCheckNs = 0L
             onRecordingDone = onDone
             recordingTakeId = takeId
             recordingFile = file
@@ -479,12 +625,27 @@ class CameraSession(
                             if (event.recordingStats.recordedDurationNanos >= targetNs && stopIssued.compareAndSet(false, true)) {
                                 stopRecording(early = false)
                             }
+                            // §15 StorageLow: check about once a second; stop gracefully and keep the partial.
+                            val t = SystemClock.elapsedRealtimeNanos()
+                            if (stopBelowFreeBytes > 0 && t - lastSpaceCheckNs > 1_000_000_000L) {
+                                lastSpaceCheckNs = t
+                                if ((file.parentFile?.usableSpace ?: Long.MAX_VALUE) < stopBelowFreeBytes &&
+                                    stopIssued.compareAndSet(false, true)
+                                ) interrupt("storage_low")
+                            }
                         }
-                        is VideoRecordEvent.Finalize -> finalizeRecording(event, takeId, file, log, sLog, durationS, fps)
+                        is VideoRecordEvent.Finalize -> finalizeRecording(event, takeId, file, log, sLog, lLog, durationS, fps)
                         else -> Unit
                     }
                 }
         }
+    }
+
+    /** Ends the take now because of the system (§15); the partial is encrypted and kept for recovery. */
+    fun interrupt(reason: String) {
+        if (recording == null) return
+        interruptReason = reason
+        stopRecording(early = true)
     }
 
     fun stopRecording(early: Boolean) {
@@ -494,10 +655,12 @@ class CameraSession(
     }
 
     private fun finalizeRecording(
-        event: VideoRecordEvent.Finalize, takeId: String, file: File, log: TimestampLog, sLog: SensorLog, requestedS: Double, fps: Int,
+        event: VideoRecordEvent.Finalize, takeId: String, file: File, log: TimestampLog, sLog: SensorLog,
+        lLog: ArrayList<LandmarkFormat.Record>, requestedS: Double, fps: Int,
     ) {
         recordingLog = null
         sensors.recordingLog = null
+        landmarkLog = null
         recHandler.removeCallbacks(stopRunnable)
         recHandler.removeCallbacks(tickRunnable)
         val error = if (event.hasError() && event.error != VideoRecordEvent.Finalize.ERROR_DURATION_LIMIT_REACHED) {
@@ -518,7 +681,9 @@ class CameraSession(
                 mmr.release()
             }
         }
-        val outcome = Outcome(takeId, file, log, sLog, requestedS, fps, frames, durationS, stoppedEarly, error)
+        val landmarks = synchronized(lLog) { ArrayList(lLog) }
+        val outcome = Outcome(takeId, file, log, sLog, landmarks, requestedS, fps, frames, durationS, stoppedEarly, error, lastImageW, lastImageH, interruptReason)
+        interruptReason = null
         recording = null
         recordingTakeId = null
         recordingFile = null
@@ -535,6 +700,11 @@ class CameraSession(
             } catch (_: Exception) {
             }
             sensors.stop()
+            analysisExecutor.execute {
+                tracking?.close()
+                tracking = null
+                pendingFrames.clear()
+            }
             camera = null
             videoCapture = null
             provider = null
@@ -553,6 +723,8 @@ class CameraSession(
 
     companion object {
         const val CALIBRATION_FRAMES = 60
+        /** ≈ 2 min at 30 analysis fps; takes are ≤ 30 s. */
+        const val MAX_LANDMARK_FRAMES = 3600
         private const val PREF_STOP_LEAD = "stopLeadNs"
         const val DEFAULT_STOP_LEAD_NS = 110_000_000L
         const val MAX_STOP_LEAD_NS = 400_000_000L

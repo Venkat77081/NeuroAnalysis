@@ -113,7 +113,7 @@ export function CameraTest({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0" data-testid="camera-test">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-hidden="true" />
-      <div className="absolute inset-x-4 top-4 flex items-center justify-between gap-2">
+      <div className="absolute inset-x-4 top-[calc(1rem+var(--sat))] flex items-center justify-between gap-2">
         <span
           className="rounded-xl bg-[#0E1116] px-3 py-2 text-sm font-semibold text-white"
           data-testid="camera-test-stats"
@@ -128,7 +128,7 @@ export function CameraTest({ onClose }: { onClose: () => void }) {
           {t('common.close')}
         </button>
       </div>
-      <p className="absolute inset-x-4 bottom-6 m-0 rounded-xl bg-[#0E1116] px-3 py-2 text-xs text-[#B8C0CC]">
+      <p className="absolute inset-x-4 bottom-[calc(1.5rem+var(--sab))] m-0 rounded-xl bg-[#0E1116] px-3 py-2 text-xs text-[#B8C0CC]">
         {t('deviceCheck.cameraHint')}
       </p>
     </div>

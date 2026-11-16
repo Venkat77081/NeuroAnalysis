@@ -30,6 +30,8 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Fetch MediaPipe models (verified)
+        run: pnpm models
       - run: pnpm build:web
       - name: Install Playwright browser
         run: pnpm --filter @neurocapture/mobile exec playwright install --with-deps chromium
@@ -65,6 +67,8 @@ jobs:
       - name: Show Android SDK
         run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms"
       - run: pnpm install --frozen-lockfile
+      - name: Fetch MediaPipe models (verified)
+        run: pnpm models
       - run: pnpm build:web
       - run: pnpm --filter @neurocapture/mobile exec cap sync android
       - name: CaptureKit unit tests (JVM) and debug APK
@@ -105,11 +109,71 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
+      - name: Azurite (Azure Blob emulator, decision 037)
+        working-directory: .
+        run: |
+          npx --yes azurite@3.35.0 azurite-blob --silent --location "$RUNNER_TEMP/azurite" --skipApiVersionCheck --loose &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1 && break; sleep 1; done
       - run: pytest -q
+        env:
+          NC_REQUIRE_AZURITE: '1'
       - name: Alembic upgrade against Postgres
         run: alembic upgrade head
         env:
           NC_DATABASE_URL: postgresql+psycopg://neurocapture:ci-only-password@localhost:5432/neurocapture
+
+  dashboard:
+    name: Dashboards e2e (real platform + connector + FHIR stand-in)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e "backend[dev]" -e "connector[dev]"
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm --filter @neurocapture/dashboard exec playwright install --with-deps chromium
+      - name: Dashboards e2e and the no-identity scan (M14 acceptance)
+        run: pnpm e2e:dashboard
+        env:
+          NC_E2E_PYTHON: python
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-e2e
+          path: apps/dashboard/test-results
+          if-no-files-found: ignore
+
+  connector:
+    name: Connector (ruff, pytest with the platform, contract)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: connector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e "../backend[dev]" -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - name: Azurite (Azure Blob emulator, decision 037)
+        working-directory: .
+        run: |
+          npx --yes azurite@3.35.0 azurite-blob --silent --location "$RUNNER_TEMP/azurite" --skipApiVersionCheck --loose &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1 && break; sleep 1; done
+      - run: pytest -q
+        env:
+          NC_REQUIRE_AZURITE: '1'
+      - name: Connector image builds
+        run: docker build -t neurocapture-connector:ci .
 
   compose:
     name: docker compose up → /health

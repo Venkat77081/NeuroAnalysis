@@ -1,4 +1,6 @@
 import type {
+  AnalysisFrameEvent,
+  AppMode,
   BenchmarkOpts,
   BenchmarkProgressEvent,
   BenchmarkReport,
@@ -10,11 +12,36 @@ import type {
   PluginListenerHandle,
   PreviewTransform,
   RecordingResult,
+  SensorBatchEvent,
+  ThermalEvent,
+  ThermalStatus,
   StoredTake,
+  UploadConfig,
   UploadStatus,
 } from './definitions.ts';
+import { DEFAULT_UPLOAD_PROFILE } from './definitions.ts';
 import type { CaptureFixture } from './fixture.ts';
 import { PLUGIN_VERSION } from './version.ts';
+import type { TestConfig } from '@neurocapture/contracts-ts';
+import {
+  syntheticFrame,
+  syntheticTake,
+  type LandmarkFrame,
+  type ScenarioName,
+  type Side,
+  type TakeVariant,
+} from '@neurocapture/quality-core';
+import {
+  encodeAnalysisFrame,
+  encodeLandmarks,
+  recordFromEvent,
+  type LandmarkRecord,
+} from './landmarks.ts';
+import { bytesToBase64 } from './codec.ts';
+import { encodeSensors } from './streams.ts';
+import { FakeServer } from './upload/fake-server.ts';
+import { UploadClient, sha256Hex, type UploadError, type UploadJob } from './upload/protocol.ts';
+import type { LandmarksHeader } from '@neurocapture/contracts-ts/types';
 
 export interface Scheduler {
   now(): number; // ms
@@ -22,6 +49,18 @@ export interface Scheduler {
   clearInterval(handle: unknown): void;
   setTimeout(fn: () => void, ms: number): unknown;
   clearTimeout(handle: unknown): void;
+}
+
+/** Real-time scheduler, optionally sped up (mock/e2e only): `speed` 20 runs a 15 s take in 0.75 s. */
+export function scaledScheduler(speed = 1): Scheduler {
+  const t0 = Date.now();
+  return {
+    now: () => t0 + (Date.now() - t0) * speed,
+    setInterval: (fn, ms) => globalThis.setInterval(fn, ms / speed),
+    clearInterval: (h) => globalThis.clearInterval(h as ReturnType<typeof setInterval>),
+    setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms / speed),
+    clearTimeout: (h) => globalThis.clearTimeout(h as ReturnType<typeof setTimeout>),
+  };
 }
 
 const realScheduler: Scheduler = {
@@ -42,17 +81,30 @@ export interface MockOptions {
   benchmarkMinutesPerSecond?: number;
   /** Highest fps the simulated camera supports (default 60); 30 exercises the fallback (decision 007). */
   maxFps?: 60 | 30;
+  /** Frame rate the qualification benchmark (camera check) measures; default effectiveFps. */
+  benchmarkFps?: number;
 }
 
 /**
  * MockCaptureKit replays a recorded/synthetic fixture on a timer (DEV_PLAN §5.3).
  * Never valid for clinical data: capabilities report implementation "mock" and tier "W".
  */
+type UploadCfg = UploadConfig & { accessToken: string; refreshToken: string };
+
+const PROFILE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
+function profileOf(p: string | undefined): string {
+  const v = p ?? DEFAULT_UPLOAD_PROFILE;
+  if (!PROFILE.test(v)) throw new Error('invalid profile');
+  return v;
+}
+
 export class MockCaptureKit implements CaptureKitPlugin {
   private readonly fixture: CaptureFixture;
   private readonly sched: Scheduler;
   private readonly effectiveFps: number;
   private readonly droppedFrac: number;
+  /** Camera-check frame rate (e2e: `?benchFps=48` simulates a phone that is too slow). */
+  benchmarkFps: number | undefined;
   private listeners = new Map<CaptureKitEventName, Set<(e: never) => void>>();
   private frameTimer: unknown = null;
   private camera: OpenCameraOpts | null = null;
@@ -71,17 +123,33 @@ export class MockCaptureKit implements CaptureKitPlugin {
     tick: unknown;
   } | null = null;
   private evidence = new Map<string, string>();
-  private uploads = new Map<string, UploadStatus>();
   private readonly benchSpeed: number;
   private readonly mockMaxFps: 60 | 30;
   private benchCancel: (() => void) | null = null;
   private benchRunning = false;
+  /** Synthetic positioning scenario (M5); null = replay the fixture. */
+  private scenario: {
+    test: TestConfig;
+    name: ScenarioName;
+    side: Side | null;
+    take: TakeVariant;
+  } | null = null;
+  /** While recording with a scenario: synthetic take frames (movement) and their start time. */
+  private takeFrames: LandmarkFrame[] | null = null;
+  private takeStartNs = 0n;
+  private lastSyntheticNs = 0n;
+  /** landmarks.bin records per take, captured while recording (replay overlay). */
+  private landmarkRecords = new Map<string, LandmarkRecord[]>();
+  private sensorRecords = new Map<string, SensorBatchEvent['samples']>();
+  private lastImage: { w: number; h: number } | null = null;
+  private firstSampleNs = new Map<string, bigint>();
 
   constructor(opts: MockOptions) {
     this.fixture = opts.fixture;
     this.sched = opts.scheduler ?? realScheduler;
     this.effectiveFps = opts.effectiveFps ?? 59.8;
     this.droppedFrac = opts.droppedFrac ?? 0.004;
+    this.benchmarkFps = opts.benchmarkFps;
     this.benchSpeed = opts.benchmarkMinutesPerSecond ?? 60;
     this.mockMaxFps = opts.maxFps ?? 60;
   }
@@ -125,7 +193,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const totalS = (opts.recordMinutes + opts.thermalMinutes) * 60;
     const realMs = (totalS / 60 / this.benchSpeed) * 1000;
     const started = this.sched.now();
-    const fps = Math.min(opts.targetFps, this.effectiveFps);
+    const fps = Math.min(opts.targetFps, this.benchmarkFps ?? this.effectiveFps);
     const progress = (phase: BenchmarkProgressEvent['phase'], elapsedS: number) =>
       this.emit('benchmarkProgress', {
         phase,
@@ -220,6 +288,40 @@ export class MockCaptureKit implements CaptureKitPlugin {
     return { fileName: opts.fileName };
   }
 
+  private analysisFpsOverride: number | null = null;
+  private thermal: ThermalStatus = 'none';
+
+  private startFrameTimer(): void {
+    const opts = this.camera!;
+    if (this.frameTimer !== null) this.sched.clearInterval(this.frameTimer);
+    const fps = Math.min(opts.analysisFps, this.analysisFpsOverride ?? Infinity);
+    const periodMs = 1000 / (this.scenario ? fps : Math.min(fps, this.fixture.fps));
+    this.frameTimer = this.sched.setInterval(() => this.emitNextFrame(), periodMs);
+  }
+
+  async setAnalysisFps(opts: { fps: number | null }): Promise<void> {
+    if (!this.camera) throw new Error('camera not open');
+    this.analysisFpsOverride = opts.fps === null ? null : Math.max(1, opts.fps);
+    this.startFrameTimer();
+  }
+
+  /** Analysis rate in use (test helper). */
+  currentAnalysisFps(): number | null {
+    return this.camera
+      ? Math.min(this.camera.analysisFps, this.analysisFpsOverride ?? Infinity)
+      : null;
+  }
+
+  async getThermalStatus(): Promise<ThermalEvent> {
+    return { status: this.thermal };
+  }
+
+  /** Test helper: the phone heats up or cools down. */
+  setThermal(status: ThermalStatus): void {
+    this.thermal = status;
+    this.emit('thermal', { status });
+  }
+
   async cancelBenchmark(): Promise<void> {
     this.benchCancel?.();
   }
@@ -233,8 +335,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
       opts.targetFps > this.mockMaxFps && opts.fallbackFps ? opts.fallbackFps : opts.targetFps;
     this.startNs = BigInt(this.sched.now()) * 1_000_000n;
     this.frameIdx = 0;
-    const periodMs = 1000 / Math.min(opts.analysisFps, this.fixture.fps);
-    this.frameTimer = this.sched.setInterval(() => this.emitNextFrame(), periodMs);
+    this.analysisFpsOverride = null;
+    this.startFrameTimer();
     return {
       previewTransform: {
         scaleX: 1,
@@ -248,27 +350,176 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
+  /** Emit an analysis event and, while recording, keep it as a landmarks.bin record. */
+  private emitAnalysis(e: AnalysisFrameEvent): void {
+    this.emit('analysisFrame', e);
+    if (e.imageW && e.imageH) this.lastImage = { w: e.imageW, h: e.imageH };
+    if (this.recording && (this.camera?.trackers.length ?? 0) > 0)
+      this.landmarkRecords.get(this.recording.takeId)?.push(recordFromEvent(e));
+  }
+
+  /** Emit a sensor batch and, while recording, keep it for sensors.bin (like native SensorLog). */
+  private emitSensors(samples: SensorBatchEvent['samples']): void {
+    this.emit('sensorBatch', { samples });
+    if (this.recording) this.sensorRecords.get(this.recording.takeId)?.push(...samples);
+  }
+
+  async readSensors(opts: { takeId: string }): Promise<{ data: string | null }> {
+    const samples = this.sensorRecords.get(opts.takeId);
+    if (!samples) return { data: null };
+    const bytes = encodeSensors(
+      {
+        schemaVersion: '1.0.0',
+        stream: 'sensors',
+        takeId: opts.takeId,
+        clockSource: 'SIMULATED',
+        timestampSemantics: 'sensor_event_elapsed_realtime_ns',
+        recordSize: 24,
+        fields: [
+          { name: 'type', type: 'uint8' },
+          { name: 'pad', type: 'pad3' },
+          { name: 'tsNs', type: 'int64' },
+          { name: 'x', type: 'float32' },
+          { name: 'y', type: 'float32' },
+          { name: 'z', type: 'float32' },
+        ],
+      },
+      samples.map((x) => ({
+        type: x.type === 'gravity' ? 2 : 1,
+        tsNs: BigInt(x.tsNs),
+        x: x.x,
+        y: x.y,
+        z: x.z,
+      })),
+    );
+    return { data: bytesToBase64(bytes) };
+  }
+
+  async readLandmarks(opts: { takeId: string }): Promise<{ data: string | null }> {
+    const records = this.landmarkRecords.get(opts.takeId);
+    if (!records?.length) return { data: null };
+    const header: LandmarksHeader = {
+      schemaVersion: '1.0.0',
+      layout: 'NCLM-v1',
+      takeId: opts.takeId,
+      coordinateSystem: 'normalized_upright_analysis_frame',
+      orientation: this.camera?.orientation ?? 'portrait',
+      ...(this.lastImage ? { image: this.lastImage } : {}),
+      mirrored: false,
+      imageMirrored: false,
+      handednessLabels: 'mediapipe_raw',
+      timestampSemantics: 'camera_frame_canonical_elapsed_realtime_ns',
+      clockSource: 'SIMULATED',
+      record: { endianness: 'little', dtype: 'float32' },
+      trackers: (this.camera?.trackers.length ? this.camera.trackers : ['hand']).map((name) => ({
+        name,
+        modelVersion: 'mock',
+        pointsPerFrame: name === 'hand' ? 21 : name === 'pose' ? 33 : 478,
+        valuesPerPoint: name === 'face' ? 3 : 4,
+      })) as LandmarksHeader['trackers'],
+    };
+    return { data: bytesToBase64(encodeLandmarks(header, records)) };
+  }
+
+  /**
+   * Mock only: generate synthetic frames for a test and positioning scenario (good, too_far,
+   * dark, ...) instead of replaying the fixture, so the guidance UI can be exercised in a browser.
+   */
+  setScenario(
+    s: { test: TestConfig; name: ScenarioName; side?: Side | null; take?: TakeVariant } | null,
+  ): void {
+    this.scenario = s ? { ...s, side: s.side ?? null, take: s.take ?? 'normal' } : null;
+  }
+
+  private emitSyntheticFrame(sc: {
+    test: TestConfig;
+    name: ScenarioName;
+    side: Side | null;
+  }): void {
+    const cam = this.camera!;
+    const periodNs = BigInt(Math.round(1e9 / cam.analysisFps));
+    // Frame time from the (possibly sped-up) mock clock, so a take covers its full duration even
+    // when the browser delivers fewer timer ticks than requested.
+    const nowNs = BigInt(Math.round(this.sched.now() * 1e6));
+    const tNs = nowNs > this.lastSyntheticNs ? nowNs : this.lastSyntheticNs + 1n;
+    this.lastSyntheticNs = tNs;
+    this.frameIdx++;
+    const seq = this.seq++;
+    const { frame: still, sensors } = syntheticFrame(sc.test, sc.name, {
+      seq,
+      tNs,
+      orientation: cam.orientation,
+      side: sc.side,
+    });
+    // While recording, the patient performs the task (synthetic take with movement).
+    let frame = still;
+    if (this.recording && this.takeFrames) {
+      const k = Number((tNs - this.takeStartNs) / periodNs);
+      const moving = this.takeFrames[k];
+      if (moving) frame = { ...moving, seq, tNs };
+    }
+    this.emitAnalysis({
+      ...encodeAnalysisFrame(frame),
+      emitNs: (tNs + 5_000_000n).toString(),
+      procMs: 5,
+    });
+    this.emitSensors(
+      sensors.map((x) => ({
+        type: x.type,
+        tsNs: x.tNs.toString(),
+        x: x.x,
+        y: x.y,
+        z: x.z,
+      })),
+    );
+  }
+
   private emitNextFrame(): void {
+    if (this.scenario && this.camera) {
+      this.emitSyntheticFrame(this.scenario);
+      return;
+    }
     const frames = this.fixture.frames;
     if (!frames.length) return;
     const src = frames[this.frameIdx % frames.length]!;
     const loop = BigInt(Math.floor(this.frameIdx / frames.length));
     const loopNs = BigInt(Math.round(this.fixture.durationS * 1e9)) * loop;
     this.frameIdx++;
-    this.emit('analysisFrame', {
-      ...src,
+    // Like native: only trackers the camera was opened with produce data; the rest are 'off'.
+    const on = new Set(this.camera?.trackers ?? []);
+    const ts = this.startNs + loopNs + BigInt(src.tsNs);
+    const hands = on.has('hand') ? src.hands : undefined;
+    this.emitAnalysis({
       seq: this.seq++,
-      tsNs: (this.startNs + loopNs + BigInt(src.tsNs)).toString(),
+      tsNs: ts.toString(),
+      imageW: src.imageW,
+      imageH: src.imageH,
+      ...(hands ? { hands } : {}),
+      ...(on.has('pose') && src.pose ? { pose: src.pose } : {}),
+      ...(on.has('face') && src.face ? { face: src.face } : {}),
+      stats: src.stats,
+      trackerStatus: {
+        hand: on.has('hand') ? (hands?.length ? 'ok' : 'no_result') : 'off',
+        pose: on.has('pose') ? (src.pose ? 'ok' : 'no_result') : 'off',
+        face: on.has('face') ? (src.face ? 'ok' : 'no_result') : 'off',
+      },
+      counts: {
+        hands: hands?.length ?? 0,
+        poses: on.has('pose') && src.pose ? 1 : 0,
+        faces: on.has('face') && src.face ? 1 : 0,
+      },
+      emitNs: (ts + 5_000_000n).toString(),
+      procMs: 5,
     });
     // Emit the sensor batch(es) belonging to this frame's time slot.
     const slot = this.fixture.sensorBatches.filter((b) => b.tsNs === src.tsNs);
     for (const b of slot) {
-      this.emit('sensorBatch', {
-        samples: b.samples.map((s) => ({
+      this.emitSensors(
+        b.samples.map((s) => ({
           ...s,
           tsNs: (this.startNs + loopNs + BigInt(s.tsNs)).toString(),
         })),
-      });
+      );
     }
   }
 
@@ -276,11 +527,44 @@ export class MockCaptureKit implements CaptureKitPlugin {
     if (!this.camera) throw new Error('camera not open');
   }
 
+  private recovered: string[] = [];
+
+  /** Test helper: free storage reported to the app (§15 StorageLow). */
+  freeBytes = 64e9;
+
+  async getStorageStatus(): Promise<{ freeBytes: number; totalBytes: number }> {
+    return { freeBytes: this.freeBytes, totalBytes: 128e9 };
+  }
+
+  /** Test helper: the app goes to the background (or a call comes in) mid-recording. */
+  simulateBackground(): void {
+    if (this.recording) this.interrupt('app_backgrounded');
+  }
+
+  private interrupt(reason: string): void {
+    const rec = this.recording!;
+    this.sched.clearTimeout(rec.timer);
+    this.sched.clearInterval(rec.tick);
+    this.recording = null;
+    this.takeFrames = null;
+    this.recovered.push(rec.takeId); // partial kept encrypted, RetainedForRecovery
+    this.emit('recordingState', {
+      takeId: rec.takeId,
+      state: 'interrupted',
+      elapsedS: (this.sched.now() - rec.startedMs) / 1000,
+      reason,
+    });
+  }
+
   async startRecording(opts: {
     takeId: string;
     durationS: number;
+    minFreeBytes?: number;
+    stopBelowFreeBytes?: number;
   }): Promise<{ startedAtNs: string }> {
     if (!this.camera) throw new Error('camera not open');
+    if (opts.minFreeBytes !== undefined && this.freeBytes < opts.minFreeBytes)
+      throw Object.assign(new Error('storage low'), { code: 'STORAGE_LOW' });
     if (this.recording) throw new Error('already recording');
     if (!(opts.durationS > 0)) throw new Error('durationS must be > 0');
     if (this.takes.has(opts.takeId)) throw new Error('take already exists');
@@ -288,7 +572,12 @@ export class MockCaptureKit implements CaptureKitPlugin {
     const startedMs = this.sched.now();
     // Mirrors the native contract: the plugin's own timer ends the take at durationS.
     const timer = this.sched.setTimeout(() => this.finish(false), opts.durationS * 1000);
+    const stopBelow = opts.stopBelowFreeBytes ?? 0;
     const tick = this.sched.setInterval(() => {
+      if (this.recording && this.freeBytes < stopBelow) {
+        this.interrupt('storage_low');
+        return;
+      }
       if (this.recording) {
         this.emit('recordingState', {
           takeId: opts.takeId,
@@ -298,6 +587,17 @@ export class MockCaptureKit implements CaptureKitPlugin {
       }
     }, 100);
     this.recording = { takeId: opts.takeId, durationS: opts.durationS, startedMs, timer, tick };
+    this.landmarkRecords.set(opts.takeId, []);
+    this.sensorRecords.set(opts.takeId, []);
+    this.firstSampleNs.set(opts.takeId, BigInt(Math.round(startedMs)) * 1_000_000n);
+    if (this.scenario && this.camera) {
+      this.takeStartNs = BigInt(Math.round(this.sched.now() * 1e6));
+      this.firstSampleNs.set(opts.takeId, this.takeStartNs);
+      this.takeFrames = syntheticTake(this.scenario.test, this.scenario.take, {
+        fps: this.camera.analysisFps,
+        orientation: this.camera.orientation,
+      }).frames;
+    }
     this.emit('recordingState', { takeId: opts.takeId, state: 'recording', elapsedS: 0 });
     return { startedAtNs: (BigInt(startedMs) * 1_000_000n).toString() };
   }
@@ -312,6 +612,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.sched.clearTimeout(rec.timer);
     this.sched.clearInterval(rec.tick);
     this.recording = null;
+    this.takeFrames = null;
     const durationS = early
       ? Math.min((this.sched.now() - rec.startedMs) / 1000, rec.durationS)
       : rec.durationS;
@@ -339,8 +640,13 @@ export class MockCaptureKit implements CaptureKitPlugin {
         p95AbsDiffMs: 0.05,
         unmatchedSamples: 0,
         anchor: 'pattern',
+        firstSampleNs: (this.firstSampleNs.get(rec.takeId) ?? 0n).toString(),
       },
       sensorSamples: Math.round(durationS * 200),
+      landmarkFrames:
+        (this.camera?.trackers.length ?? 0) > 0
+          ? Math.round(durationS * (this.camera?.analysisFps ?? 30))
+          : null,
       sensorClockOffsetMs: 0,
       stopLeadMs: 110,
       encrypted: true,
@@ -403,7 +709,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     return {
       takes: [...this.takes].reverse().map((takeId) => ({
         takeId,
-        recovered: false,
+        recovered: this.recovered.includes(takeId),
         sizeBytes: 0,
         files: [
           'capture.json.enc',
@@ -417,12 +723,129 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
+  private secure = new Map<string, string>();
+
+  private checkKey(key: string): void {
+    if (!/^[a-z0-9][a-z0-9._-]{0,99}$/.test(key)) throw new Error('invalid key');
+  }
+
+  private checkWritable(key: string): void {
+    this.checkKey(key);
+    if (key.startsWith('sys.')) throw new Error('reserved key'); // app mode (M13): native only
+  }
+
+  async apiRequest(opts: {
+    method: 'GET' | 'POST';
+    path: string;
+    body?: string;
+    profile?: string;
+  }): Promise<{ json: string }> {
+    const allowed =
+      /^\/(patient\/(plan|sessions|me|requests|consent\/withdraw)|auth\/(connector-token|change-password)|clinic\/queue\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic\/requests\/[A-Za-z0-9]{1,40}\/not-done)$/;
+    if ((opts.method !== 'GET' && opts.method !== 'POST') || !allowed.test(opts.path))
+      throw new Error('not_allowed');
+    const cfg = this.uploadCfgs.get(profileOf(opts.profile));
+    if (!cfg) throw new Error('login_required');
+    const send = () =>
+      this.fakeServer.http(`${cfg.endpoint}${opts.path}`, {
+        method: opts.method,
+        headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' },
+        ...(opts.body !== undefined ? { body: opts.body } : {}),
+      });
+    let res = await send().catch(() => {
+      throw new Error('network');
+    });
+    if (res.status === 401) {
+      const r = await this.fakeServer.http(`${cfg.endpoint}${cfg.refreshPath ?? '/auth/refresh'}`, {
+        method: 'POST',
+        body: JSON.stringify({ refresh_token: cfg.refreshToken }),
+      });
+      if (r.status !== 200) throw new Error('login_required');
+      const t = (await r.json()) as { access_token: string; refresh_token: string };
+      cfg.accessToken = t.access_token;
+      cfg.refreshToken = t.refresh_token;
+      res = await send();
+      if (res.status === 401) throw new Error('login_required');
+    }
+    if (res.status >= 500) throw new Error('network');
+    const json = (await res.json().catch(() => null)) as unknown;
+    if (res.status >= 400)
+      throw new Error(
+        (json as { detail?: { code?: string } } | null)?.detail?.code ?? `http_${res.status}`,
+      );
+    return { json: JSON.stringify(json ?? null) };
+  }
+
+  // ── App mode (M13): set once; a clinic phone never opens patient mode ────────────────────
+  private appModeStore(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+    try {
+      if (globalThis.localStorage) return globalThis.localStorage;
+    } catch {
+      /* no storage (private mode, tests) */
+    }
+    const m = this.memAppMode;
+    return {
+      getItem: (k) => m.get(k) ?? null,
+      setItem: (k, v) => void m.set(k, v),
+      removeItem: (k) => void m.delete(k),
+    };
+  }
+  private memAppMode = new Map<string, string>();
+
+  async getAppMode(): Promise<{ mode: AppMode | null }> {
+    const v = this.appModeStore().getItem('nc.kit.app_mode');
+    return { mode: v === 'clinic' || v === 'patient' ? v : null };
+  }
+
+  async lockAppMode(opts: { mode: AppMode }): Promise<{ mode: AppMode }> {
+    if (opts.mode !== 'clinic' && opts.mode !== 'patient') throw new Error('invalid mode');
+    const { mode } = await this.getAppMode();
+    if (mode && mode !== opts.mode) throw new Error('mode_locked');
+    this.appModeStore().setItem('nc.kit.app_mode', opts.mode);
+    return { mode: opts.mode };
+  }
+
+  async resetDevice(): Promise<void> {
+    this.appModeStore().removeItem('nc.kit.app_mode');
+    this.secure.clear();
+    this.uploadCfgs.clear();
+    this.jobs.clear();
+    this.closes.clear();
+    this.diagnostics = [];
+    for (const id of [...this.takes.keys()])
+      await this.deleteTake({ takeId: id, reason: 'reset' }).catch(() => undefined);
+  }
+
+  async secureGet(opts: { key: string }): Promise<{ json: string | null }> {
+    this.checkKey(opts.key);
+    return { json: this.secure.get(opts.key) ?? null };
+  }
+
+  async securePut(opts: { key: string; json: string }): Promise<void> {
+    this.checkWritable(opts.key);
+    JSON.parse(opts.json);
+    this.secure.set(opts.key, opts.json);
+  }
+
+  async secureDelete(opts: { key: string }): Promise<void> {
+    this.checkWritable(opts.key);
+    this.secure.delete(opts.key);
+  }
+
+  async secureKeys(opts: { prefix: string }): Promise<{ keys: string[] }> {
+    return { keys: [...this.secure.keys()].filter((k) => k.startsWith(opts.prefix)).sort() };
+  }
+
+  async clockNow(): Promise<{ elapsedRealtimeNs: string }> {
+    return { elapsedRealtimeNs: (BigInt(Math.round(this.sched.now())) * 1_000_000n).toString() };
+  }
+
   async debugArmCrash(_opts: { afterS: number }): Promise<void> {
     // No process to kill in the browser; accepted so the engineering screen works in mock mode.
   }
 
   async getRecoveredTakes(): Promise<{ takeIds: string[] }> {
-    return { takeIds: [] };
+    return { takeIds: [...this.recovered] };
   }
 
   async calibrateSharpness(opts: {
@@ -440,30 +863,97 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.takes.delete(opts.takeId);
     this.results.delete(opts.takeId);
     this.playing.delete(opts.takeId);
+    this.landmarkRecords.delete(opts.takeId);
+    this.sensorRecords.delete(opts.takeId);
+    this.firstSampleNs.delete(opts.takeId);
     for (const k of [...this.evidence.keys()])
       if (k.startsWith(`${opts.takeId}/`)) this.evidence.delete(k);
-    this.uploads.delete(opts.takeId);
+    this.jobs.delete(opts.takeId);
+  }
+
+  // ── Uploads (M7): the real protocol client against an in-memory fake server ──────────────
+
+  /** Mock only: the fake API the uploads talk to (tests can drop the network or corrupt a part). */
+  readonly fakeServer = new FakeServer();
+  /** v3: one configuration per upload profile (hospital). */
+  private uploadCfgs = new Map<string, UploadCfg>();
+  private jobs = new Map<
+    string,
+    { job: UploadJob; status: UploadStatus; attempts: number; profile: string }
+  >();
+  private closes = new Map<string, string>();
+  private uploading = false;
+  private retryTimer: unknown = null;
+
+  async configureUploads(opts: UploadConfig): Promise<void> {
+    const profile = profileOf(opts.profile);
+    const old = this.uploadCfgs.get(profile);
+    const accessToken = opts.accessToken ?? old?.accessToken;
+    const refreshToken = opts.refreshToken ?? old?.refreshToken;
+    if (!accessToken || !refreshToken) {
+      return; // no sign-in yet: uploads keep waiting for login
+    }
+    this.uploadCfgs.set(profile, { ...opts, accessToken, refreshToken });
+    for (const j of this.jobs.values())
+      if (j.profile === profile && j.status.reason === 'login_required')
+        this.setUpload(j, { state: 'queued', reason: undefined });
+    this.kickUploads();
+  }
+
+  async clearUploadCredentials(opts?: { profile?: string }): Promise<void> {
+    this.uploadCfgs.delete(profileOf(opts?.profile));
   }
 
   async enqueueUpload(opts: {
     takeId: string;
-    sessionId: string;
-    endpoint: string;
-    token: string;
+    clientSessionId: string;
+    session: string;
+    take: string;
+    profile?: string;
   }): Promise<void> {
-    const status: UploadStatus = {
-      takeId: opts.takeId,
-      state: 'queued',
-      bytesSent: 0,
-      bytesTotal: 1,
-    };
-    this.uploads.set(opts.takeId, status);
-    this.emit('uploadProgress', status);
+    const profile = profileOf(opts.profile);
+    if (!this.takes.has(opts.takeId)) throw new Error('unknown take');
+    if (this.jobs.has(opts.takeId)) return; // idempotent
+    const files = this.mockFiles(opts.takeId);
+    this.jobs.set(opts.takeId, {
+      job: {
+        takeId: opts.takeId,
+        clientSessionId: opts.clientSessionId,
+        session: opts.session,
+        take: opts.take,
+        wrappedDataKey: 'bW9jay13cmFwcGVkLWtleQ==',
+        keyId: this.uploadCfgs.get(profile)?.serverKeyId ?? 'mock',
+      },
+      profile,
+      status: {
+        takeId: opts.takeId,
+        profile,
+        state: 'queued',
+        bytesSent: 0,
+        bytesTotal: files.kinds.reduce((a, k) => a + files.size(k), 0),
+      },
+      attempts: 0,
+    });
+    this.emit('uploadProgress', this.jobs.get(opts.takeId)!.status);
+    this.kickUploads();
+  }
+
+  private diagnostics: string[] = [];
+
+  async enqueueDiagnostic(opts: { body: string }): Promise<void> {
+    JSON.parse(opts.body);
+    this.diagnostics.push(opts.body);
+    this.kickUploads();
+  }
+
+  async enqueueSessionClose(opts: { clientSessionId: string; body: string }): Promise<void> {
+    this.closes.set(opts.clientSessionId, opts.body);
+    this.kickUploads();
   }
 
   async getUploadStatus(opts: { takeId: string }): Promise<UploadStatus> {
     return (
-      this.uploads.get(opts.takeId) ?? {
+      this.jobs.get(opts.takeId)?.status ?? {
         takeId: opts.takeId,
         state: 'failed_permanent',
         bytesSent: 0,
@@ -471,6 +961,188 @@ export class MockCaptureKit implements CaptureKitPlugin {
         reason: 'unknown take',
       }
     );
+  }
+
+  async listUploads(): Promise<{ uploads: UploadStatus[] }> {
+    return { uploads: [...this.jobs.values()].map((j) => j.status) };
+  }
+
+  async retryUploads(): Promise<void> {
+    for (const j of this.jobs.values())
+      if (j.status.state === 'failed_retryable' || j.status.state === 'failed_permanent') {
+        j.attempts = 0;
+        this.setUpload(j, { state: 'queued', reason: undefined });
+      }
+    this.kickUploads();
+  }
+
+  /** Mock only: simulate losing / regaining the network. */
+  setNetwork(online: boolean): void {
+    this.fakeServer.online = online;
+    if (online) this.kickUploads();
+  }
+
+  private setUpload(j: { status: UploadStatus }, patch: Partial<UploadStatus>): void {
+    j.status = { ...j.status, ...patch };
+    this.emit('uploadProgress', j.status);
+  }
+
+  /** Deterministic stand-ins for the encrypted take files (video + evidence). */
+  private mockFiles(takeId: string) {
+    let h = 0;
+    for (const c of takeId) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const enc = new TextEncoder();
+    const data = new Map<string, Uint8Array>();
+    const video = new Uint8Array(200_000);
+    for (let i = 0; i < video.length; i++) video[i] = (h + i * 7) & 0xff;
+    data.set('video', video);
+    for (const kind of ['quality', 'meta'] as const) {
+      const json = this.evidence.get(`${takeId}/${kind}.json`);
+      if (json) data.set(kind, enc.encode(json));
+    }
+    return {
+      kinds: [...data.keys()],
+      size: (k: string) => data.get(k)!.length,
+      sha256: (k: string) => sha256Hex(data.get(k)!),
+      read: async (k: string, off: number, len: number) => data.get(k)!.slice(off, off + len),
+      evidence: async (name: 'quality' | 'meta') => {
+        const json = this.evidence.get(`${takeId}/${name}.json`);
+        return json ? (JSON.parse(json) as unknown) : null;
+      },
+    };
+  }
+
+  private kickUploads(): void {
+    if (this.uploading) return;
+    this.uploading = true;
+    this.sched.setTimeout(() => void this.runUploads(), 0);
+  }
+
+  private async runUploads(): Promise<void> {
+    try {
+      for (const j of this.jobs.values()) {
+        if (j.status.state === 'completed' || j.status.state === 'failed_permanent') continue;
+        const cfg = this.uploadCfgs.get(j.profile);
+        if (!cfg) {
+          this.setUpload(j, { state: 'paused', reason: 'login_required' });
+          continue;
+        }
+        const client = new UploadClient(
+          this.fakeServer.http,
+          cfg.endpoint,
+          { access: cfg.accessToken, refresh: cfg.refreshToken },
+          (t) => {
+            cfg.accessToken = t.access;
+            cfg.refreshToken = t.refresh;
+          },
+          cfg.refreshPath ?? '/auth/refresh',
+        );
+        if (!j.job.serverSessionId) {
+          // Another take of the same session already created it (and learned its key).
+          const known = [...this.jobs.values()].find(
+            (o) =>
+              o.job.serverSessionId &&
+              o.job.clientSessionId === j.job.clientSessionId &&
+              o.profile === j.profile,
+          )?.job;
+          if (known)
+            j.job = {
+              ...j.job,
+              serverSessionId: known.serverSessionId,
+              sessionKeyId: known.sessionKeyId,
+              sessionKeyPem: known.sessionKeyPem,
+            };
+        }
+        this.setUpload(j, { state: 'uploading', reason: undefined });
+        try {
+          const { confirmedAt, job } = await client.run(
+            j.job,
+            this.mockFiles(j.job.takeId),
+            (sent, total) => this.setUpload(j, { bytesSent: sent, bytesTotal: total }),
+            // Mock: a recognisable stand-in for RSA-OAEP of the take key with this public key.
+            async (pem) =>
+              btoa(`mock-wrap:${(await sha256Hex(new TextEncoder().encode(pem))).slice(0, 16)}`),
+            (next) => (j.job = next),
+          );
+          j.job = job;
+          this.setUpload(j, { state: 'completed', confirmedAt });
+        } catch (e) {
+          const err = e as UploadError;
+          if (err.kind === 'auth') this.setUpload(j, { state: 'paused', reason: 'login_required' });
+          else if (err.kind === 'permanent')
+            this.setUpload(j, { state: 'failed_permanent', reason: err.message });
+          else {
+            j.attempts++;
+            this.setUpload(j, { state: 'failed_retryable', reason: 'network' });
+          }
+        }
+      }
+      // Close sessions whose takes are all uploaded (with the session's own profile).
+      for (const [clientSessionId, body] of this.closes) {
+        const mine = [...this.jobs.values()].filter(
+          (j) => j.job.clientSessionId === clientSessionId,
+        );
+        const sid = mine.find((j) => j.job.serverSessionId)?.job.serverSessionId;
+        if (!sid || mine.some((j) => j.status.state !== 'completed')) continue;
+        const cfg = this.uploadCfgs.get(mine[0]!.profile);
+        if (cfg)
+          try {
+            await new UploadClient(
+              this.fakeServer.http,
+              cfg.endpoint,
+              { access: cfg.accessToken, refresh: cfg.refreshToken },
+              () => undefined,
+            ).closeSession(sid, body);
+            this.closes.delete(clientSessionId);
+          } catch {
+            /* retried on the next run */
+          }
+      }
+      // Crash reports go once someone is signed in (they carry no patient data).
+      const cfg = [...this.uploadCfgs.values()][0];
+      if (cfg)
+        while (this.diagnostics.length) {
+          try {
+            await new UploadClient(
+              this.fakeServer.http,
+              cfg.endpoint,
+              { access: cfg.accessToken, refresh: cfg.refreshToken },
+              () => undefined,
+            ).sendDiagnostic(this.diagnostics[0]!);
+            this.diagnostics.shift();
+          } catch {
+            break; // retried on the next run
+          }
+        }
+      this.applyRetention();
+    } finally {
+      this.uploading = false;
+    }
+    // Exponential backoff for network failures (capped at 24 h, §15).
+    const waiting = [...this.jobs.values()].filter((j) => j.status.state === 'failed_retryable');
+    if (waiting.length && !this.retryTimer) {
+      const attempts = Math.max(...waiting.map((j) => j.attempts));
+      const delay = Math.min(24 * 3600_000, 2000 * 2 ** (attempts - 1));
+      this.retryTimer = this.sched.setTimeout(() => {
+        this.retryTimer = null;
+        this.kickUploads();
+      }, delay);
+    }
+  }
+
+  /** Delete local copies retentionHours after server confirmation (§14). */
+  private applyRetention(): void {
+    for (const j of this.jobs.values()) {
+      const hours = this.uploadCfgs.get(j.profile)?.retentionHours;
+      if (hours === undefined) continue;
+      if (j.status.state !== 'completed' || j.status.localDeleted || !j.status.confirmedAt)
+        continue;
+      if (Date.parse(j.status.confirmedAt) + hours * 3600_000 <= Date.now()) {
+        this.takes.delete(j.job.takeId);
+        this.results.delete(j.job.takeId);
+        this.setUpload(j, { localDeleted: true });
+      }
+    }
   }
 
   async addListener<E extends CaptureKitEventName>(
@@ -488,7 +1160,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     this.listeners.clear();
   }
 
-  private emit<E extends CaptureKitEventName>(eventName: E, event: CaptureKitEvents[E]): void {
+  protected emit<E extends CaptureKitEventName>(eventName: E, event: CaptureKitEvents[E]): void {
     for (const fn of this.listeners.get(eventName) ?? [])
       (fn as (e: CaptureKitEvents[E]) => void)(event);
   }

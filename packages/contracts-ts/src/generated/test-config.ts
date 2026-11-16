@@ -40,6 +40,12 @@ export interface TestConfig {
     targetFps: 60 | 30;
     minEffectiveFps: number;
     orientation: 'portrait' | 'landscape';
+    /**
+     * Orientations the operator may choose on the camera screen (default: orientation only). Must include orientation.
+     *
+     * @minItems 1
+     */
+    allowedOrientations?: ['portrait' | 'landscape', ...('portrait' | 'landscape')[]];
     lock: {
       ae: boolean;
       af: boolean;
@@ -64,7 +70,15 @@ export interface TestConfig {
     walkwayM?: number;
   };
   framing: {
-    overlay: 'hand_outline' | 'upper_body' | 'full_body' | 'face_oval';
+    overlay:
+      | 'hand_outline'
+      | 'upper_body'
+      | 'one_arm'
+      | 'upper_body_hands_up'
+      | 'upper_body_forearms'
+      | 'side_reach'
+      | 'full_body'
+      | 'face_oval';
     requiredLandmarks: {
       hand?: LandmarkList;
       pose?: LandmarkList;
@@ -98,7 +112,7 @@ export interface TestConfig {
     durationS: number;
     noMotionTimeoutS: number;
     /**
-     * Detector-specific parameters, or "TBD" until the protocol is defined.
+     * Detector parameters (DEV_PLAN §9.4, decision 018); keys depend on the detector and are checked by nc-validate. "TBD" until defined.
      */
     detectorParams?: 'TBD' | {};
   };

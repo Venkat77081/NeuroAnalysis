@@ -1,7 +1,9 @@
 import { validate } from '@neurocapture/contracts-ts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  decodeAnalysisFrame,
   MockCaptureKit,
+  scaledScheduler,
   sampleFixtures,
   decodeFloat32,
   encodeFloat32,
@@ -206,6 +208,37 @@ describe('MockCaptureKit', () => {
     await expect(kit.calibrateSharpness({ durationS: 3 })).rejects.toThrow(/not open/);
   });
 
+  it('only sends data for the trackers the camera was opened with', async () => {
+    const frames: AnalysisFrameEvent[] = [];
+    await kit.addListener('analysisFrame', (f) => frames.push(f));
+    await kit.openCamera({ ...openOpts, trackers: ['pose'] });
+    vi.advanceTimersByTime(100);
+    expect(frames[0]!.hands).toBeUndefined();
+    expect(frames[0]!.trackerStatus).toEqual({ hand: 'off', pose: 'no_result', face: 'off' });
+    expect(frames[0]!.counts).toEqual({ hands: 0, poses: 0, faces: 0 });
+    await kit.closeCamera();
+    frames.length = 0;
+    await kit.openCamera({ ...openOpts, trackers: ['hand'] });
+    vi.advanceTimersByTime(100);
+    expect(frames[0]!.hands).toHaveLength(1);
+    expect(frames[0]!.trackerStatus.hand).toBe('ok');
+    expect(BigInt(frames[0]!.emitNs!)).toBeGreaterThan(BigInt(frames[0]!.tsNs));
+    expect((await kit.clockNow()).elapsedRealtimeNs).toMatch(/^\d+$/);
+    await kit.closeCamera();
+  });
+
+  it('stores app data by key with a safe key format', async () => {
+    expect(await kit.secureGet({ key: 'patient.p1' })).toEqual({ json: null });
+    await kit.securePut({ key: 'patient.p1', json: '{"ref":"A1"}' });
+    await kit.securePut({ key: 'session.current', json: '{}' });
+    expect(await kit.secureGet({ key: 'patient.p1' })).toEqual({ json: '{"ref":"A1"}' });
+    expect(await kit.secureKeys({ prefix: 'patient.' })).toEqual({ keys: ['patient.p1'] });
+    await kit.secureDelete({ key: 'patient.p1' });
+    expect(await kit.secureKeys({ prefix: '' })).toEqual({ keys: ['session.current'] });
+    await expect(kit.securePut({ key: '../x', json: '{}' })).rejects.toThrow(/invalid key/);
+    await expect(kit.securePut({ key: 'x', json: '{' })).rejects.toThrow();
+  });
+
   it('marks an operator stop as stoppedEarly', async () => {
     await kit.openCamera(openOpts);
     await kit.startRecording({ takeId: 't2', durationS: 30 });
@@ -242,16 +275,31 @@ describe('MockCaptureKit', () => {
     expect(kit.readEvidence('t', 'quality.json')).toBeUndefined();
   });
 
-  it('queues uploads and reports status; listeners can be removed', async () => {
-    const seen: string[] = [];
-    const h = await kit.addListener('uploadProgress', (u) => seen.push(u.state));
-    await kit.enqueueUpload({ takeId: 't', sessionId: 's', endpoint: 'https://x', token: 'tok' });
-    expect((await kit.getUploadStatus({ takeId: 't' })).state).toBe('queued');
+  it('reports unknown uploads; listeners can be removed', async () => {
     expect((await kit.getUploadStatus({ takeId: 'nope' })).state).toBe('failed_permanent');
-    await h.remove();
-    await kit.enqueueUpload({ takeId: 't2', sessionId: 's', endpoint: 'https://x', token: 'tok' });
-    expect(seen).toEqual(['queued']);
+    await expect(
+      kit.enqueueUpload({ takeId: 'nope', clientSessionId: 's', session: '{}', take: '{}' }),
+    ).rejects.toThrow();
     await kit.removeAllListeners();
+  });
+});
+
+describe('scaledScheduler', () => {
+  it('runs time faster for mock/e2e', async () => {
+    vi.useFakeTimers();
+    const s = scaledScheduler(10);
+    const t0 = s.now();
+    let fired = 0;
+    s.setTimeout(() => fired++, 1000);
+    const h = s.setInterval(() => fired++, 1000);
+    vi.advanceTimersByTime(100);
+    expect(fired).toBe(2);
+    expect(s.now() - t0).toBe(1000);
+    s.clearInterval(h);
+    s.clearTimeout(s.setTimeout(() => fired++, 10));
+    vi.advanceTimersByTime(100);
+    expect(fired).toBe(2);
+    vi.useRealTimers();
   });
 });
 
@@ -259,5 +307,176 @@ describe('createCaptureKit', () => {
   it('uses the mock outside a native platform', () => {
     expect(createCaptureKit().implementation).toBe('mock');
     expect(createCaptureKit('native').implementation).toBe('native');
+  });
+});
+
+describe('MockCaptureKit synthetic scenarios (M5)', () => {
+  it('emits synthetic frames and sensor batches for the chosen test and scenario', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const test = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, '../../../config/tests/FA.json'), 'utf8'),
+    );
+    vi.useFakeTimers();
+    const kit = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] });
+    kit.setScenario({ test, name: 'face_turned' });
+    const frames: AnalysisFrameEvent[] = [];
+    let sensorBatches = 0;
+    await kit.addListener('analysisFrame', (e) => frames.push(e));
+    await kit.addListener('sensorBatch', () => sensorBatches++);
+    await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: ['face'],
+      analysisFps: 30,
+    });
+    vi.advanceTimersByTime(1000);
+    expect(frames.length).toBeGreaterThanOrEqual(29);
+    expect(sensorBatches).toBe(frames.length);
+    const f = decodeAnalysisFrame(frames[0]!);
+    expect(f.face?.yaw).toBe(20);
+    expect(f.image).toEqual({ w: 480, h: 854 });
+    await kit.closeCamera();
+    kit.setScenario(null);
+    vi.useRealTimers();
+  });
+});
+
+describe('MockCaptureKit replay landmarks', () => {
+  it('keeps the landmarks of a recorded take and the video start time', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { decodeLandmarks, base64ToBytes } = await import('../src/index.ts');
+    const test = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, '../../../config/tests/FT.json'), 'utf8'),
+    );
+    vi.useFakeTimers();
+    const kit = new MockCaptureKit({ fixture: sampleFixtures['ft-r-sample'] });
+    kit.setScenario({ test, name: 'good' });
+    await kit.openCamera({ ...openOpts, trackers: ['hand', 'pose'], orientation: 'landscape' });
+    await kit.startRecording({ takeId: 'tk-replay', durationS: 1 });
+    vi.advanceTimersByTime(1100);
+    const res = (await kit.listTakes()).takes.find((t) => t.takeId === 'tk-replay')!.result!;
+    expect(res.mp4?.firstSampleNs).toMatch(/^\d+$/);
+    const { data } = await kit.readLandmarks({ takeId: 'tk-replay' });
+    const file = decodeLandmarks(base64ToBytes(data!));
+    expect(file.records.length).toBeGreaterThanOrEqual(25);
+    expect(file.records[0]!.hands).toHaveLength(2);
+    expect((await kit.readLandmarks({ takeId: 'none' })).data).toBeNull();
+    await kit.closeCamera();
+    vi.useRealTimers();
+  });
+});
+
+describe('§15 recording interruptions (mock)', () => {
+  const open = async () => {
+    const kit = new MockCaptureKit({
+      fixture: sampleFixtures['ft-r-sample'],
+      scheduler: scaledScheduler(1000),
+    });
+    await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: [],
+      analysisFps: 30,
+    });
+    const events: { state: string; reason?: string }[] = [];
+    await kit.addListener('recordingState', (e) => events.push(e));
+    return { kit, events };
+  };
+
+  it('refuses to start below the free-space limit and stops gracefully when space runs out', async () => {
+    const { kit, events } = await open();
+    kit.freeBytes = 1e9;
+    await expect(
+      kit.startRecording({ takeId: 'low', durationS: 5, minFreeBytes: 2e9 }),
+    ).rejects.toMatchObject({ code: 'STORAGE_LOW' });
+    expect((await kit.getStorageStatus()).freeBytes).toBe(1e9);
+    kit.freeBytes = 3e9;
+    await kit.startRecording({
+      takeId: 'r1',
+      durationS: 5,
+      minFreeBytes: 2e9,
+      stopBelowFreeBytes: 5e8,
+    });
+    kit.freeBytes = 1e8;
+    await new Promise((r) => setTimeout(r, 30));
+    expect(events.at(-1)).toMatchObject({ state: 'interrupted', reason: 'storage_low' });
+    expect((await kit.getRecoveredTakes()).takeIds).toEqual(['r1']);
+  });
+
+  it('an app switch or incoming call mid-recording interrupts the take', async () => {
+    const { kit, events } = await open();
+    await kit.startRecording({ takeId: 'bg', durationS: 5 });
+    kit.simulateBackground();
+    expect(events.at(-1)).toMatchObject({ state: 'interrupted', reason: 'app_backgrounded' });
+    expect((await kit.listTakes()).takes.find((t) => t.takeId === 'bg')?.recovered).toBe(true);
+    await kit.startRecording({ takeId: 'bg2', durationS: 1 }); // camera still usable
+  });
+});
+
+describe('recorded evidence files (M8)', () => {
+  it('readSensors/readLandmarks return what was recorded, decodable for the verdict', async () => {
+    const { framesFromLandmarksFile, readingsFromSensorsFile, base64ToBytes } =
+      await import('../src/index.ts');
+    const kit = new MockCaptureKit({
+      fixture: sampleFixtures['ft-r-sample'],
+      scheduler: scaledScheduler(1000),
+    });
+    await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: ['hand', 'pose'],
+      analysisFps: 30,
+    });
+    let done = false;
+    await kit.addListener('recordingState', (e) => {
+      if (e.state === 'completed') done = true;
+    });
+    await kit.startRecording({ takeId: 'ev1', durationS: 1 });
+    while (!done) await new Promise((r) => setTimeout(r, 5));
+    const lm = await kit.readLandmarks({ takeId: 'ev1' });
+    const { header, frames } = framesFromLandmarksFile(base64ToBytes(lm.data!));
+    expect(frames.length).toBeGreaterThan(0);
+    expect(header.image).toEqual(frames[0]!.image);
+    const se = await kit.readSensors({ takeId: 'ev1' });
+    const readings = readingsFromSensorsFile(base64ToBytes(se.data!));
+    expect(readings.length).toBeGreaterThan(0);
+    expect(new Set(readings.map((r) => r.type))).toEqual(new Set(['gyro', 'gravity']));
+    expect((await kit.readSensors({ takeId: 'none' })).data).toBeNull();
+  });
+});
+
+describe('thermal policy hooks (M9)', () => {
+  it('reports thermal status and slows only the analysis rate', async () => {
+    const kit = new MockCaptureKit({
+      fixture: sampleFixtures['ft-r-sample'],
+      scheduler: scaledScheduler(1000),
+    });
+    await expect(kit.setAnalysisFps({ fps: 5 })).rejects.toThrow('camera not open');
+    const { actualFps } = await kit.openCamera({
+      facing: 'back',
+      resolution: '1080p',
+      targetFps: 60,
+      orientation: 'portrait',
+      trackers: ['hand'],
+      analysisFps: 30,
+    });
+    const seen: string[] = [];
+    await kit.addListener('thermal', (t) => seen.push(t.status));
+    kit.setThermal('severe');
+    expect(seen).toEqual(['severe']);
+    expect((await kit.getThermalStatus()).status).toBe('severe');
+    await kit.setAnalysisFps({ fps: 5 });
+    expect(kit.currentAnalysisFps()).toBe(5);
+    expect(actualFps).toBe(60); // recording rate untouched
+    await kit.setAnalysisFps({ fps: null });
+    expect(kit.currentAnalysisFps()).toBe(30);
   });
 });

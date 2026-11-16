@@ -42,6 +42,14 @@ services:
       NC_S3_ACCESS_KEY: neurocapture
       NC_S3_SECRET_KEY: dev-only-password
       NC_S3_BUCKET: neurocapture-takes
+      # Decision 019: local storage by default (signed part URLs served by this API).
+      NC_STORAGE: ${NC_STORAGE:-local}
+      NC_STORAGE_DIR: /data/storage
+      NC_PUBLIC_BASE_URL: ${NC_PUBLIC_BASE_URL:-http://localhost:8000}
+      NC_JWT_SECRET: ${NC_JWT_SECRET:-dev-only-change-me}
+      # M8 readiness: test configs + biomarker registry (read-only from the repo).
+      NC_CONFIG_DIR: /srv/config
+    volumes: [takedata:/data/storage, ./config:/srv/config:ro]
     ports: ['8000:8000']
     depends_on:
       postgres: { condition: service_healthy }
@@ -57,6 +65,36 @@ services:
       timeout: 3s
       retries: 20
 
+  # M11: a managed-mode connector for one clinic (dummy e-mail/SMS; set NCC_* for a real setup).
+  #   NCC_SITE_ID=<site id> docker compose --profile connector up -d connector
+  # Register its public key in the hospital dashboard: docker compose exec connector cat /data/connector.pub
+  connector:
+    profiles: ['connector']
+    build: ./connector
+    image: neurocapture-connector:dev
+    command:
+      - sh
+      - -c
+      - >-
+        [ -f /data/signing.pem ] || python -m ncconnector keygen --out /data/signing.pem > /data/connector.pub;
+        exec uvicorn ncconnector.main:app --host 0.0.0.0 --port 8100
+    environment:
+      NCC_SITE_ID: ${NCC_SITE_ID:-dev-site}
+      NCC_PLATFORM_URL: http://api:8000
+      # Required (decision 027): the SHA-256 shown in the hospital dashboard → Data connections.
+      NCC_PLATFORM_KEY_SHA256: ${NCC_PLATFORM_KEY_SHA256:-}
+      NCC_SIGNING_KEY_PATH: /data/signing.pem
+      NCC_DATABASE_URL: sqlite+pysqlite:////data/connector.db
+      NCC_RECORDS: ${NCC_RECORDS:-fhir}
+      NCC_FHIR_BASE_URL: ${NCC_FHIR_BASE_URL:-http://fhir.invalid/fhir}
+      NCC_CORS_ORIGINS: ${NCC_CORS_ORIGINS:-http://localhost:5174}
+    volumes: [connectordata:/data]
+    ports: ['8100:8100']
+    depends_on:
+      api: { condition: service_healthy }
+
 volumes:
+  connectordata:
   pgdata:
   miniodata:
+  takedata:

@@ -81,6 +81,36 @@ class TakeVaultTest {
         assertFalse(dir.exists())
     }
 
+    @Test fun encryptionFailureKeepsPlaintextPrivatelyAndRetriesAtNextStart() {
+        val broken = object : Aead {
+            override fun encrypt(plaintext: ByteArray, associatedData: ByteArray): ByteArray = throw java.security.GeneralSecurityException("keystore")
+            override fun decrypt(ciphertext: ByteArray, associatedData: ByteArray): ByteArray = throw java.security.GeneralSecurityException("keystore")
+        }
+        val dir = File(root, "enc-fail").apply { mkdirs() }
+        File(dir, "video.mp4").writeBytes(ByteArray(500) { 1 })
+        assertEquals(listOf("enc-fail"), TakeVault(root, broken).recover())
+        assertTrue("plaintext kept for a retry", File(dir, "video.mp4").exists())
+        assertFalse(File(dir, "video.mp4.enc").exists())
+        assertTrue(File(dir, TakeVault.ENCRYPT_PENDING).exists())
+        // Next start, keystore works again: encrypted, plaintext gone, pending mark cleared.
+        TakeVault(root, master).recover()
+        assertFalse(File(dir, "video.mp4").exists())
+        assertTrue(File(dir, "video.mp4.enc").exists())
+        assertFalse(File(dir, TakeVault.ENCRYPT_PENDING).exists())
+    }
+
+    @Test fun dataKeyExportFitsOneRsaOaepBlock() {
+        val vault = TakeVault(root, master)
+        vault.writeText("k1", "meta.json", "{}")
+        val key = vault.exportDataKeyForWrapping("k1")
+        assertTrue("keyset ${key.size} B must fit RSA-2048 OAEP-SHA256 (190 B)", key.size in 1..190)
+        try {
+            vault.exportDataKeyForWrapping("none")
+            fail("a take without a key has nothing to export")
+        } catch (_: IllegalArgumentException) {
+        }
+    }
+
     @Test fun rejectsUnsafeTakeIds() {
         try {
             TakeVault(root, master).takeDir("../x")

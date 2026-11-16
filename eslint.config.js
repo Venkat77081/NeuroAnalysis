@@ -10,8 +10,10 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/coverage/**',
       '**/android/**',
+      'apps/mobile/public/mediapipe/**',
       '**/ios/**',
       'backend/**',
+      'connector/**',
       'packages/contracts-ts/src/generated/**',
       '**/playwright-report/**',
       '**/test-results/**',
@@ -30,7 +32,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/mobile/**/*.{ts,tsx}'],
+    // Node scripts (tools)
+    files: ['**/*.mjs'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    files: ['apps/mobile/**/*.{ts,tsx}', 'apps/dashboard/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
   },

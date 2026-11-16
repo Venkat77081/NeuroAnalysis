@@ -1,0 +1,88 @@
+{
+  "name": "fa-mouth-corner-off-image",
+  "testCode": "FA",
+  "landmarksFile": "fa-mouth-corner-off-image.landmarks.bin",
+  "evidence": {
+    "effectiveFps": 59.9,
+    "durationS": 15,
+    "trackers": [
+      "face"
+    ],
+    "movementWindow": null,
+    "phases": [],
+    "sensors": true,
+    "handsNeeded": 1,
+    "poseMinVisibility": 0.5,
+    "handMinScore": 0.6,
+    "startNs": "1000000000"
+  },
+  "expected": {
+    "registryVersion": "REG@0.3.0",
+    "items": {
+      "FA1": {
+        "status": "COMPUTABLE"
+      },
+      "FA2": {
+        "status": "COMPUTABLE"
+      },
+      "FA3": {
+        "status": "COMPUTABLE"
+      },
+      "FA4": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": [
+          "landmarks"
+        ]
+      },
+      "FA5": {
+        "status": "COMPUTABLE"
+      },
+      "FA6": {
+        "status": "COMPUTABLE"
+      },
+      "FA7": {
+        "status": "COMPUTABLE"
+      },
+      "FA8": {
+        "status": "COMPUTABLE"
+      },
+      "FA9": {
+        "status": "COMPUTABLE"
+      },
+      "FA10": {
+        "status": "COMPUTABLE"
+      },
+      "FA11": {
+        "status": "COMPUTABLE"
+      },
+      "FA12": {
+        "status": "COMPUTABLE"
+      },
+      "FA13": {
+        "status": "COMPUTABLE"
+      },
+      "FA14": {
+        "status": "PARTIAL",
+        "reason": "required landmarks visible in 50% of frames; needs 90%",
+        "retakeFixable": true,
+        "missing": [
+          "landmarks"
+        ]
+      },
+      "FA15": {
+        "status": "COMPUTABLE"
+      },
+      "FA16": {
+        "status": "COMPUTABLE"
+      },
+      "FA17": {
+        "status": "COMPUTABLE"
+      },
+      "FA18": {
+        "status": "COMPUTABLE"
+      }
+    }
+  }
+}

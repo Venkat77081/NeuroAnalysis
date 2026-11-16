@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "FTF@1.1.0",
+  "configVersion": "FTF@2.4.0",
   "code": "FTF",
   "name": "Finger-to-Finger",
   "biomarkers": [
@@ -30,9 +30,9 @@
     "facing": "back",
     "resolution": "1080p",
     "targetFps": 60,
-    "fallbackFps": 30,
-    "minEffectiveFps": 29.5,
-    "orientation": "landscape",
+    "minEffectiveFps": 59,
+    "orientation": "portrait",
+    "allowedOrientations": ["portrait", "landscape"],
     "lock": {
       "ae": true,
       "af": true,
@@ -46,10 +46,10 @@
     "view": "front_centred",
     "distanceM": [1.5, 2.0],
     "heightRef": "chest",
-    "checklist": ["phone_on_stand", "light_in_front", "seated_no_armrest", "space_to_extend_arms"]
+    "checklist": ["phone_on_stand", "light_in_front", "seated_no_armrest", "sleeve_rolled"]
   },
   "framing": {
-    "overlay": "upper_body",
+    "overlay": "upper_body_hands_up",
     "requiredLandmarks": {
       "pose": [0, 11, 12, 13, 14, 15, 16],
       "hand": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
@@ -67,7 +67,15 @@
     "detector": "ftf_cycle_counter",
     "durationS": 15,
     "noMotionTimeoutS": 3,
-    "detectorParams": "TBD"
+    "detectorParams": {
+      "minCutoff": 3,
+      "beta": 0.5,
+      "motionThreshold": 0.1,
+      "motionWindowS": 0.8,
+      "minProminence": 0.15,
+      "minDistanceS": 0.4,
+      "minEvents": 3
+    }
   },
   "verdict": {
     "minLandmarkVisibleFrac": 0.95,

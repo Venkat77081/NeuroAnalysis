@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://neurocapture.local/contracts/session-config.schema.json",
   "title": "SessionConfig",
-  "description": "Test order and session rules (DEV_PLAN §8.3). Schema version 1.0.0.",
+  "description": "Test order and session rules (DEV_PLAN \u00a78.3). Schema version 1.0.0.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,11 +12,19 @@
     "maxRetakes",
     "skipReasons",
     "overrideReasons",
-    "medStates"
+    "abortReasons",
+    "medStates",
+    "countdownS",
+    "consentVersion"
   ],
   "properties": {
-    "schemaVersion": { "const": "1.0.0" },
-    "configVersion": { "type": "string", "pattern": "^SESSION@[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "configVersion": {
+      "type": "string",
+      "pattern": "^SESSION@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
     "order": {
       "type": "array",
       "minItems": 1,
@@ -25,17 +33,194 @@
         "type": "array",
         "minItems": 2,
         "maxItems": 2,
-        "prefixItems": [{ "enum": ["FT", "FTF", "FR", "SAW", "FA"] }, { "enum": ["R", "L", null] }]
+        "prefixItems": [
+          {
+            "enum": ["FT", "FTF", "FR", "SAW", "FA"]
+          },
+          {
+            "enum": ["R", "L", null]
+          }
+        ]
       }
     },
-    "maxRetakes": { "type": "integer", "minimum": 0, "maximum": 10 },
-    "skipReasons": { "$ref": "#/$defs/ReasonList" },
-    "overrideReasons": { "$ref": "#/$defs/ReasonList" },
+    "maxRetakes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "skipReasons": {
+      "$ref": "#/$defs/ReasonList"
+    },
+    "overrideReasons": {
+      "$ref": "#/$defs/ReasonList"
+    },
+    "abortReasons": {
+      "$ref": "#/$defs/ReasonList",
+      "description": "Reasons for ending a session before all tests are done."
+    },
     "medStates": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "enum": ["ON", "OFF", "NA"] }
+      "items": {
+        "enum": ["ON", "OFF", "NA"]
+      }
+    },
+    "countdownS": {
+      "description": "Countdown before each recording starts (beep at each second).",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10
+    },
+    "consentVersion": {
+      "description": "Version of the consent text shown on Session home; saved with every session.",
+      "type": "string",
+      "pattern": "^CONSENT@[0-9]+\\.[0-9]+$"
+    },
+    "minFpsOptions": {
+      "description": "Frame-rate limits a doctor may choose in settings instead of each test's minEffectiveFps (decision 015).",
+      "type": "array",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 60
+      }
+    },
+    "upload": {
+      "description": "Upload rules (M7). Local copies are deleted retentionHours after the server confirms all checksums.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultRetentionHours",
+        "retentionHoursOptions",
+        "wifiOnlyDefault",
+        "defaultEndpoint"
+      ],
+      "properties": {
+        "defaultRetentionHours": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 720
+        },
+        "retentionHoursOptions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 720
+          }
+        },
+        "wifiOnlyDefault": {
+          "type": "boolean"
+        },
+        "defaultEndpoint": {
+          "description": "Server address prefilled on the setup screen; fake://api is the built-in test server (mock mode).",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "storage": {
+      "description": "Free-space rules (DEV_PLAN \u00a715 StorageLow): no new take below minFreeGbToStart; a take in progress stops gracefully below stopBelowMb.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minFreeGbToStart", "stopBelowMb"],
+      "properties": {
+        "minFreeGbToStart": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 64
+        },
+        "stopBelowMb": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 10000
+        }
+      }
+    },
+    "thermal": {
+      "description": "M9 thermal policy (DEV_PLAN M9): from the Android thermal status, first lower the analysis rate, then hide overlays; never the recording frame rate. Levels apply at that status and above.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["moderate", "severe", "critical"],
+      "properties": {
+        "moderate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["analysisFps", "overlays", "warn", "blockNewTakes"],
+          "properties": {
+            "analysisFps": {
+              "description": "Analysis (tracking) rate at this level; the recording frame rate never changes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            },
+            "overlays": {
+              "description": "false = hide the landmark overlay (non-essential drawing)",
+              "type": "boolean"
+            },
+            "warn": {
+              "type": "boolean"
+            },
+            "blockNewTakes": {
+              "description": "Ask the operator to let the phone cool before the next take.",
+              "type": "boolean"
+            }
+          }
+        },
+        "severe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["analysisFps", "overlays", "warn", "blockNewTakes"],
+          "properties": {
+            "analysisFps": {
+              "description": "Analysis (tracking) rate at this level; the recording frame rate never changes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            },
+            "overlays": {
+              "description": "false = hide the landmark overlay (non-essential drawing)",
+              "type": "boolean"
+            },
+            "warn": {
+              "type": "boolean"
+            },
+            "blockNewTakes": {
+              "description": "Ask the operator to let the phone cool before the next take.",
+              "type": "boolean"
+            }
+          }
+        },
+        "critical": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["analysisFps", "overlays", "warn", "blockNewTakes"],
+          "properties": {
+            "analysisFps": {
+              "description": "Analysis (tracking) rate at this level; the recording frame rate never changes.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60
+            },
+            "overlays": {
+              "description": "false = hide the landmark overlay (non-essential drawing)",
+              "type": "boolean"
+            },
+            "warn": {
+              "type": "boolean"
+            },
+            "blockNewTakes": {
+              "description": "Ask the operator to let the phone cool before the next take.",
+              "type": "boolean"
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {
@@ -43,8 +228,13 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^[a-z_]+$" },
-      "contains": { "const": "other" }
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z_]+$"
+      },
+      "contains": {
+        "const": "other"
+      }
     }
   }
 }

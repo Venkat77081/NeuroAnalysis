@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "1.0.0",
+  "configVersion": "PLATFORM@1.6.0",
+  "invites": {
+    "patientTtlDays": 7,
+    "staffTtlDays": 7,
+    "deviceCodeTtlHours": 24,
+    "deviceCodeLength": 10
+  },
+  "passwords": {
+    "minLength": 10,
+    "temporaryLength": 14
+  },
+  "patientPin": {
+    "minDigits": 4,
+    "maxDigits": 6,
+    "maxFailures": 5
+  },
+  "staff": {
+    "twoStepRequired": true,
+    "maxFailedLogins": 10,
+    "resetTtlHours": 24,
+    "resetReasons": ["forgot_password", "lost_phone", "misuse"]
+  },
+  "consentVersion": "home-consent@1",
+  "defaultPlan": {
+    "tests": ["FT", "FTF", "FR", "SAW", "FA"],
+    "everyDays": 7,
+    "medState": "OFF"
+  },
+  "app": {
+    "operatorAutoLockMin": 5,
+    "patientAutoLockMin": 2,
+    "homeSawNeedsHelper": true
+  },
+  "operators": {
+    "maxFailedLogins": 10
+  },
+  "requests": {
+    "defaultDueDaysBefore": 1,
+    "rerecordDueDays": 3,
+    "reminderHoursBefore": 24,
+    "appointmentWindowDays": 7,
+    "clinicNotDoneReasons": ["did_not_attend", "unwell", "refused", "no_time", "other"],
+    "clinicQueueMaxHours": 48
+  },
+  "permissions": {
+    "patients.search": {
+      "group": "patients",
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "invites.send": {
+      "group": "patients",
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "appointments.view": {
+      "group": "appointments",
+      "default": ["receptionist", "doctor"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "appointments.add": {
+      "group": "appointments",
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "appointments.assign": {
+      "group": "appointments",
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "requests.send": {
+      "group": "requests",
+      "default": ["doctor"],
+      "eligible": ["doctor"]
+    },
+    "requests.rerecord": {
+      "group": "requests",
+      "default": ["doctor"],
+      "eligible": ["doctor"]
+    },
+    "clinic.record": {
+      "group": "clinic",
+      "default": ["operator"],
+      "eligible": ["operator"]
+    },
+    "setup.team": {
+      "group": "setup",
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "setup.phones": {
+      "group": "setup",
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "setup.connections": {
+      "group": "setup",
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "setup.activity": {
+      "group": "setup",
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
+    }
+  },
+  "deviceCheck": {
+    "minFps": 55,
+    "warnBelowFps": 59,
+    "durationS": 20,
+    "facing": "back",
+    "resolution": "1080p",
+    "usageDays": 30
+  }
+}

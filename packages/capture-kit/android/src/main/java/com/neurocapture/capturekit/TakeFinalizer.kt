@@ -88,6 +88,9 @@ object TakeFinalizer {
         offsetNs: Long?,
         sensorClockOffsetMs: Double?,
         stopLeadMs: Double? = null,
+        trackers: List<String> = emptyList(),
+        orientation: String = "portrait",
+        mirrored: Boolean = false,
     ): JSObject {
         val takeId = o.takeId
         val canonical = o.log.canonicalSnapshot()
@@ -104,6 +107,12 @@ object TakeFinalizer {
                 StreamFormat.framesHeader(takeId, clock, if (timestampRealtime) null else offsetNs, targetFps, o.actualFps, alignment),
                 o.log.frameNumberSnapshot(), sensor, canonical,
             )
+        }
+        if (trackers.isNotEmpty()) {
+            vault.openEncrypting(takeId, "landmarks.bin").use { out ->
+                LandmarkFormat.writeHeader(out, LandmarkFormat.header(takeId, orientation, mirrored, clock, trackers, o.imageW, o.imageH))
+                o.landmarks.forEach { LandmarkFormat.writeRecord(out, it) }
+            }
         }
         vault.openEncrypting(takeId, "sensors.bin").use { out ->
             StreamFormat.writeSensors(out, StreamFormat.sensorsHeader(takeId, "REALTIME"), o.sensorLog)
@@ -136,8 +145,10 @@ object TakeFinalizer {
                 put("p95AbsDiffMs", alignment.p95AbsDiffMs)
                 put("unmatchedSamples", alignment.unmatchedSamples)
                 put("anchor", alignment.anchor)
+                canonical.getOrNull(alignment.firstRecordIndex)?.let { put("firstSampleNs", it.toString()) }
             })
             put("sensorSamples", o.sensorLog.size)
+            put("landmarkFrames", if (trackers.isNotEmpty()) o.landmarks.size else JSONObject.NULL)
             put("sensorClockOffsetMs", sensorClockOffsetMs ?: JSONObject.NULL)
             put("stopLeadMs", stopLeadMs ?: JSONObject.NULL)
             put("encrypted", encrypted)

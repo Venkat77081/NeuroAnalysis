@@ -10,9 +10,16 @@ import { basename, join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isSchemaName, schemaNames, type SchemaName } from './schemas.ts';
 import { validate, formatIssues, type ValidationIssue } from './validate.ts';
-import { checkSessionConfig, checkTestConfig } from './semantic.ts';
+import {
+  checkBiomarkerRegistry,
+  checkQualityConfig,
+  checkSessionConfig,
+  checkTestConfig,
+} from './semantic.ts';
 import type { TestConfig } from './generated/test-config.ts';
 import type { SessionConfig } from './generated/session-config.ts';
+import type { QualityConfig } from './generated/quality-config.ts';
+import type { BiomarkerRegistry } from './generated/biomarker-registry.ts';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -67,6 +74,27 @@ function runAll(): void {
   // 2b. Device tier thresholds
   const tiersFile = join(repoRoot, 'config/device-tiers.json');
   report(tiersFile, validateFile('device-tiers', tiersFile));
+  // 2c. Quality checks and rule engine
+  const qualityFile = join(repoRoot, 'config/quality.json');
+  const qIssues = validateFile('quality-config', qualityFile);
+  if (!qIssues.length) qIssues.push(...checkQualityConfig(readJson(qualityFile) as QualityConfig));
+  report(qualityFile, qIssues);
+  // 2d. Biomarker registry (M8)
+  const registryFile = join(repoRoot, 'config/biomarker-registry.json');
+  const rIssues = validateFile('biomarker-registry', registryFile);
+  if (!rIssues.length)
+    rIssues.push(...checkBiomarkerRegistry(readJson(registryFile) as BiomarkerRegistry, tests));
+  report(registryFile, rIssues);
+  // 2e. Platform accounts and invites (M10)
+  const platformFile = join(repoRoot, 'config/platform.json');
+  const pIssues = validateFile('platform-config', platformFile);
+  if (!pIssues.length) {
+    const pin = (readJson(platformFile) as { patientPin: { minDigits: number; maxDigits: number } })
+      .patientPin;
+    if (pin.minDigits > pin.maxDigits)
+      pIssues.push({ path: '/patientPin/minDigits', message: 'must not exceed maxDigits' });
+  }
+  report(platformFile, pIssues);
 
   // 3. Compatibility samples: valid must pass
   const samples = join(repoRoot, 'contracts/tests');

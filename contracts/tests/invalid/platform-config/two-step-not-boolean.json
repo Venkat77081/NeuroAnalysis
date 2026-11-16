@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "1.0.0",
+  "configVersion": "PLATFORM@1.3.0",
+  "invites": {
+    "patientTtlDays": 7,
+    "staffTtlDays": 7,
+    "deviceCodeTtlHours": 24,
+    "deviceCodeLength": 10
+  },
+  "passwords": {
+    "minLength": 10,
+    "temporaryLength": 14
+  },
+  "patientPin": {
+    "minDigits": 4,
+    "maxDigits": 6,
+    "maxFailures": 5
+  },
+  "staff": {
+    "twoStepRequired": "yes",
+    "maxFailedLogins": 10
+  },
+  "consentVersion": "home-consent@1",
+  "defaultPlan": {
+    "tests": ["FT", "FTF", "FR", "SAW", "FA"],
+    "everyDays": 7,
+    "medState": "OFF"
+  },
+  "app": {
+    "operatorAutoLockMin": 5,
+    "patientAutoLockMin": 2,
+    "homeSawNeedsHelper": true
+  },
+  "operators": {
+    "maxFailedLogins": 10
+  },
+  "requests": {
+    "defaultDueDaysBefore": 1,
+    "rerecordDueDays": 3,
+    "reminderHoursBefore": 24,
+    "appointmentWindowDays": 7
+  }
+}

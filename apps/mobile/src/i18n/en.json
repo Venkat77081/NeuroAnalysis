@@ -36,7 +36,8 @@
   "common": {
     "back": "Back",
     "close": "Close",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "continue": "Continue"
   },
   "deviceCheck": {
     "title": "Device check",
@@ -99,7 +100,8 @@
       "record_too_short": "recording ran {{value}} s of {{limit}} s",
       "thermal_too_short": "thermal run ran {{value}} s of {{limit}} s"
     },
-    "captureTest": "Capture test (M2)"
+    "captureTest": "Capture test (M2)",
+    "trackingTest": "Tracking test (M4)"
   },
   "captureTest": {
     "title": "Capture test (M2)",
@@ -134,5 +136,647 @@
     "noResult": "no result",
     "unmatched": "{{n}} unmatched",
     "stopLead": "stop lead {{ms}} ms"
+  },
+  "session": {
+    "home": {
+      "title": "New session",
+      "operator": "Operator {{id}}",
+      "patient": "Patient",
+      "choosePatient": "Choose or add a patient",
+      "newPatient": "New patient",
+      "change": "Change",
+      "ref": "Patient reference",
+      "refHint": "Clinic ID, not the name",
+      "yob": "Year of birth",
+      "sex": "Sex",
+      "sexes": {
+        "M": "Male",
+        "F": "Female",
+        "O": "Other"
+      },
+      "savePatient": "Save patient",
+      "born": "Born {{year}}",
+      "medState": "Medication state",
+      "med": {
+        "ON": "ON",
+        "OFF": "OFF",
+        "NA": "Not known"
+      },
+      "consent": "Consent recorded",
+      "consentDetail": "Consent form {{version}}",
+      "plan": "Today’s tests",
+      "planMeta": "{{count}} takes · about {{min}} min",
+      "start": "Start session",
+      "resume": "Session in progress",
+      "queueOnly": "Patient not in the queue? Ask the doctor to add a clinic recording for today. It appears in the queue after Refresh.",
+      "backToQueue": "Back to queue"
+    },
+    "intro": {
+      "testOf": "Test {{n}} of {{of}}",
+      "listen": "Listen",
+      "demo": "Play demo video",
+      "demoMissing": "Demo video coming soon",
+      "setup": "Camera setup",
+      "distance": "Distance",
+      "height": "Height",
+      "view": "View",
+      "checklist": "Before you record",
+      "skip": "Skip test",
+      "setUpCamera": "Set up camera",
+      "prev": "Previous test",
+      "end": "End session",
+      "done": "Already recorded: {{status}}. Record again, or go on.",
+      "next": "Next test"
+    },
+    "heightRef": {
+      "hand": "Hand level",
+      "chest": "Chest level",
+      "hip": "Hip level",
+      "eye": "Eye level"
+    },
+    "views": {
+      "front_offset_30deg": "30° to the side",
+      "front_centred": "Front, centred",
+      "side_90deg": "Side view",
+      "frontal_face": "Face-on"
+    },
+    "sides": {
+      "R": "Right",
+      "L": "Left"
+    },
+    "sideHand": {
+      "R": "Right hand",
+      "L": "Left hand"
+    },
+    "checklist": {
+      "sleeve_rolled": "Sleeve rolled up",
+      "phone_on_stand": "Phone on stand",
+      "light_in_front": "Light in front",
+      "seated_no_armrest": "Chair, no armrest",
+      "space_to_extend_arms": "Room to stretch arms",
+      "floor_tape_start": "Start mark on floor",
+      "floor_tape_5m": "5 m mark on floor",
+      "chair_no_armrest": "Chair, no armrest",
+      "clear_walkway": "Walkway clear",
+      "hair_off_face": "Hair off the face",
+      "examiner_in_frame": "Examiner's hand in view",
+      "floor_tape_turn": "Turn mark on floor (15 ft)"
+    },
+    "steps": {
+      "ft": {
+        "step1": "Patient sits facing the camera and raises both hands beside the shoulders, thumb and index finger of each hand touching.",
+        "step2": "Tap thumb and index finger together on both hands at the same time, opening as wide and tapping as fast as possible.",
+        "step3": "Keep tapping until the recording stops by itself (15 s)."
+      },
+      "ftf": {
+        "step1": "Patient sits facing the camera with both index fingers pointing to the ceiling.",
+        "step2": "Bring the two index fingertips together out in front of the chest, then point them to the ceiling again.",
+        "step3": "Repeat until the recording stops by itself (15 s)."
+      },
+      "fr": {
+        "step1": "Patient sits facing the camera, gently clenches both hands and holds the forearms horizontally in front of the chest.",
+        "step2": "Roll the hands around each other as fast as possible.",
+        "step3": "Keep rolling until the recording stops by itself (15 s)."
+      },
+      "saw": {
+        "step1": "Patient sits on the chair at the start mark, side-on to the camera.",
+        "step2": "Stand up and walk to the turn mark (15 ft / 4.6 m), turn and walk back.",
+        "step3": "Keep walking back and forth until the recording stops by itself (45 s)."
+      },
+      "fa": {
+        "step1": "Patient looks at the camera and keeps the head still.",
+        "step2": "Lift the eyebrows as high as possible, make a big smile, then relax the face.",
+        "step3": "Do it all once more: eyebrows up, big smile, relax."
+      }
+    },
+    "framing": {
+      "hint": {
+        "hand_outline": "Place the hand inside the outline",
+        "upper_body": "Fit head, shoulders and both arms inside the outline",
+        "full_body": "Seat the patient inside the start box, side-on",
+        "face_oval": "Fit the face inside the oval",
+        "one_arm": "Fit head, shoulders and the tested arm inside the outline",
+        "side_reach": "Patient side-on, tested arm nearest the camera; examiner's finger inside the yellow box",
+        "upper_body_hands_up": "Fit head, upper body and both raised hands inside the outline",
+        "upper_body_forearms": "Fit head, upper body and both forearms inside the outline"
+      },
+      "mode": "{{res}} · {{fps}} fps · {{dur}} s take",
+      "record": "Start recording",
+      "interrupted": "The last take was interrupted. Record it again.",
+      "later": "Live positioning checks arrive in M5.",
+      "switchOrientation": "Switch camera orientation",
+      "orientation": {
+        "portrait": "⟲ Portrait",
+        "landscape": "⟲ Landscape"
+      },
+      "interruptedBy": {
+        "storage_low": "Storage ran low, so the take was stopped. Free up space, then record it again.",
+        "app_backgrounded": "The app left the screen (another app or a call), so the take was stopped. Record it again."
+      },
+      "storageLow": "Storage almost full: {{free}} GB free, {{need}} GB needed. Free up space to record.",
+      "thermal": {
+        "warm": "The phone is warm: tracking is slowed to save heat. Recording quality is not affected.",
+        "hot": "The phone is too hot. Let it cool for a few minutes (out of the sun, case off) before the next take."
+      }
+    },
+    "recording": {
+      "left": "{{s}} s left of {{total}} s",
+      "auto": "Stops by itself at {{total}} s",
+      "stopEarly": "Stop early",
+      "starting": "Starting…"
+    },
+    "review": {
+      "takeOf": "Take {{n}}",
+      "passed": "Capture passed",
+      "retake": "Retake needed",
+      "retakeNone": "Retake needed · none left",
+      "allOk": "All capture checks met.",
+      "play": "Play recording",
+      "duration": "Duration",
+      "fps": "Frame rate",
+      "dropped": "Dropped frames",
+      "droppedLogged": "logged, not checked",
+      "accept": "Accept · next test",
+      "retakeLeft": "Retake ({{n}} left)",
+      "retakeBtn": "Retake",
+      "keep": "Keep this take…",
+      "skip": "Skip test…",
+      "allUsed": "All {{n}} retakes used for this test"
+    },
+    "verdict": {
+      "recording_error": "The recording failed.",
+      "stopped_early": "Stopped early at {{durationS}} s (needs {{targetS}} s).",
+      "duration_short": "Recording was {{durationS}} s (needs {{targetS}} s).",
+      "fps_low": "Frame rate {{fps}} fps (needs at least {{min}}).",
+      "dropped_high": "{{pct}} % of frames dropped (max {{maxPct}} %).",
+      "no_motion": "Movement stopped for {{s}} s ({{from}}–{{to}} s).",
+      "protocol_incomplete": "The task was not carried out as instructed.",
+      "landmarks_low": "Body or hands were out of view too often ({{pct}} % visible, needs {{minPct}} %).",
+      "critical_events": "A serious problem happened during recording ({{n}}).",
+      "tracking_lost": "Tracking was lost for {{s}} s ({{from}}–{{to}} s).",
+      "sharpness_low": "The video was blurry.",
+      "key_points_hidden": "Key body points for this test were hidden too often. Keep the whole body part in view and retake."
+    },
+    "keep": {
+      "title": "Why keep this take?",
+      "failed": "This take failed because",
+      "reason": "Reason",
+      "note": "Describe the reason (required for Other)",
+      "flagNote": "The take is flagged for review. Your operator ID and the time are recorded.",
+      "confirm": "Keep and flag for review"
+    },
+    "skip": {
+      "title": "Why skip this test?",
+      "confirm": "Skip test"
+    },
+    "reasons": {
+      "override": {
+        "clinically_adequate": "Clinically adequate",
+        "patient_fatigue": "Patient fatigue",
+        "max_retakes_reached": "Maximum retakes reached",
+        "other": "Other"
+      },
+      "skip": {
+        "patient_unable": "Patient unable",
+        "patient_declined": "Patient declined",
+        "time_constraint": "Not enough time",
+        "equipment_issue": "Equipment problem",
+        "other": "Other",
+        "no_helper": "No helper for the walking test"
+      },
+      "abort": {
+        "patient_unwell": "Patient unwell",
+        "patient_withdrew": "Patient withdrew",
+        "time_constraint": "Out of time",
+        "equipment_issue": "Equipment problem",
+        "other": "Other"
+      }
+    },
+    "summary": {
+      "title": "Session complete",
+      "meta": "{{ref}} · Med {{med}} · {{min}} min",
+      "passed": "Passed",
+      "kept": "Kept · flagged",
+      "skipped": "Skipped",
+      "status": {
+        "accepted": "Passed",
+        "kept": "Kept · flagged",
+        "skipped": "Skipped",
+        "pending": "Not done"
+      },
+      "takes_one": "{{count}} take",
+      "takes_other": "{{count}} takes",
+      "reason": "Reason: {{reason}}",
+      "end": "End session",
+      "aborted": "Session ended early: {{reason}}. Tests not done are marked \"Not done\"."
+    },
+    "engineering": {
+      "title": "Engineering",
+      "deviceCheck": "Device check and capture tests",
+      "operatorId": "Operator ID",
+      "language": "Language",
+      "save": "Save",
+      "hint": "Long-press the logo to open this menu.",
+      "landmarks": "Show landmark overlay (debug)",
+      "gateAdvisory": "Record without the positioning gate (testing)",
+      "minFps": "Fail a take below (frame rate)",
+      "minFpsDefault": "Test default ({{fps}} fps)",
+      "minFpsOption": "{{fps}} fps"
+    },
+    "abort": {
+      "title": "End session early?",
+      "confirm": "End session"
+    },
+    "guidance": {
+      "prompt": {
+        "no_subject": "No one in view. Seat the patient in front of the camera",
+        "show_both_hands": "Keep both hands in view",
+        "show_body": "Keep the head, shoulders and arms in view",
+        "show_face": "Keep the whole face in view",
+        "wrong_hand": "Wrong hand: use the hand for this test",
+        "one_person": "Only the patient should be in view",
+        "cut_off_left": "Cut off on the left: turn the phone a little to the left",
+        "cut_off_right": "Cut off on the right: turn the phone a little to the right",
+        "cut_off_top": "Cut off at the top: tilt the phone up or move it back",
+        "cut_off_bottom": "Cut off at the bottom: tilt the phone down or move it back",
+        "move_closer": "Too far: move the phone closer",
+        "move_back": "Too close: move the phone back",
+        "turn_side_on": "Turn the patient side-on to the camera",
+        "face_camera": "Ask the patient to look straight at the camera",
+        "too_dark": "Too dark: add light in front of the patient",
+        "too_bright": "Too bright: avoid a window or lamp behind the patient",
+        "uneven_light": "Uneven light on the face: light the face from the front",
+        "level_phone": "Level the phone",
+        "hold_still": "Hold the phone still",
+        "blurry": "Blurry: clean the lens or wait for focus",
+        "rotate_cw": "Turn the phone a little clockwise",
+        "rotate_ccw": "Turn the phone a little anticlockwise",
+        "aim_down": "Point the camera a little down",
+        "aim_up": "Point the camera a little up"
+      },
+      "chip": {
+        "in_frame": "In frame",
+        "distance": "Distance",
+        "view": "View",
+        "light": "Light",
+        "level": "Level",
+        "steady": "Steady",
+        "sharp": "Sharp"
+      },
+      "tracking": "Tracking…",
+      "ready": "Ready. Press Record",
+      "checking": "Checking position…",
+      "advisory": "Gate off (engineering)",
+      "diag": "analysis {{fps}} fps · {{ms}} ms",
+      "levelAria": "Phone tilt: roll {{roll}}°, pitch {{pitch}}°"
+    },
+    "landmarks": "Landmarks",
+    "timeline": {
+      "count": "{{what}} {{n}}",
+      "noEvents": "No movement events",
+      "kind": {
+        "R": "R",
+        "L": "L",
+        "all": "events",
+        "turns": "turns",
+        "stand_up": "stand-ups",
+        "brow": "brow raises",
+        "smile": "smiles"
+      }
+    },
+    "practice": {
+      "toggle": "Practice session",
+      "detail": "For training operators. No patient needed; takes are not saved or uploaded.",
+      "badge": "Practice",
+      "start": "Start practice",
+      "summary": "Practice session: these takes are deleted when you end the session and are never uploaded."
+    }
+  },
+  "trackingTest": {
+    "title": "Tracking test (M4)",
+    "record": "Record one take while tracking ({{s}} s)",
+    "limits": "Pass: analysis ≥ {{fps}} fps · latency p95 ≤ {{p95}} ms · event ≤ {{kb}} KB · take meets M2",
+    "run": "Start",
+    "stop": "Stop",
+    "starting": "Starting trackers…",
+    "hud": "{{fps}} fps · p95 {{p95}} ms · {{kb}} KB",
+    "counts": "hands {{hands}} · pose {{poses}} · face {{faces}}",
+    "fps": "analysis {{v}} fps (≥ {{limit}})",
+    "latency": "latency p50 {{p50}} ms, p95 {{p95}} ms (≤ {{limit}})",
+    "size": "largest event {{kb}} KB (≤ {{limit}})",
+    "m2": "take: duration error {{dur}} ms · {{fps}} fps · {{lm}} landmark frames",
+    "detail": "{{n}} events · processing p95 {{proc}} ms · {{err}} tracker-error frames · {{gpu}}",
+    "eval": "quality evaluation p95 {{ms}} ms (≤ {{limit}}) · M5",
+    "delegate": "Tracker (MediaPipe delegate)",
+    "delegateAuto": "Auto (GPU, CPU if GPU fails)",
+    "delegateMixed": "Mixed (pose CPU, hands/face GPU)",
+    "prep": "image {{image}} · preparation p95 {{prep}} ms · setting {{delegate}}"
+  },
+  "uploads": {
+    "title": "Server & uploads",
+    "serverAddress": "Server address",
+    "enrollCode": "Enrollment code (from your site admin)",
+    "enroll": "Register this phone",
+    "enrolled": "Registered with site {{site}}",
+    "changeServer": "Use another server",
+    "operatorCode": "Operator code",
+    "pin": "PIN",
+    "signIn": "Sign in",
+    "signedIn": "Signed in as {{id}}",
+    "signOut": "Sign out",
+    "wifiOnly": "Upload on Wi-Fi only",
+    "retention": "Keep local copies after upload",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "working": "Please wait…",
+    "done": "Done",
+    "errors": {
+      "network": "Cannot reach the server. Check the address and the network.",
+      "bad_code": "This enrollment code was not accepted.",
+      "bad_login": "Operator code or PIN is wrong.",
+      "server": "The server had a problem. Try again later.",
+      "camera_check_failed": "Camera check failed: this phone records too few frames a second. Use another phone; the code was not used."
+    },
+    "state": {
+      "queued": "Waiting to upload",
+      "uploading": "Uploading {{pct}}%",
+      "paused": "Paused",
+      "failed_retryable": "Will retry",
+      "failed_permanent": "Upload failed",
+      "completed": "Uploaded"
+    },
+    "reason": {
+      "login_required": "Sign in to upload",
+      "network": "No connection to the server",
+      "wifi_required": "Waiting for Wi-Fi"
+    },
+    "notLinked": "This phone is not registered with a server. Takes stay encrypted on this device.",
+    "background": "Uploads continue in the background. Local copies are deleted {{hours}} after the server confirms them.",
+    "allDone": "All takes uploaded and confirmed by the server.",
+    "retry": "Retry now",
+    "setup": "Set up uploads",
+    "signInToUpload": "Sign in to upload"
+  },
+  "modes": {
+    "role": {
+      "title": "How will this phone be used?",
+      "patient": "I am a patient",
+      "patientHint": "My hospital invited me to record movement tests at home.",
+      "clinic": "This is a clinic phone",
+      "clinicHint": "Set up by the hospital for its operators.",
+      "note": "This choice cannot be changed later without resetting the phone."
+    },
+    "clinicSetup": {
+      "title": "Register this clinic phone",
+      "hint": "Enter the server address and the one-time code from your hospital's dashboard. After this, the phone works only for clinic operators.",
+      "server": "Server address",
+      "code": "Registration code",
+      "register": "Register phone"
+    },
+    "signIn": {
+      "title": "Operator sign-in",
+      "operator": "Operator ID",
+      "password": "Password",
+      "submit": "Sign in",
+      "hospital": "Clinic phone"
+    },
+    "changePassword": {
+      "title": "Choose a new password",
+      "hint": "Your hospital gave you a temporary password. Choose your own: at least {{min}} characters, with letters and numbers.",
+      "current": "Current password",
+      "next": "New password",
+      "repeat": "Repeat new password",
+      "submit": "Save password",
+      "mismatch": "The new passwords do not match."
+    },
+    "lock": {
+      "title": "Locked",
+      "operatorHint": "Enter your password to continue.",
+      "patientHint": "Enter your PIN to continue.",
+      "unlock": "Unlock",
+      "wrong": "That is not right. Try again.",
+      "signOut": "Sign out",
+      "lockNow": "Lock",
+      "online": "Unlocking checks with the server, so the phone needs a connection."
+    },
+    "clinicBlocked": {
+      "title": "This is a clinic phone",
+      "body": "Patient invites cannot be opened on a phone registered to a hospital. Open the invite on your own phone.",
+      "ok": "OK"
+    },
+    "invite": {
+      "title": "Accept your invite",
+      "hint": "Scan the QR code from your hospital's e-mail or letter, or open its link. You can also paste the link or the code from the SMS.",
+      "paste": "Invite link or code",
+      "server": "Server address",
+      "continue": "Continue",
+      "invited": "INVITE ACCEPTED",
+      "pinTitle": "Choose a PIN",
+      "pinHint": "You will use this PIN to open the app on this phone. You do not need your MRN.",
+      "pin": "PIN ({{min}}–{{max}} digits)",
+      "pinRepeat": "Repeat PIN",
+      "pinMismatch": "The PINs do not match.",
+      "pinFormat": "Use {{min}} to {{max}} digits.",
+      "consentTitle": "Your consent",
+      "consentBody": "Videos of your movements are encrypted on this phone and stored by {{hospital}}. Only their doctors can watch them. You can stop and ask for deletion at any time in Settings.",
+      "consentCheck": "I agree to record and share with my hospital",
+      "accept": "Accept and continue",
+      "scan": "Scan the QR code",
+      "scanTitle": "Camera view for the QR code",
+      "scanHint": "Point the camera at the QR code in your invite e-mail or letter.",
+      "scanNoCamera": "The camera could not be opened. Allow camera access, or paste the link instead.",
+      "scanClose": "Close",
+      "noticeTitle": "How your recordings are used",
+      "noticeBody": "{{hospital}} will ask you to record short movement tests before appointments. Each time, you decide whether to record: we ask for your consent just before the camera opens. Videos are encrypted and only your doctor can watch them."
+    },
+    "home": {
+      "hello": "Your movement tests",
+      "from": "From {{hospital}}",
+      "due": "Due now",
+      "next": "Next recording: {{date}}",
+      "last": "Last recorded {{date}}",
+      "plan": "Your doctor's plan",
+      "every_one": "Every day",
+      "every_other": "Every {{count}} days",
+      "defaultPlan": "Standard plan until your doctor changes it",
+      "medOFF": "Record before your morning medicine (medicine OFF).",
+      "medON": "Record about an hour after your medicine (medicine ON).",
+      "medANY": "Tell us whether you have taken your medicine.",
+      "medAsk": "Have you taken your medicine in the last 2 hours?",
+      "medYes": "Yes",
+      "medNo": "No",
+      "start": "Start recording",
+      "minutes": "About {{n}} minutes",
+      "recordings": "My recordings",
+      "settings": "Settings",
+      "selfRecorded": "Self-recorded",
+      "offline": "You are offline. You can still record; uploads wait for a connection.",
+      "consent": "I agree to record this session and share it with my hospital",
+      "until": "Until your appointment on {{date}}"
+    },
+    "saw": {
+      "title": "Someone to help?",
+      "body": "The walking test needs someone to hold the phone and keep you safe while you walk.",
+      "yes": "Yes, someone is with me",
+      "no": "No, skip this test"
+    },
+    "recordings": {
+      "title": "My recordings",
+      "onPhone": "On this phone",
+      "none": "No recordings yet.",
+      "session": "{{date}} · {{n}} tests uploaded",
+      "pending": "{{n}} waiting to upload"
+    },
+    "settings": {
+      "title": "Settings",
+      "language": "Language",
+      "withdrawTitle": "Stop recording",
+      "withdrawBody": "This closes your home recording account and signs this phone out. Your hospital is told.",
+      "deleteAlso": "Also ask my hospital to delete my recordings",
+      "withdraw": "Withdraw consent",
+      "confirm": "Withdraw consent and sign out?",
+      "confirmYes": "Yes, withdraw",
+      "cancel": "Cancel",
+      "done": "Your consent is withdrawn. This phone is signed out."
+    },
+    "errors": {
+      "network": "Cannot reach the server. Check the network.",
+      "bad_code": "This invite or code was not accepted. It may be used or expired.",
+      "bad_login": "Operator ID or password is wrong.",
+      "server": "The server had a problem. Try again later.",
+      "weak_password": "Choose a longer password with letters and numbers.",
+      "pin_locked": "Too many wrong PINs. Ask your hospital for a new invite.",
+      "mrn_not_found": "No patient with this MRN in the hospital records.",
+      "connector_unreachable": "Cannot reach the hospital records. Check the hospital Wi-Fi.",
+      "login_required": "Please sign in again.",
+      "pin_format": "Use digits only, the length shown.",
+      "no_hospital_key": "Your hospital has not finished setting up recordings yet.",
+      "generic": "Something went wrong. Try again.",
+      "account_locked": "Too many wrong passwords. Ask your hospital admin to unlock your account.",
+      "not_permitted": "Clinic recording is switched off for your hospital. Ask your hospital admin.",
+      "camera_check_failed": "The server says this phone did not pass the camera check. Run the check again."
+    },
+    "hospitals": {
+      "title": "My hospitals and clinics",
+      "join": "Join another hospital (scan invite)",
+      "joinTitle": "Join another hospital",
+      "samePin": "Use the same PIN as for your other hospitals on this phone.",
+      "separate": "Each hospital knows you separately. NeuroCapture does not link them; only this phone shows them together.",
+      "withdrawn": "Withdrawn",
+      "joined": "Joined",
+      "requests_one": "{{count}} request",
+      "requests_other": "{{count}} requests",
+      "recordBefore": "Record before your visit on {{visit}} (by {{due}})",
+      "recordBy": "Please record by {{due}}",
+      "noRequests": "No recording requests",
+      "readOnly": "History only (read only)",
+      "requestDue": "Recording request · due by {{date}}",
+      "beforeVisit": "Before your appointment on {{date}}",
+      "again": "Your doctor asks you to record again",
+      "yourDoctor": "Your doctor",
+      "asks_one": "{{doctor}} asks for {{count}} test · about {{minutes}} minutes",
+      "asks_other": "{{doctor}} asks for {{count}} tests · about {{minutes}} minutes",
+      "nothingToRecord": "Nothing to record now. Your hospital sends a request before your next appointment.",
+      "history": "Appointment history",
+      "atClinic": "Recorded at the clinic",
+      "state": {
+        "recorded": "Recorded · uploaded",
+        "missed": "Request not recorded",
+        "cancelled": "Request cancelled",
+        "open": "Waiting for your recording"
+      },
+      "withdrawBody": "You stop recording for {{hospital}}. Your past recordings stay with {{hospital}} as part of your hospital record. Other hospitals are not affected.",
+      "withdraw": "Leave this hospital (withdraw)",
+      "withdrawConfirm": "Leave {{hospital}}? Only the hospital can invite you back.",
+      "withdrawnOn": "Withdrawn · {{date}}",
+      "withdrawnBody": "You stopped recording for {{hospital}}. They will not send you new requests.",
+      "withdrawnBack": "Your past recordings stay with {{hospital}} as part of your hospital record. To start again, ask the hospital's reception: they send you a new join invite.",
+      "othersUnaffected": "Read only. Other hospitals you joined are not affected.",
+      "withdrawWhere": "To leave a hospital, open it from My hospitals and choose ‘Leave this hospital’.",
+      "clinicTitle": "At your visit",
+      "clinicBody": "{{doctor}} will record your movement tests at the clinic on {{date}}. Nothing to do at home."
+    },
+    "consent": {
+      "forVisit": "{{hospital}} · request for {{date}}",
+      "title": "Before we start",
+      "whatTitle": "What will be recorded",
+      "what_one": "Short videos of your movements ({{count}} test, about {{minutes}} minutes). They are encrypted on this phone and sent only to {{hospital}}. Only {{doctor}} and your care team there can watch them.",
+      "what_other": "Short videos of your movements ({{count}} tests, about {{minutes}} minutes). They are encrypted on this phone and sent only to {{hospital}}. Only {{doctor}} and your care team there can watch them.",
+      "agree": "I agree to record this session and share it with {{hospital}}.",
+      "without": "Without your consent nothing is recorded. You can come back to this request later.",
+      "open": "Open the camera",
+      "notNow": "Not now",
+      "every": "Asked every session. Ticking it is saved with this session only."
+    },
+    "deviceCheck": {
+      "step": "Step 1 of 2 · Camera check",
+      "step2": "Step 2 · Register with your hospital",
+      "checking": "Checking this phone",
+      "patientTitle": "First, a quick camera check",
+      "hint": {
+        "clinic": "Recordings need 60 frames a second. This takes about {{s}} seconds. Point the camera at the room and keep the phone still.",
+        "patient": "We check that this phone can record smooth video (about {{s}} seconds). Point the back camera at the room and keep the phone still. Nothing is recorded or sent."
+      },
+      "live": "Back camera · 1080p · {{fps}} fps so far",
+      "notUsed": {
+        "clinic": "The registration code is not used until the check passes.",
+        "patient": "Your invite is not used until you join."
+      },
+      "passTitle": "This phone can record",
+      "passFps": "Back camera: {{fps}} fps",
+      "borderline": "This phone can record, but some takes may need to be repeated (recordings need {{take}} frames a second).",
+      "failTitle": "This phone cannot record well enough",
+      "failFps": "It records {{fps}} frames a second; it needs {{min}} or more.",
+      "failClinic": "Use another phone. Your registration code was not used: it still works on another phone until it expires.",
+      "stillTakePart": "You can still take part:",
+      "otherPhone": "Use another phone (a family member's): open the same invite there. It still works.",
+      "atClinic": "Be recorded at the clinic at your next visit.",
+      "tell": "Tell my hospital",
+      "tellHint": "Optional: the hospital sees \"Phone not suitable\" on your record, so your doctor can choose clinic recording. Only the phone model and the result are sent.",
+      "told": "{{hospital}} has been told. Your invite still works on another phone.",
+      "again": "Run the check again",
+      "error": "The camera check could not run. Close other apps that use the camera and try again."
+    }
+  },
+  "clinicQueue": {
+    "title": "Clinic queue · today",
+    "refresh": "Refresh",
+    "live": "Names read live from your hospital's records · not saved",
+    "noName": "Name not available",
+    "start": "Start",
+    "notRecorded": "Not recorded",
+    "why": "Why was it not recorded?",
+    "med": {
+      "OFF": "medicine OFF",
+      "ON": "medicine ON",
+      "ANY": "medicine: ask"
+    },
+    "reason": {
+      "did_not_attend": "Did not attend",
+      "unwell": "Unwell",
+      "refused": "Refused",
+      "no_time": "No time",
+      "other": "Other"
+    },
+    "state": {
+      "recorded": "Recorded · uploaded",
+      "not_recorded": "Not recorded: {{reason}}",
+      "missed": "Not recorded"
+    },
+    "empty": "No patients in the queue today yet."
+  },
+  "testPanel": {
+    "open": "Test",
+    "title": "Test panel (fake server)",
+    "signIns": "Clinic phone: code DEMO-SITE-1, operator OP-07 / 2468 (or OP-NEW / temp-pass-1234, then a new password). Patient: tap \"Patient invite\" below.",
+    "invite": "Patient invite (opens the join screen)",
+    "inviteDone": "Invite made and opened. If the join screen did not open, choose \"I am a patient\" and paste the link below.",
+    "homeLink": "Doctor sends a home record link",
+    "homeDone": "Record link sent. Go back to My hospitals (or reopen the hospital) to see it.",
+    "joinFirst": "Join as a patient first.",
+    "clinic": "Doctor adds a patient to today's clinic queue",
+    "clinicDone": "{{name}} (MRN {{mrn}}) added for today. Tap Refresh on the clinic queue.",
+    "memory": "The fake server lives in this page: reloading the page forgets registered phones, new passwords and joined patients, and sign-in then fails. Use Start again.",
+    "startAgain": "Start again (clear all test data)"
   }
 }

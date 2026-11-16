@@ -1,6 +1,6 @@
 # 004 — Dev object storage image (NEEDS REVIEW)
 
-- **Status:** proposed — needs human decision
+- **Status:** superseded for dev/CI by decision 019 (local storage backend); production provider open (§19)
 - **Date:** 2026-11-13
 - **Milestone:** M0
 

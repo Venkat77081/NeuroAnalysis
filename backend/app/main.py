@@ -2,18 +2,43 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.api.assignments import router as assignments_router
+from app.api.auth import router as auth_router
+from app.api.clinic import router as clinic_router
+from app.api.connector_link import router as connector_router
+from app.api.devices import router as devices_router
+from app.api.diagnostics import router as diagnostics_router
 from app.api.health import router as health_router
+from app.api.hospital import router as hospital_router
+from app.api.hospital_storage import router as hospital_storage_router
+from app.api.patient import router as patient_router
+from app.api.plans import router as plans_router
+from app.api.platform import router as platform_router
+from app.api.readiness import router as readiness_router
+from app.api.requests import router as requests_router
+from app.api.sessions import router as sessions_router
+from app.api.staff import router as staff_router
+from app.api.storage_local import router as storage_router
+from app.api.takes import router as takes_router
 from app.config import get_settings
-from app.storage import ensure_bucket
+from app.delivery import check_config
+from app.storage import ensure_azure_container, ensure_bucket
 
 log = logging.getLogger("neurocapture")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    if get_settings().s3_endpoint:
+    check_config(get_settings())
+    if get_settings().storage == "azure":
+        try:
+            ensure_azure_container()
+        except Exception as exc:  # noqa: BLE001 - /health reports storage problems
+            log.warning("could not ensure container: %s", type(exc).__name__)
+    if get_settings().storage == "s3" and get_settings().s3_endpoint:
         try:
             ensure_bucket()
         except Exception as exc:  # noqa: BLE001 - /health reports storage problems
@@ -22,4 +47,28 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="NeuroCapture API", version=__version__, lifespan=lifespan)
+# M14: the web dashboards (static files on their own origin) call this API from the browser.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 app.include_router(health_router)
+app.include_router(auth_router)
+app.include_router(devices_router)
+app.include_router(sessions_router)
+app.include_router(takes_router)
+app.include_router(readiness_router)
+app.include_router(diagnostics_router)
+app.include_router(storage_router)
+app.include_router(staff_router)
+app.include_router(platform_router)
+app.include_router(hospital_router)
+app.include_router(patient_router)
+app.include_router(connector_router)
+app.include_router(hospital_storage_router)
+app.include_router(plans_router)
+app.include_router(assignments_router)
+app.include_router(requests_router)
+app.include_router(clinic_router)

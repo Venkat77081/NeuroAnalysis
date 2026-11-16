@@ -1,0 +1,23 @@
+{
+  "name": "@neurocapture/replay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "nc-replay": "src/cli.ts"
+  },
+  "scripts": {
+    "replay": "tsx src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@neurocapture/capture-kit": "workspace:*",
+    "@neurocapture/contracts-ts": "workspace:*",
+    "@neurocapture/quality-core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15",
+    "vitest": "5.1.0"
+  }
+}

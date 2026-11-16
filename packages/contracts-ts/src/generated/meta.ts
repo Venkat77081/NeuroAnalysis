@@ -25,7 +25,10 @@ export interface TakeMeta {
     osName: 'android' | 'ios' | 'web';
     osVersion: string;
   };
-  tier: 'A' | 'B' | 'C' | 'W';
+  /**
+   * Device tier from a qualification report, or null when the device was not qualified (model approval deferred, decision 006).
+   */
+  tier: 'A' | 'B' | 'C' | 'W' | null;
   /**
    * Snapshot of getCapabilities() at capture time.
    */
@@ -40,6 +43,10 @@ export interface TakeMeta {
     resolution: '1080p' | '720p';
     targetFps: 60 | 30;
     orientation: 'portrait' | 'landscape';
+    /**
+     * Frame-rate limit used for this take's verdict (config default or the doctor's setting).
+     */
+    minEffectiveFps?: number;
   };
   medState: 'ON' | 'OFF' | 'NA';
   operatorId: string;

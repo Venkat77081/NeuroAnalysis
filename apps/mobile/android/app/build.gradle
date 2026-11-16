@@ -7,8 +7,9 @@ android {
         applicationId "com.neurocapture.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Release CI sets these (M9 distribution); local builds stay 1 / dev.
+        versionCode((System.getenv("NC_VERSION_CODE") ?: "1").toInteger())
+        versionName(System.getenv("NC_VERSION_NAME") ?: "0.9.0-dev")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +17,25 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // MediaPipe models (assets/mediapipe/*.task, fetched by tools/models/fetch-models.mjs) are memory-mapped.
+    androidResources {
+        noCompress += ['task']
+    }
+    // Release signing from the environment only (never commit keystores or passwords).
+    def ksFile = System.getenv("NC_KEYSTORE_FILE")
+    signingConfigs {
+        if (ksFile) {
+            release {
+                storeFile file(ksFile)
+                storePassword System.getenv("NC_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("NC_KEY_ALIAS")
+                keyPassword System.getenv("NC_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (ksFile) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

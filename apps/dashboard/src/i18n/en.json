@@ -185,7 +185,13 @@
     "checkPassed": "Passed · {{fps}} fps",
     "checkBorderline": "Borderline · {{fps}} fps",
     "checkNone": "Not checked",
-    "checkNote": "A phone is added only after its camera check passes ({{min}} fps or more; below {{take}} is borderline: some takes may need repeating). A registration code is used only when a phone is added, so a failed check never needs a new code."
+    "checkNote": "A phone is added only after its camera check passes ({{min}} fps or more; below {{take}} is borderline: some takes may need repeating). A registration code is used only when a phone is added, so a failed check never needs a new code. \"In use\" counts every take recorded on the phone, retakes included.",
+    "usageCol": "In use (last {{days}} days)",
+    "usageNone": "No takes yet",
+    "usageTakes_one": "{{count}} take",
+    "usageTakes_other": "{{count}} takes",
+    "usageBelow_one": "{{count}} below {{fps}} fps",
+    "usageBelow_other": "{{count}} below {{fps}} fps"
   },
   "doctor": {
     "patientsTitle": "My patients",

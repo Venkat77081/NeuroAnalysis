@@ -465,6 +465,9 @@ interface DeviceRow {
   revoked_at: string | null;
   /** Camera check when the phone was added (decision 035); null for phones added before it. */
   check_fps: number | null;
+  /** Takes recorded in the last `deviceCheck.usageDays` days, retakes included. */
+  takes_recent: number;
+  takes_below_min: number;
 }
 
 function CheckBadge({ fps }: { fps: number | null }) {
@@ -530,7 +533,14 @@ export function Phones() {
         {t('hospital.checkNote', { min: deviceCheck.minFps, take: deviceCheck.warnBelowFps })}
       </Notice>
       <Table
-        head={[t('hospital.phoneCol'), '', t('hospital.checkCol'), t('hospital.addedCol'), '']}
+        head={[
+          t('hospital.phoneCol'),
+          '',
+          t('hospital.checkCol'),
+          t('hospital.usageCol', { days: deviceCheck.usageDays }),
+          t('hospital.addedCol'),
+          '',
+        ]}
         testId="devices"
       >
         {(devices ?? []).map((d) => (
@@ -541,6 +551,24 @@ export function Phones() {
             </td>
             <td className="px-4 py-3" data-testid="device-check">
               <CheckBadge fps={d.check_fps} />
+            </td>
+            <td className="px-4 py-3 text-[13px]" data-testid="device-usage">
+              {d.takes_recent === 0 ? (
+                <span className="text-muted">{t('hospital.usageNone')}</span>
+              ) : (
+                <>
+                  {t('hospital.usageTakes', { count: d.takes_recent })}
+                  {' · '}
+                  <span
+                    className={d.takes_below_min > 0 ? 'font-semibold text-warn' : 'text-muted'}
+                  >
+                    {t('hospital.usageBelow', {
+                      count: d.takes_below_min,
+                      fps: deviceCheck.warnBelowFps,
+                    })}
+                  </span>
+                </>
+              )}
             </td>
             <td className="px-4 py-3 text-[13px]">{fmtDate(d.registered_at)}</td>
             <td className="px-4 py-3">

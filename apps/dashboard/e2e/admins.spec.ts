@@ -47,6 +47,8 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
   await page.getByTestId('nav-team').click();
   await page.getByTestId('nav-phones').click();
   await expect(page.getByTestId('devices')).toContainText('Borderline · 57.2 fps');
+  await expect(page.getByTestId('devices')).toContainText('In use (last 30 days)');
+  await expect(page.getByTestId('device-usage').first()).toHaveText('No takes yet');
 
   await page.getByTestId('nav-activity').click();
   // One log, by person: name, e-mail and role on every row.

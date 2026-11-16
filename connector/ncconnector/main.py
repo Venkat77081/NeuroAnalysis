@@ -322,7 +322,7 @@ def _ensure_ncid(db: DbSession, mrn: str, by: str, channel: str) -> tuple[str, b
     if m:
         return m.ncid, False, None
     try:
-        out = platform.call("POST", "/connector/v1/patients", {"channel": channel})
+        out = platform.call("POST", "/connector/v1/patients", {"channel": channel, "by": by})
     except platform.PlatformError as exc:
         raise _platform_error(exc) from exc
     db.add(NcidMap(ncid=out["ncid"], mrn=mrn, created_by=by))
@@ -378,7 +378,9 @@ def _invite_one(db: DbSession, s: Staff, mrn: str, channel: str) -> InviteResult
     try:
         ncid, created, out = _ensure_ncid(db, mrn, s.user_id, channel)
         if not created:
-            out = platform.call("POST", f"/connector/v1/patients/{ncid}/invite", {"channel": channel})
+            out = platform.call(
+                "POST", f"/connector/v1/patients/{ncid}/invite", {"channel": channel, "by": s.user_id}
+            )
     except HTTPException as exc:
         return InviteResult(
             mrn=mrn, result="failed", error=str((exc.detail or {}).get("code", exc.status_code))

@@ -69,6 +69,8 @@ class Operator(Base):
     site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"))
     #: Operator code typed at login (e.g. OP-07); not a name.
     code: Mapped[str] = mapped_column(String(20))
+    #: The operator's name, shown in activity logs (staff are NeuroCapture accounts, not patients).
+    name: Mapped[str | None] = mapped_column(String(120))
     display_name_hash: Mapped[str | None] = mapped_column(String(64))
     #: Password hash (M10: operator ID + password; earlier operators used a PIN, same hash format).
     pin_hash: Mapped[str] = mapped_column(String(200))

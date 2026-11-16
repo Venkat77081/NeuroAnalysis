@@ -210,6 +210,13 @@ class AuditOut(BaseModel):
     target_type: str | None
     target_id: str | None
     details: dict | None
+    #: Who did it (user, 16 Nov 2026): the person's name, e-mail and role, not only the role.
+    actor_name: str | None = None
+    actor_email: str | None = None
+    actor_role: str | None = None
+    site_name: str | None = None
+    #: For patient events: the patient's NCID (the hospital's dashboard looks the name up live).
+    target_ncid: str | None = None
 
 
 def audit_rows(db: DbSession, site_id: str | None, limit: int, platform_only: bool = False) -> list[AuditOut]:
@@ -218,19 +225,32 @@ def audit_rows(db: DbSession, site_id: str | None, limit: int, platform_only: bo
         q = q.where(AuditEvent.site_id == site_id)
     elif platform_only:
         q = q.where(AuditEvent.site_id.is_(None))
-    return [
-        AuditOut(
-            at=e.at,
-            site_id=e.site_id,
-            actor_type=e.actor_type,
-            actor_id=e.actor_id,
-            action=e.action,
-            target_type=e.target_type,
-            target_id=e.target_id,
-            details=e.details,
+    from app.models import Patient
+    from app.people import People
+
+    people = People(db)
+    out = []
+    for e in db.scalars(q):
+        who = people.who(e.actor_type, e.actor_id)
+        pt = db.get(Patient, e.target_id) if e.target_type == "patient" and e.target_id else None
+        out.append(
+            AuditOut(
+                at=e.at,
+                site_id=e.site_id,
+                actor_type=e.actor_type,
+                actor_id=e.actor_id,
+                action=e.action,
+                target_type=e.target_type,
+                target_id=e.target_id,
+                details=e.details,
+                actor_name=who.name,
+                actor_email=who.email,
+                actor_role=who.role,
+                site_name=people.site_name(e.site_id),
+                target_ncid=pt.ncid if pt else None,
+            )
         )
-        for e in db.scalars(q)
-    ]
+    return out
 
 
 @router.get("/audit", response_model=list[AuditOut])

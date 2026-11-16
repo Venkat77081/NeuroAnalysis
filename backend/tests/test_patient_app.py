@@ -538,3 +538,58 @@ def test_hospital_admin_cannot_do_front_desk_work(api, two_hospitals):
     # The front desk can.
     desk = hdr(t["a_desk"])
     assert api.post("/hospital/appointments", headers=desk, json={"ncid": ncid, "at": at}).status_code == 201
+
+
+def test_appointment_history_and_logs_name_the_person(api, two_hospitals):
+    """User, 16 Nov 2026: who added, invited, assigned, reassigned and sent the link, by name."""
+    t = two_hospitals
+    desk = hdr(t["a_desk"])
+    admin = hdr(t["a_tok"])
+    for email, name in (("rao5@sunrise.example", "Dr. Rao"), ("iyer5@sunrise.example", "Dr. Iyer")):
+        api.post(
+            "/hospital/staff", headers=admin, json={"email": email, "role": "doctor", "display_name": name}
+        )
+    from test_tenancy import sign_up
+
+    iyer = hdr(sign_up(api, "iyer5@sunrise.example")[0])
+    docs = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
+    ncid, _acc = home_patient(api, t["a_desk"])
+    at = (datetime.now(UTC) + timedelta(days=3)).isoformat()
+    appt = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": ncid, "at": at, "doctor_id": docs["rao5@sunrise.example"]},
+    ).json()
+    api.put(
+        f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": docs["iyer5@sunrise.example"]}
+    )
+    assert (
+        api.post(
+            f"/hospital/appointments/{appt['id']}/request", headers=iyer, json={"tests": ["FT"]}
+        ).status_code
+        == 201
+    )
+
+    hist = api.get(f"/hospital/appointments/{appt['id']}/history", headers=desk).json()
+    steps = [(e["action"], e["actor_role"]) for e in hist]
+    assert ("appointment_added", "receptionist") in steps
+    assert ("patient_assigned", "receptionist") in steps
+    assert ("patient_reassigned", "receptionist") in steps
+    assert ("recording_requested", "doctor") in steps
+    moved = next(e for e in hist if e["action"] == "patient_reassigned")
+    assert moved["details"]["previous_name"] == "Dr. Rao" and moved["details"]["doctor_name"] == "Dr. Iyer"
+    assert moved["actor_email"] == "frontdesk@sunrise.example"
+    sent = next(e for e in hist if e["action"] == "recording_requested")
+    assert sent["actor_name"] == "Dr. Iyer" and sent["details"]["tests"] == ["FT"]
+    row = next(a for a in api.get("/hospital/appointments", headers=desk).json() if a["id"] == appt["id"])
+    assert row["booked_by_name"] and row["last_event"]["action"] == "recording_requested"
+    # The admin's activity log names the person, and the patient by NCID only.
+    log = api.get("/hospital/audit", headers=admin).json()
+    inv = next(e for e in log if e["action"] == "patient_invited" or e["action"] == "patient_created")
+    assert inv["actor_email"] == "frontdesk@sunrise.example" and inv["actor_role"] == "receptionist"
+    assert any(e["target_ncid"] == ncid for e in log)
+    # Operators carry a name too.
+    op = api.post("/hospital/operators", headers=admin, json={"code": "OP-N1", "name": "Kavya R"}).json()
+    assert op["name"] == "Kavya R"
+    staff = api.get("/hospital/staff", headers=admin).json()
+    assert any(s["last_login_at"] for s in staff)

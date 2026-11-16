@@ -445,6 +445,8 @@ def test_no_patient_identity_columns():
         ("staff_users", "email"),
         ("staff_users", "display_name"),
         ("operators", "display_name_hash"),
+        # Staff, not patients (user, 16 Nov 2026: activity logs name the person).
+        ("operators", "name"),
     }
     patient_tables = {
         "patients",

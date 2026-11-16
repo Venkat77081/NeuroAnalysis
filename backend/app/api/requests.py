@@ -16,7 +16,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.connector_link import signed_connector
@@ -24,6 +24,7 @@ from app.audit import audit
 from app.db import get_db
 from app.models import (
     Appointment,
+    AuditEvent,
     Patient,
     PatientAccount,
     PatientAssignment,
@@ -114,6 +115,18 @@ def _req_out(db: DbSession, r: RecordingRequest) -> RequestOut:
     )
 
 
+class EventOut(BaseModel):
+    """One step of an appointment's history, with the person who did it."""
+
+    at: datetime
+    action: str
+    actor_name: str
+    actor_email: str | None
+    actor_role: str
+    #: Safe details only (channel, tests, due date); doctor IDs come with their names.
+    details: dict
+
+
 class AppointmentOut(BaseModel):
     id: str
     ncid: str
@@ -127,6 +140,10 @@ class AppointmentOut(BaseModel):
     #: needs_doctor → needs_tests (waiting for the doctor) → sent → recorded | missed; or cancelled.
     stage: str
     requests: list[RequestOut]
+    #: Who added it by hand (null: it came from the hospital system).
+    booked_by_name: str | None = None
+    #: The latest step of its history (who did what, when).
+    last_event: EventOut | None = None
 
 
 def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
@@ -149,7 +166,75 @@ def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
         external_ref_hash=a.external_ref_hash,
         stage=appointment_stage(a, reqs),
         requests=reqs,
+        booked_by_name=_staff_name(db, a.created_by) if a.source == "manual" else None,
+        last_event=(appointment_events(db, a) or [None])[-1],
     )
+
+
+def _staff_name(db: DbSession, user_id: str | None) -> str | None:
+    u = db.get(StaffUser, user_id) if user_id else None
+    return (u.display_name or u.email) if u else None
+
+
+#: Patient events that belong to an appointment's history.
+PATIENT_ACTIONS = (
+    "patient_created",
+    "patient_invited",
+    "patient_reinvited",
+    "patient_assigned",
+    "patient_reassigned",
+    "patient_unassigned",
+    "recording_requested",
+    "request_cancelled",
+)
+SAFE_DETAILS = ("channel", "source", "status", "tests", "kind", "med_state", "due", "via", "at")
+
+
+def appointment_events(db: DbSession, a: Appointment) -> list[EventOut]:
+    """The appointment's own events plus what happened to its patient from 30 days before it was
+    added (invites, doctor assignments, the record links sent for it)."""
+    from app.people import People
+
+    people = People(db)
+    since = (aware(a.created_at) or datetime.now(UTC)) - timedelta(days=30)
+    q = (
+        select(AuditEvent)
+        .where(
+            AuditEvent.site_id == a.site_id,
+            or_(
+                and_(AuditEvent.target_type == "appointment", AuditEvent.target_id == a.id),
+                and_(
+                    AuditEvent.target_type == "patient",
+                    AuditEvent.target_id == a.patient_id,
+                    AuditEvent.action.in_(PATIENT_ACTIONS),
+                    AuditEvent.at >= since,
+                ),
+            ),
+        )
+        .order_by(AuditEvent.at)
+    )
+    out = []
+    for e in db.scalars(q):
+        d = e.details or {}
+        if e.action == "recording_requested" and d.get("appointment") not in (None, a.id):
+            continue  # a link for another appointment
+        details = {k: d[k] for k in SAFE_DETAILS if k in d}
+        if d.get("doctor"):
+            details["doctor_name"] = people.staff_name(d["doctor"])
+        if d.get("previous"):
+            details["previous_name"] = people.staff_name(d["previous"])
+        who = people.who(e.actor_type, e.actor_id)
+        out.append(
+            EventOut(
+                at=e.at,
+                action=e.action,
+                actor_name=who.name,
+                actor_email=who.email,
+                actor_role=who.role,
+                details=details,
+            )
+        )
+    return out
 
 
 def appointment_stage(a: Appointment, reqs: list[RequestOut]) -> str:
@@ -223,6 +308,7 @@ def _assign(db: DbSession, p: Principal, patient: Patient, doctor_id: str | None
     if a and a.doctor_id == doctor_id:
         follow_assignment(db, patient.id, doctor_id)  # the patient's other upcoming ones too
         return
+    previous = a.doctor_id if a else None
     if a:
         a.doctor_id, a.assigned_by, a.assigned_at = doctor_id, p.actor_id, datetime.now(UTC)
     else:
@@ -238,11 +324,12 @@ def _assign(db: DbSession, p: Principal, patient: Patient, doctor_id: str | None
         db,
         p.actor_type,
         p.actor_id,
-        "patient_assigned",
+        "patient_reassigned" if previous else "patient_assigned",
         "patient",
         patient.id,
         site_id=p.site_id,
         doctor=doctor_id,
+        previous=previous,
         via="appointment",
         appointments_moved=follow_assignment(db, patient.id, doctor_id),
     )
@@ -280,6 +367,7 @@ def create_appointment(body: AppointmentIn, p: Principal = Depends(desk), db: Db
         a.id,
         site_id=p.site_id,
         source=body.source,
+        at=aware(a.at).isoformat(),
     )
     db.commit()
     return _appt_out(db, a, body.ncid)
@@ -325,9 +413,20 @@ def update_appointment(
         a.id,
         site_id=p.site_id,
         status=a.status,
+        **({"at": aware(a.at).isoformat()} if body.at is not None else {}),
     )
     db.commit()
     return _appt_out(db, a, pt.ncid)
+
+
+@router.get("/hospital/appointments/{appt_id}/history", response_model=list[EventOut])
+def appointment_history(
+    appt_id: str, p: Principal = Depends(staff), db: DbSession = Depends(get_db)
+) -> list[EventOut]:
+    """Who did what for this appointment, oldest first (user, 16 Nov 2026)."""
+    a, pt = _appointment(db, p, appt_id)
+    _patient(db, p, pt.ncid)  # doctors: assigned patients only
+    return appointment_events(db, a)
 
 
 class RequestIn(BaseModel):
@@ -381,6 +480,9 @@ def _new_request(
         site_id=p.site_id,
         kind=kind,
         tests=tests,
+        med_state=r.med_state,
+        due=aware(r.due_at).date().isoformat(),
+        appointment=appointment.id if appointment else None,
     )
     return r
 

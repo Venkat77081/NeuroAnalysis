@@ -75,12 +75,15 @@ def overview(p: Principal = Depends(hospital_admin), db: DbSession = Depends(get
 
 class OperatorIn(BaseModel):
     code: str = Field(min_length=2, max_length=20, pattern=r"^[A-Za-z0-9-]+$")
+    #: The person's name, for the activity log.
+    name: str | None = Field(default=None, min_length=2, max_length=120)
     role: Literal["operator", "reviewer"] = "operator"
 
 
 class OperatorOut(BaseModel):
     id: str
     code: str
+    name: str | None = None
     role: str
     active: bool
     must_change_password: bool
@@ -93,6 +96,7 @@ def _op_out(op: Operator, temp: str | None = None) -> OperatorOut:
     return OperatorOut(
         id=op.id,
         code=op.code,
+        name=op.name,
         role=op.role,
         active=op.active,
         must_change_password=op.must_change_password,
@@ -133,7 +137,12 @@ def create_operator(
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "operator_id_in_use"})
     temp = temporary_password()
     op = Operator(
-        site_id=p.site_id, code=code, role=body.role, pin_hash=hash_password(temp), must_change_password=True
+        site_id=p.site_id,
+        code=code,
+        name=body.name.strip() if body.name else None,
+        role=body.role,
+        pin_hash=hash_password(temp),
+        must_change_password=True,
     )
     db.add(op)
     db.flush()
@@ -202,6 +211,7 @@ class StaffOut(BaseModel):
     invited: bool
     locked: bool
     two_step_enabled: bool
+    last_login_at: datetime | None = None
 
 
 def _staff_out(u: StaffUser) -> StaffOut:
@@ -214,6 +224,7 @@ def _staff_out(u: StaffUser) -> StaffOut:
         invited=u.password_hash is None,
         locked=u.failed_logins >= policy()["staff"]["maxFailedLogins"],
         two_step_enabled=u.totp_enabled,
+        last_login_at=u.last_login_at,
     )
 
 

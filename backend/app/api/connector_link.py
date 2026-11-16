@@ -218,6 +218,8 @@ async def signed_connector(request: Request, db: DbSession = Depends(get_db)) ->
 class NewPatientIn(BaseModel):
     #: none = NCID only (clinic sessions); otherwise an app invite the connector will deliver.
     channel: Literal["email", "sms", "print", "none"] = "email"
+    #: The hospital staff member who asked for it (platform user ID, from the connector token).
+    by: str | None = Field(default=None, max_length=32)
 
 
 class NewPatientOut(BaseModel):
@@ -262,10 +264,11 @@ def connector_new_patient(
         db.add(acc)
         out.invite_link, out.expires_at = _invite(acc, body.channel)
         out.app_status = acc.status
+    actor_type, actor_id = _by(db, site, body.by)
     audit(
         db,
-        "connector",
-        site.id,
+        actor_type,
+        actor_id,
         "patient_created",
         "patient",
         patient.id,
@@ -285,6 +288,22 @@ def _patient(db: DbSession, site: Site, ncid: str) -> Patient:
 
 class InviteIn(BaseModel):
     channel: Literal["email", "sms", "print"] = "email"
+    #: The hospital staff member who sent it (platform user ID, from the connector token).
+    by: str | None = Field(default=None, max_length=32)
+
+
+def _by(db: DbSession, site: Site, by: str | None) -> tuple[str, str]:
+    """The audit actor: the staff member named by the connector if they belong to this hospital,
+    otherwise the connector itself."""
+    from app.models import Operator, StaffUser
+
+    u = db.get(StaffUser, by) if by else None
+    if u and u.site_id == site.id:
+        return u.role, u.id
+    op = db.get(Operator, by) if by else None
+    if op and op.site_id == site.id:
+        return "operator", op.id
+    return "connector", site.id
 
 
 @router.post("/connector/v1/patients/{ncid}/invite", response_model=NewPatientOut)
@@ -307,10 +326,11 @@ def connector_invite(
     else:
         end_patient_phone(db, acc)
     link, exp = _invite(acc, body.channel)
+    actor_type, actor_id = _by(db, site, body.by)
     audit(
         db,
-        "connector",
-        site.id,
+        actor_type,
+        actor_id,
         "patient_invited",
         "patient",
         patient.id,

@@ -135,7 +135,7 @@ def test_onboarding_activates_hospital_and_logs_who(api, two_hospitals):
     t = two_hospitals
     hs = {h["id"]: h for h in api.get("/platform/hospitals", headers=hdr(t["platform"])).json()}
     assert hs[t["a"]]["status"] == "active" and hs[t["a"]]["onboarded_by"]
-    assert hs[t["a"]]["data_mode"] == "managed" and hs[t["a"]]["modules"] == {"clinic": True, "home": True}
+    assert hs[t["a"]]["data_mode"] == "byo" and hs[t["a"]]["modules"] == {"clinic": True, "home": True}
     actions = [e["action"] for e in api.get("/platform/audit", headers=hdr(t["platform"])).json()]
     assert "hospital_onboarded" in actions and "hospital_activated" in actions
     # Hospital admins cannot use the platform API.

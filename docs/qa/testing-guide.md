@@ -80,7 +80,7 @@ pnpm dev:dashboard                                                          # ht
    - on the phone, choose clinic, server `http://192.168.1.20:8001`, enter the code;
    - in the dashboard, Team → Add operator; the temporary password is shown once.
 4. **Patient phone:**
-   - in the dashboard, as hospital admin, go to Patients → search "asha" → tick → Print QR → Send;
+   - in the dashboard, as receptionist, go to Invite patients → search "asha" → tick → Print → Send;
    - on the phone, choose patient → Scan the QR code. Change the server address on that screen to
      `http://192.168.1.20:8001` first.
 5. **Allow Wi-Fi uploads:** uploads wait for Wi-Fi by default; the phone and computer must be on
@@ -175,31 +175,31 @@ Run at L2. Sign in with the accounts the stack prints.
 
 ### G. Hospital admin
 
-| #   | Test                                                                  | Expected                                                                               |
-| --- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| G1  | Data connections → Test with MRN 00012388                             | All checks "pass"                                                                      |
-| G2  | Recording keys                                                        | One active key                                                                         |
-| G3  | Team: add operator                                                    | Temporary password shown once; "must change password"                                  |
-| G4  | Team: invite a receptionist and a doctor                              | Listed as invited                                                                      |
-| G5  | Phones: new registration code                                         | 10-character code and QR; it registers one phone (A3)                                  |
-| G6  | Patients: search "ravi"                                               | Live result; "Missing" e-mail                                                          |
-| G7  | Invite by e-mail (Asha) / print (Ravi)                                | Sent / QR ready to print; Ravi's e-mail is skipped                                     |
-| G8  | Deletion requests                                                     | Shows the C11 request; Mark done                                                       |
-| G9  | Activity                                                              | Clinical events (searches, views) and platform events (accounts, phones)               |
-| G10 | Hospital admin or receptionist tries a patient's history or recording | Refused: medical history, recordings and review notes are for the assigned doctor only |
+| #   | Test                                                                  | Expected                                                                                           |
+| --- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| G1  | Data connections → Test with MRN 00012388                             | All checks "pass"                                                                                  |
+| G2  | Recording keys                                                        | One active key                                                                                     |
+| G3  | Team: add operator                                                    | Temporary password shown once; "must change password"                                              |
+| G4  | Team: invite a receptionist and a doctor                              | Listed as invited                                                                                  |
+| G5  | Phones: new registration code                                         | 10-character code and QR; it registers one phone (A3)                                              |
+| G6  | Menu                                                                  | Overview, Data connections, Team, Phones, Activity log only (no patients, invites or appointments) |
+| G8  | Deletion requests (only from phones before v3)                        | Shown on Overview when there are any; Mark done                                                    |
+| G9  | Activity                                                              | Clinical events (searches, views) and platform events (accounts, phones)                           |
+| G10 | Hospital admin or receptionist tries a patient's history or recording | Refused: medical history, recordings and review notes are for the assigned doctor only             |
 
 ### H. Receptionist
 
-| #   | Test                                        | Expected                                                                                   |
-| --- | ------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| H1  | Menu                                        | "Appointments" and "Assign patients" only (no team, phones or settings)                    |
-| H2  | Appointments                                | "From your hospital system · live"; Asha's appointment "Needs a doctor"; Ravi "Not joined" |
-| H3  | Assign Dr. Rao to Asha's appointment        | "Waiting for doctor's tests"; nothing is sent to the patient yet                           |
-| H4  | Add an appointment by hand (find "asha")    | Listed as "Added by hand"                                                                  |
-| H5  | Ravi: "Send join invite"                    | A message for the result (Ravi has no e-mail: SMS, or "no e-mail or mobile")               |
-| H6  | After the doctor sends the link (I9)        | "Doctor sent record link · due …"; after the patient records, "Recorded · uploaded"        |
-| H7  | Assign patients: add Ravi, assign, reassign | Each doctor sees only their assigned patients; a reassigned doctor loses access at once    |
-| H8  | Stop the FHIR stand-in, open Appointments   | "cannot be reached: showing appointments already known"; adding by hand still works        |
+| #   | Test                                                                    | Expected                                                                                   |
+| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| H1  | Menu                                                                    | "Appointments", "Invite patients" and "Assign patients" only (no team, phones or settings) |
+| H2  | Appointments                                                            | "From your hospital system · live"; Asha's appointment "Needs a doctor"; Ravi "Not joined" |
+| H3  | Assign Dr. Rao to Asha's appointment                                    | "Waiting for doctor's tests"; nothing is sent to the patient yet                           |
+| H4  | Add an appointment by hand (find "asha")                                | Listed as "Added by hand"                                                                  |
+| H5  | Ravi: "Send join invite"                                                | E-mail, SMS or print; with print the QR code shows on screen                               |
+| H6  | After the doctor sends the link (I9)                                    | "Doctor sent record link · due …"; after the patient records, "Recorded · uploaded"        |
+| H7  | Assign patients: add Ravi, assign, reassign                             | Each doctor sees only their assigned patients; a reassigned doctor loses access at once    |
+| H9  | Invite patients: search "ravi", tick, choose e-mail / SMS / print, Send | Live results ("Missing" e-mail); print shows a QR; Send is greyed out once sent            |
+| H8  | Stop the FHIR stand-in, open Appointments                               | "cannot be reached: showing appointments already known"; adding by hand still works        |
 
 ### I. Doctor
 

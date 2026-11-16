@@ -107,9 +107,11 @@ user `SELECT` on these views only. The connector runs SELECTs with bound paramet
   record by …" through the hospital's provider. The texts are in `messages/en.json`
   (`reminderEmail`, `reminderSms`).
 
-## Managed clinics
+## Small clinics
 
-The same image runs per clinic, with its own database and keys. For a local trial:
+Every hospital and clinic runs its own connector and keeps its own take key (decision 031).
+NeuroCapture does not run connectors for clinics. A clinic without IT staff can run the same
+image on any computer or server it controls, set up by a vendor or contractor it chooses:
 
 ```bash
 NCC_SITE_ID=<site id> docker compose --profile connector up -d connector

@@ -15,16 +15,36 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   page.on('pageerror', (e) => errors.push(e.message));
 
   await signIn(page, s.desk_email, s.desk_totp);
+  // Join invites are sent from the front desk: e-mail, SMS or a printed QR.
+  await page.getByTestId('nav-invite').click();
+  await page.getByTestId('p-search').fill('ravi');
+  await page.getByTestId('p-search-btn').click();
+  await expect(page.getByTestId('p-results')).toContainText('Ravi Samplename');
+  await expect(page.getByTestId('p-results')).toContainText('Missing'); // no e-mail on file
+  await page.getByTestId('p-sel-00012401').check();
+  await expect(page.getByTestId('via-email')).toBeVisible();
+  await expect(page.getByTestId('via-sms')).toBeVisible();
+  await page.getByTestId('via-print').check();
+  await page.getByTestId('p-send').click();
+  await expect(page.getByTestId('p-invite-results')).toContainText('QR ready to print');
+  await expect(page.getByTestId('invite-qr')).toBeVisible();
+  await expect(page.getByTestId('p-send')).toBeDisabled(); // sent once; the QR stays on screen
+
+  await page.getByTestId('nav-appointments').click();
   await expect(page.getByTestId('appts-live')).toContainText('From your hospital system');
   // Asha has joined: her FHIR appointment is kept and needs a doctor.
   const asha = page.getByTestId(`appt-${s.patient_mrn}`).first();
   await expect(asha).toContainText('Asha Testpatient');
   await expect(asha).toContainText('From the hospital system');
   await expect(asha.getByTestId('appt-stage')).toHaveText('Needs a doctor');
-  // Ravi has not joined the app: reception can send him a join invite.
-  await expect(
-    page.getByTestId('live-00012401').or(page.getByTestId('appt-00012401')),
-  ).toContainText('Not joined');
+  // Ravi has not joined the app (invited, not accepted): the same three ways to invite him.
+  const ravi = page.getByTestId('live-00012401').or(page.getByTestId('appt-00012401'));
+  await expect(ravi).toContainText('Not joined');
+  await ravi.getByRole('button', { name: 'Send join invite' }).click();
+  await expect(page.getByTestId('p-invite')).toContainText('Send a join invite to Ravi Samplename');
+  await page.getByTestId('via-print').check();
+  await page.getByTestId('p-send').click();
+  await expect(page.getByTestId('invite-qr')).toBeVisible();
 
   await asha.getByTestId('appt-doctor').selectOption({ label: 'Dr. Rao' });
   await asha.getByTestId('appt-assign').click();

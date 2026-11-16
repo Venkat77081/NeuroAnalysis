@@ -69,12 +69,12 @@
     "connections": "Data connections",
     "team": "Team",
     "phones": "Phones",
-    "patients": "Patients",
     "activity": "Activity log",
     "myPatients": "My patients",
     "assign": "Assign patients",
     "appointments": "Appointments",
-    "chooseTests": "Choose tests"
+    "chooseTests": "Choose tests",
+    "invite": "Invite patients"
   },
   "platform": {
     "hospitalsTitle": "Hospitals and clinics",
@@ -85,9 +85,6 @@
     "clinic": "Clinic",
     "region": "Region",
     "city": "City",
-    "dataMode": "Data",
-    "managed": "Managed by NeuroCapture",
-    "byo": "Hospital's own systems",
     "sms": "Hospital pays for SMS invites",
     "home": "Home recording",
     "adminEmail": "Hospital admin e-mail",
@@ -122,7 +119,7 @@
     "keysHint": "Created on the connector with python -m ncconnector rotate-take-key. Phones encrypt each recording for the active key.",
     "noKey": "No key yet: phones cannot record until the connector registers one.",
     "storageTitle": "Recording storage",
-    "storageManaged": "Managed by NeuroCapture (separate per hospital)",
+    "storageManaged": "NeuroCapture storage: encrypted with your hospital's key; NeuroCapture cannot open the recordings",
     "storageS3": "Your own S3 bucket (upload-only role)",
     "bucket": "Bucket",
     "s3region": "Region",
@@ -176,7 +173,8 @@
     "markDone": "Mark done",
     "activityTitle": "Activity",
     "platformEvents": "Platform events (accounts, phones, invites)",
-    "clinicalEvents": "Clinical activity (kept in your hospital's database)"
+    "clinicalEvents": "Clinical activity (kept in your hospital's database)",
+    "deskDoes": "Patients, join invites, appointments and doctor assignments are handled by the front desk (receptionist accounts, added under Team)."
   },
   "doctor": {
     "patientsTitle": "My patients",
@@ -267,14 +265,6 @@
     "assign": "Assign doctor",
     "assigned": "Doctor assigned. The appointment now waits for the doctor's tests.",
     "sendInvite": "Send join invite",
-    "invite": {
-      "sent": "Join invite sent.",
-      "printed": "Join invite ready to print.",
-      "skipped_no_email": "No e-mail or mobile number in the records.",
-      "skipped_no_phone": "No e-mail or mobile number in the records.",
-      "not_found": "Patient not found in the records.",
-      "failed": "The invite could not be sent."
-    },
     "stage": {
       "needs_doctor": "Needs a doctor",
       "needs_tests": "Waiting for doctor's tests",
@@ -292,7 +282,8 @@
     "dateTime": "Date and time",
     "afterAssign": "After you assign a doctor, the appointment goes to that doctor to choose the tests. The patient gets the record link only when the doctor sends it.",
     "addAndAssign": "Add appointment and assign",
-    "added": "Appointment added."
+    "added": "Appointment added.",
+    "inviteFor": "Send a join invite to {{name}}"
   },
   "choose": {
     "title": "Choose tests for upcoming appointments",
@@ -332,5 +323,10 @@
     },
     "uploaded": "{{n}} tests uploaded {{date}}",
     "withdrawn": "The patient withdrew from home recording on {{date}}. Everything recorded stays here."
+  },
+  "invite": {
+    "title": "Invite patients to the app",
+    "yes": "Yes",
+    "qrAlt": "Join invite QR code for MRN {{mrn}}"
   }
 }

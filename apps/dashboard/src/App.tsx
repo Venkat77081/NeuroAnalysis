@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { call, resume, signOut, type Tokens } from './api.ts';
 import { InviteAccept, SignIn } from './auth.tsx';
 import { Hospitals, PlatformLog } from './platform.tsx';
-import { Activity, Connections, Overview, Patients, Phones, Team } from './hospital.tsx';
+import { Activity, Connections, Overview, Phones, Team } from './hospital.tsx';
+import { InvitePatients } from './invites.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
 import { Assign } from './assign.tsx';
 import { Appointments } from './appointments.tsx';
@@ -20,18 +21,10 @@ interface Me {
 
 const NAV: Record<Me['role'], string[]> = {
   platform_admin: ['hospitals', 'platformLog'],
-  hospital_admin: [
-    'overview',
-    'connections',
-    'team',
-    'phones',
-    'patients',
-    'appointments',
-    'assign',
-    'activity',
-  ],
+  // Set-up only; patients, invites and appointments are the front desk's work.
+  hospital_admin: ['overview', 'connections', 'team', 'phones', 'activity'],
   doctor: ['chooseTests', 'myPatients'],
-  receptionist: ['appointments', 'assign'],
+  receptionist: ['appointments', 'invite', 'assign'],
 };
 
 function inviteFromUrl(): string | null {
@@ -91,7 +84,7 @@ export function App() {
   else if (page === 'connections') body = <Connections />;
   else if (page === 'team') body = <Team />;
   else if (page === 'phones') body = <Phones />;
-  else if (page === 'patients') body = <Patients />;
+  else if (page === 'invite') body = <InvitePatients />;
   else if (page === 'activity') body = <Activity />;
   else if (page === 'assign') body = <Assign />;
   else if (page === 'appointments') body = <Appointments />;

@@ -35,7 +35,8 @@ class HospitalIn(BaseModel):
     kind: Literal["hospital", "clinic"] = "hospital"
     region: str = Field(min_length=2, max_length=50)
     city: str | None = Field(default=None, max_length=100)
-    data_mode: Literal["byo", "managed"] = "managed"
+    #: Decision 031: hospital-owned data only (the hospital runs its connector and holds its key).
+    data_mode: Literal["byo"] = "byo"
     modules: Modules = Modules()
     sms_enabled: bool = False
     admin_email: str = Email

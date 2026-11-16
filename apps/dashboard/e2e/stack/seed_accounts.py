@@ -29,7 +29,7 @@ with _factory()() as db:
         region="IN",
         city="Chennai",
         kind="clinic",
-        data_mode="managed",
+        data_mode="byo",
         status="active",
         modules={"clinic": True, "home": True},
         enrollment_code_hash=sha256_hex(os.urandom(16).hex()),

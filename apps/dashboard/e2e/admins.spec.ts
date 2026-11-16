@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { signIn, stack } from './support.ts';
 
-test('M14: hospital admin — connector health, live patient search, invites, team, phones, activity', async ({
+test('M14: hospital admin — connector health, team, phones, activity (set-up only)', async ({
   page,
 }) => {
   const s = stack();
@@ -16,15 +16,9 @@ test('M14: hospital admin — connector health, live patient search, invites, te
   for (const k of ['reachable', 'records', 'ncid_map', 'activity_log', 'decrypt_key'])
     await expect(checks).toContainText(`${k}: pass`);
 
-  await page.getByTestId('nav-patients').click();
-  await page.getByTestId('p-search').fill('ravi');
-  await page.getByTestId('p-search-btn').click();
-  await expect(page.getByTestId('p-results')).toContainText('Ravi Samplename');
-  await expect(page.getByTestId('p-results')).toContainText('Missing'); // no e-mail on file
-  await page.getByTestId('p-sel-00012401').check();
-  await page.getByTestId('via-print').check();
-  await page.getByTestId('p-send').click();
-  await expect(page.getByTestId('p-invite-results')).toContainText('QR ready to print');
+  // Set-up only: patients, invites and appointments are the front desk's (user, 16 Nov 2026).
+  for (const p of ['invite', 'appointments', 'assign'])
+    await expect(page.getByTestId(`nav-${p}`)).toHaveCount(0);
 
   await page.getByTestId('nav-team').click();
   await page.getByTestId('op-code').fill('OP-E2E');
@@ -37,7 +31,7 @@ test('M14: hospital admin — connector health, live patient search, invites, te
   await expect(page.getByTestId('d-code-text')).toHaveText(/^[A-Z2-9]{10}$/);
 
   await page.getByTestId('nav-activity').click();
-  await expect(page.getByTestId('clinical-log')).toContainText('patients_searched');
+  await expect(page.getByTestId('clinical-log')).toBeVisible();
   await expect(page.getByTestId('hospital-log')).toContainText('operator_created');
 });
 

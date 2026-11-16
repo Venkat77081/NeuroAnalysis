@@ -28,6 +28,13 @@ pnpm --filter @neurocapture/dashboard build     # → apps/dashboard/dist (stati
   `sessionStorage`, so closing the tab signs out. Decrypted videos exist only as in-memory blob
   URLs while they are open.
 
+## Who sees what (decision 031)
+
+- **Hospital admin:** set-up only (overview, data connections, team, phones, activity).
+- **Front desk (receptionist):** appointments, join invites (e-mail, SMS or printed QR) and
+  doctor assignments.
+- **Doctor:** choose tests, my patients (history, recordings, reviews, plan).
+
 ## Appointments and record links (v3, decision 030)
 
 - **Reception → Appointments** lists the next 7 days. Appointments come live from the hospital

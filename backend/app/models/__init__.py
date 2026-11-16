@@ -38,8 +38,8 @@ class Site(Base):
     patient_ref_salt: Mapped[str] = mapped_column(String(64))
     # M10: hospital or clinic as a tenant.
     kind: Mapped[str] = mapped_column(String(10), default="hospital")  # hospital | clinic
-    #: byo = the hospital's own connector, storage and key; managed = run by NeuroCapture.
-    data_mode: Mapped[str] = mapped_column(String(10), default="managed")
+    #: Always byo (decision 031): the hospital runs its own connector and holds its own take key.
+    data_mode: Mapped[str] = mapped_column(String(10), default="byo")
     status: Mapped[str] = mapped_column(String(12), default="active")  # invited | active | suspended
     modules: Mapped[dict] = mapped_column(Json, default=dict)  # {"clinic": true, "home": true, ...}
     city: Mapped[str | None] = mapped_column(String(100))

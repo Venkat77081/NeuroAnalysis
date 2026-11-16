@@ -10,7 +10,6 @@ interface Hospital {
   kind: string;
   region: string;
   city: string | null;
-  data_mode: string;
   status: string;
   sms_enabled: boolean;
   onboarded_at: string | null;
@@ -66,7 +65,6 @@ export function Hospitals() {
         head={[
           t('platform.name'),
           t('platform.status'),
-          t('platform.dataMode'),
           t('platform.devices'),
           t('platform.operators'),
           t('platform.patients'),
@@ -90,7 +88,6 @@ export function Hospitals() {
                   {h.status}
                 </Badge>
               </td>
-              <td className="px-4 py-3 text-[13px]">{t(`platform.${h.data_mode}`)}</td>
               <td className="px-4 py-3">{h.devices}</td>
               <td className="px-4 py-3">{h.operators}</td>
               <td className="px-4 py-3">{h.patients}</td>
@@ -169,7 +166,6 @@ function Onboard({ onDone }: { onDone: () => void }) {
     kind: 'hospital',
     region: 'IN',
     city: '',
-    data_mode: 'managed',
     sms: false,
     home: true,
     email: '',
@@ -186,7 +182,6 @@ function Onboard({ onDone }: { onDone: () => void }) {
         kind: f.kind,
         region: f.region,
         city: f.city || null,
-        data_mode: f.data_mode,
         sms_enabled: f.sms,
         modules: { clinic: true, home: f.home },
         admin_email: f.email,
@@ -220,18 +215,6 @@ function Onboard({ onDone }: { onDone: () => void }) {
           >
             <option value="hospital">{t('platform.hospital')}</option>
             <option value="clinic">{t('platform.clinic')}</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
-          {t('platform.dataMode')}
-          <select
-            className={sel}
-            value={f.data_mode}
-            onChange={(e) => setF({ ...f, data_mode: e.target.value })}
-            data-testid="h-mode"
-          >
-            <option value="managed">{t('platform.managed')}</option>
-            <option value="byo">{t('platform.byo')}</option>
           </select>
         </label>
         <Field

@@ -3,7 +3,7 @@
  * connector), invites, deletion requests and the activity log. Patient identity is fetched from the
  * hospital connector by this browser; the platform only ever sees NCIDs.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import { call, hospital } from './api.ts';
@@ -515,22 +515,6 @@ export function Phones() {
 
 // --- Patients ---
 
-interface RecordRow {
-  mrn: string;
-  name: string;
-  birth_date: string | null;
-  sex: string | null;
-  has_email: boolean;
-  has_phone: boolean;
-  ncid: string | null;
-  app_status: string | null;
-}
-interface InviteResult {
-  mrn: string;
-  result: string;
-  ncid: string | null;
-  qr_png_base64: string | null;
-}
 interface Deletion {
   id: string;
   ncid: string;
@@ -538,181 +522,40 @@ interface Deletion {
   status: string;
 }
 
-export function Patients() {
+/** Deletion requests from phones before v3 (the app no longer offers deletion; decision 030). */
+function DeletionRequests() {
   const { t } = useTranslation();
-  const [q, setQ] = useState('');
-  const [rows, setRows] = useState<RecordRow[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [via, setVia] = useState<'email' | 'sms' | 'print'>('email');
-  const [results, setResults] = useState<InviteResult[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [deletions, , reloadDel] = useLoad(() =>
     call<Deletion[]>('GET', '/hospital/deletion-requests'),
   );
-  const search = useCallback(
-    () =>
-      attempt(setError, async () => {
-        setRows(await hospital<RecordRow[]>('GET', `/v1/patients?q=${encodeURIComponent(q)}`));
-        setResults([]);
-      }),
-    [q],
-  );
-  const toggle = (mrn: string) =>
-    setSelected((s) => {
-      const n = new Set(s);
-      if (n.has(mrn)) n.delete(mrn);
-      else n.add(mrn);
-      return n;
-    });
-  const send = () =>
-    attempt(setError, async () => {
-      setResults(
-        await hospital<InviteResult[]>('POST', '/v1/invites', {
-          mrns: [...selected],
-          channel: via,
-        }),
-      );
-      setSelected(new Set());
-    });
+  if ((deletions ?? []).length === 0) return null;
   return (
-    <Page title={t('hospital.patientsTitle')}>
-      <Notice>{t('app.notStored')}</Notice>
+    <Card title={t('hospital.deletionTitle')}>
+      <p className="text-[13px] text-muted">{t('hospital.deletionHint')}</p>
       <ErrorNote error={error} />
-      <div className="flex gap-2">
-        <input
-          aria-label={t('hospital.search')}
-          placeholder={t('hospital.search')}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void search()}
-          className="h-11 w-full max-w-md rounded-xl border border-[#C9CFD8] bg-white px-3 text-[14px]"
-          data-testid="p-search"
-        />
-        <Button
-          disabled={q.trim().length < 2}
-          onClick={() => void search()}
-          data-testid="p-search-btn"
-        >
-          {t('hospital.searchBtn')}
-        </Button>
-      </div>
-      <Table
-        head={[
-          '',
-          t('hospital.patient'),
-          t('hospital.mrn'),
-          t('hospital.email'),
-          t('hospital.mobile'),
-          t('hospital.appStatus'),
-        ]}
-        testId="p-results"
-      >
-        {rows.map((r) => (
-          <tr key={r.mrn} className="border-t border-[#EDF0F3]">
-            <td className="px-4 py-3">
-              <input
-                type="checkbox"
-                aria-label={`Select ${r.mrn}`}
-                checked={selected.has(r.mrn)}
-                onChange={() => toggle(r.mrn)}
-                className="size-5 accent-brand"
-                data-testid={`p-sel-${r.mrn}`}
-              />
-            </td>
-            <td className="px-4 py-3 font-semibold">{r.name}</td>
-            <td className="px-4 py-3">{r.mrn}</td>
-            <td className="px-4 py-3">
-              {r.has_email ? (
-                'Yes'
-              ) : (
-                <span className="font-semibold text-bad">{t('hospital.missing')}</span>
-              )}
-            </td>
-            <td className="px-4 py-3">
-              {r.has_phone ? (
-                'Yes'
-              ) : (
-                <span className="font-semibold text-bad">{t('hospital.missing')}</span>
-              )}
-            </td>
-            <td className="px-4 py-3">
-              {r.app_status ? (
-                <Badge tone={r.app_status === 'active' ? 'ok' : 'neutral'}>{r.app_status}</Badge>
-              ) : (
-                t('hospital.notInvited')
-              )}
-            </td>
-          </tr>
+      <ul className="flex flex-col gap-2">
+        {(deletions ?? []).map((d) => (
+          <li key={d.id} className="flex items-center gap-3 text-[14px]">
+            <code>{d.ncid}</code> · {fmt(d.requested_at)}{' '}
+            <Badge tone={d.status === 'done' ? 'ok' : 'warn'}>{d.status}</Badge>
+            {d.status !== 'done' && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  void attempt(setError, async () => {
+                    await call('POST', `/hospital/deletion-requests/${d.id}/done`);
+                    reloadDel();
+                  })
+                }
+              >
+                {t('hospital.markDone')}
+              </Button>
+            )}
+          </li>
         ))}
-      </Table>
-      {selected.size > 0 && (
-        <Card title={t('hospital.via', { n: selected.size })} testId="p-invite">
-          {(['email', 'sms', 'print'] as const).map((v) => (
-            <label key={v} className="flex min-h-11 items-center gap-2 text-[14px]">
-              <input
-                type="radio"
-                name="via"
-                checked={via === v}
-                onChange={() => setVia(v)}
-                className="size-5 accent-brand"
-                data-testid={`via-${v}`}
-              />
-              {t(`hospital.via${v[0]!.toUpperCase()}${v.slice(1)}`)}
-            </label>
-          ))}
-          <Button className="self-start" onClick={() => void send()} data-testid="p-send">
-            {t('hospital.send')}
-          </Button>
-        </Card>
-      )}
-      {results.length > 0 && (
-        <ul className="flex flex-col gap-2" data-testid="p-invite-results">
-          {results.map((r) => (
-            <li key={r.mrn} className="flex items-center gap-3 text-[14px]">
-              <span className="font-semibold">{r.mrn}</span>
-              <Badge tone={r.result === 'sent' || r.result === 'printed' ? 'ok' : 'warn'}>
-                {t(`hospital.result_${r.result}`)}
-              </Badge>
-              {r.qr_png_base64 && (
-                <img
-                  src={`data:image/png;base64,${r.qr_png_base64}`}
-                  alt=""
-                  width={120}
-                  height={120}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      <Card title={t('hospital.deletionTitle')}>
-        <p className="text-[13px] text-muted">{t('hospital.deletionHint')}</p>
-        {(deletions ?? []).length === 0 && (
-          <p className="text-[14px] text-muted">{t('app.none')}</p>
-        )}
-        <ul className="flex flex-col gap-2">
-          {(deletions ?? []).map((d) => (
-            <li key={d.id} className="flex items-center gap-3 text-[14px]">
-              <code>{d.ncid}</code> · {fmt(d.requested_at)}{' '}
-              <Badge tone={d.status === 'done' ? 'ok' : 'warn'}>{d.status}</Badge>
-              {d.status !== 'done' && (
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    void attempt(setError, async () => {
-                      await call('POST', `/hospital/deletion-requests/${d.id}/done`);
-                      reloadDel();
-                    })
-                  }
-                >
-                  {t('hospital.markDone')}
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </Page>
+      </ul>
+    </Card>
   );
 }
 
@@ -763,6 +606,8 @@ export function Overview({ siteName }: { siteName: string }) {
           </span>
         </Card>
       </div>
+      <Notice>{t('hospital.deskDoes')}</Notice>
+      <DeletionRequests />
     </Page>
   );
 }

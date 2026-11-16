@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, call, hospital } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
+import { InviteBox } from './invites.tsx';
 
 export type Stage = 'needs_doctor' | 'needs_tests' | 'sent' | 'recorded' | 'missed' | 'cancelled';
 
@@ -59,11 +60,6 @@ interface Found {
   mrn: string;
   name: string;
   ncid: string | null;
-}
-interface InviteResult {
-  mrn: string;
-  result: string;
-  invite_link: string | null;
 }
 
 const STAGE_TONE: Record<Stage, 'ok' | 'warn' | 'bad' | 'neutral'> = {
@@ -158,23 +154,11 @@ export function Appointments() {
       setError(e);
     }
   };
-  const invite = async (mrn: string) => {
-    setError(null);
-    try {
-      let [r] = await hospital<InviteResult[]>('POST', '/v1/invites', {
-        mrns: [mrn],
-        channel: 'email',
-      });
-      if (r?.result === 'skipped_no_email')
-        [r] = await hospital<InviteResult[]>('POST', '/v1/invites', {
-          mrns: [mrn],
-          channel: 'sms',
-        });
-      setNotice(t(`appts.invite.${r?.result ?? 'failed'}`, { defaultValue: r?.result ?? '' }));
-      reload();
-    } catch (e) {
-      setError(e);
-    }
+  /** The patient reception is inviting (the three ways show below the table). */
+  const [inviting, setInviting] = useState<{ mrn: string; name: string } | null>(null);
+  const invite = (mrn: string, name: string | null) => {
+    setNotice(null);
+    setInviting({ mrn, name: name ?? `MRN ${mrn}` });
   };
   const docName = (d: Doctor) => d.display_name ?? d.email;
   const joined = (ncid: string) => app[ncid] === 'active';
@@ -261,7 +245,7 @@ export function Appointments() {
                   {!joined(a.ncid) && i && a.stage !== 'cancelled' && (
                     <Button
                       variant="secondary"
-                      onClick={() => void invite(i.mrn)}
+                      onClick={() => invite(i.mrn, i.name)}
                       data-testid="appt-invite"
                     >
                       {t('appts.sendInvite')}
@@ -295,7 +279,7 @@ export function Appointments() {
             <td className="px-4 py-3">
               <Button
                 variant="secondary"
-                onClick={() => void invite(r.mrn)}
+                onClick={() => invite(r.mrn, r.name)}
                 data-testid="live-invite"
               >
                 {t('appts.sendInvite')}
@@ -308,6 +292,14 @@ export function Appointments() {
         <Notice tone="warn" testId="no-appointments">
           {t('appts.none')}
         </Notice>
+      )}
+      {inviting && (
+        <InviteBox
+          key={inviting.mrn}
+          mrns={[inviting.mrn]}
+          title={t('appts.inviteFor', { name: inviting.name })}
+          onSent={() => reload()}
+        />
       )}
       <ManualAppointment
         docs={docs}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "configVersion": "PLATFORM@1.5.0",
+  "configVersion": "PLATFORM@1.6.0",
   "invites": {
     "patientTtlDays": 7,
     "staffTtlDays": 7,
@@ -22,13 +22,7 @@
   },
   "consentVersion": "home-consent@1",
   "defaultPlan": {
-    "tests": [
-      "FT",
-      "FTF",
-      "FR",
-      "SAW",
-      "FA"
-    ],
+    "tests": ["FT", "FTF", "FR", "SAW", "FA"],
     "everyDays": 7,
     "medState": "OFF"
   },
@@ -45,142 +39,76 @@
     "rerecordDueDays": 3,
     "reminderHoursBefore": 24,
     "appointmentWindowDays": 7,
-    "clinicNotDoneReasons": [
-      "did_not_attend",
-      "unwell",
-      "refused",
-      "no_time",
-      "other"
-    ],
+    "clinicNotDoneReasons": ["did_not_attend", "unwell", "refused", "no_time", "other"],
     "clinicQueueMaxHours": 48
   },
   "permissions": {
     "patients.search": {
       "group": "patients",
-      "default": [
-        "receptionist"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "invites.send": {
       "group": "patients",
-      "default": [
-        "receptionist"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "appointments.view": {
       "group": "appointments",
-      "default": [
-        "receptionist",
-        "doctor"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["receptionist", "doctor"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "appointments.add": {
       "group": "appointments",
-      "default": [
-        "receptionist"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "appointments.assign": {
       "group": "appointments",
-      "default": [
-        "receptionist"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["receptionist"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "requests.send": {
       "group": "requests",
-      "default": [
-        "doctor"
-      ],
-      "eligible": [
-        "doctor"
-      ]
+      "default": ["doctor"],
+      "eligible": ["doctor"]
     },
     "requests.rerecord": {
       "group": "requests",
-      "default": [
-        "doctor"
-      ],
-      "eligible": [
-        "doctor"
-      ]
+      "default": ["doctor"],
+      "eligible": ["doctor"]
     },
     "clinic.record": {
       "group": "clinic",
-      "default": [
-        "operator"
-      ],
-      "eligible": [
-        "operator"
-      ]
+      "default": ["operator"],
+      "eligible": ["operator"]
     },
     "setup.team": {
       "group": "setup",
-      "default": [
-        "hospital_admin"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "setup.phones": {
       "group": "setup",
-      "default": [
-        "hospital_admin"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "setup.connections": {
       "group": "setup",
-      "default": [
-        "hospital_admin"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     },
     "setup.activity": {
       "group": "setup",
-      "default": [
-        "hospital_admin"
-      ],
-      "eligible": [
-        "hospital_admin",
-        "receptionist",
-        "doctor"
-      ]
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin", "receptionist", "doctor"]
     }
+  },
+  "deviceCheck": {
+    "minFps": 55,
+    "warnBelowFps": 59,
+    "durationS": 20,
+    "facing": "back",
+    "resolution": "1080p"
   }
 }

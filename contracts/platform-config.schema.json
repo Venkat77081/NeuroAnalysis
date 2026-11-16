@@ -17,7 +17,8 @@
     "app",
     "operators",
     "requests",
-    "permissions"
+    "permissions",
+    "deviceCheck"
   ],
   "properties": {
     "schemaVersion": {
@@ -30,12 +31,7 @@
     "invites": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "patientTtlDays",
-        "staffTtlDays",
-        "deviceCodeTtlHours",
-        "deviceCodeLength"
-      ],
+      "required": ["patientTtlDays", "staffTtlDays", "deviceCodeTtlHours", "deviceCodeLength"],
       "properties": {
         "patientTtlDays": {
           "type": "integer",
@@ -62,10 +58,7 @@
     "passwords": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "minLength",
-        "temporaryLength"
-      ],
+      "required": ["minLength", "temporaryLength"],
       "properties": {
         "minLength": {
           "type": "integer",
@@ -82,11 +75,7 @@
     "patientPin": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "minDigits",
-        "maxDigits",
-        "maxFailures"
-      ],
+      "required": ["minDigits", "maxDigits", "maxFailures"],
       "properties": {
         "minDigits": {
           "type": "integer",
@@ -108,10 +97,7 @@
     "staff": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "twoStepRequired",
-        "maxFailedLogins"
-      ],
+      "required": ["twoStepRequired", "maxFailedLogins"],
       "properties": {
         "twoStepRequired": {
           "type": "boolean"
@@ -131,11 +117,7 @@
     "defaultPlan": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "tests",
-        "everyDays",
-        "medState"
-      ],
+      "required": ["tests", "everyDays", "medState"],
       "description": "Recording plan for a patient until their doctor sets one (M13).",
       "properties": {
         "tests": {
@@ -143,13 +125,7 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "enum": [
-              "FT",
-              "FTF",
-              "FR",
-              "SAW",
-              "FA"
-            ]
+            "enum": ["FT", "FTF", "FR", "SAW", "FA"]
           }
         },
         "everyDays": {
@@ -158,22 +134,14 @@
           "maximum": 90
         },
         "medState": {
-          "enum": [
-            "OFF",
-            "ON",
-            "ANY"
-          ]
+          "enum": ["OFF", "ON", "ANY"]
         }
       }
     },
     "app": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "operatorAutoLockMin",
-        "patientAutoLockMin",
-        "homeSawNeedsHelper"
-      ],
+      "required": ["operatorAutoLockMin", "patientAutoLockMin", "homeSawNeedsHelper"],
       "properties": {
         "operatorAutoLockMin": {
           "type": "integer",
@@ -194,9 +162,7 @@
     "operators": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "maxFailedLogins"
-      ],
+      "required": ["maxFailedLogins"],
       "description": "Clinic operators (M13): wrong passwords in a row before the account locks; a hospital admin unlocks it.",
       "properties": {
         "maxFailedLogins": {
@@ -266,31 +232,16 @@
         "^[a-z]+\\.[a-z]+$": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "group",
-            "default",
-            "eligible"
-          ],
+          "required": ["group", "default", "eligible"],
           "properties": {
             "group": {
-              "enum": [
-                "patients",
-                "appointments",
-                "requests",
-                "clinic",
-                "setup"
-              ]
+              "enum": ["patients", "appointments", "requests", "clinic", "setup"]
             },
             "default": {
               "type": "array",
               "uniqueItems": true,
               "items": {
-                "enum": [
-                  "hospital_admin",
-                  "receptionist",
-                  "doctor",
-                  "operator"
-                ]
+                "enum": ["hospital_admin", "receptionist", "doctor", "operator"]
               }
             },
             "eligible": {
@@ -298,15 +249,40 @@
               "minItems": 1,
               "uniqueItems": true,
               "items": {
-                "enum": [
-                  "hospital_admin",
-                  "receptionist",
-                  "doctor",
-                  "operator"
-                ]
+                "enum": ["hospital_admin", "receptionist", "doctor", "operator"]
               }
             }
           }
+        }
+      }
+    },
+    "deviceCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minFps", "warnBelowFps", "durationS", "facing", "resolution"],
+      "description": "Camera check before a phone is added (user, 16 Nov 2026): clinic phones before their registration code is used, patients before their invite is accepted.",
+      "properties": {
+        "minFps": {
+          "type": "number",
+          "minimum": 30,
+          "maximum": 60
+        },
+        "warnBelowFps": {
+          "type": "number",
+          "minimum": 30,
+          "maximum": 60,
+          "description": "Passed but below this: 'borderline', some takes may need repeating (takes fail below the session minimum, 59 by default)."
+        },
+        "durationS": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 120
+        },
+        "facing": {
+          "enum": ["back", "front"]
+        },
+        "resolution": {
+          "enum": ["1080p", "720p"]
         }
       }
     }

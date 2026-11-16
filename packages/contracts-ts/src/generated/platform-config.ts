@@ -91,4 +91,17 @@ export interface PlatformConfig {
       ];
     };
   };
+  /**
+   * Camera check before a phone is added (user, 16 Nov 2026): clinic phones before their registration code is used, patients before their invite is accepted.
+   */
+  deviceCheck: {
+    minFps: number;
+    /**
+     * Passed but below this: 'borderline', some takes may need repeating (takes fail below the session minimum, 59 by default).
+     */
+    warnBelowFps: number;
+    durationS: number;
+    facing: 'back' | 'front';
+    resolution: '1080p' | '720p';
+  };
 }

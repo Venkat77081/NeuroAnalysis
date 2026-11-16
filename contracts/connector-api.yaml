@@ -403,6 +403,74 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/appointments/{appointment_id}/remark:
+    put:
+      summary: Write Remark
+      description: The appointment's own doctor writes (or clears) its visit remarks.
+        The text stays here.
+      operationId: write_remark_v1_appointments__appointment_id__remark_put
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: appointment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Appointment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemarkIn'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/RemarkOut'
+                - type: 'null'
+                title: Response Write Remark V1 Appointments  Appointment Id  Remark
+                  Put
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/patients/{ncid}/remarks:
+    get:
+      summary: Remarks
+      description: Every visit remark for this patient (doctors who may open the patient).
+      operationId: remarks_v1_patients__ncid__remarks_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: ncid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ncid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RemarkOut'
+                title: Response Remarks V1 Patients  Ncid  Remarks Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /auth/connector-token:
     post:
       tags:
@@ -645,6 +713,33 @@ paths:
                   $ref: '#/components/schemas/RecordingOut'
                 title: Response Connector Takes Connector V1 Patients  Ncid  Takes
                   Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
+  /connector/v1/appointments/{appt_id}:
+    get:
+      tags:
+      - connector
+      summary: Connector Appointment
+      operationId: connector_appointment_connector_v1_appointments__appt_id__get
+      parameters:
+      - name: appt_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Appt Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentInfoOut'
         '422':
           description: Validation Error
           content:
@@ -936,6 +1031,36 @@ components:
       - ncid
       - details
       title: ActivityOut
+    AppointmentInfoOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        ncid:
+          type: string
+          title: Ncid
+        doctor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Doctor Id
+        at:
+          type: string
+          format: date-time
+          title: At
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - id
+      - ncid
+      - doctor_id
+      - at
+      - status
+      title: AppointmentInfoOut
+      description: 'Who an appointment belongs to (decision 040: only its doctor writes
+        its visit remarks).'
     CheckIn:
       properties:
         sample_mrn:
@@ -1509,6 +1634,42 @@ components:
       - flagged_for_review
       - status
       title: RecordingOut
+    RemarkIn:
+      properties:
+        text:
+          type: string
+          maxLength: 4000
+          title: Text
+      type: object
+      required:
+      - text
+      title: RemarkIn
+    RemarkOut:
+      properties:
+        appointment_id:
+          type: string
+          title: Appointment Id
+        ncid:
+          type: string
+          title: Ncid
+        text:
+          type: string
+          title: Text
+        author_id:
+          type: string
+          title: Author Id
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - appointment_id
+      - ncid
+      - text
+      - author_id
+      - updated_at
+      title: RemarkOut
     ReminderOut:
       properties:
         request_id:

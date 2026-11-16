@@ -595,5 +595,24 @@
     "notSent": "Sign-in reset, but the e-mail could not be sent. Hand this link to {{name}} in person (shown once):",
     "copy": "Copy link",
     "copied": "Copied"
+  },
+  "remarks": {
+    "label": "Visit remarks",
+    "none": "No remarks yet.",
+    "add": "Add remarks",
+    "edit": "Edit remarks",
+    "save": "Save at the hospital",
+    "cancel": "Cancel",
+    "periodLabel": "Past appointments to show",
+    "periodHint": "Upcoming appointments, and past ones from:",
+    "period": {
+      "30": "30 days",
+      "90": "90 days",
+      "180": "180 days",
+      "365": "1 year",
+      "all": "All"
+    },
+    "hidden_one": "{{count}} older appointment hidden: choose a longer period above.",
+    "hidden_other": "{{count}} older appointments hidden: choose a longer period above."
   }
 }

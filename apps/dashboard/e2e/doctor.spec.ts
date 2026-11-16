@@ -11,7 +11,7 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   const s = stack();
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await assignPatient(s.doctor_email); // doctors see only their assigned patients
+  await assignPatient(s.doctor_email); // decision 040: an upcoming appointment with this doctor
   await signIn(page, s.doctor_email, s.doctor_totp);
   await page.getByTestId('nav-myPatients').click(); // v3: doctors land on "Choose tests"
   await expect(page.getByTestId('my-patients')).toContainText('Asha Testpatient');
@@ -21,6 +21,15 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   await expect(page.getByTestId('patient-mrn')).toContainText(`MRN ${s.patient_mrn}`);
   await expect(page.getByTestId('history')).toContainText("Parkinson's disease");
   await expect(page.getByTestId('history')).toContainText('Levodopa/carbidopa 100/25 mg');
+
+  // Decision 040: visit remarks on the doctor's own appointment (kept at the hospital), and the
+  // period of past appointments shown.
+  await expect(page.getByTestId('period-90')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('period-30').click();
+  await page.getByTestId('remark-edit').first().click();
+  await page.getByTestId('remark-text').fill('Tremor at rest improved since the dose change.');
+  await page.getByTestId('remark-save').click();
+  await expect(page.getByTestId('timeline')).toContainText('Tremor at rest improved');
 
   // The recording, decrypted by the connector, plays in the browser.
   await page.getByTestId('play-FT').click();

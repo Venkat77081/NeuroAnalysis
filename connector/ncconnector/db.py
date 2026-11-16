@@ -80,6 +80,18 @@ class Review(Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
+class VisitRemark(Base):
+    """Decision 040: one free-text note per appointment, by that appointment's doctor ("visit
+    remarks"). Hospital-owned, like reviews; the platform never receives the text."""
+
+    __tablename__ = "nc_visit_remarks"
+    appointment_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    ncid: Mapped[str] = mapped_column(String(40), index=True)
+    text: Mapped[str] = mapped_column(String(4000))
+    author_id: Mapped[str] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
 class LogSpool(Base):
     """Activity entries waiting for an unreachable log server (resilience, PLATFORM_PLAN §3)."""
 

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session as DbSession
 from ncconnector import __version__, activity, platform
 from ncconnector.auth import Staff, perm, platform_signed, role
 from ncconnector.config import get_settings
-from ncconnector.db import ActivityLog, NcidMap, Review, get_db, init_db
+from ncconnector.db import ActivityLog, NcidMap, Review, VisitRemark, get_db, init_db
 from ncconnector.delivery import DeliveryError, check_config
 from ncconnector.keys import has_take_key, take_private_key
 from ncconnector.providers import send_invite
@@ -615,3 +615,70 @@ def read_activity(
         )
         for a in db.scalars(q)
     ]
+
+
+# --- Visit remarks (decision 040) ---
+
+
+class RemarkIn(BaseModel):
+    text: str = Field(max_length=4000)
+
+
+class RemarkOut(BaseModel):
+    appointment_id: str
+    ncid: str
+    text: str
+    author_id: str
+    updated_at: datetime
+
+
+def _remark_out(r: VisitRemark) -> RemarkOut:
+    return RemarkOut(
+        appointment_id=r.appointment_id,
+        ncid=r.ncid,
+        text=r.text,
+        author_id=r.author_id,
+        updated_at=r.updated_at,
+    )
+
+
+@app.put("/v1/appointments/{appointment_id}/remark", response_model=RemarkOut | None)
+def write_remark(
+    appointment_id: str, body: RemarkIn, s: Staff = Depends(doctor), db: DbSession = Depends(get_db)
+) -> RemarkOut | None:
+    """The appointment's own doctor writes (or clears) its visit remarks. The text stays here."""
+    try:
+        info = platform.call("GET", f"/connector/v1/appointments/{appointment_id}")
+    except platform.PlatformError as exc:
+        raise _platform_error(exc) from exc
+    if info["ncid"] not in allowed(s, [info["ncid"]]):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "appointment not found")
+    if info["doctor_id"] != s.user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_your_appointment"})
+    r = db.get(VisitRemark, appointment_id)
+    text = body.text.strip()
+    if not text:
+        if r:
+            db.delete(r)
+            db.commit()
+        activity.write(
+            db, s.role, s.user_id, "visit_remark_cleared", info["ncid"], appointment_id=appointment_id
+        )
+        return None
+    if r is None:
+        r = VisitRemark(appointment_id=appointment_id, ncid=info["ncid"], text=text, author_id=s.user_id)
+        db.add(r)
+    else:
+        r.text, r.author_id, r.updated_at = text, s.user_id, datetime.now(UTC)
+    db.commit()
+    activity.write(db, s.role, s.user_id, "visit_remark_written", info["ncid"], appointment_id=appointment_id)
+    return _remark_out(r)
+
+
+@app.get("/v1/patients/{ncid}/remarks", response_model=list[RemarkOut])
+def remarks(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(get_db)) -> list[RemarkOut]:
+    """Every visit remark for this patient (doctors who may open the patient)."""
+    _mrn_for(db, ncid)
+    require_access(s, ncid)
+    q = select(VisitRemark).where(VisitRemark.ncid == ncid).order_by(VisitRemark.updated_at.desc())
+    return [_remark_out(r) for r in db.scalars(q)]

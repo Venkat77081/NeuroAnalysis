@@ -471,16 +471,144 @@ function PlanEditor({ ncid }: { ncid: string }) {
   );
 }
 
+type Period = '30' | '90' | '180' | '365' | 'all';
+const PERIODS: Period[] = ['30', '90', '180', '365', 'all'];
+const PERIOD_KEY = 'nc.patient.period';
+function savedPeriod(): Period {
+  try {
+    const v = localStorage.getItem(PERIOD_KEY) as Period | null;
+    return v && PERIODS.includes(v) ? v : '90';
+  } catch {
+    return '90';
+  }
+}
+interface Remark {
+  appointment_id: string;
+  text: string;
+  author_id: string;
+  updated_at: string;
+}
+
+/** Decision 040: one note per appointment by its own doctor, kept at the hospital (connector). */
+function VisitRemark({
+  appointmentId,
+  remark,
+  mine,
+  doctorName,
+  onSaved,
+}: {
+  appointmentId: string;
+  remark: Remark | undefined;
+  mine: boolean;
+  doctorName: string | null;
+  onSaved: (r: Remark | null) => void;
+}) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(remark?.text ?? '');
+  const [error, setError] = useState<unknown>(null);
+  const save = async () => {
+    setError(null);
+    try {
+      onSaved(
+        await hospital<Remark | null>('PUT', `/v1/appointments/${appointmentId}/remark`, { text }),
+      );
+      setEditing(false);
+    } catch (e) {
+      setError(e);
+    }
+  };
+  if (editing)
+    return (
+      <div className="flex flex-col gap-1.5 pl-3" data-testid="remark-editor">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          maxLength={4000}
+          rows={3}
+          aria-label={t('remarks.label')}
+          className="rounded-xl border border-[#C9CFD8] p-2 text-[14px]"
+          data-testid="remark-text"
+        />
+        <ErrorNote error={error} />
+        <div className="flex gap-2">
+          <Button onClick={() => void save()} data-testid="remark-save">
+            {t('remarks.save')}
+          </Button>
+          <Button variant="ghost" onClick={() => setEditing(false)}>
+            {t('remarks.cancel')}
+          </Button>
+        </div>
+      </div>
+    );
+  if (!remark && !mine) return null;
+  return (
+    <div
+      className="ml-3 flex flex-col gap-1 rounded-xl bg-ground px-3 py-2 text-[13px]"
+      data-testid="remark"
+    >
+      <span className="font-semibold">
+        {t('remarks.label')}
+        {remark && doctorName ? ` · ${doctorName} · ${fmtDate(remark.updated_at)}` : ''}
+      </span>
+      {remark ? (
+        <span className="whitespace-pre-wrap">{remark.text}</span>
+      ) : (
+        <span className="text-muted">{t('remarks.none')}</span>
+      )}
+      {mine && (
+        <Button
+          variant="ghost"
+          className="self-start"
+          onClick={() => {
+            setText(remark?.text ?? '');
+            setEditing(true);
+          }}
+          data-testid="remark-edit"
+        >
+          {remark ? t('remarks.edit') : t('remarks.add')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 /** v3: the patient's appointments with the record links sent for them and what was recorded. */
 function Timeline({ ncid }: { ncid: string }) {
   const { t } = useTranslation();
   const [h, setH] = useState<PlatformHistory | null>(null);
   const [error, setError] = useState<unknown>(null);
-  useEffect(
-    () =>
-      void call<PlatformHistory>('GET', `/hospital/patients/${ncid}/history`).then(setH, setError),
-    [ncid],
-  );
+  const [remarks, setRemarks] = useState<Record<string, Remark>>({});
+  const [meId, setMeId] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period>(savedPeriod);
+  const pickPeriod = (v: Period) => {
+    setPeriod(v);
+    try {
+      localStorage.setItem(PERIOD_KEY, v);
+    } catch {
+      /* not remembered */
+    }
+  };
+  useEffect(() => {
+    void call<PlatformHistory>('GET', `/hospital/patients/${ncid}/history`).then(setH, setError);
+    void hospital<Remark[]>('GET', `/v1/patients/${ncid}/remarks`).then(
+      (rs) => setRemarks(Object.fromEntries(rs.map((r) => [r.appointment_id, r]))),
+      () => {},
+    );
+    void call<{ id: string }>('GET', '/staff/me').then(
+      (m) => setMeId(m.id),
+      () => {},
+    );
+  }, [ncid]);
+  // Decision 040: upcoming appointments always; past ones within the chosen period.
+  const [now] = useState(() => Date.now());
+  const since = period === 'all' ? -Infinity : now - Number(period) * 86_400_000;
+  const all = h?.appointments ?? [];
+  const shown = all.filter((a) => {
+    const at = new Date(a.at).getTime();
+    return at >= now || at >= since;
+  });
+  const hidden = all.length - shown.length;
   const recorded = (requestId: string) =>
     (h?.sessions ?? []).filter((s) => s.request_id === requestId);
   const req = (r: Appointment['requests'][number]) => (
@@ -515,8 +643,29 @@ function Timeline({ ncid }: { ncid: string }) {
       {h && h.appointments.length === 0 && h.other_requests.length === 0 && (
         <span className="text-[14px] text-muted">{t('timeline.none')}</span>
       )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[13px] text-muted">{t('remarks.periodHint')}</span>
+        <div
+          role="group"
+          aria-label={t('remarks.periodLabel')}
+          className="flex overflow-hidden rounded-xl border border-[#C9CFD8] bg-white"
+        >
+          {PERIODS.map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={period === v}
+              onClick={() => pickPeriod(v)}
+              className={`min-h-11 px-3 text-[13px] font-semibold ${period === v ? 'bg-brand text-white' : 'text-ink'}`}
+              data-testid={`period-${v}`}
+            >
+              {t(`remarks.period.${v}`)}
+            </button>
+          ))}
+        </div>
+      </div>
       <ol className="flex flex-col divide-y divide-[#EDF0F3]">
-        {(h?.appointments ?? []).map((a) => (
+        {shown.map((a) => (
           <li key={a.id} className="flex flex-col gap-1.5 py-3" data-testid="timeline-appt">
             <div className="flex flex-wrap items-center gap-2 text-[14px]">
               <span className="font-semibold">{fmt(a.at)}</span>
@@ -524,8 +673,27 @@ function Timeline({ ncid }: { ncid: string }) {
               <StageBadge a={a} />
             </div>
             <ul className="flex flex-col gap-1 pl-3">{a.requests.map(req)}</ul>
+            <VisitRemark
+              appointmentId={a.id}
+              remark={remarks[a.id]}
+              mine={!!meId && a.doctor_id === meId}
+              doctorName={a.doctor_name}
+              onSaved={(r) =>
+                setRemarks((cur) => {
+                  const next = { ...cur };
+                  if (r) next[a.id] = r;
+                  else delete next[a.id];
+                  return next;
+                })
+              }
+            />
           </li>
         ))}
+        {hidden > 0 && (
+          <li className="py-3 text-[13px] text-muted" data-testid="older-hidden">
+            {t('remarks.hidden', { count: hidden })}
+          </li>
+        )}
         {(h?.other_requests ?? []).length > 0 && (
           <li className="py-3">
             <ul className="flex flex-col gap-1">{h!.other_requests.map(req)}</ul>

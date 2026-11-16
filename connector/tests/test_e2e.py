@@ -36,13 +36,17 @@ def accept(env, link, pin="2580"):
 
 
 def assign(env, ncid: str, doctor_email: str) -> None:
-    """The receptionist's job (M14; decision 031: not the hospital admin)."""
+    """The front desk books the patient with this doctor (decision 040: an upcoming appointment is
+    what lets a doctor open a patient)."""
+    from datetime import UTC, datetime, timedelta
+
     a = hdr(env["desk_tok"])
     docs = {d["email"]: d["id"] for d in env["platform"].get("/hospital/doctors", headers=a).json()}
-    r = env["platform"].put(
-        f"/hospital/patients/{ncid}/doctor", headers=a, json={"doctor_id": docs[doctor_email]}
+    soon = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    r = env["platform"].post(
+        "/hospital/appointments", headers=a, json={"ncid": ncid, "at": soon, "doctor_id": docs[doctor_email]}
     )
-    assert r.status_code == 200, r.text
+    assert r.status_code == 201, r.text
 
 
 def doctor_for(env, *ncids: str, email: str = "dr.reader@sunrise.example") -> dict:

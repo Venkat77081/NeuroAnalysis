@@ -819,3 +819,36 @@ def test_camera_check_before_a_phone_is_added(api, two_hospitals):
     assert good.status_code == 201, good.text
     rows = {p["ncid"]: p for p in api.get("/hospital/patients", headers=hdr(t["a_desk"])).json()}
     assert rows[inv["ncid"]]["phone_unsuitable_fps"] is None and rows[inv["ncid"]]["status"] == "active"
+
+
+def test_times_keep_their_zone_and_log_names_doctors(api, two_hospitals):
+    """User, 16 Nov 2026: an appointment booked for 21 Nov 00:42 in India showed as 20 Nov 7:12 pm
+    (SQLite dropped the zone), and "Reassigned: {{previous_name}} → {{doctor_name}}" in the log."""
+    from datetime import datetime, timedelta, timezone
+
+    t = two_hospitals
+    desk = hdr(t["a_desk"])
+    _staff(api, t, "rao@sunrise.example", "doctor")
+    _staff(api, t, "iyer@sunrise.example", "doctor")
+    docs = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
+    ncid = api.post("/hospital/patients/invite", headers=desk, json={"channel": "print"}).json()["ncid"]
+    ist = timezone(timedelta(hours=5, minutes=30))
+    at = (datetime.now(ist) + timedelta(days=2)).replace(hour=0, minute=42, second=0, microsecond=0)
+    r = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": ncid, "at": at.isoformat(), "doctor_id": docs["rao@sunrise.example"]},
+    )
+    assert r.status_code == 201, r.text
+    listed = next(a for a in api.get("/hospital/appointments", headers=desk).json() if a["ncid"] == ncid)
+    sent = datetime.fromisoformat(listed["at"].replace("Z", "+00:00"))
+    assert sent.tzinfo is not None and sent == at  # same instant, with its zone
+
+    api.put(
+        f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": docs["iyer@sunrise.example"]}
+    )
+    log = api.get("/hospital/audit", headers=hdr(t["a_tok"])).json()
+    moved = next(e for e in log if e["action"] == "patient_reassigned")
+    assert moved["details"]["previous_name"] in ("rao@sunrise.example", "Rao")
+    assert moved["details"]["doctor_name"] in ("iyer@sunrise.example", "Iyer")
+    assert moved["at"].endswith(("Z", "+00:00"))

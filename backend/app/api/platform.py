@@ -218,6 +218,18 @@ class AuditOut(BaseModel):
     target_ncid: str | None = None
 
 
+def _named(people, details: dict | None) -> dict | None:
+    """Doctor IDs in an event become names for the log ("Reassigned: Dr. Rao → Dr. Iyer")."""
+    if not details:
+        return details
+    out = dict(details)
+    if isinstance(details.get("doctor"), str):
+        out["doctor_name"] = people.staff_name(details["doctor"]) or "—"
+    if "previous" in details:
+        out["previous_name"] = people.staff_name(details["previous"]) if details["previous"] else "—"
+    return out
+
+
 def audit_rows(db: DbSession, site_id: str | None, limit: int, platform_only: bool = False) -> list[AuditOut]:
     q = select(AuditEvent).order_by(AuditEvent.at.desc()).limit(limit)
     if site_id is not None:
@@ -241,7 +253,7 @@ def audit_rows(db: DbSession, site_id: str | None, limit: int, platform_only: bo
                 action=e.action,
                 target_type=e.target_type,
                 target_id=e.target_id,
-                details=e.details,
+                details=_named(people, e.details),
                 actor_name=who.name,
                 actor_email=who.email,
                 actor_role=who.role,

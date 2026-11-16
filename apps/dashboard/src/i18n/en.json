@@ -60,7 +60,8 @@
     "http_409": "This conflicts with the current state.",
     "http_422": "Please check the form.",
     "not_a_doctor_here": "Choose an active doctor of this hospital.",
-    "platform_unreachable": "The NeuroCapture service is not answering. Try again."
+    "platform_unreachable": "The NeuroCapture service is not answering. Try again.",
+    "email_not_sent": "Saved, but the invite e-mail could not be sent. Check the mail settings, then use \"Resend invite\"."
   },
   "nav": {
     "hospitals": "Hospitals",
@@ -191,7 +192,8 @@
     "usageTakes_one": "{{count}} take",
     "usageTakes_other": "{{count}} takes",
     "usageBelow_one": "{{count}} below {{fps}} fps",
-    "usageBelow_other": "{{count}} below {{fps}} fps"
+    "usageBelow_other": "{{count}} below {{fps}} fps",
+    "result_not_delivered": "Not sent: the e-mail or SMS could not be delivered. Try again, or print the QR code."
   },
   "doctor": {
     "patientsTitle": "My patients",
@@ -469,7 +471,8 @@
       "patient_closed": "Patient left home recording",
       "consent_withdrawn": "Patient withdrew from this hospital",
       "permissions_changed": "Changed roles and permissions · \"{{reason}}\"",
-      "clinic_not_recorded": "Not recorded in the clinic ({{reason}})"
+      "clinic_not_recorded": "Not recorded in the clinic ({{reason}})",
+      "invite_not_delivered": "Invite could not be delivered"
     },
     "place": {
       "home": "home link",

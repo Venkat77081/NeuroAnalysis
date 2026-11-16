@@ -407,10 +407,14 @@ export function Team() {
             disabled={!email.includes('@') || name.trim().length < 2}
             onClick={() =>
               void attempt(setError, async () => {
-                await call('POST', '/hospital/staff', { email, display_name: name.trim(), role });
-                setEmail('');
-                setName('');
-                reloadStaff();
+                try {
+                  await call('POST', '/hospital/staff', { email, display_name: name.trim(), role });
+                  setEmail('');
+                  setName('');
+                } finally {
+                  // Also when only the e-mail failed (502 email_not_sent): the person was added.
+                  reloadStaff();
+                }
               })
             }
             data-testid="st-invite"

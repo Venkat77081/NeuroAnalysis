@@ -1,7 +1,7 @@
 /** Platform admin (M14): onboard hospitals, follow their set-up, suspend; platform activity log. */
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { call } from './api.ts';
+import { ApiError, call } from './api.ts';
 import { ActivityLog, type LogRow } from './activity.tsx';
 import { Badge, Button, Card, ErrorNote, Field, Page, Table } from './ui.tsx';
 
@@ -220,6 +220,8 @@ function Onboard({ onDone }: { onDone: () => void }) {
       onDone();
     } catch (e) {
       setError(e);
+      // The hospital was added; only the admin's invite e-mail failed ("Resend invite" later).
+      if (e instanceof ApiError && e.code === 'email_not_sent') onDone();
     } finally {
       setBusy(false);
     }

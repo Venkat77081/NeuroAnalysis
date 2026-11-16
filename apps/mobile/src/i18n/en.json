@@ -167,7 +167,9 @@
       "plan": "Today’s tests",
       "planMeta": "{{count}} takes · about {{min}} min",
       "start": "Start session",
-      "resume": "Session in progress"
+      "resume": "Session in progress",
+      "queueOnly": "Patient not in the queue? Ask the doctor to add a clinic recording for today. It appears in the queue after Refresh.",
+      "backToQueue": "Back to queue"
     },
     "intro": {
       "testOf": "Test {{n}} of {{of}}",
@@ -760,6 +762,21 @@
       "recorded": "Recorded · uploaded",
       "not_recorded": "Not recorded: {{reason}}",
       "missed": "Not recorded"
-    }
+    },
+    "empty": "No patients in the queue today yet."
+  },
+  "testPanel": {
+    "open": "Test",
+    "title": "Test panel (fake server)",
+    "signIns": "Clinic phone: code DEMO-SITE-1, operator OP-07 / 2468 (or OP-NEW / temp-pass-1234, then a new password). Patient: tap \"Patient invite\" below.",
+    "invite": "Patient invite (opens the join screen)",
+    "inviteDone": "Invite made and opened. If the join screen did not open, choose \"I am a patient\" and paste the link below.",
+    "homeLink": "Doctor sends a home record link",
+    "homeDone": "Record link sent. Go back to My hospitals (or reopen the hospital) to see it.",
+    "joinFirst": "Join as a patient first.",
+    "clinic": "Doctor adds a patient to today's clinic queue",
+    "clinicDone": "{{name}} (MRN {{mrn}}) added for today. Tap Refresh on the clinic queue.",
+    "memory": "The fake server lives in this page: reloading the page forgets registered phones, new passwords and joined patients, and sign-in then fails. Use Start again.",
+    "startAgain": "Start again (clear all test data)"
   }
 }

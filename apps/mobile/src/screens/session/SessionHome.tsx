@@ -57,7 +57,9 @@ export function SessionHome({
   onLock?: () => void;
 }) {
   const { t } = useTranslation();
-  const { config, repo, settings } = useApp();
+  const { config, repo, settings, newSession } = useApp();
+  // v8 (user, 16 Nov 2026): a clinic phone connected to its hospital records only queue patients.
+  const queueOnly = !!(settings.server && settings.signedIn && !settings.localDev);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const { ctx, send } = useSession();
@@ -74,6 +76,8 @@ export function SessionHome({
   const totalS = ctx.plan.reduce((s, p) => s + (config.tests.get(p.code)?.task.durationS ?? 0), 0);
   const minutes = Math.round(totalS / 60 + ctx.plan.length * 1.5);
   const training = ctx.training;
+  /** Queue-only phone with no queue patient started: only the queue (and practice) show. */
+  const waitingForQueue = queueOnly && !training && !ctx.patient;
   const ready = !!ctx.consent && (training || (!!ctx.patient && !!ctx.medState));
   const yob = Number(draft.yob);
   const draftOk = draft.ref.trim().length >= 3 && (!draft.yob || (yob >= 1900 && yob <= 2030));
@@ -171,7 +175,16 @@ export function SessionHome({
           !settings.localDev &&
           !ctx.patient && <ClinicQueue />}
 
-        {!training && (
+        {!training && queueOnly && !ctx.patient && (
+          <p
+            className="m-0 rounded-2xl bg-[#EDF0F3] px-4 py-3 text-[14px] leading-[20px] text-[#3D4552]"
+            data-testid="queue-only-hint"
+          >
+            {t('session.home.queueOnly')}
+          </p>
+        )}
+
+        {!training && (!queueOnly || ctx.patient) && (
           <>
             <Card className="flex items-center justify-between">
               <div className="flex flex-col gap-0.5">
@@ -198,9 +211,23 @@ export function SessionHome({
                   <span className="text-[15px] text-muted">{t('session.home.choosePatient')}</span>
                 )}
               </div>
-              <Button variant="ghost" onClick={() => setPicker(true)} data-testid="choose-patient">
-                {ctx.patient ? t('session.home.change') : t('session.home.newPatient')}
-              </Button>
+              {queueOnly ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => void newSession()}
+                  data-testid="back-to-queue"
+                >
+                  {t('session.home.backToQueue')}
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={() => setPicker(true)}
+                  data-testid="choose-patient"
+                >
+                  {ctx.patient ? t('session.home.change') : t('session.home.newPatient')}
+                </Button>
+              )}
             </Card>
 
             <section className="flex flex-col gap-2">
@@ -225,73 +252,79 @@ export function SessionHome({
           </>
         )}
 
-        <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
-          <input
-            type="checkbox"
-            checked={!!ctx.consent}
-            onChange={(e) =>
-              send({
-                type: 'SET_CONSENT',
-                given: e.target.checked,
-                at: new Date().toISOString(),
-              })
-            }
-            className="size-6 accent-brand"
-            data-testid="consent"
-          />
-          <span className="flex flex-col">
-            <span className="font-semibold">{t('session.home.consent')}</span>
-            <span className="text-xs text-muted">
-              {t('session.home.consentDetail', { version: config.session.consentVersion })}
-            </span>
-          </span>
-        </label>
+        {waitingForQueue ? null : (
+          <>
+            <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+              <input
+                type="checkbox"
+                checked={!!ctx.consent}
+                onChange={(e) =>
+                  send({
+                    type: 'SET_CONSENT',
+                    given: e.target.checked,
+                    at: new Date().toISOString(),
+                  })
+                }
+                className="size-6 accent-brand"
+                data-testid="consent"
+              />
+              <span className="flex flex-col">
+                <span className="font-semibold">{t('session.home.consent')}</span>
+                <span className="text-xs text-muted">
+                  {t('session.home.consentDetail', { version: config.session.consentVersion })}
+                </span>
+              </span>
+            </label>
 
-        <section className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm font-semibold">{t('session.home.plan')}</span>
-            <span className="text-xs text-muted">
-              {t('session.home.planMeta', { count: ctx.plan.length, min: minutes })}
-            </span>
-          </div>
-          <ol
-            className="m-0 list-none overflow-hidden rounded-2xl border border-line bg-white p-0"
-            data-testid="test-plan"
-          >
-            {ctx.plan.map((p, i) => (
-              <li
-                key={`${p.code}-${p.side ?? 'na'}`}
-                className="flex h-11 items-center gap-3 border-b border-[#EDF0F3] px-3.5 last:border-b-0"
+            <section className="flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-semibold">{t('session.home.plan')}</span>
+                <span className="text-xs text-muted">
+                  {t('session.home.planMeta', { count: ctx.plan.length, min: minutes })}
+                </span>
+              </div>
+              <ol
+                className="m-0 list-none overflow-hidden rounded-2xl border border-line bg-white p-0"
+                data-testid="test-plan"
               >
-                <span className="w-5 text-xs text-muted tabular-nums">{i + 1}</span>
-                <span className="min-w-10 rounded-md bg-brand-soft px-1.5 py-0.5 text-center text-xs font-bold text-brand">
-                  {p.code}
-                </span>
-                <span className="flex-1 text-sm">{t(`tests.${p.code}`)}</span>
-                <span className="text-[13px] text-muted">
-                  {p.side ? t(`session.sides.${p.side}`) : '—'}
-                </span>
-                <span className="w-10 text-right text-[13px] text-muted tabular-nums">
-                  {config.tests.get(p.code)?.task.durationS} s
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
+                {ctx.plan.map((p, i) => (
+                  <li
+                    key={`${p.code}-${p.side ?? 'na'}`}
+                    className="flex h-11 items-center gap-3 border-b border-[#EDF0F3] px-3.5 last:border-b-0"
+                  >
+                    <span className="w-5 text-xs text-muted tabular-nums">{i + 1}</span>
+                    <span className="min-w-10 rounded-md bg-brand-soft px-1.5 py-0.5 text-center text-xs font-bold text-brand">
+                      {p.code}
+                    </span>
+                    <span className="flex-1 text-sm">{t(`tests.${p.code}`)}</span>
+                    <span className="text-[13px] text-muted">
+                      {p.side ? t(`session.sides.${p.side}`) : '—'}
+                    </span>
+                    <span className="w-10 text-right text-[13px] text-muted tabular-nums">
+                      {config.tests.get(p.code)?.task.durationS} s
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          </>
+        )}
       </main>
 
-      <footer className="px-5 pt-3 pb-6">
-        <Button
-          className="h-14 w-full text-[17px]"
-          disabled={!ready}
-          onClick={() => send({ type: 'START', at: new Date().toISOString() })}
-          data-testid="start-session"
-        >
-          {training ? t('session.practice.start') : t('session.home.start')}
-        </Button>
-      </footer>
+      {!waitingForQueue && (
+        <footer className="px-5 pt-3 pb-6">
+          <Button
+            className="h-14 w-full text-[17px]"
+            disabled={!ready}
+            onClick={() => send({ type: 'START', at: new Date().toISOString() })}
+            data-testid="start-session"
+          >
+            {training ? t('session.practice.start') : t('session.home.start')}
+          </Button>
+        </footer>
+      )}
 
-      {picker && (
+      {picker && !queueOnly && (
         <Sheet
           title={t('session.home.patient')}
           onClose={() => setPicker(false)}

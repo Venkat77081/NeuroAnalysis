@@ -10,6 +10,7 @@ import { CameraStage } from './screens/session/CameraStage.tsx';
 import { Review } from './screens/session/Review.tsx';
 import { Summary } from './screens/session/Summary.tsx';
 import { Gate } from './app/Gate.tsx';
+import { TestPanel } from './screens/TestPanel.tsx';
 
 function SessionScreens({ onLock }: { onLock?: () => void }) {
   const { snapshot } = useSession();
@@ -59,6 +60,7 @@ export function App() {
   return (
     <AppProvider fallback={<Loading />}>
       <Gate loading={<Loading />} sessionScreens={(onLock) => <SessionScreens onLock={onLock} />} />
+      <TestPanel />
     </AppProvider>
   );
 }

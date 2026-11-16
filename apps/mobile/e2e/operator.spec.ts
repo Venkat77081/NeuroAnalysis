@@ -27,7 +27,9 @@ async function registerAndSignIn(page: Page, url = URL) {
   await page.getByTestId('pw-next').fill('clinic-phone-77');
   await page.getByTestId('pw-repeat').fill('clinic-phone-77');
   await page.getByTestId('pw-save').click();
-  await expect(page.getByTestId('choose-patient')).toBeVisible();
+  // v8: a clinic phone records queue patients only; no "New patient".
+  await expect(page.getByTestId('queue-only-hint')).toBeVisible();
+  await expect(page.getByTestId('choose-patient')).toHaveCount(0);
 }
 
 test('M13: operator sign-in, NCID from the connector, one take uploaded', async ({ page }) => {
@@ -35,10 +37,20 @@ test('M13: operator sign-in, NCID from the connector, one take uploaded', async 
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await registerAndSignIn(page);
-  await page.getByTestId('choose-patient').click();
-  await page.getByTestId('patient-ref-input').fill('00012388');
-  await page.getByTestId('save-patient').click();
+  await expect(page.getByTestId('queue-empty')).toBeVisible();
+  // The doctor puts Asha in today's clinic queue (the hospital side of the fake server).
+  await page.evaluate(() =>
+    (
+      globalThis as unknown as {
+        __ncMock: { fakeServer: { addClinicRequest(mrn: string, name: string): string } };
+      }
+    ).__ncMock.fakeServer.addClinicRequest('00012388', 'Asha Testpatient'),
+  );
+  await page.getByRole('button', { name: 'Refresh' }).click();
+  await expect(page.getByTestId('queue-name')).toHaveText('Asha Testpatient');
+  await page.getByTestId('queue-start').click();
   await expect(page.getByTestId('patient-ref')).toContainText('••••2388');
+  await expect(page.getByTestId('back-to-queue')).toBeVisible();
   const ncid = await page.evaluate(
     () =>
       (
@@ -67,7 +79,7 @@ test('M13: operator sign-in, NCID from the connector, one take uploaded', async 
   await expect(page.getByRole('alert')).toContainText('not right');
   await page.getByTestId('unlock-secret').fill('clinic-phone-77');
   await page.getByTestId('unlock').click();
-  await expect(page.getByTestId('choose-patient')).toBeVisible();
+  await expect(page.getByTestId('queue-only-hint')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

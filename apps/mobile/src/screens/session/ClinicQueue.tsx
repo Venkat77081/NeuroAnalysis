@@ -74,7 +74,7 @@ export function ClinicQueue() {
         {t(`modes.errors.${error}`, { defaultValue: t('modes.errors.generic') })}
       </p>
     );
-  if (!items || items.length === 0) return null;
+  if (!items) return null;
   return (
     <section className="flex flex-col gap-2" data-testid="clinic-queue">
       <div className="flex items-baseline justify-between">
@@ -88,6 +88,11 @@ export function ClinicQueue() {
         </button>
       </div>
       <span className="text-[12px] font-semibold text-ok">{t('clinicQueue.live')}</span>
+      {items.length === 0 && (
+        <span className="text-[14px] text-muted" data-testid="queue-empty">
+          {t('clinicQueue.empty')}
+        </span>
+      )}
       {items.map((q) => {
         const steps = config.session.order.filter(([code]) => q.tests.includes(code));
         const open = q.state === 'open';

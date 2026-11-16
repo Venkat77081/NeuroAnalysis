@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
+import { builtInServer, SERVER_FIELD_SHOWN } from '../../lib/server.ts';
 import { capture } from '../../lib/capture.ts';
 import {
   acceptInvite,
@@ -36,9 +37,7 @@ export function InviteFlow({
 }) {
   const { t } = useTranslation();
   const { config, settings, saveSettings, caps } = useApp();
-  const [endpoint, setEndpoint] = useState(
-    settings.server?.endpoint ?? config.session.upload?.defaultEndpoint ?? '',
-  );
+  const [endpoint, setEndpoint] = useState(settings.server?.endpoint ?? builtInServer(config));
   const [text, setText] = useState(initialToken ?? '');
   const [token, setToken] = useState<string | null>(null);
   const [info, setInfo] = useState<InviteInfo | null>(null);
@@ -149,14 +148,16 @@ export function InviteFlow({
           onChange={(e) => setText(e.target.value)}
           data-testid="invite-text"
         />
-        <Field
-          id="invite-server"
-          label={t('modes.invite.server')}
-          value={endpoint}
-          onChange={(e) => setEndpoint(e.target.value)}
-          inputMode="url"
-          data-testid="invite-server"
-        />
+        {SERVER_FIELD_SHOWN && (
+          <Field
+            id="invite-server"
+            label={t('modes.invite.server')}
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+            inputMode="url"
+            data-testid="invite-server"
+          />
+        )}
         <ErrorText code={error} />
         <Button
           disabled={busy || !text.trim() || !endpoint}

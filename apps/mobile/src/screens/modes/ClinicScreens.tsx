@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
+import { builtInServer, SERVER_FIELD_SHOWN } from '../../lib/server.ts';
 import { capture } from '../../lib/capture.ts';
 import { changePassword, errorCode, operatorSignIn } from '../../lib/accounts.ts';
 import { enroll, uploadPrefs } from '../../lib/uploads.ts';
@@ -13,9 +14,7 @@ import { DeviceCheck } from './DeviceCheck.tsx';
 export function ClinicSetup({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
   const { config, settings, saveSettings, caps } = useApp();
-  const [endpoint, setEndpoint] = useState(
-    settings.server?.endpoint ?? config.session.upload?.defaultEndpoint ?? '',
-  );
+  const [endpoint, setEndpoint] = useState(settings.server?.endpoint ?? builtInServer(config));
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,14 +44,16 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
       {passed && (
         <>
           <h2 className="text-[17px] font-bold">{t('modes.deviceCheck.step2')}</h2>
-          <Field
-            id="clinic-server"
-            label={t('modes.clinicSetup.server')}
-            value={endpoint}
-            onChange={(e) => setEndpoint(e.target.value)}
-            inputMode="url"
-            data-testid="clinic-server"
-          />
+          {SERVER_FIELD_SHOWN && (
+            <Field
+              id="clinic-server"
+              label={t('modes.clinicSetup.server')}
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              inputMode="url"
+              data-testid="clinic-server"
+            />
+          )}
           <Field
             id="clinic-code"
             label={t('modes.clinicSetup.code')}

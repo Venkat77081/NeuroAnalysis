@@ -8,6 +8,9 @@ on:
       version_name:
         description: 'Version name, e.g. 0.9.0'
         required: true
+      server_url:
+        description: 'NeuroCapture API address built into the app, e.g. https://api.example.in (no field in release apps)'
+        required: true
       firebase_groups:
         description: 'Firebase App Distribution tester groups (empty = do not distribute)'
         required: false
@@ -23,7 +26,14 @@ jobs:
       NC_VERSION_NAME: ${{ inputs.version_name }}
       NC_VERSION_CODE: ${{ github.run_number }}
       VITE_PRODUCTION: '1'
+      VITE_SERVER_URL: ${{ inputs.server_url }}
     steps:
+      - name: Check the server address
+        run: |
+          case "$VITE_SERVER_URL" in
+            https://*) ;;
+            *) echo "server_url must start with https:// (release apps refuse plain http)"; exit 1 ;;
+          esac
       - name: Check signing secrets
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

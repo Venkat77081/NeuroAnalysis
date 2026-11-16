@@ -14,6 +14,7 @@ from app.api.doctors import router as doctors_router
 from app.api.health import router as health_router
 from app.api.hospital import router as hospital_router
 from app.api.hospital_storage import router as hospital_storage_router
+from app.api.overview import router as overview_router
 from app.api.patient import router as patient_router
 from app.api.plans import router as plans_router
 from app.api.platform import router as platform_router
@@ -72,3 +73,4 @@ app.include_router(plans_router)
 app.include_router(requests_router)
 app.include_router(clinic_router)
 app.include_router(doctors_router)
+app.include_router(overview_router)

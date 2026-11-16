@@ -306,6 +306,73 @@
           "description": "Phones list: takes recorded on each phone over this many days, and how many were below warnBelowFps."
         }
       }
+    },
+    "overview": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v10 Overview pages (decision 042): time windows for the cards and the chart.",
+      "required": [
+        "periodsDays",
+        "recentDays",
+        "inviteDays",
+        "deskDays",
+        "doctorUpcomingDays",
+        "onTimeDays"
+      ],
+      "properties": {
+        "periodsDays": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["4w", "12w", "1y"],
+          "properties": {
+            "4w": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 730
+            },
+            "12w": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 730
+            },
+            "1y": {
+              "type": "integer",
+              "minimum": 7,
+              "maximum": 730
+            }
+          },
+          "description": "Chart periods offered (days back, counted per week)."
+        },
+        "recentDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365,
+          "description": "'Recordings (30 days)', 'not used in 30 days', 'onboarded this month'."
+        },
+        "inviteDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90,
+          "description": "Front desk: invites sent and patients not in the app with an appointment within this many days."
+        },
+        "deskDays": {
+          "type": "integer",
+          "minimum": 7,
+          "maximum": 90,
+          "description": "Front desk chart: appointments per day for the next N days."
+        },
+        "doctorUpcomingDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "onTimeDays": {
+          "type": "integer",
+          "minimum": 7,
+          "maximum": 365,
+          "description": "Doctor: home links recorded by their due date over this many days."
+        }
+      }
     }
   }
 }

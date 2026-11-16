@@ -113,5 +113,17 @@
     "facing": "back",
     "resolution": "1080p",
     "usageDays": 30
+  },
+  "overview": {
+    "periodsDays": {
+      "4w": 28,
+      "12w": 84,
+      "1y": 365
+    },
+    "recentDays": 30,
+    "inviteDays": 7,
+    "deskDays": 14,
+    "doctorUpcomingDays": 30,
+    "onTimeDays": 90
   }
 }

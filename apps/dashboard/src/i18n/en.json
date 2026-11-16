@@ -208,7 +208,8 @@
     "azureRole": "Custom role (JSON for the Azure portal or az role definition create)",
     "azAccount": "Storage account",
     "azContainer": "Container",
-    "azTenant": "Tenant (directory) ID"
+    "azTenant": "Tenant (directory) ID",
+    "azureNotOffered": "Azure Blob storage is not turned on for this NeuroCapture platform yet. Ask NeuroCapture to set it up (it needs NeuroCapture's Azure app); until then use NeuroCapture storage or your own S3 bucket."
   },
   "doctor": {
     "patientsTitle": "My patients",

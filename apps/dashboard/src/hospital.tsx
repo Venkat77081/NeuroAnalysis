@@ -237,15 +237,13 @@ export function Connections() {
           >
             {t('hospital.ownS3')}
           </Button>
-          {storage?.azure_app_client_id && (
-            <Button
-              variant={showing === 'azure' ? 'secondary' : 'ghost'}
-              onClick={() => setOwn('azure')}
-              data-testid="storage-show-azure"
-            >
-              {t('hospital.ownAzure')}
-            </Button>
-          )}
+          <Button
+            variant={showing === 'azure' ? 'secondary' : 'ghost'}
+            onClick={() => setOwn('azure')}
+            data-testid="storage-show-azure"
+          >
+            {t('hospital.ownAzure')}
+          </Button>
           {storage?.kind !== 'managed' && (
             <Button variant="ghost" onClick={() => void saveStorage('managed')}>
               {t('hospital.useManaged')}
@@ -296,7 +294,10 @@ export function Connections() {
             </div>
           </>
         )}
-        {showing === 'azure' && storage && (
+        {showing === 'azure' && storage && !storage.azure_app_client_id && (
+          <Notice tone="warn">{t('hospital.azureNotOffered')}</Notice>
+        )}
+        {showing === 'azure' && storage?.azure_app_client_id && (
           <div className="flex flex-col gap-3" data-testid="storage-azure">
             <ol className="m-0 flex list-decimal flex-col gap-1.5 pl-5 text-[13px] leading-[19px]">
               <li>

@@ -28,7 +28,10 @@ pnpm --filter @neurocapture/dashboard build     # → apps/dashboard/dist (stati
   `sessionStorage`, so closing the tab signs out. Decrypted videos exist only as in-memory blob
   URLs while they are open.
 
-## Who sees what (decision 031)
+## Who sees what (decisions 031, 033)
+
+The lists below are the defaults. A platform admin can change them for one hospital under
+Hospitals → Roles and permissions.
 
 - **Hospital admin:** set-up only (overview, data connections, team, phones, activity).
 - **Front desk (receptionist):** appointments, join invites (e-mail, SMS or printed QR) and

@@ -165,13 +165,14 @@ Run at L2. Sign in with the accounts the stack prints.
 
 ### F. Platform admin
 
-| #   | Test                                         | Expected                                                                |
-| --- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| F1  | Hospitals list                               | Sunrise Neuro Clinic, with counts                                       |
-| F2  | Set-up for Sunrise                           | Admin accepted, connector registered, test, take key, storage, team     |
-| F3  | Onboard a new hospital                       | Appears as "invited" (the admin invite e-mail goes to the dummy outbox) |
-| F4  | Suspend Sunrise, then try the hospital admin | Hospital admin and phones are refused; Resume restores them             |
-| F5  | Activity log                                 | Onboarding and suspension events, no patient names                      |
+| #   | Test                                                                                                               | Expected                                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1  | Hospitals list                                                                                                     | Sunrise Neuro Clinic, with counts                                                                                                                               |
+| F2  | Set-up for Sunrise                                                                                                 | Admin accepted, connector registered, test, take key, storage, team                                                                                             |
+| F3  | Onboard a new hospital                                                                                             | Appears as "invited" (the admin invite e-mail goes to the dummy outbox)                                                                                         |
+| F4  | Suspend Sunrise, then try the hospital admin                                                                       | Hospital admin and phones are refused; Resume restores them                                                                                                     |
+| F6  | Hospitals → Roles and permissions: tick doctor for "Add appointments" and "Assign the doctor", give a reason, Save | "2 changes from the defaults", CHANGED rows; Dr. Rao now has the booking form; the hospital admin sees it read only under Team; "Reset to defaults" restores it |
+| F5  | Activity log                                                                                                       | Onboarding and suspension events, no patient names                                                                                                              |
 
 ### G. Hospital admin
 

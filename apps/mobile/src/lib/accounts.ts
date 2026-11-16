@@ -66,7 +66,8 @@ export async function operatorSignIn(
   if (r.status === 403) {
     const code = ((await r.json().catch(() => null)) as { detail?: { code?: string } } | null)
       ?.detail?.code;
-    throw code === 'account_locked' ? new Error('account_locked') : new ServerError('bad_login');
+    if (code === 'account_locked' || code === 'not_permitted') throw new Error(code);
+    throw new ServerError('bad_login');
   }
   if (r.status === 401 || r.status === 422) throw new ServerError('bad_login');
   if (r.status >= 300) throw new ServerError('server', `HTTP ${r.status}`);

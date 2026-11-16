@@ -101,7 +101,8 @@ export function loadConfig(
   errors.push(...pres.issues.map((i) => `platform.json ${i.path || '/'} ${i.message}`));
   return {
     session: raw.session as SessionConfig,
-    platform: platformJson as PlatformConfig,
+    // Validated just above; JSON imports widen enums (e.g. permission groups) to string.
+    platform: platformJson as unknown as PlatformConfig,
     quality: q as QualityConfig,
     registry: rres.valid ? (r as BiomarkerRegistry) : null,
     tests,

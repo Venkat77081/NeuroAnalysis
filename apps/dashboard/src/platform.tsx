@@ -61,7 +61,7 @@ export function fromAudit(r: AuditRow): LogRow {
   };
 }
 
-export function Hospitals() {
+export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) => void }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Hospital[]>([]);
   const [error, setError] = useState<unknown>(null);
@@ -120,6 +120,13 @@ export function Hospitals() {
                   data-testid={`setup-${h.name}`}
                 >
                   {t('platform.setup')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => onPermissions(h.id)}
+                  data-testid={`perms-${h.name}`}
+                >
+                  {t('perm.button')}
                 </Button>
                 {h.status === 'suspended' ? (
                   <Button variant="secondary" onClick={() => void setStatus(h, 'active')}>

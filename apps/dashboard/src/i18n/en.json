@@ -414,7 +414,68 @@
       "plan_set": "Changed the home recording plan",
       "plan_changed": "Set repeat every {{every_days}} days",
       "patient_closed": "Patient left home recording",
-      "consent_withdrawn": "Patient withdrew from this hospital"
+      "consent_withdrawn": "Patient withdrew from this hospital",
+      "permissions_changed": "Changed roles and permissions · \"{{reason}}\""
     }
+  },
+  "perm": {
+    "button": "Roles and permissions",
+    "title": "{{hospital}} · Roles and permissions",
+    "hint": "Tick what each role may do at this hospital. The defaults are NeuroCapture's standard set; change them only when the hospital asks (for example, a small clinic where the doctor books appointments). Changes apply at once (within 10 minutes on the hospital connector) and are logged with your name and reason.",
+    "changedCount_one": "{{count}} change from the defaults",
+    "changedCount_other": "{{count}} changes from the defaults",
+    "what": "What",
+    "changed": "CHANGED",
+    "default": "Default: {{roles}}",
+    "nobody": "nobody",
+    "role": {
+      "hospital_admin": "Hospital admin",
+      "receptionist": "Front desk",
+      "doctor": "Doctor",
+      "operator": "Clinic phone operator"
+    },
+    "group": {
+      "patients": "Patients and invites",
+      "appointments": "Appointments",
+      "requests": "Recording requests (assigned patients only)",
+      "clinic": "Clinic recording",
+      "setup": "Set-up"
+    },
+    "key": {
+      "patients.search": "Find patients in the hospital records",
+      "invites.send": "Send join invites (e-mail, SMS, print)",
+      "appointments.view": "See appointments",
+      "appointments.add": "Add appointments (by hand or from the hospital system)",
+      "appointments.assign": "Assign and reassign the doctor",
+      "requests.send": "Choose tests and send the record link",
+      "requests.rerecord": "Ask to record again; set \"repeat every N days\"",
+      "clinic.record": "Record patients in the clinic (find a patient by MRN)",
+      "setup.team": "Team: add and disable people",
+      "setup.phones": "Phones and operators",
+      "setup.connections": "Data connections, keys and storage",
+      "setup.activity": "Activity log"
+    },
+    "fixedTitle": "Fixed by NeuroCapture · cannot be changed for any hospital",
+    "fixed": {
+      "clinical": "Medical history, recordings, videos and reviews",
+      "identity": "Patient names, MRNs and contacts stored by NeuroCapture",
+      "consent": "Recording without the patient's consent",
+      "logged": "Every action logged with the person's name"
+    },
+    "fixedValue": {
+      "identity": "Never: read live from the hospital only",
+      "consent": "Never",
+      "logged": "Always"
+    },
+    "no": "No",
+    "assignedOnly": "Assigned patients only",
+    "reason": "Reason for the change (shown in both activity logs)",
+    "save": "Save changes",
+    "reset": "Reset to defaults",
+    "saved": "Saved. People see the change the next time their page loads.",
+    "lastChanged": "Last changed {{at}} by {{who}} · reason: \"{{reason}}\"",
+    "neverChanged": "Using the defaults (never changed).",
+    "readOnlyTitle": "Who can do what at this hospital",
+    "readOnlyHint": "Set by NeuroCapture's platform admin. Ask them if your hospital works differently."
   }
 }

@@ -10,6 +10,8 @@ import { MyPatients, PatientView } from './doctor.tsx';
 import { Assign } from './assign.tsx';
 import { Appointments } from './appointments.tsx';
 import { ChooseTests, waitingForTests } from './choose.tsx';
+import { PermsContext, menuFor } from './perms.ts';
+import { PermissionsPage } from './permissions.tsx';
 
 interface Me {
   id: string;
@@ -17,15 +19,8 @@ interface Me {
   site_name: string | null;
   email: string;
   display_name: string | null;
+  permissions: string[];
 }
-
-const NAV: Record<Me['role'], string[]> = {
-  platform_admin: ['hospitals', 'platformLog'],
-  // Set-up only; patients, invites and appointments are the front desk's work.
-  hospital_admin: ['overview', 'connections', 'team', 'phones', 'activity'],
-  doctor: ['chooseTests', 'myPatients'],
-  receptionist: ['appointments', 'invite', 'assign'],
-};
 
 function inviteFromUrl(): string | null {
   const u = new URL(globalThis.location.href);
@@ -39,13 +34,15 @@ export function App() {
   const [notice, setNotice] = useState<string | undefined>();
   const [page, setPage] = useState<string>('');
   const [patient, setPatient] = useState<string | null>(null);
+  /** Platform admin: the hospital whose permissions are open. */
+  const [permsFor, setPermsFor] = useState<string | null>(null);
   /** v3: appointments waiting for this doctor's tests (count in the menu). */
   const [waiting, setWaiting] = useState<number | null>(null);
 
   const loadMe = async () => {
     const m = await call<Me>('GET', '/staff/me');
     setMe(m);
-    setPage(NAV[m.role][0]!);
+    setPage(menuFor(m.role, new Set(m.permissions))[0] ?? '');
     if (m.role === 'doctor')
       waitingForTests(m.id).then(
         (l) => setWaiting(l.length),
@@ -77,8 +74,11 @@ export function App() {
   if (me === undefined) return <p className="p-8 text-muted">{t('app.loading')}</p>;
   if (me === null) return <SignIn notice={notice} onSignedIn={(_tok: Tokens) => void loadMe()} />;
 
+  const perms = new Set(me.permissions);
+  const nav = menuFor(me.role, perms);
   let body;
-  if (page === 'hospitals') body = <Hospitals />;
+  if (permsFor) body = <PermissionsPage siteId={permsFor} onBack={() => setPermsFor(null)} />;
+  else if (page === 'hospitals') body = <Hospitals onPermissions={setPermsFor} />;
   else if (page === 'platformLog') body = <PlatformLog />;
   else if (page === 'overview') body = <Overview siteName={me.site_name ?? ''} />;
   else if (page === 'connections') body = <Connections />;
@@ -102,13 +102,14 @@ export function App() {
         <span className="px-3 pb-4 text-[12px] text-muted" data-testid="who">
           {t(`roles.${me.role}`)} · {me.display_name ?? me.email}
         </span>
-        {NAV[me.role].map((p) => (
+        {nav.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => {
               setPage(p);
               setPatient(null);
+              setPermsFor(null);
             }}
             className={`flex min-h-11 items-center rounded-xl px-3 text-left text-[14px] ${page === p ? 'bg-brand-soft font-semibold text-brand' : ''}`}
             data-testid={`nav-${p}`}
@@ -137,7 +138,7 @@ export function App() {
           {t('app.signOut')}
         </button>
       </nav>
-      {body}
+      <PermsContext.Provider value={perms}>{body}</PermsContext.Provider>
     </div>
   );
 }

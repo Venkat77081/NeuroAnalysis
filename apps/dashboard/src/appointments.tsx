@@ -11,6 +11,7 @@ import { ApiError, call, hospital } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
+import { usePerms } from './perms.ts';
 
 export type Stage = 'needs_doctor' | 'needs_tests' | 'sent' | 'recorded' | 'missed' | 'cancelled';
 
@@ -99,6 +100,11 @@ export function StageBadge({ a }: { a: Appointment }) {
 
 export function Appointments() {
   const { t } = useTranslation();
+  // Decision 033: what this person may do here (set per hospital).
+  const perms = usePerms();
+  const canAdd = perms.has('appointments.add');
+  const canAssign = perms.has('appointments.assign');
+  const canInvite = perms.has('invites.send');
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [notJoined, setNotJoined] = useState<LiveRow[]>([]);
   const [live, setLive] = useState<'ok' | 'off' | 'down' | null>(null);
@@ -118,12 +124,14 @@ export function Appointments() {
         // Live list from the hospital system; appointments of patients with an NCID are kept
         // (idempotent: the platform matches them by a hash of the hospital's appointment ID).
         let rows: LiveRow[] = [];
-        let state: 'ok' | 'off' | 'down' = 'ok';
-        try {
-          rows = await hospital<LiveRow[]>('GET', '/v1/appointments');
-        } catch (e) {
-          state = e instanceof ApiError && e.status === 501 ? 'off' : 'down';
-        }
+        let state: 'ok' | 'off' | 'down' | null = null;
+        if (canAdd)
+          try {
+            rows = await hospital<LiveRow[]>('GET', '/v1/appointments');
+            state = 'ok';
+          } catch (e) {
+            state = e instanceof ApiError && e.status === 501 ? 'off' : 'down';
+          }
         for (const r of rows.filter((x) => x.ncid))
           await call('POST', '/hospital/appointments', {
             ncid: r.ncid,
@@ -154,7 +162,7 @@ export function Appointments() {
     return () => {
       off = true;
     };
-  }, [version]);
+  }, [version, canAdd]);
 
   const assign = async (a: Appointment) => {
     setError(null);
@@ -228,7 +236,7 @@ export function Appointments() {
                   </Badge>
                 </td>
                 <td className="px-4 py-3">
-                  {a.stage === 'needs_doctor' || a.stage === 'needs_tests' ? (
+                  {canAssign && (a.stage === 'needs_doctor' || a.stage === 'needs_tests') ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <select
                         aria-label={t('appts.doctor')}
@@ -257,7 +265,7 @@ export function Appointments() {
                 <td className="px-4 py-3">
                   <div className="flex flex-col items-start gap-1.5">
                     <StageBadge a={a} />
-                    {!joined(a.ncid) && i && a.stage !== 'cancelled' && (
+                    {canInvite && !joined(a.ncid) && i && a.stage !== 'cancelled' && (
                       <Button
                         variant="secondary"
                         onClick={() => invite(i.mrn, i.name)}
@@ -320,13 +328,15 @@ export function Appointments() {
             </td>
             <td className="px-4 py-3 text-[13px] text-muted">{r.practitioner}</td>
             <td className="px-4 py-3">
-              <Button
-                variant="secondary"
-                onClick={() => invite(r.mrn, r.name)}
-                data-testid="live-invite"
-              >
-                {t('appts.sendInvite')}
-              </Button>
+              {canInvite && (
+                <Button
+                  variant="secondary"
+                  onClick={() => invite(r.mrn, r.name)}
+                  data-testid="live-invite"
+                >
+                  {t('appts.sendInvite')}
+                </Button>
+              )}
             </td>
             <td />
             <td />
@@ -346,18 +356,29 @@ export function Appointments() {
           onSent={() => reload()}
         />
       )}
-      <ManualAppointment
-        docs={docs}
-        onAdded={() => {
-          setNotice(t('appts.added'));
-          reload();
-        }}
-      />
+      {canAdd && (
+        <ManualAppointment
+          docs={docs}
+          canAssign={canAssign}
+          onAdded={() => {
+            setNotice(t('appts.added'));
+            reload();
+          }}
+        />
+      )}
     </Page>
   );
 }
 
-function ManualAppointment({ docs, onAdded }: { docs: Doctor[]; onAdded: () => void }) {
+function ManualAppointment({
+  docs,
+  canAssign,
+  onAdded,
+}: {
+  docs: Doctor[];
+  canAssign: boolean;
+  onAdded: () => void;
+}) {
   const { t } = useTranslation();
   const [q, setQ] = useState('');
   const [found, setFound] = useState<Found[]>([]);
@@ -440,22 +461,24 @@ function ManualAppointment({ docs, onAdded }: { docs: Doctor[]; onAdded: () => v
           onChange={(e) => setAt(e.target.value)}
           data-testid="manual-at"
         />
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
-          {t('appts.doctor')}
-          <select
-            value={doctor}
-            onChange={(e) => setDoctor(e.target.value)}
-            className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 font-normal"
-            data-testid="manual-doctor"
-          >
-            <option value="">{t('assign.choose')}</option>
-            {docs.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.display_name ?? d.email}
-              </option>
-            ))}
-          </select>
-        </label>
+        {canAssign && (
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+            {t('appts.doctor')}
+            <select
+              value={doctor}
+              onChange={(e) => setDoctor(e.target.value)}
+              className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 font-normal"
+              data-testid="manual-doctor"
+            >
+              <option value="">{t('assign.choose')}</option>
+              {docs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.display_name ?? d.email}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       <p className="text-[13px] leading-[19px] text-muted">{t('appts.afterAssign')}</p>
       <ErrorNote error={error} />

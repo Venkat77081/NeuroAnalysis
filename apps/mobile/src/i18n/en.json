@@ -649,7 +649,8 @@
       "pin_format": "Use digits only, the length shown.",
       "no_hospital_key": "Your hospital has not finished setting up recordings yet.",
       "generic": "Something went wrong. Try again.",
-      "account_locked": "Too many wrong passwords. Ask your hospital admin to unlock your account."
+      "account_locked": "Too many wrong passwords. Ask your hospital admin to unlock your account.",
+      "not_permitted": "Clinic recording is switched off for your hospital. Ask your hospital admin."
     },
     "hospitals": {
       "title": "My hospitals and clinics",

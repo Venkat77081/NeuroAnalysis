@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { call, hospital } from './api.ts';
 import { fromAudit, type AuditRow } from './platform.tsx';
 import { ActivityLog, type LogRow, type Who } from './activity.tsx';
+import { HospitalPermissions } from './permissions.tsx';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
 
 function useLoad<T>(fn: () => Promise<T>): [T | null, unknown, () => void] {
@@ -447,6 +448,7 @@ export function Team() {
           ))}
         </ul>
       </Card>
+      <HospitalPermissions />
     </Page>
   );
 }

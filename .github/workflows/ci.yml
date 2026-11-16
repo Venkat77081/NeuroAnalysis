@@ -109,7 +109,14 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
+      - name: Azurite (Azure Blob emulator, decision 037)
+        working-directory: .
+        run: |
+          npx --yes azurite@3.35.0 azurite-blob --silent --location "$RUNNER_TEMP/azurite" --skipApiVersionCheck --loose &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1 && break; sleep 1; done
       - run: pytest -q
+        env:
+          NC_REQUIRE_AZURITE: '1'
       - name: Alembic upgrade against Postgres
         run: alembic upgrade head
         env:
@@ -157,7 +164,14 @@ jobs:
       - run: pip install -e "../backend[dev]" -e ".[dev]"
       - run: ruff check .
       - run: ruff format --check .
+      - name: Azurite (Azure Blob emulator, decision 037)
+        working-directory: .
+        run: |
+          npx --yes azurite@3.35.0 azurite-blob --silent --location "$RUNNER_TEMP/azurite" --skipApiVersionCheck --loose &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:10000/devstoreaccount1 && break; sleep 1; done
       - run: pytest -q
+        env:
+          NC_REQUIRE_AZURITE: '1'
       - name: Connector image builds
         run: docker build -t neurocapture-connector:ci .
 

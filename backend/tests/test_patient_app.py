@@ -137,81 +137,6 @@ def test_cors_allows_the_dashboard_origin(api):
     assert "access-control-allow-origin" not in r.headers
 
 
-def test_receptionist_assigns_and_doctors_see_only_their_patients(api, two_hospitals):
-    from test_tenancy import sign_up, staff_login
-
-    t = two_hospitals
-    a = hdr(t["a_tok"])
-    p1, _ = home_patient(api, t["a_desk"])
-    p2, _ = home_patient(api, t["a_desk"])
-    tokens = {}
-    for email, role in (
-        ("desk@sunrise.example", "receptionist"),
-        ("dr1@sunrise.example", "doctor"),
-        ("dr2@sunrise.example", "doctor"),
-    ):
-        assert api.post("/hospital/staff", headers=a, json={"email": email, "role": role}).status_code == 201
-        _, secret = sign_up(api, email)
-        tokens[email] = hdr(staff_login(api, email, secret)["access_token"])
-    desk, dr1, dr2 = (
-        tokens["desk@sunrise.example"],
-        tokens["dr1@sunrise.example"],
-        tokens["dr2@sunrise.example"],
-    )
-    docs = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
-    assert set(docs) == {"dr1@sunrise.example", "dr2@sunrise.example"}
-    # Doctors start with no patients; the receptionist sees all.
-    assert api.get("/hospital/patients", headers=dr1).json() == []
-    assert {r["ncid"] for r in api.get("/hospital/patients", headers=desk).json()} >= {p1, p2}
-    # The receptionist cannot manage the team, phones or plans; doctors cannot assign.
-    assert api.get("/hospital/operators", headers=desk).status_code == 403
-    assert (
-        api.put(
-            f"/hospital/patients/{p1}/plan",
-            headers=desk,
-            json={"tests": ["FT"], "every_days": 7, "med_state": "ON"},
-        ).status_code
-        == 403
-    )
-    assert (
-        api.put(
-            f"/hospital/patients/{p1}/doctor", headers=dr1, json={"doctor_id": docs["dr1@sunrise.example"]}
-        ).status_code
-        == 403
-    )
-
-    r = api.put(
-        f"/hospital/patients/{p1}/doctor", headers=desk, json={"doctor_id": docs["dr1@sunrise.example"]}
-    )
-    assert r.status_code == 200
-    assert [x["ncid"] for x in api.get("/hospital/patients", headers=dr1).json()] == [p1]
-    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr1).status_code == 200
-    assert api.get(f"/hospital/patients/{p2}/plan", headers=dr1).status_code == 404  # not assigned
-    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr2).status_code == 404
-    # Reassign: dr1 loses access at once, dr2 gains it.
-    api.put(f"/hospital/patients/{p1}/doctor", headers=desk, json={"doctor_id": docs["dr2@sunrise.example"]})
-    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr1).status_code == 404
-    assert api.get(f"/hospital/patients/{p1}/plan", headers=dr2).status_code == 200
-    assert [
-        x["doctor_id"] for x in api.get("/hospital/patients", headers=desk).json() if x["ncid"] == p1
-    ] == [docs["dr2@sunrise.example"]]
-    # Unassign; another hospital's admin cannot assign here; only this hospital's doctors.
-    api.put(f"/hospital/patients/{p1}/doctor", headers=desk, json={"doctor_id": None})
-    assert api.get("/hospital/patients", headers=dr2).json() == []
-    assert (
-        api.put(
-            f"/hospital/patients/{p1}/doctor", headers=hdr(t["b_desk"]), json={"doctor_id": None}
-        ).status_code
-        == 404
-    )
-    assert (
-        api.put(f"/hospital/patients/{p2}/doctor", headers=desk, json={"doctor_id": "nobody"}).status_code
-        == 422
-    )
-    actions = [e["action"] for e in api.get("/hospital/audit", headers=a).json()]
-    assert {"patient_assigned", "patient_reassigned", "patient_unassigned"} <= set(actions)
-
-
 def test_periodic_plan_only_when_the_doctor_asks(api, two_hospitals):
     t = two_hospitals
     ncid, acc = home_patient(api, t["a_desk"])
@@ -222,7 +147,12 @@ def test_periodic_plan_only_when_the_doctor_asks(api, two_hospitals):
         for d in api.get("/hospital/doctors", headers=hdr(t["a_desk"])).json()
         if d["email"] == "plan.dr@sunrise.example"
     )
-    api.put(f"/hospital/patients/{ncid}/doctor", headers=hdr(t["a_desk"]), json={"doctor_id": dr_id})
+    soon = (datetime.now(UTC) + timedelta(days=3)).isoformat()
+    api.post(
+        "/hospital/appointments",
+        headers=hdr(t["a_desk"]),
+        json={"ncid": ncid, "at": soon, "doctor_id": dr_id},
+    )
     assert api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json={}).status_code == 403
     ptok = hdr(acc["tokens"]["access_token"])
     plan = api.get("/patient/plan", headers=ptok).json()
@@ -244,11 +174,21 @@ def test_periodic_plan_only_when_the_doctor_asks(api, two_hospitals):
     assert api.get("/patient/plan", headers=ptok).json()["next_due"] is None
 
 
+def _login_doc(api, email):
+    from test_tenancy import staff_login
+
+    return hdr(staff_login(api, email, _SECRETS[email])["access_token"])
+
+
+_SECRETS: dict[str, str] = {}
+
+
 def _staff(api, t, email, role):
     from test_tenancy import sign_up, staff_login
 
     api.post("/hospital/staff", headers=hdr(t["a_tok"]), json={"email": email, "role": role})
     _, secret = sign_up(api, email)
+    _SECRETS[email] = secret
     return hdr(staff_login(api, email, secret)["access_token"])
 
 
@@ -354,6 +294,33 @@ def test_appointment_request_record_and_history(api, two_hospitals):
     api.put(f"/hospital/appointments/{appt['id']}", headers=desk, json={"status": "cancelled"})
     hist = api.get(f"/hospital/patients/{ncid}/history", headers=desk).json()
     assert [a["stage"] for a in hist["appointments"] if a["id"] == appt["id"]] == ["cancelled"]
+    # Decision 040: a completed appointment keeps the doctor's access (here: even after cancelling).
+    assert api.get(f"/hospital/patients/{ncid}/history", headers=dr).status_code == 200
+    # A doctor whose only appointment was cancelled, moved away or missed (never completed) may not.
+    for email in ("cx@sunrise.example", "mv@sunrise.example", "ms@sunrise.example", "other@sunrise.example"):
+        _staff(api, t, email, "doctor")
+    ids = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
+    future = (datetime.now(UTC) + timedelta(days=4)).isoformat()
+    past = (datetime.now(UTC) - timedelta(days=4)).isoformat()
+
+    def book(email, at):
+        return api.post(
+            "/hospital/appointments", headers=desk, json={"ncid": ncid, "at": at, "doctor_id": ids[email]}
+        ).json()["id"]
+
+    cx = book("cx@sunrise.example", future)
+    mv = book("mv@sunrise.example", future)
+    book("ms@sunrise.example", past)  # missed: in the past, nothing recorded
+    login = {
+        e: _login_doc(api, e) for e in ("cx@sunrise.example", "mv@sunrise.example", "ms@sunrise.example")
+    }
+    assert (
+        api.get(f"/hospital/patients/{ncid}/history", headers=login["cx@sunrise.example"]).status_code == 200
+    )
+    api.put(f"/hospital/appointments/{cx}", headers=desk, json={"status": "cancelled"})
+    api.put(f"/hospital/appointments/{mv}", headers=desk, json={"doctor_id": ids["other@sunrise.example"]})
+    for e in login:
+        assert api.get(f"/hospital/patients/{ncid}/history", headers=login[e]).status_code == 404, e
 
 
 def test_doctor_can_add_repeat_every_n_days(api, two_hospitals):
@@ -553,10 +520,6 @@ def test_hospital_admin_cannot_do_front_desk_work(api, two_hospitals):
     )
     assert api.get("/hospital/appointments", headers=admin).status_code == 403
     assert api.post("/hospital/appointments", headers=admin, json={"ncid": ncid, "at": at}).status_code == 403
-    assert (
-        api.put(f"/hospital/patients/{ncid}/doctor", headers=admin, json={"doctor_id": None}).status_code
-        == 403
-    )
     assert api.get("/hospital/doctors", headers=admin).status_code == 403
     # The front desk can.
     desk = hdr(t["a_desk"])

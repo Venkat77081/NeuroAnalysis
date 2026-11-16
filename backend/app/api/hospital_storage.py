@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.audit import audit
 from app.db import get_db
 from app.models import Site
+from app.permissions import require
 from app.security import Principal, require_role
 from app.storage.sites import (
     clear_cache,
@@ -23,6 +24,7 @@ from app.storage.sites import (
 )
 
 router = APIRouter(prefix="/hospital/storage", tags=["hospital"])
+perm_setup_connections = require("setup.connections")
 hospital_admin = require_role("hospital_admin")
 
 
@@ -88,7 +90,7 @@ def _out(site: Site) -> StorageOut:
 
 @router.get("", response_model=StorageOut)
 def get_storage_settings(
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_connections),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> StorageOut:
     site = _site(db, p)
@@ -124,7 +126,7 @@ def _check(site: Site) -> dict:
 @router.put("", response_model=StorageOut)
 def set_storage_settings(
     body: StorageIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_connections),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> StorageOut:
     """Switch where new recordings go. Earlier uploads stay where they are. Switching to s3 runs the
@@ -172,7 +174,9 @@ def set_storage_settings(
 
 
 @router.post("/check", response_model=StorageOut)
-def check_storage(p: Principal = Depends(hospital_admin), db: DbSession = Depends(get_db)) -> StorageOut:  # noqa: B008
+def check_storage(
+    p: Principal = Depends(perm_setup_connections), db: DbSession = Depends(get_db)
+) -> StorageOut:  # noqa: B008
     site = _site(db, p)
     if site.storage_kind != "s3":
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "managed_storage"})

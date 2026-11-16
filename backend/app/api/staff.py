@@ -15,6 +15,7 @@ from app.audit import audit
 from app.config import get_settings
 from app.db import get_db
 from app.models import Site, StaffRefreshToken, StaffUser
+from app.permissions import granted
 from app.policy import policy
 from app.security import (
     Principal,
@@ -253,6 +254,8 @@ class MeOut(BaseModel):
     email: str
     display_name: str | None
     two_step_enabled: bool
+    #: Decision 033: what this person may do at their hospital (the dashboard shows only these).
+    permissions: list[str] = []
 
 
 @router.get("/me", response_model=MeOut)
@@ -268,4 +271,5 @@ def me(p: Principal = Depends(staff), db: DbSession = Depends(get_db)) -> MeOut:
         email=user.email,
         display_name=user.display_name,
         two_step_enabled=user.totp_enabled,
+        permissions=granted(db, p) if site else [],
     )

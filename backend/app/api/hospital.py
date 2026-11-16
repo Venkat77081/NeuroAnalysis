@@ -28,11 +28,16 @@ from app.models import (
     StaffRefreshToken,
     StaffUser,
 )
+from app.permissions import require
 from app.policy import policy
 from app.providers import staff_invite
 from app.security import Principal, hash_password, new_secret, require_role, sha256_hex, temporary_password
 
 router = APIRouter(prefix="/hospital", tags=["hospital"])
+perm_setup_team = require("setup.team")
+perm_setup_phones = require("setup.phones")
+perm_setup_activity = require("setup.activity")
+perm_invites_send = require("invites.send")
 hospital_admin = require_role("hospital_admin")
 #: Decision 031: patients, join invites and appointments are the front desk's; the hospital admin
 #: sets the hospital up (team, phones, connector, storage).
@@ -119,7 +124,7 @@ def _revoke_operator_tokens(db: DbSession, operator_id: str) -> None:
 
 @router.get("/operators", response_model=list[OperatorOut])
 def list_operators(
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> list[OperatorOut]:
     q = select(Operator).where(Operator.site_id == p.site_id).order_by(Operator.code)
@@ -129,7 +134,7 @@ def list_operators(
 @router.post("/operators", response_model=OperatorOut, status_code=201)
 def create_operator(
     body: OperatorIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> OperatorOut:
     code = body.code.upper()
@@ -156,7 +161,7 @@ def create_operator(
 @router.post("/operators/{operator_id}/reset-password", response_model=OperatorOut)
 def reset_operator(
     operator_id: str,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> OperatorOut:
     op = _operator(db, p, operator_id)
@@ -178,7 +183,7 @@ class ActiveIn(BaseModel):
 def set_operator_active(
     operator_id: str,
     body: ActiveIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> OperatorOut:
     op = _operator(db, p, operator_id)
@@ -236,7 +241,7 @@ def _staff(db: DbSession, p: Principal, user_id: str) -> StaffUser:
 
 
 @router.get("/staff", response_model=list[StaffOut])
-def list_staff(p: Principal = Depends(hospital_admin), db: DbSession = Depends(get_db)) -> list[StaffOut]:  # noqa: B008
+def list_staff(p: Principal = Depends(perm_setup_team), db: DbSession = Depends(get_db)) -> list[StaffOut]:  # noqa: B008
     q = select(StaffUser).where(StaffUser.site_id == p.site_id).order_by(StaffUser.role, StaffUser.email)
     return [_staff_out(u) for u in db.scalars(q)]
 
@@ -244,7 +249,7 @@ def list_staff(p: Principal = Depends(hospital_admin), db: DbSession = Depends(g
 @router.post("/staff", response_model=StaffOut, status_code=201)
 def invite_staff(
     body: StaffIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> StaffOut:
     email = body.email.strip().lower()
@@ -266,7 +271,7 @@ def invite_staff(
 def set_staff_active(
     user_id: str,
     body: ActiveIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> StaffOut:
     """Disable, or enable (which also unlocks after too many wrong passwords)."""
@@ -288,7 +293,7 @@ def set_staff_active(
 @router.post("/staff/{user_id}/resend-invite", status_code=204)
 def resend_staff_invite(
     user_id: str,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> None:
     u = _staff(db, p, user_id)
@@ -319,7 +324,7 @@ class DeviceCodeOut(BaseModel):
 @router.post("/device-codes", response_model=DeviceCodeOut, status_code=201)
 def new_device_code(
     body: DeviceCodeIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_phones),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> DeviceCodeOut:
     inv = policy()["invites"]
@@ -349,7 +354,7 @@ class DeviceOut(BaseModel):
 @router.get("/devices", response_model=list[DeviceOut])
 def list_devices(
     kind: Literal["clinic", "patient"] = "clinic",
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_phones),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> list[DeviceOut]:
     q = (
@@ -375,7 +380,7 @@ def list_devices(
 @router.post("/devices/{device_id}/revoke", status_code=204)
 def revoke_device(
     device_id: str,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_phones),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> None:
     dev = db.get(Device, device_id)
@@ -445,7 +450,7 @@ def _check_channel(site: Site, channel: str) -> None:
 @router.post("/patients/invite", response_model=PatientInviteOut, status_code=201)
 def invite_patient(
     body: PatientInviteIn,
-    p: Principal = Depends(front_desk),  # noqa: B008
+    p: Principal = Depends(perm_invites_send),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> PatientInviteOut:
     site = site_of(db, p)
@@ -496,7 +501,7 @@ class ReinviteIn(BaseModel):
 def reinvite_patient(
     ncid: str,
     body: ReinviteIn,
-    p: Principal = Depends(front_desk),  # noqa: B008
+    p: Principal = Depends(perm_invites_send),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> PatientInviteOut:
     """New invite (new phone, lost PIN, expired link). The old link and phone stop working."""
@@ -604,7 +609,15 @@ def list_patients(
 @router.get("/audit", response_model=list[AuditOut])
 def hospital_audit(
     limit: int = Query(200, ge=1, le=1000),
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_activity),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> list[AuditOut]:
     return audit_rows(db, p.site_id, limit)
+
+
+@router.get("/permissions")
+def my_permissions(p: Principal = Depends(hospital_admin), db: DbSession = Depends(get_db)):  # noqa: B008
+    """The hospital admin sees who can do what here (read only; set by the platform admin)."""
+    from app.api.platform import permissions_out
+
+    return permissions_out(db, site_of(db, p))

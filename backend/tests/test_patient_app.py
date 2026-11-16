@@ -214,17 +214,23 @@ def test_receptionist_assigns_and_doctors_see_only_their_patients(api, two_hospi
 def test_periodic_plan_only_when_the_doctor_asks(api, two_hospitals):
     t = two_hospitals
     ncid, acc = home_patient(api, t["a_desk"])
+    # Decision 033: the plan is a doctor's permission (requests.rerecord), for assigned patients.
+    dr = _staff(api, t, "plan.dr@sunrise.example", "doctor")
+    dr_id = next(
+        d["id"]
+        for d in api.get("/hospital/doctors", headers=hdr(t["a_desk"])).json()
+        if d["email"] == "plan.dr@sunrise.example"
+    )
+    api.put(f"/hospital/patients/{ncid}/doctor", headers=hdr(t["a_desk"]), json={"doctor_id": dr_id})
+    assert api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json={}).status_code == 403
     ptok = hdr(acc["tokens"]["access_token"])
     plan = api.get("/patient/plan", headers=ptok).json()
     assert plan["default"] and not plan["periodic"] and not plan["due_now"] and plan["next_due"] is None
     body = {"tests": ["FT", "FA", "FT"], "every_days": 3, "med_state": "ON", "periodic": True}
-    r = api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json=body)
+    r = api.put(f"/hospital/patients/{ncid}/plan", headers=dr, json=body)
     assert r.status_code == 200 and r.json()["tests"] == ["FT", "FA"] and r.json()["periodic"]
     assert (
-        api.put(
-            f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json={**body, "note": "x"}
-        ).status_code
-        == 422
+        api.put(f"/hospital/patients/{ncid}/plan", headers=dr, json={**body, "note": "x"}).status_code == 422
     )
     assert api.get("/patient/plan", headers=ptok).json()["due_now"]  # periodic, never recorded
     yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
@@ -233,7 +239,7 @@ def test_periodic_plan_only_when_the_doctor_asks(api, two_hospitals):
     assert not plan["due_now"] and plan["next_due"].startswith(
         (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
     )
-    api.put(f"/hospital/patients/{ncid}/plan", headers=hdr(t["a_tok"]), json={**body, "periodic": False})
+    api.put(f"/hospital/patients/{ncid}/plan", headers=dr, json={**body, "periodic": False})
     assert api.get("/patient/plan", headers=ptok).json()["next_due"] is None
 
 
@@ -593,3 +599,82 @@ def test_appointment_history_and_logs_name_the_person(api, two_hospitals):
     assert op["name"] == "Kavya R"
     staff = api.get("/hospital/staff", headers=admin).json()
     assert any(s["last_login_at"] for s in staff)
+
+
+def test_platform_admin_sets_permissions_per_hospital(api, two_hospitals):
+    """Decision 033: defaults from config; a platform admin changes them for one hospital, with a
+    reason, logged by name; fixed rules (clinical data) are not permissions."""
+    t = two_hospitals
+    root = hdr(t["platform"])
+    desk = hdr(t["a_desk"])
+    url = f"/platform/hospitals/{t['a']}/permissions"
+    perms = api.get(url, headers=root).json()
+    rows = {r["key"]: r for r in perms["rows"]}
+    assert rows["appointments.add"]["roles"] == ["receptionist"] and not rows["appointments.add"]["changed"]
+    assert "hospital_admin" in rows["setup.team"]["roles"]
+    assert not any("clinical" in k or "history" in k for k in rows)  # fixed in code, not a setting
+    me = api.get("/staff/me", headers=desk).json()
+    assert "invites.send" in me["permissions"] and "setup.team" not in me["permissions"]
+
+    # A small clinic: the doctor books and assigns; the front desk stops inviting.
+    dr = _staff(api, t, "perm.dr@sunrise.example", "doctor")
+    dr_id = next(
+        d["id"]
+        for d in api.get("/hospital/doctors", headers=desk).json()
+        if d["email"] == "perm.dr@sunrise.example"
+    )
+    ncid, _ = home_patient(api, t["a_desk"])
+    at = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    body = {"ncid": ncid, "at": at, "doctor_id": dr_id}
+    assert api.post("/hospital/appointments", headers=dr, json=body).status_code == 403
+    assert (
+        api.put(
+            url, headers=root, json={"roles": {"requests.send": ["receptionist"]}, "reason": "x y z"}
+        ).status_code
+        == 422
+    )
+    new = {
+        "appointments.add": ["receptionist", "doctor"],
+        "appointments.assign": ["receptionist", "doctor"],
+        "invites.send": [],
+    }
+    r = api.put(url, headers=root, json={"roles": new, "reason": "Small clinic: Dr books"})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["reason"] == "Small clinic: Dr books" and out["changed_by_name"]
+    assert {x["key"] for x in out["rows"] if x["changed"]} == set(new)
+    assert api.post("/hospital/appointments", headers=dr, json=body).status_code == 201
+    assert api.post("/hospital/patients/invite", headers=desk, json={"channel": "print"}).status_code == 403
+    # The other hospital keeps the defaults.
+    b_rows = api.get(f"/platform/hospitals/{t['b']}/permissions", headers=root).json()["rows"]
+    assert not any(x["changed"] for x in b_rows)
+    # The hospital admin sees it, read only; the change is in both logs, by name.
+    assert (
+        api.get("/hospital/permissions", headers=hdr(t["a_tok"])).json()["reason"] == "Small clinic: Dr books"
+    )
+    assert api.put(url, headers=hdr(t["a_tok"]), json={"roles": {}, "reason": "nope"}).status_code == 403
+    log = api.get("/hospital/audit", headers=hdr(t["a_tok"])).json()
+    ev = next(e for e in log if e["action"] == "permissions_changed")
+    assert ev["actor_role"] == "platform_admin" and ev["details"]["reason"] == "Small clinic: Dr books"
+    # Reset to defaults.
+    api.put(url, headers=root, json={"roles": {}, "reason": "Back to defaults"})
+    assert api.post("/hospital/patients/invite", headers=desk, json={"channel": "print"}).status_code == 201
+
+
+def test_hospital_can_switch_off_clinic_recording(api, two_hospitals):
+    from test_tenancy import register_phone
+
+    t = two_hospitals
+    dev = register_phone(api, t["a_tok"])
+    op = api.post("/hospital/operators", headers=hdr(t["a_tok"]), json={"code": "OP-P1"}).json()
+    login = {
+        "device_id": dev["device_id"],
+        "device_secret": dev["device_secret"],
+        "operator_code": "OP-P1",
+        "password": op["temporary_password"],
+    }
+    assert api.post("/auth/login", json=login).status_code == 200
+    url = f"/platform/hospitals/{t['a']}/permissions"
+    api.put(url, headers=hdr(t["platform"]), json={"roles": {"clinic.record": []}, "reason": "Home only"})
+    r = api.post("/auth/login", json=login)
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "not_permitted"

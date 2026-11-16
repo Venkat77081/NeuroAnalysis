@@ -58,6 +58,8 @@ class Site(Base):
     storage_external_id: Mapped[str | None] = mapped_column(String(64))
     storage_check: Mapped[dict | None] = mapped_column(Json)
     storage_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: Decision 033: {permission: [roles]} where this hospital differs from config/platform.json.
+    permissions: Mapped[dict | None] = mapped_column(Json)
     sms_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # hospital pays for SMS
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

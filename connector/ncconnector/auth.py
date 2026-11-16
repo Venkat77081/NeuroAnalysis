@@ -25,6 +25,8 @@ class Staff:
     #: hospital_admin | doctor (assigned patients only) | receptionist (find and assign patients)
     #: | operator (clinic phone: NCID lookup only)
     role: str
+    #: Decision 033: what this person may do at the hospital, set on the platform per hospital.
+    perms: frozenset[str] = frozenset()
 
 
 def staff(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Staff:
@@ -47,7 +49,24 @@ def staff(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Staff
         "receptionist",
     }:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
-    return Staff(user_id=str(claims["sub"]), role=claims["role"])
+    perms = claims.get("perms")
+    return Staff(
+        user_id=str(claims["sub"]),
+        role=claims["role"],
+        perms=frozenset(perms) if isinstance(perms, list) else frozenset(),
+    )
+
+
+def perm(*keys: str):
+    """The token must carry one of these permissions (decision 033). The platform puts them in the
+    token from the hospital's settings, so a change applies within one token lifetime (10 min)."""
+
+    def check(s: Staff = Depends(staff)) -> Staff:
+        if not s.perms.intersection(keys):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
+        return s
+
+    return check
 
 
 def role(*roles: str):

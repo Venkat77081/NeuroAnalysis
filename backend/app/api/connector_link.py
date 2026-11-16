@@ -20,6 +20,7 @@ from app.audit import audit
 from app.config import get_settings
 from app.db import get_db
 from app.models import Patient, PatientAccount, Session, Site, Take, TakeFile
+from app.permissions import require
 from app.policy import policy
 from app.security import Principal, new_secret, require_role, sha256_hex
 from app.signing import (
@@ -35,6 +36,7 @@ from app.signing import (
 from app.storage.sites import storage_of
 
 router = APIRouter(tags=["connector"])
+perm_setup_connections = require("setup.connections")
 
 #: Tests inject an httpx.Client (e.g. a TestClient of the connector app); production uses a fresh one.
 CONNECTOR_CLIENT: httpx.Client | None = None
@@ -108,14 +110,16 @@ def _my_site(db: DbSession, p: Principal) -> Site:
 
 
 @router.get("/hospital/connector", response_model=ConnectorOut)
-def get_connector(p: Principal = Depends(hospital_admin), db: DbSession = Depends(get_db)) -> ConnectorOut:  # noqa: B008
+def get_connector(
+    p: Principal = Depends(perm_setup_connections), db: DbSession = Depends(get_db)
+) -> ConnectorOut:  # noqa: B008
     return _conn_out(_my_site(db, p))
 
 
 @router.put("/hospital/connector", response_model=ConnectorOut)
 def register_connector(
     body: ConnectorIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_connections),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> ConnectorOut:
     if load_public_pem(body.public_key_pem) is None:
@@ -155,7 +159,7 @@ def call_connector(site: Site, method: str, path: str, payload: dict | None = No
 @router.post("/hospital/connector/check", response_model=ConnectorOut)
 def check_connector(
     body: CheckIn,
-    p: Principal = Depends(hospital_admin),  # noqa: B008
+    p: Principal = Depends(perm_setup_connections),  # noqa: B008
     db: DbSession = Depends(get_db),  # noqa: B008
 ) -> ConnectorOut:
     """The onboarding wizard's test. NeuroCapture keeps pass / fail per check, nothing else."""
@@ -189,7 +193,9 @@ def get_connector_token(
     site = _my_site(db, p)
     if not site.connector_url or not site.connector_public_key:
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "connector_not_registered"})
-    token, ttl = connector_token(site.id, p.actor_id, p.role)
+    from app.permissions import granted
+
+    token, ttl = connector_token(site.id, p.actor_id, p.role, granted(db, p))
     return ConnectorTokenOut(token=token, expires_in=ttl, connector_url=site.connector_url)
 
 
@@ -542,7 +548,9 @@ def connector_keys(site: Site = Depends(signed_connector), db: DbSession = Depen
 
 
 @router.get("/hospital/keys", response_model=list[KeyOut])
-def hospital_keys(p: Principal = Depends(hospital_admin), db: DbSession = Depends(get_db)) -> list[KeyOut]:  # noqa: B008
+def hospital_keys(
+    p: Principal = Depends(perm_setup_connections), db: DbSession = Depends(get_db)
+) -> list[KeyOut]:  # noqa: B008
     """Fingerprints to compare with `python -m ncconnector take-keys` on the connector."""
     return site_keys(db, _my_site(db, p).id)
 

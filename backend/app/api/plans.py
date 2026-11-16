@@ -22,6 +22,7 @@ from app.models import (
     Site,
     Take,
 )
+from app.permissions import require
 from app.policy import policy
 from app.security import Principal, current_principal, require_role
 
@@ -105,7 +106,8 @@ def _patient(db: DbSession, p: Principal, ncid: str) -> Patient:
     return pt
 
 
-staff_reader = require_role("doctor", "hospital_admin")
+#: Decision 033: the home plan ("repeat every N days") goes with asking to record again.
+staff_reader = require("requests.rerecord")
 
 
 @router.get("/hospital/patients/{ncid}/plan", response_model=PlanOut)

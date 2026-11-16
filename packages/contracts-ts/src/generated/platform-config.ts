@@ -61,4 +61,24 @@ export interface PlatformConfig {
     reminderHoursBefore: number;
     appointmentWindowDays: number;
   };
+  /**
+   * Per-hospital permissions (decision 033): what each role may do by default, and which roles a platform admin may grant it to. Clinical data, patient identity, consent and logging are fixed in code and are not listed here.
+   */
+  permissions: {
+    /**
+     * This interface was referenced by `undefined`'s JSON-Schema definition
+     * via the `patternProperty` "^[a-z]+\.[a-z]+$".
+     */
+    [k: string]: {
+      group: 'patients' | 'appointments' | 'requests' | 'clinic' | 'setup';
+      default: ('hospital_admin' | 'receptionist' | 'doctor' | 'operator')[];
+      /**
+       * @minItems 1
+       */
+      eligible: [
+        'hospital_admin' | 'receptionist' | 'doctor' | 'operator',
+        ...('hospital_admin' | 'receptionist' | 'doctor' | 'operator')[]
+      ];
+    };
+  };
 }

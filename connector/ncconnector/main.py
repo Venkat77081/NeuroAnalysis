@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ncconnector import __version__, activity, platform
-from ncconnector.auth import Staff, platform_signed, role
+from ncconnector.auth import Staff, perm, platform_signed, role
 from ncconnector.config import get_settings
 from ncconnector.db import ActivityLog, NcidMap, Review, get_db, init_db
 from ncconnector.keys import has_take_key, take_private_key
@@ -64,10 +64,15 @@ app.add_middleware(
 
 doctor_or_admin = role("doctor", "hospital_admin")
 admin = role("hospital_admin")
-#: Decision 031: patients, invites and appointments are the front desk's (not the hospital admin).
-desk = role("receptionist")
+# Decision 033: who may do what is set per hospital on the platform and carried in the token.
+search = perm("patients.search")
+desk = perm("invites.send")
+#: The live list from the hospital system (all patients' names): reception's booking work.
+booking = perm("appointments.add")
+activity_log = perm("setup.activity")
 listing = role("doctor", "hospital_admin", "receptionist")
-clinic_staff = role("receptionist", "operator")
+#: Linking an MRN to an NCID: searching patients, booking, inviting, or a clinic phone recording.
+clinic_staff = perm("patients.search", "appointments.add", "invites.send", "clinic.record")
 doctor = role("doctor")
 #: Medical history, recordings, decrypted videos and review notes: assigned doctors only (user,
 #: 15 Nov 2026). Hospital admins and receptionists see names, never clinical data.
@@ -179,7 +184,7 @@ def _statuses(ncids: list[str]) -> dict[str, str]:
 def search_patients(
     q: str = Query(min_length=2, max_length=100),
     limit: int = Query(25, ge=1, le=100),
-    s: Staff = Depends(desk),
+    s: Staff = Depends(search),
     db: DbSession = Depends(get_db),
 ) -> list[PatientRow]:
     try:
@@ -501,7 +506,7 @@ class AppointmentRow(BaseModel):
 
 @app.get("/v1/appointments", response_model=list[AppointmentRow])
 def appointments(
-    days: int = Query(7, ge=1, le=60), s: Staff = Depends(desk), db: DbSession = Depends(get_db)
+    days: int = Query(7, ge=1, le=60), s: Staff = Depends(booking), db: DbSession = Depends(get_db)
 ) -> list[AppointmentRow]:
     """Booked appointments from now (minus a day) to `days` ahead, with names, read live."""
     from datetime import UTC, timedelta
@@ -630,7 +635,7 @@ class ActivityOut(BaseModel):
 def read_activity(
     ncid: str | None = None,
     limit: int = Query(200, ge=1, le=1000),
-    s: Staff = Depends(admin),
+    s: Staff = Depends(activity_log),
     db: DbSession = Depends(get_db),
 ) -> list[ActivityOut]:
     q = select(ActivityLog).order_by(ActivityLog.at.desc()).limit(limit)

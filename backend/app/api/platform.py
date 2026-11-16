@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
@@ -302,3 +302,123 @@ def hospital_setup(
         operators=out.operators,
         doctors=sum(1 for u in staff if u.role == "doctor" and u.active),
     )
+
+
+# --- Roles and permissions per hospital (decision 033) ---
+
+
+class PermissionRow(BaseModel):
+    key: str
+    group: str
+    default: list[str]
+    eligible: list[str]
+    roles: list[str]
+    changed: bool
+
+
+class PermissionsOut(BaseModel):
+    site_id: str
+    rows: list[PermissionRow]
+    changed_at: datetime | None
+    changed_by_name: str | None
+    changed_by_email: str | None
+    reason: str | None
+
+
+class PermissionsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    #: {permission: roles}; permissions left out keep the default.
+    roles: dict[str, list[str]]
+    reason: str = Field(min_length=3, max_length=300)
+
+
+def permissions_out(db: DbSession, site: Site) -> PermissionsOut:
+    from app.people import People
+    from app.permissions import catalogue, effective
+
+    eff = effective(site)
+    rows = [
+        PermissionRow(
+            key=k,
+            group=spec["group"],
+            default=list(spec["default"]),
+            eligible=list(spec["eligible"]),
+            roles=eff[k],
+            changed=sorted(eff[k]) != sorted(r for r in spec["default"] if r in spec["eligible"]),
+        )
+        for k, spec in catalogue().items()
+    ]
+    last = db.scalar(
+        select(AuditEvent)
+        .where(AuditEvent.site_id == site.id, AuditEvent.action == "permissions_changed")
+        .order_by(AuditEvent.at.desc())
+        .limit(1)
+    )
+    who = People(db).who(last.actor_type, last.actor_id) if last else None
+    return PermissionsOut(
+        site_id=site.id,
+        rows=rows,
+        changed_at=last.at if last else None,
+        changed_by_name=who.name if who else None,
+        changed_by_email=who.email if who else None,
+        reason=(last.details or {}).get("reason") if last else None,
+    )
+
+
+def _site_or_404(db: DbSession, site_id: str) -> Site:
+    site = db.get(Site, site_id)
+    if not site:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "hospital not found")
+    return site
+
+
+@router.get("/hospitals/{site_id}/permissions", response_model=PermissionsOut)
+def get_permissions(
+    site_id: str, _: Principal = Depends(admin_only), db: DbSession = Depends(get_db)
+) -> PermissionsOut:  # noqa: B008
+    return permissions_out(db, _site_or_404(db, site_id))
+
+
+@router.put("/hospitals/{site_id}/permissions", response_model=PermissionsOut)
+def set_permissions(
+    site_id: str,
+    body: PermissionsIn,
+    p: Principal = Depends(admin_only),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> PermissionsOut:
+    """Only what differs from the defaults is stored; an empty map is "reset to defaults"."""
+    from app.permissions import ROLES, catalogue
+
+    site = _site_or_404(db, site_id)
+    cat = catalogue()
+    over: dict[str, list[str]] = {}
+    for key, roles in body.roles.items():
+        spec = cat.get(key)
+        if spec is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "unknown_permission", "key": key}
+            )
+        bad = [r for r in roles if r not in spec["eligible"]]
+        if bad:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "role_not_eligible", "key": key, "roles": bad}
+            )
+        clean = [r for r in ROLES if r in roles]
+        if sorted(clean) != sorted(r for r in spec["default"] if r in spec["eligible"]):
+            over[key] = clean
+    before = site.permissions or {}
+    site.permissions = over or None
+    changed = sorted(set(before) | set(over))
+    audit(
+        db,
+        p.actor_type,
+        p.actor_id,
+        "permissions_changed",
+        "site",
+        site.id,
+        site_id=site.id,
+        reason=body.reason.strip(),
+        changed=[k for k in changed if before.get(k) != over.get(k)],
+    )
+    db.commit()
+    return permissions_out(db, site)

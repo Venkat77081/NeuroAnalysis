@@ -35,13 +35,18 @@ from app.models import (
     StaffUser,
     Take,
 )
+from app.permissions import allows, require
 from app.policy import policy
-from app.security import Principal, current_principal, require_role, sha256_hex
+from app.security import Principal, current_principal, sha256_hex
 
 router = APIRouter(tags=["appointments"])
-desk = require_role("receptionist")  # decision 031: not the hospital admin
-doctor_only = require_role("doctor")
-staff = require_role("receptionist", "doctor")
+# Decision 033: what each role may do is set per hospital (config/platform.json `permissions`).
+can_view = require("appointments.view", "appointments.add", "appointments.assign")
+can_add = require("appointments.add")
+can_change = require("appointments.add", "appointments.assign")
+can_send = require("requests.send")
+can_rerecord = require("requests.rerecord")
+can_view_or_send = require("appointments.view", "requests.send")
 
 TestCode = Literal["FT", "FTF", "FR", "SAW", "FA"]
 ORDER = ["FT", "FTF", "FR", "SAW", "FA"]
@@ -51,13 +56,16 @@ def aware(dt: datetime | None) -> datetime | None:
     return dt if dt is None or dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
-def _patient(db: DbSession, p: Principal, ncid: str) -> Patient:
+def _patient(db: DbSession, p: Principal, ncid: str, *, clinical: bool = True) -> Patient:
+    """`clinical=False` for booking work (adding an appointment, choosing its doctor): a doctor who
+    may book appointments at this hospital is not limited to their assigned patients for that."""
     from app.assignments import check_patient_access
 
     pt = db.scalar(select(Patient).where(Patient.ncid == ncid, Patient.site_id == p.site_id))
     if not pt:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "patient not found")
-    check_patient_access(db, p, pt)
+    if clinical:
+        check_patient_access(db, p, pt)
     return pt
 
 
@@ -256,7 +264,7 @@ def external_hash(site_id: str, external_id: str) -> str:
 @router.get("/hospital/appointments", response_model=list[AppointmentOut])
 def list_appointments(
     days: int = Query(default=0, ge=0, le=60),
-    p: Principal = Depends(staff),
+    p: Principal = Depends(can_view),
     db: DbSession = Depends(get_db),
 ) -> list[AppointmentOut]:
     """Appointments known here, from yesterday to `days` ahead (default: appointmentWindowDays).
@@ -336,9 +344,11 @@ def _assign(db: DbSession, p: Principal, patient: Patient, doctor_id: str | None
 
 
 @router.post("/hospital/appointments", response_model=AppointmentOut, status_code=201)
-def create_appointment(body: AppointmentIn, p: Principal = Depends(desk), db: DbSession = Depends(get_db)):
-    pt = _patient(db, p, body.ncid)
+def create_appointment(body: AppointmentIn, p: Principal = Depends(can_add), db: DbSession = Depends(get_db)):
+    pt = _patient(db, p, body.ncid, clinical=False)
     _doctor_ok(db, p, body.doctor_id)
+    if body.doctor_id is not None and not allows(db, p, "appointments.assign"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
     ext = external_hash(p.site_id, body.external_id) if body.external_id else None
     if ext:
         existing = db.scalar(
@@ -390,9 +400,13 @@ def _appointment(db: DbSession, p: Principal, appt_id: str) -> tuple[Appointment
 
 @router.put("/hospital/appointments/{appt_id}", response_model=AppointmentOut)
 def update_appointment(
-    appt_id: str, body: AppointmentPatch, p: Principal = Depends(desk), db: DbSession = Depends(get_db)
+    appt_id: str, body: AppointmentPatch, p: Principal = Depends(can_change), db: DbSession = Depends(get_db)
 ):
     a, pt = _appointment(db, p, appt_id)
+    if body.doctor_id is not None and not allows(db, p, "appointments.assign"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
+    if (body.at is not None or body.status is not None) and not allows(db, p, "appointments.add"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
     if body.doctor_id is not None:
         _doctor_ok(db, p, body.doctor_id)
         a.doctor_id = body.doctor_id
@@ -421,7 +435,7 @@ def update_appointment(
 
 @router.get("/hospital/appointments/{appt_id}/history", response_model=list[EventOut])
 def appointment_history(
-    appt_id: str, p: Principal = Depends(staff), db: DbSession = Depends(get_db)
+    appt_id: str, p: Principal = Depends(can_view), db: DbSession = Depends(get_db)
 ) -> list[EventOut]:
     """Who did what for this appointment, oldest first (user, 16 Nov 2026)."""
     a, pt = _appointment(db, p, appt_id)
@@ -512,7 +526,7 @@ def _set_periodic(db: DbSession, p: Principal, pt: Patient, tests: list[str], me
 
 @router.post("/hospital/appointments/{appt_id}/request", response_model=RequestOut, status_code=201)
 def request_for_appointment(
-    appt_id: str, body: RequestIn, p: Principal = Depends(doctor_only), db: DbSession = Depends(get_db)
+    appt_id: str, body: RequestIn, p: Principal = Depends(can_send), db: DbSession = Depends(get_db)
 ):
     """The assigned doctor chooses the tests and sends the patient the record link."""
     a, pt = _appointment(db, p, appt_id)
@@ -533,7 +547,7 @@ def request_for_appointment(
 def rerecord(
     ncid: str,
     body: RequestIn,
-    p: Principal = Depends(doctor_only),
+    p: Principal = Depends(can_rerecord),
     db: DbSession = Depends(get_db),
 ):
     """The doctor asks to record again (all of the plan, or some tests)."""
@@ -547,7 +561,7 @@ def rerecord(
 
 
 @router.post("/hospital/requests/{req_id}/cancel", response_model=RequestOut)
-def cancel_request(req_id: str, p: Principal = Depends(staff), db: DbSession = Depends(get_db)):
+def cancel_request(req_id: str, p: Principal = Depends(can_view_or_send), db: DbSession = Depends(get_db)):
     r = db.get(RecordingRequest, req_id)
     pt = db.get(Patient, r.patient_id) if r else None
     if not r or not pt or r.site_id != p.site_id:
@@ -581,7 +595,9 @@ class HistoryOut(BaseModel):
 
 
 @router.get("/hospital/patients/{ncid}/history", response_model=HistoryOut)
-def history(ncid: str, p: Principal = Depends(staff), db: DbSession = Depends(get_db)) -> HistoryOut:
+def history(
+    ncid: str, p: Principal = Depends(can_view_or_send), db: DbSession = Depends(get_db)
+) -> HistoryOut:
     """Appointments, requests and sessions. All of it stays with the hospital after a withdrawal."""
     pt = _patient(db, p, ncid)
     acc = db.scalar(select(PatientAccount).where(PatientAccount.patient_id == pt.id))

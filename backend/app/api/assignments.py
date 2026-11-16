@@ -11,10 +11,13 @@ from app.assignments import follow_assignment
 from app.audit import audit
 from app.db import get_db
 from app.models import Patient, PatientAssignment, StaffUser
-from app.security import Principal, require_role
+from app.permissions import require
+from app.security import Principal
 
 router = APIRouter(prefix="/hospital", tags=["assignments"])
-desk = require_role("receptionist")  # decision 031: not the hospital admin
+# Decision 033: per-hospital permissions (config/platform.json `permissions`).
+desk = require("appointments.assign")
+booking = require("appointments.view", "appointments.add", "appointments.assign")
 
 
 class DoctorOut(BaseModel):
@@ -26,7 +29,7 @@ class DoctorOut(BaseModel):
 
 
 @router.get("/doctors", response_model=list[DoctorOut])
-def doctors(p: Principal = Depends(desk), db: DbSession = Depends(get_db)) -> list[DoctorOut]:
+def doctors(p: Principal = Depends(booking), db: DbSession = Depends(get_db)) -> list[DoctorOut]:
     docs = db.scalars(
         select(StaffUser)
         .where(StaffUser.site_id == p.site_id, StaffUser.role == "doctor")

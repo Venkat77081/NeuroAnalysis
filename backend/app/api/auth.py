@@ -156,6 +156,12 @@ def login(body: LoginIn, db: DbSession = Depends(get_db)) -> TokenOut:  # noqa: 
         db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "wrong operator ID or password")
     op.failed_logins = 0
+    from app.permissions import effective
+
+    # Decision 033: this hospital may switch clinic recording off for operators.
+    if "operator" not in effective(db.get(Site, dev.site_id)).get("clinic.record", []):
+        db.commit()
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
     out = _issue(db, op, dev)
     audit(db, "operator", op.id, "login", "device", dev.id, site_id=dev.site_id)
     db.commit()
@@ -184,7 +190,9 @@ def operator_connector_token(
     site = db.get(Site, p.site_id)
     if not site or not site.connector_url or not site.connector_public_key:
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "connector_not_registered"})
-    token, ttl = connector_token(site.id, p.actor_id, "operator")
+    from app.permissions import granted
+
+    token, ttl = connector_token(site.id, p.actor_id, "operator", granted(db, p))
     return ConnectorTokenOut(token=token, expires_in=ttl, connector_url=site.connector_url)
 
 

@@ -16,7 +16,8 @@
     "defaultPlan",
     "app",
     "operators",
-    "requests"
+    "requests",
+    "permissions"
   ],
   "properties": {
     "schemaVersion": {
@@ -29,7 +30,12 @@
     "invites": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["patientTtlDays", "staffTtlDays", "deviceCodeTtlHours", "deviceCodeLength"],
+      "required": [
+        "patientTtlDays",
+        "staffTtlDays",
+        "deviceCodeTtlHours",
+        "deviceCodeLength"
+      ],
       "properties": {
         "patientTtlDays": {
           "type": "integer",
@@ -56,7 +62,10 @@
     "passwords": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minLength", "temporaryLength"],
+      "required": [
+        "minLength",
+        "temporaryLength"
+      ],
       "properties": {
         "minLength": {
           "type": "integer",
@@ -73,7 +82,11 @@
     "patientPin": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minDigits", "maxDigits", "maxFailures"],
+      "required": [
+        "minDigits",
+        "maxDigits",
+        "maxFailures"
+      ],
       "properties": {
         "minDigits": {
           "type": "integer",
@@ -95,7 +108,10 @@
     "staff": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["twoStepRequired", "maxFailedLogins"],
+      "required": [
+        "twoStepRequired",
+        "maxFailedLogins"
+      ],
       "properties": {
         "twoStepRequired": {
           "type": "boolean"
@@ -115,7 +131,11 @@
     "defaultPlan": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tests", "everyDays", "medState"],
+      "required": [
+        "tests",
+        "everyDays",
+        "medState"
+      ],
       "description": "Recording plan for a patient until their doctor sets one (M13).",
       "properties": {
         "tests": {
@@ -123,7 +143,13 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "enum": ["FT", "FTF", "FR", "SAW", "FA"]
+            "enum": [
+              "FT",
+              "FTF",
+              "FR",
+              "SAW",
+              "FA"
+            ]
           }
         },
         "everyDays": {
@@ -132,14 +158,22 @@
           "maximum": 90
         },
         "medState": {
-          "enum": ["OFF", "ON", "ANY"]
+          "enum": [
+            "OFF",
+            "ON",
+            "ANY"
+          ]
         }
       }
     },
     "app": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["operatorAutoLockMin", "patientAutoLockMin", "homeSawNeedsHelper"],
+      "required": [
+        "operatorAutoLockMin",
+        "patientAutoLockMin",
+        "homeSawNeedsHelper"
+      ],
       "properties": {
         "operatorAutoLockMin": {
           "type": "integer",
@@ -160,7 +194,9 @@
     "operators": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["maxFailedLogins"],
+      "required": [
+        "maxFailedLogins"
+      ],
       "description": "Clinic operators (M13): wrong passwords in a row before the account locks; a hospital admin unlocks it.",
       "properties": {
         "maxFailedLogins": {
@@ -200,6 +236,59 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 60
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Per-hospital permissions (decision 033): what each role may do by default, and which roles a platform admin may grant it to. Clinical data, patient identity, consent and logging are fixed in code and are not listed here.",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z]+\\.[a-z]+$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "group",
+            "default",
+            "eligible"
+          ],
+          "properties": {
+            "group": {
+              "enum": [
+                "patients",
+                "appointments",
+                "requests",
+                "clinic",
+                "setup"
+              ]
+            },
+            "default": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "hospital_admin",
+                  "receptionist",
+                  "doctor",
+                  "operator"
+                ]
+              }
+            },
+            "eligible": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "hospital_admin",
+                  "receptionist",
+                  "doctor",
+                  "operator"
+                ]
+              }
+            }
+          }
         }
       }
     }

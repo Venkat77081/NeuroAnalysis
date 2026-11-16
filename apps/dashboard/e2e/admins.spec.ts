@@ -31,6 +31,22 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
   await page.getByTestId('nav-phones').click();
   await page.getByTestId('d-new').click();
   await expect(page.getByTestId('d-code-text')).toHaveText(/^[A-Z2-9]{10}$/);
+  // Camera check (decision 035): a failed check does not use the code; 57.2 fps is borderline.
+  const code = await page.getByTestId('d-code-text').innerText();
+  const register = (fps: number) =>
+    page.request.post(`${s.platform_url}/auth/device-register`, {
+      data: {
+        enrollment_code: code,
+        model: 'Redmi Note 12',
+        os_version: '14',
+        camera_check: { effective_fps: fps },
+      },
+    });
+  expect((await register(48)).status()).toBe(422);
+  expect((await register(57.2)).status()).toBe(201);
+  await page.getByTestId('nav-team').click();
+  await page.getByTestId('nav-phones').click();
+  await expect(page.getByTestId('devices')).toContainText('Borderline · 57.2 fps');
 
   await page.getByTestId('nav-activity').click();
   // One log, by person: name, e-mail and role on every row.

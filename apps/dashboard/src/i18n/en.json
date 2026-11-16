@@ -178,7 +178,14 @@
     "personName": "Full name",
     "teamHint": "Add as many hospital admins, front-desk staff and doctors as you need. Everyone signs in with their own e-mail, password and authenticator code, and everyone with the same role sees the same pages. Do not share logins: the activity log records each person by name.",
     "lastActive": "Last signed in {{at}}",
-    "neverSignedIn": "Not signed in yet"
+    "neverSignedIn": "Not signed in yet",
+    "phoneCol": "Phone",
+    "checkCol": "Camera check",
+    "addedCol": "Added",
+    "checkPassed": "Passed · {{fps}} fps",
+    "checkBorderline": "Borderline · {{fps}} fps",
+    "checkNone": "Not checked",
+    "checkNote": "A phone is added only after its camera check passes ({{min}} fps or more; below {{take}} is borderline: some takes may need repeating). A registration code is used only when a phone is added, so a failed check never needs a new code."
   },
   "doctor": {
     "patientsTitle": "My patients",
@@ -317,7 +324,8 @@
       "refused": "refused",
       "no_time": "no time",
       "other": "other"
-    }
+    },
+    "phoneUnsuitable": "Phone not suitable · {{fps}} fps"
   },
   "choose": {
     "title": "Choose tests for upcoming appointments",
@@ -351,7 +359,8 @@
     "clinicHint": "a clinic phone operator records at the visit",
     "clinicWhen": "Goes to the clinic queue on {{date}}. The patient does not get a link.",
     "sendClinic": "Add to the clinic queue",
-    "sendBoth": "Send the link and add to the clinic queue"
+    "sendBoth": "Send the link and add to the clinic queue",
+    "phoneUnsuitable": "The patient's phone failed the camera check ({{fps}} fps). Record in the clinic, or invite them again to join from another phone."
   },
   "timeline": {
     "title": "Appointments and record links",

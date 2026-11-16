@@ -3,6 +3,7 @@
  * connector), invites, deletion requests and the activity log. Patient identity is fetched from the
  * hospital connector by this browser; the platform only ever sees NCIDs.
  */
+import { deviceCheck } from './config.ts';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
@@ -462,6 +463,21 @@ interface DeviceRow {
   os_version: string;
   registered_at: string;
   revoked_at: string | null;
+  /** Camera check when the phone was added (decision 035); null for phones added before it. */
+  check_fps: number | null;
+}
+
+function CheckBadge({ fps }: { fps: number | null }) {
+  const { t } = useTranslation();
+  if (fps === null) return <Badge>{t('hospital.checkNone')}</Badge>;
+  const borderline = fps < deviceCheck.warnBelowFps;
+  return (
+    <Badge tone={borderline ? 'warn' : 'ok'}>
+      {t(borderline ? 'hospital.checkBorderline' : 'hospital.checkPassed', {
+        fps: fps.toFixed(1),
+      })}
+    </Badge>
+  );
 }
 
 export function Phones() {
@@ -510,12 +526,21 @@ export function Phones() {
           </div>
         )}
       </Card>
-      <Table head={['', '', '', '']} testId="devices">
+      <Notice>
+        {t('hospital.checkNote', { min: deviceCheck.minFps, take: deviceCheck.warnBelowFps })}
+      </Notice>
+      <Table
+        head={[t('hospital.phoneCol'), '', t('hospital.checkCol'), t('hospital.addedCol'), '']}
+        testId="devices"
+      >
         {(devices ?? []).map((d) => (
           <tr key={d.id} className="border-t border-[#EDF0F3]">
             <td className="px-4 py-3 font-semibold">{d.label ?? d.model}</td>
             <td className="px-4 py-3 text-[13px] text-muted">
               {d.model} · Android {d.os_version}
+            </td>
+            <td className="px-4 py-3" data-testid="device-check">
+              <CheckBadge fps={d.check_fps} />
             </td>
             <td className="px-4 py-3 text-[13px]">{fmtDate(d.registered_at)}</td>
             <td className="px-4 py-3">

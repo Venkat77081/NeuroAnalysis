@@ -57,6 +57,8 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   await expect(page.getByTestId('notice')).toContainText('waits for the doctor');
   // Ravi has not joined the app: the same three ways to invite him.
   await expect(ravi).toContainText('Not joined');
+  // His phone failed the camera check and he told the hospital (decision 035).
+  await expect(ravi.getByTestId('appt-phone-unsuitable')).toHaveText('Phone not suitable · 41 fps');
   await ravi.getByRole('button', { name: 'Send join invite' }).click();
   await expect(page.getByTestId('p-invite')).toContainText('Send a join invite to Ravi Samplename');
   await page.getByTestId('via-print').check();
@@ -70,7 +72,9 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   await expect(page.getByTestId('choose-count')).toHaveText('2');
   // Ravi is not in the app: only the clinic can record him.
   await page.getByTestId('choose-00012401').click();
-  await expect(page.getByTestId('choose-not-joined')).toBeVisible();
+  await expect(page.getByTestId('choose-not-joined')).toContainText(
+    'failed the camera check (41 fps)',
+  );
   await expect(page.getByTestId('choose-home')).toBeDisabled();
   await expect(page.getByTestId('choose-clinic')).toBeChecked();
   await expect(page.getByTestId('choose-send')).toHaveText('Add to the clinic queue');

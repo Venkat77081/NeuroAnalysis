@@ -52,6 +52,8 @@ export interface HistoryEvent {
 interface PatientRow {
   ncid: string;
   status: string;
+  /** Decision 035: the patient said their phone failed the camera check (fps measured). */
+  phone_unsuitable_fps: number | null;
 }
 interface Doctor {
   id: string;
@@ -141,6 +143,7 @@ export function Appointments() {
   const canInvite = perms.has('invites.send');
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [app, setApp] = useState<Record<string, string>>({});
+  const [unsuitable, setUnsuitable] = useState<Record<string, number>>({});
   const [docs, setDocs] = useState<Doctor[]>([]);
   const [ident, setIdent] = useState<Record<string, Ident>>({});
   const [choice, setChoice] = useState<Record<string, string>>({});
@@ -166,6 +169,13 @@ export function Appointments() {
         setAppts(list);
         setDocs(doctors.filter((d) => d.active));
         setApp(Object.fromEntries(patients.map((p) => [p.ncid, p.status])));
+        setUnsuitable(
+          Object.fromEntries(
+            patients.flatMap((p) =>
+              p.phone_unsuitable_fps !== null ? [[p.ncid, p.phone_unsuitable_fps]] : [],
+            ),
+          ),
+        );
         setIdent(Object.fromEntries(ids.map((i) => [i.ncid, i])));
       } catch (e) {
         if (!off) setError(e);
@@ -249,6 +259,13 @@ export function Appointments() {
                   <Badge tone={joined(a.ncid) ? 'ok' : 'neutral'}>
                     {t(joined(a.ncid) ? 'appts.joined' : 'appts.notJoined')}
                   </Badge>
+                  {!joined(a.ncid) && unsuitable[a.ncid] !== undefined && (
+                    <span className="mt-1 block" data-testid="appt-phone-unsuitable">
+                      <Badge tone="warn">
+                        {t('appts.phoneUnsuitable', { fps: unsuitable[a.ncid]!.toFixed(0) })}
+                      </Badge>
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {canAssign && (a.stage === 'needs_doctor' || a.stage === 'needs_tests') ? (

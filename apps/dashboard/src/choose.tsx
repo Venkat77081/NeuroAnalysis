@@ -138,14 +138,20 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
   const [home, setHome] = useState(true);
   const [clinic, setClinic] = useState(false);
   const [joined, setJoined] = useState<boolean | null>(null);
+  const [unsuitableFps, setUnsuitableFps] = useState<number | null>(null);
   const [days, setDays] = useState(7);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
-    call<{ ncid: string; status: string }[]>('GET', '/hospital/patients').then((ps) => {
-      const ok = ps.find((x) => x.ncid === a.ncid)?.status === 'active';
+    call<{ ncid: string; status: string; phone_unsuitable_fps: number | null }[]>(
+      'GET',
+      '/hospital/patients',
+    ).then((ps) => {
+      const p = ps.find((x) => x.ncid === a.ncid);
+      const ok = p?.status === 'active';
       setJoined(ok);
+      setUnsuitableFps(ok ? null : (p?.phone_unsuitable_fps ?? null));
       if (!ok) {
         setHome(false); // not in the app: only the clinic can record
         setClinic(true);
@@ -289,7 +295,9 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
               </label>
               {joined === false && (
                 <span className="text-[13px] text-warn" data-testid="choose-not-joined">
-                  {t('choose.notJoined')}
+                  {unsuitableFps !== null
+                    ? t('choose.phoneUnsuitable', { fps: unsuitableFps.toFixed(0) })
+                    : t('choose.notJoined')}
                 </span>
               )}
               {home && (

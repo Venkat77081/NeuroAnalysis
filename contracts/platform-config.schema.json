@@ -259,7 +259,7 @@
     "deviceCheck": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minFps", "warnBelowFps", "durationS", "facing", "resolution"],
+      "required": ["minFps", "warnBelowFps", "durationS", "facing", "resolution", "usageDays"],
       "description": "Camera check before a phone is added (user, 16 Nov 2026): clinic phones before their registration code is used, patients before their invite is accepted.",
       "properties": {
         "minFps": {
@@ -283,6 +283,12 @@
         },
         "resolution": {
           "enum": ["1080p", "720p"]
+        },
+        "usageDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365,
+          "description": "Phones list: takes recorded on each phone over this many days, and how many were below warnBelowFps."
         }
       }
     }

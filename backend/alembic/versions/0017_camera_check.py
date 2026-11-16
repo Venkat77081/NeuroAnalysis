@@ -1,5 +1,6 @@
 """Camera check before a phone is added (user, 16 Nov 2026): the measured frame rate of each
-phone, and patients whose phone could not pass ("phone not suitable").
+phone, patients whose phone could not pass ("phone not suitable"), and the fps of every take
+recorded in a session (Phones list: takes below the minimum).
 
 Revision ID: 0017
 Revises: 0016
@@ -24,9 +25,13 @@ def upgrade() -> None:
     with op.batch_alter_table("patient_accounts") as t:
         t.add_column(sa.Column("camera_failed_fps", sa.Float()))
         t.add_column(sa.Column("camera_failed_at", TS))
+    with op.batch_alter_table("sessions") as t:
+        t.add_column(sa.Column("attempt_fps", sa.JSON()))
 
 
 def downgrade() -> None:
+    with op.batch_alter_table("sessions") as t:
+        t.drop_column("attempt_fps")
     with op.batch_alter_table("patient_accounts") as t:
         t.drop_column("camera_failed_at")
         t.drop_column("camera_failed_fps")

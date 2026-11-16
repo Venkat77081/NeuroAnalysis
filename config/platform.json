@@ -109,6 +109,7 @@
     "warnBelowFps": 59,
     "durationS": 20,
     "facing": "back",
-    "resolution": "1080p"
+    "resolution": "1080p",
+    "usageDays": 30
   }
 }

@@ -103,5 +103,9 @@ export interface PlatformConfig {
     durationS: number;
     facing: 'back' | 'front';
     resolution: '1080p' | '720p';
+    /**
+     * Phones list: takes recorded on each phone over this many days, and how many were below warnBelowFps.
+     */
+    usageDays: number;
   };
 }

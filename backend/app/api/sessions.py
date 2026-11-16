@@ -1,6 +1,7 @@
 """Sessions (one DNE record per patient visit; DEV_PLAN §13.2, decision 017)."""
 
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -181,6 +182,8 @@ class SessionClose(BaseModel):
     ended_at: datetime
     aborted: AbortIn | None = None
     outcomes: list[OutcomeIn] = Field(default_factory=list, max_length=20)
+    #: Measured fps of every take recorded, retakes included (numbers only; Phones list).
+    attempt_fps: list[Annotated[float, Field(ge=0, le=240)]] | None = Field(default=None, max_length=200)
 
 
 @router.patch("/{session_id}", response_model=SessionOut)
@@ -196,6 +199,8 @@ def close_session(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "session not found")
     s.ended_at = body.ended_at
     s.aborted = body.aborted.model_dump() if body.aborted else None
+    if body.attempt_fps is not None:
+        s.attempt_fps = [round(f, 2) for f in body.attempt_fps]
     counts: dict[str, int] = {}
     for o in body.outcomes:
         counts[o.status] = counts.get(o.status, 0) + 1

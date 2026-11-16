@@ -24,9 +24,11 @@ from app.models import (
     PatientAccount,
     PatientRefreshToken,
     RefreshToken,
+    Session,
     Site,
     StaffRefreshToken,
     StaffUser,
+    Take,
 )
 from app.permissions import require
 from app.policy import policy
@@ -352,6 +354,38 @@ class DeviceOut(BaseModel):
     #: Camera check when the phone was added (frames per second).
     check_fps: float | None = None
     checked_at: datetime | None = None
+    #: Takes recorded on this phone in the last `deviceCheck.usageDays` days, retakes included.
+    takes_recent: int = 0
+    #: Of those, how many measured below `deviceCheck.warnBelowFps` (the take minimum, 59).
+    takes_below_min: int = 0
+
+
+def device_usage(db: DbSession, site_id: str, now: datetime) -> dict[str, tuple[int, int]]:
+    """(takes, takes below the take minimum) per device over the last `usageDays` days.
+
+    Sessions closed by an app that reports `attempt_fps` count every attempt; older sessions count
+    their uploaded takes (fpsEffective in the take's quality report)."""
+    dc = policy()["deviceCheck"]
+    minimum = float(dc["warnBelowFps"])
+    since = now - timedelta(days=int(dc["usageDays"]))
+    sessions = db.scalars(
+        select(Session)
+        .join(Device, Device.id == Session.device_id)
+        .where(Device.site_id == site_id, Session.started_at >= since)
+    ).all()
+    no_attempts = [s.id for s in sessions if s.attempt_fps is None]
+    uploaded: dict[str, list[float]] = {}
+    if no_attempts:
+        for t in db.scalars(select(Take).where(Take.session_id.in_(no_attempts))):
+            fps = (t.quality or {}).get("fpsEffective")
+            if isinstance(fps, (int, float)):
+                uploaded.setdefault(t.session_id, []).append(float(fps))
+    out: dict[str, tuple[int, int]] = {}
+    for s in sessions:
+        fps_list = s.attempt_fps if s.attempt_fps is not None else uploaded.get(s.id, [])
+        n, below = out.get(s.device_id, (0, 0))
+        out[s.device_id] = (n + len(fps_list), below + sum(1 for f in fps_list if f < minimum))
+    return out
 
 
 @router.get("/devices", response_model=list[DeviceOut])
@@ -365,6 +399,7 @@ def list_devices(
         .where(Device.site_id == p.site_id, Device.kind == kind)
         .order_by(Device.registered_at.desc())
     )
+    usage = device_usage(db, p.site_id, datetime.now(UTC))
     return [
         DeviceOut(
             id=d.id,
@@ -377,6 +412,8 @@ def list_devices(
             revoked_at=d.revoked_at,
             check_fps=d.check_fps,
             checked_at=d.checked_at,
+            takes_recent=usage.get(d.id, (0, 0))[0],
+            takes_below_min=usage.get(d.id, (0, 0))[1],
         )
         for d in db.scalars(q)
     ]

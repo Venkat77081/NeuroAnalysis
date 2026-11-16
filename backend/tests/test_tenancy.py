@@ -498,3 +498,74 @@ def test_platform_refuses_patient_identity(api, two_hospitals):
     assert r.status_code == 422
     rows = str(api.get("/hospital/audit", headers=hdr(t["a_tok"])).json())
     assert "patient@example.org" not in rows and "MRN-99887766" not in rows
+
+
+def test_phones_list_counts_takes_below_the_minimum(api, two_hospitals):
+    """User, 16 Nov 2026: Phones list shows takes in the last 30 days and how many were below 59 fps,
+    retakes included (the phone reports each attempt's fps when it closes a session)."""
+    t = two_hospitals
+    op = api.post(
+        "/hospital/operators", headers=hdr(t["a_tok"]), json={"code": "op-09", "name": "Kavya R"}
+    ).json()
+    dev = register_phone(api, t["a_tok"], label="OPD desk phone")
+    creds = {"device_id": dev["device_id"], "device_secret": dev["device_secret"], "operator_code": "OP-09"}
+    tok = api.post("/auth/login", json={**creds, "password": op["temporary_password"]}).json()["access_token"]
+    body = {"current_password": op["temporary_password"], "new_password": NEW_PW}
+    assert api.post("/auth/change-password", headers=hdr(tok), json=body).status_code == 204
+    tok = api.post("/auth/login", json={**creds, "password": NEW_PW}).json()["access_token"]
+
+    ncid = api.post("/hospital/patients/invite", headers=hdr(t["a_desk"]), json={"channel": "print"}).json()[
+        "ncid"
+    ]
+    now = datetime.now(UTC)
+
+    def session(cid, started, attempts):
+        r = api.post(
+            "/sessions",
+            headers=hdr(tok),
+            json={
+                **SESSION,
+                "client_session_id": cid,
+                "started_at": started.isoformat(),
+                "patient": {"ncid": ncid},
+            },
+        )
+        assert r.status_code == 201, r.text
+        close = {"ended_at": (started + timedelta(minutes=20)).isoformat()}
+        if attempts is not None:
+            close["attempt_fps"] = attempts
+        assert api.post(f"/sessions/{r.json()['id']}/close", headers=hdr(tok), json=close).status_code == 200
+        return r.json()["id"]
+
+    session("s-1", now - timedelta(days=2), [59.9, 57.2, 60.0, 58.4])  # 2 retakes below 59
+    session("s-2", now - timedelta(days=40), [50.0])  # older than 30 days: not counted
+    old_app = session("s-3", now - timedelta(days=1), None)  # an app without attempt_fps
+    from app.db import _factory
+    from app.models import Take
+
+    with _factory()() as db:  # its uploaded takes count instead
+        for i, fps in enumerate([59.5, 56.0]):
+            db.add(
+                Take(
+                    client_take_id=f"tk-{i}",
+                    session_id=old_app,
+                    test_code="FT",
+                    take_no=1,
+                    capture_verdict="PASS",
+                    quality={"fpsEffective": fps},
+                    meta={},
+                    wrapped_data_key="x",
+                    key_id="k",
+                )
+            )
+        db.commit()
+    bad = api.post(
+        f"/sessions/{old_app}/close",
+        headers=hdr(tok),
+        json={"ended_at": now.isoformat(), "attempt_fps": [300]},
+    )
+    assert bad.status_code == 422
+
+    phones = {d["id"]: d for d in api.get("/hospital/devices", headers=hdr(t["a_tok"])).json()}
+    d = phones[dev["device_id"]]
+    assert (d["takes_recent"], d["takes_below_min"], d["check_fps"]) == (6, 3, 60.0)

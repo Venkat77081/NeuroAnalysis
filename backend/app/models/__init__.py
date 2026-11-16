@@ -150,6 +150,8 @@ class Session(Base):
     key_id: Mapped[str | None] = mapped_column(String(50))
     #: v3: the recording request this session answers (home recording before an appointment).
     request_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    #: Measured fps of every take recorded in the session, retakes included (decision 035).
+    attempt_fps: Mapped[list | None] = mapped_column(Json)
     __table_args__ = (UniqueConstraint("device_id", "client_session_id"),)
 
 

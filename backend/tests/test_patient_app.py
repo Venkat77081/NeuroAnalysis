@@ -481,12 +481,15 @@ def test_joining_needs_no_consent(api, two_hospitals):
     assert r.status_code == 201, r.text
 
 
-def test_reassigning_the_patient_moves_upcoming_appointments(api, two_hospitals):
-    """User, 16 Nov 2026: after a reassignment the new doctor must be able to choose the tests."""
+def test_each_appointment_keeps_its_doctor(api, two_hospitals):
+    """Decision 038 (user, 16 Nov 2026): Ravi sees Dr. Rao on one day and Dr. Iyer on another.
+    Booking with another doctor no longer moves the patient's other appointments; both doctors
+    may open the patient (history, every recording); each sends links only for their own."""
     t = two_hospitals
     desk = _staff(api, t, "desk4@sunrise.example", "receptionist")
     rao = _staff(api, t, "rao4@sunrise.example", "doctor")
     iyer = _staff(api, t, "iyer4@sunrise.example", "doctor")
+    mehta = _staff(api, t, "mehta4@sunrise.example", "doctor")
     docs = {d["email"]: d["id"] for d in api.get("/hospital/doctors", headers=desk).json()}
     ncid, _acc = home_patient(api, t["a_desk"])
     soon = lambda d: (datetime.now(UTC) + timedelta(days=d)).isoformat()  # noqa: E731
@@ -498,36 +501,43 @@ def test_reassigning_the_patient_moves_upcoming_appointments(api, two_hospitals)
     a2 = api.post(
         "/hospital/appointments",
         headers=desk,
-        json={"ncid": ncid, "at": soon(5), "source": "fhir", "external_id": "Appointment/r4"},
+        json={"ncid": ncid, "at": soon(9), "doctor_id": docs["iyer4@sunrise.example"]},
     ).json()
-    assert a2["doctor_id"] is None
-    # Assigning the patient (Assign patients page) gives every upcoming appointment that doctor.
+    rows = {a["id"]: a for a in api.get("/hospital/appointments?days=30", headers=desk).json()}
+    assert rows[a1["id"]]["doctor_id"] == docs["rao4@sunrise.example"]  # not moved
+    assert rows[a2["id"]]["doctor_id"] == docs["iyer4@sunrise.example"]
+    # The default window (7 days) does not show the 9-day one; the range picker does.
+    assert a2["id"] not in {a["id"] for a in api.get("/hospital/appointments", headers=desk).json()}
+    # Each doctor lists only their own appointments...
+    assert [a["id"] for a in api.get("/hospital/appointments?days=30", headers=rao).json()] == [a1["id"]]
+    assert [a["id"] for a in api.get("/hospital/appointments?days=30", headers=iyer).json()] == [a2["id"]]
+    # ...but both may open the patient; a doctor with no appointment may not.
+    for h in (rao, iyer):
+        assert api.get(f"/hospital/patients/{ncid}/history", headers=h).status_code == 200
+    assert api.get(f"/hospital/patients/{ncid}/history", headers=mehta).status_code == 404
+    assert any(p["ncid"] == ncid for p in api.get("/hospital/patients", headers=iyer).json())
+    assert not any(p["ncid"] == ncid for p in api.get("/hospital/patients", headers=mehta).json())
+    # Links only for one's own appointment.
+    r = api.post(f"/hospital/appointments/{a2['id']}/request", headers=rao, json={})
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "not_your_appointment"
+    assert api.post(f"/hospital/appointments/{a2['id']}/request", headers=iyer, json={}).status_code == 201
+    # Changing the doctor of one appointment changes only that one, logged with both names.
     api.put(
-        f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": docs["iyer4@sunrise.example"]}
+        f"/hospital/appointments/{a1['id']}", headers=desk, json={"doctor_id": docs["mehta4@sunrise.example"]}
     )
-    rows = {a["id"]: a for a in api.get("/hospital/appointments", headers=desk).json()}
-    assert {rows[a1["id"]]["doctor_name"], rows[a2["id"]]["doctor_name"]} == {
-        api.get("/staff/me", headers=iyer).json()["display_name"] or "iyer4@sunrise.example"
-    }
-    assert [a["stage"] for a in api.get("/hospital/appointments", headers=iyer).json()] == [
-        "needs_tests",
-        "needs_tests",
-    ]
-    # Dr. Iyer can send the link; Dr. Rao no longer can.
-    assert api.post(f"/hospital/appointments/{a1['id']}/request", headers=rao, json={}).status_code == 404
-    assert api.post(f"/hospital/appointments/{a1['id']}/request", headers=iyer, json={}).status_code == 201
-    # Reassigning one appointment (Appointments page) moves the patient and the other one too.
-    api.put(
-        f"/hospital/appointments/{a2['id']}", headers=desk, json={"doctor_id": docs["rao4@sunrise.example"]}
-    )
-    mine = api.get("/hospital/appointments", headers=rao).json()
-    assert {a["id"] for a in mine} == {a1["id"], a2["id"]}
-    assert all(a["doctor_id"] == docs["rao4@sunrise.example"] for a in mine)
-    assert api.get("/hospital/appointments", headers=iyer).json() == []
-    # Unassigning: the appointments need a doctor again.
-    api.put(f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": None})
-    stages = {a["id"]: a["stage"] for a in api.get("/hospital/appointments", headers=desk).json()}
-    assert stages[a2["id"]] == "needs_doctor"
+    rows = {a["id"]: a for a in api.get("/hospital/appointments?days=30", headers=desk).json()}
+    assert rows[a1["id"]]["doctor_id"] == docs["mehta4@sunrise.example"]
+    assert rows[a2["id"]]["doctor_id"] == docs["iyer4@sunrise.example"]
+    log = api.get("/hospital/audit", headers=hdr(t["a_tok"])).json()
+    ch = next(e for e in log if e["action"] == "appointment_doctor_changed")
+    assert ch["details"]["previous_name"] == "rao4@sunrise.example"
+    assert ch["details"]["doctor_name"] == "mehta4@sunrise.example"
+    assert not any(e["action"] == "patient_reassigned" for e in log)
+    # Dr. Rao sent nothing and has no appointment left: no access any more. Dr. Mehta now has.
+    assert api.get(f"/hospital/patients/{ncid}/history", headers=rao).status_code == 404
+    assert api.get(f"/hospital/patients/{ncid}/history", headers=mehta).status_code == 200
+    # Past range.
+    assert api.get("/hospital/appointments?past_days=30", headers=desk).status_code == 200
 
 
 def test_hospital_admin_cannot_do_front_desk_work(api, two_hospitals):
@@ -574,7 +584,9 @@ def test_appointment_history_and_logs_name_the_person(api, two_hospitals):
         json={"ncid": ncid, "at": at, "doctor_id": docs["rao5@sunrise.example"]},
     ).json()
     api.put(
-        f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": docs["iyer5@sunrise.example"]}
+        f"/hospital/appointments/{appt['id']}",
+        headers=desk,
+        json={"doctor_id": docs["iyer5@sunrise.example"]},
     )
     assert (
         api.post(
@@ -586,10 +598,9 @@ def test_appointment_history_and_logs_name_the_person(api, two_hospitals):
     hist = api.get(f"/hospital/appointments/{appt['id']}/history", headers=desk).json()
     steps = [(e["action"], e["actor_role"]) for e in hist]
     assert ("appointment_added", "receptionist") in steps
-    assert ("patient_assigned", "receptionist") in steps
-    assert ("patient_reassigned", "receptionist") in steps
+    assert ("appointment_doctor_changed", "receptionist") in steps
     assert ("recording_requested", "doctor") in steps
-    moved = next(e for e in hist if e["action"] == "patient_reassigned")
+    moved = next(e for e in hist if e["action"] == "appointment_doctor_changed")
     assert moved["details"]["previous_name"] == "Dr. Rao" and moved["details"]["doctor_name"] == "Dr. Iyer"
     assert moved["actor_email"] == "frontdesk@sunrise.example"
     sent = next(e for e in hist if e["action"] == "recording_requested")
@@ -845,10 +856,12 @@ def test_times_keep_their_zone_and_log_names_doctors(api, two_hospitals):
     assert sent.tzinfo is not None and sent == at  # same instant, with its zone
 
     api.put(
-        f"/hospital/patients/{ncid}/doctor", headers=desk, json={"doctor_id": docs["iyer@sunrise.example"]}
+        f"/hospital/appointments/{r.json()['id']}",
+        headers=desk,
+        json={"doctor_id": docs["iyer@sunrise.example"]},
     )
     log = api.get("/hospital/audit", headers=hdr(t["a_tok"])).json()
-    moved = next(e for e in log if e["action"] == "patient_reassigned")
+    moved = next(e for e in log if e["action"] == "appointment_doctor_changed")
     assert moved["details"]["previous_name"] in ("rao@sunrise.example", "Rao")
     assert moved["details"]["doctor_name"] in ("iyer@sunrise.example", "Iyer")
     assert moved["at"].endswith(("Z", "+00:00"))

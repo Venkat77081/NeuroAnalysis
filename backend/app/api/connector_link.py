@@ -614,8 +614,8 @@ def connector_access(
 ) -> AccessOut:
     """M14: the connector asks which patients a doctor may see before showing identity, history or
     recordings. Unknown or inactive users, and other hospitals' staff, may see none."""
-    from app.assignments import ALL_PATIENTS_ROLES
-    from app.models import Operator, PatientAssignment, RecordingRequest, StaffUser
+    from app.assignments import ALL_PATIENTS_ROLES, doctor_patients_clause
+    from app.models import Operator, RecordingRequest, StaffUser
 
     op = db.get(Operator, body.user_id)
     if op is not None:
@@ -642,7 +642,5 @@ def connector_access(
         return AccessOut(allowed=[])
     q = select(Patient.ncid).where(Patient.site_id == site.id, Patient.ncid.in_(body.ncids))
     if user.role not in ALL_PATIENTS_ROLES:
-        q = q.join(PatientAssignment, PatientAssignment.patient_id == Patient.id).where(
-            PatientAssignment.doctor_id == user.id
-        )
+        q = q.where(doctor_patients_clause(user.id))
     return AccessOut(allowed=list(db.scalars(q)))

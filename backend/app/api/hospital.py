@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.platform import AuditOut, Email, audit_rows
-from app.api.staff import deliver_staff_invite, new_staff_invite
+from app.api.staff import ResetOut, deliver_staff_invite, new_staff_invite, reset_sign_in
 from app.audit import audit
 from app.config import get_settings
 from app.db import get_db
@@ -289,6 +289,31 @@ def set_staff_active(
     audit(db, p.actor_type, p.actor_id, action, "staff", u.id, site_id=p.site_id)
     db.commit()
     return _staff_out(u)
+
+
+class ResetIn(BaseModel):
+    reason: str = Field(pattern=r"^[a-z_]+$")
+
+
+@router.post("/staff/{user_id}/reset-sign-in", response_model=ResetOut)
+def reset_staff_sign_in(
+    user_id: str,
+    body: ResetIn,
+    p: Principal = Depends(perm_setup_team),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> ResetOut:
+    """Decision 039: a hospital admin resets the sign-in of someone at their hospital (not their own:
+    another admin, or the platform admin, does that)."""
+    u = _staff(db, p, user_id)
+    if u.id == p.actor_id:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "cannot_reset_self"})
+    if u.password_hash is None and not u.totp_enabled:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "not_signed_up"})  # use Resend invite
+    from app.people import People
+
+    return reset_sign_in(
+        db, u, p.actor_type, p.actor_id, People(db).who(p.actor_type, p.actor_id).name, body.reason
+    )
 
 
 @router.post("/staff/{user_id}/resend-invite", status_code=204)
@@ -617,8 +642,10 @@ def list_patients(
     live from the hospital's records through the connector. Doctors see only their own patients."""
     from sqlalchemy import func
 
+    from app.assignments import doctor_patient_ids
     from app.models import PatientAssignment, Session
 
+    mine = doctor_patient_ids(db, p.actor_id) if p.role == "doctor" else set()
     stats = (
         select(Session.patient_id, func.count().label("n"), func.max(Session.started_at).label("last"))
         .group_by(Session.patient_id)
@@ -646,7 +673,7 @@ def list_patients(
             phone_unsuitable_fps=acc.camera_failed_fps if acc else None,
         )
         for pt, acc, n, last, doc in db.execute(q)
-        if p.role != "doctor" or doc == p.actor_id
+        if p.role != "doctor" or pt.id in mine
     ]
 
 

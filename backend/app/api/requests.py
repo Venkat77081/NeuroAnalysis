@@ -27,7 +27,6 @@ from app.models import (
     AuditEvent,
     Patient,
     PatientAccount,
-    PatientAssignment,
     RecordingPlan,
     RecordingRequest,
     Session,
@@ -249,9 +248,9 @@ def appointment_events(db: DbSession, a: Appointment) -> list[EventOut]:
             continue  # a link for another appointment
         details = {k: d[k] for k in SAFE_DETAILS if k in d}
         if d.get("doctor"):
-            details["doctor_name"] = people.staff_name(d["doctor"])
-        if d.get("previous"):
-            details["previous_name"] = people.staff_name(d["previous"])
+            details["doctor_name"] = people.staff_name(d["doctor"]) or "—"
+        if "previous" in d:
+            details["previous_name"] = people.staff_name(d["previous"]) if d["previous"] else "—"
         who = people.who(e.actor_type, e.actor_id)
         out.append(
             EventOut(
@@ -288,27 +287,26 @@ def external_hash(site_id: str, external_id: str) -> str:
 @router.get("/hospital/appointments", response_model=list[AppointmentOut])
 def list_appointments(
     days: int = Query(default=0, ge=0, le=60),
+    past_days: int = Query(default=0, ge=0, le=60),
     p: Principal = Depends(can_view),
     db: DbSession = Depends(get_db),
 ) -> list[AppointmentOut]:
-    """Appointments known here, from yesterday to `days` ahead (default: appointmentWindowDays).
-    Doctors see only their own patients' appointments."""
-    window = days or policy()["requests"]["appointmentWindowDays"]
+    """Appointments from yesterday to `days` ahead (default appointmentWindowDays), or the past
+    `past_days` days (range picker, decision 038). Doctors see only their own appointments."""
     now_ = datetime.now(UTC)
+    if past_days:
+        start, end = now_ - timedelta(days=past_days), now_
+    else:
+        window = days or policy()["requests"]["appointmentWindowDays"]
+        start, end = now_ - timedelta(days=1), now_ + timedelta(days=window)
     q = (
         select(Appointment, Patient.ncid)
         .join(Patient, Patient.id == Appointment.patient_id)
-        .where(
-            Appointment.site_id == p.site_id,
-            Appointment.at >= now_ - timedelta(days=1),
-            Appointment.at <= now_ + timedelta(days=window),
-        )
-        .order_by(Appointment.at)
+        .where(Appointment.site_id == p.site_id, Appointment.at >= start, Appointment.at <= end)
+        .order_by(Appointment.at.desc() if past_days else Appointment.at)
     )
     if p.role == "doctor":
-        q = q.join(PatientAssignment, PatientAssignment.patient_id == Patient.id).where(
-            PatientAssignment.doctor_id == p.actor_id
-        )
+        q = q.where(Appointment.doctor_id == p.actor_id)
     return [_appt_out(db, a, ncid) for a, ncid in db.execute(q)]
 
 
@@ -328,43 +326,6 @@ def _doctor_ok(db: DbSession, p: Principal, doctor_id: str | None) -> None:
     d = db.get(StaffUser, doctor_id)
     if not d or d.site_id != p.site_id or d.role != "doctor" or not d.active:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "not_a_doctor_here"})
-
-
-def _assign(db: DbSession, p: Principal, patient: Patient, doctor_id: str | None) -> None:
-    """Booking with a doctor also assigns the patient to that doctor (they must see the recordings)."""
-    if doctor_id is None:
-        return
-    from app.assignments import follow_assignment
-
-    a = db.get(PatientAssignment, patient.id)
-    if a and a.doctor_id == doctor_id:
-        follow_assignment(db, patient.id, doctor_id)  # the patient's other upcoming ones too
-        return
-    previous = a.doctor_id if a else None
-    if a:
-        a.doctor_id, a.assigned_by, a.assigned_at = doctor_id, p.actor_id, datetime.now(UTC)
-    else:
-        db.add(
-            PatientAssignment(
-                patient_id=patient.id,
-                doctor_id=doctor_id,
-                assigned_by=p.actor_id,
-                assigned_at=datetime.now(UTC),
-            )
-        )
-    audit(
-        db,
-        p.actor_type,
-        p.actor_id,
-        "patient_reassigned" if previous else "patient_assigned",
-        "patient",
-        patient.id,
-        site_id=p.site_id,
-        doctor=doctor_id,
-        previous=previous,
-        via="appointment",
-        appointments_moved=follow_assignment(db, patient.id, doctor_id),
-    )
 
 
 @router.post("/hospital/appointments", response_model=AppointmentOut, status_code=201)
@@ -390,7 +351,6 @@ def create_appointment(body: AppointmentIn, p: Principal = Depends(can_add), db:
         created_by=p.actor_id,
     )
     db.add(a)
-    _assign(db, p, pt, body.doctor_id)
     db.flush()
     audit(
         db,
@@ -402,6 +362,7 @@ def create_appointment(body: AppointmentIn, p: Principal = Depends(can_add), db:
         site_id=p.site_id,
         source=body.source,
         at=aware(a.at).isoformat(),
+        doctor=body.doctor_id,
     )
     db.commit()
     return _appt_out(db, a, body.ncid)
@@ -431,10 +392,22 @@ def update_appointment(
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
     if (body.at is not None or body.status is not None) and not allows(db, p, "appointments.add"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
-    if body.doctor_id is not None:
+    if body.doctor_id is not None and body.doctor_id != a.doctor_id:
+        # Decision 038: only this appointment changes; the patient's other ones keep their doctors.
         _doctor_ok(db, p, body.doctor_id)
+        audit(
+            db,
+            p.actor_type,
+            p.actor_id,
+            "appointment_doctor_changed",
+            "appointment",
+            a.id,
+            site_id=p.site_id,
+            at=aware(a.at).isoformat(),
+            doctor=body.doctor_id,
+            previous=a.doctor_id,
+        )
         a.doctor_id = body.doctor_id
-        _assign(db, p, pt, body.doctor_id)
     if body.at is not None:
         a.at = body.at
     if body.status is not None:
@@ -442,17 +415,18 @@ def update_appointment(
         if body.status == "cancelled":
             for r in db.scalars(select(RecordingRequest).where(RecordingRequest.appointment_id == a.id)):
                 r.status = "cancelled"
-    audit(
-        db,
-        p.actor_type,
-        p.actor_id,
-        "appointment_changed",
-        "appointment",
-        a.id,
-        site_id=p.site_id,
-        status=a.status,
-        **({"at": aware(a.at).isoformat()} if body.at is not None else {}),
-    )
+    if body.at is not None or body.status is not None:  # a doctor change is logged on its own
+        audit(
+            db,
+            p.actor_type,
+            p.actor_id,
+            "appointment_changed",
+            "appointment",
+            a.id,
+            site_id=p.site_id,
+            status=a.status,
+            **({"at": aware(a.at).isoformat()} if body.at is not None else {}),
+        )
     db.commit()
     return _appt_out(db, a, pt.ncid)
 

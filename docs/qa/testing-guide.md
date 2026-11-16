@@ -9,6 +9,134 @@ or key manager. Everything has a stand-in. There are three levels; start with 1 
 | 2. Dashboards + real servers | Real platform API, real hospital connector, a FHIR stand-in with two test patients, the dashboards | Node + pnpm, Python 3.12                                     |
 | 3. Real phone                | The debug APK on an Android phone, talking to level 2 over your Wi-Fi                              | An Android phone (60 fps camera), same Wi-Fi as the computer |
 
+## Pick a path
+
+| You want to test    | No server at all                                                                                          | Your computer as the server (no cloud, no real accounts)          |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Dashboards          | **Not possible**: the dashboards have no offline mode; use the right-hand column                          | Path D                                                            |
+| App on the computer | Path A (built-in fake server, fake camera)                                                                | Not possible: browser modes only talk to the built-in fake server |
+| App on a phone      | Path B (phone's browser, fake server) or Path C (installed APK, camera tools only after sign-in: limited) | Path E                                                            |
+| Everything together | —                                                                                                         | Path F                                                            |
+
+### Path A — app alone, in the computer's browser (no server)
+
+This is level 1 below:
+
+```bash
+pnpm --filter @neurocapture/mobile dev        # open the printed address, e.g. http://localhost:5173
+```
+
+Sign-ins are built in. Clinic: server `fake://api`, code `DEMO-SITE-1`, operator `OP-NEW` /
+`temp-pass-1234`. Patient: get an invite link from the console (level 1 below).
+
+Useful address flags (add them to the URL):
+
+| Flag                | Effect                                                  |
+| ------------------- | ------------------------------------------------------- |
+| `?benchFps=48`      | The camera check fails                                  |
+| `?benchFps=57`      | The camera check is borderline                          |
+| `?scenario=too_far` | Positioning prompts (also `one_hand`, `dark`, `tilted`) |
+| `?mockSpeed=20`     | Takes run 20 times faster                               |
+
+### Path B — app on a phone, in the phone's browser (no server)
+
+The app runs with its fake server and fake camera, served from your computer.
+
+1. On the computer:
+
+   ```bash
+   pnpm --filter @neurocapture/mobile dev --host     # prints a Network address, e.g. http://192.168.1.20:5173
+   ```
+
+2. The app needs a secure page (`https` or `localhost`) for its checksums. Pick one:
+   - **USB (simplest when it works):** turn on USB debugging on the phone, connect it, run
+     `adb reverse tcp:5173 tcp:5173`, then open `http://localhost:5173` in Chrome on the phone.
+   - **Wi-Fi:** in Chrome on the phone, open `chrome://flags`, find _Insecure origins treated as
+     secure_, add `http://192.168.1.20:5173`, enable it and relaunch Chrome. Then open that
+     address.
+3. Use the same sign-ins and flags as in path A.
+
+### Path C — the installed app (APK) with no server
+
+Install the debug APK ("app-debug-apk" from the latest CI run). Without a server the app stops at
+"Register this clinic phone" or the patient invite screen, because both need a server. The
+on-device camera checks need a signed-in operator, so for real testing use path E.
+
+### Path D — dashboards against your computer (no cloud, no real accounts)
+
+This is level 2 below:
+
+```bash
+.venv/bin/python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack     # Windows: python apps\dashboard\e2e\stack\run_stack.py --dir C:\nc-stack
+pnpm dev:dashboard                                                            # http://localhost:5174
+```
+
+- **What runs:** your computer runs the real platform (8001), a real hospital connector (8101)
+  and a stand-in hospital record system (8180).
+- **What the stack prints:** every sign-in, with password `correct-horse-42`.
+- **Two-step codes:** `.venv/bin/python apps/dashboard/e2e/stack/codes.py /tmp/nc-stack/stack.json`.
+- **Invites:** print them (QR on screen). E-mail and SMS go nowhere unless you add the mail
+  catcher below.
+
+### Path E — phone app against your computer
+
+1. Find your computer's Wi-Fi address (Windows: `ipconfig` → IPv4 Address; Mac: System
+   Settings → Wi-Fi → Details), e.g. `192.168.1.20`.
+2. Start the stack with it, and the dashboards:
+
+   ```bash
+   .venv/bin/python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack --lan 192.168.1.20
+   pnpm dev:dashboard
+   ```
+
+3. Install a **debug** APK built after 16 Nov 2026. Debug builds may use `http://` on your Wi-Fi;
+   release builds refuse it.
+4. Follow level 3 below: a clinic phone (registration code from the dashboard) and a patient
+   (printed QR from "Invite patients"). The server address on the phone is
+   `http://192.168.1.20:8001`.
+5. Allow Python through the firewall on private networks if asked. The phone and the computer
+   must be on the same Wi-Fi.
+
+### Path F — everything together
+
+Run path D and path E at the same time:
+
+1. A **clinic phone** records a patient from the clinic queue.
+2. A **patient phone** joins with a printed QR and records at home after the doctor sends a
+   record link.
+3. The **doctor** watches both recordings in the dashboard, decrypted by the local connector.
+
+Optional extras, still with no real accounts:
+
+- **See the e-mails (mail catcher).** Start it in its own terminal, and set these **before**
+  starting the stack. Staff and patient invite e-mails then print in the catcher's window.
+
+  ```bash
+  python3 -m venv /tmp/mailcatcher && /tmp/mailcatcher/bin/pip install aiosmtpd==1.4.6
+  /tmp/mailcatcher/bin/python -m aiosmtpd -n -l 127.0.0.1:1025
+  ```
+
+  ```bash
+  export NC_EMAIL_PROVIDER=smtp NC_SMTP_HOST=127.0.0.1 NC_SMTP_PORT=1025 NC_SMTP_SECURITY=none NC_MAIL_FROM=no-reply@neurocapture.local
+  export NCC_EMAIL_PROVIDER=smtp NCC_SMTP_HOST=127.0.0.1 NCC_SMTP_PORT=1025 NCC_SMTP_SECURITY=none NCC_MAIL_FROM=clinic@neurocapture.local
+  ```
+
+  On Windows, use `set NAME=value` for each setting in the same Command Prompt.
+
+- **Test Azure Blob storage locally (Azurite emulator).**
+
+  ```bash
+  npx --yes azurite@3.35.0 azurite-blob --location /tmp/azurite --skipApiVersionCheck --loose
+  ```
+
+  ```bash
+  cd backend && .venv/bin/pytest -q tests/test_azure_storage.py
+  cd connector && .venv/bin/pytest -q tests/test_m12_keys_storage.py
+  ```
+
+  Phones on Wi-Fi cannot use it as recording storage: Azurite serves plain `http` on your
+  computer only.
+
 ## Set-up (once)
 
 ```bash
@@ -74,7 +202,8 @@ pnpm dev:dashboard                                                          # ht
    .venv/bin/python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack --lan 192.168.1.20
    ```
 
-2. Install the debug APK from CI ("app-debug-apk" artifact). Debug builds allow `http://`.
+2. Install the debug APK from CI ("app-debug-apk" artifact, built after 16 Nov 2026). Debug builds
+   allow `http://` on your Wi-Fi (release builds do not).
 3. **Clinic phone:**
    - in the dashboard, as hospital admin, go to Phones → New registration code;
    - on the phone, choose clinic, server `http://192.168.1.20:8001`, enter the code;

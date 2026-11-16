@@ -1,6 +1,9 @@
 """Where a hospital's recordings go (PLATFORM_PLAN M12, decision 026).
 
 - managed: NeuroCapture storage, one prefix (local) or bucket (S3 template) per hospital.
+- azure: the hospital's own Azure Storage container (decision 037). NeuroCapture's multi-tenant app
+  signs in to the hospital's tenant; its role there allows writing blobs only, so the user
+  delegation SAS it hands to phones can upload but never read.
 - s3: the hospital's own bucket. The platform assumes the hospital's IAM role with the hospital's
   ExternalId and a session policy narrowed to upload actions under the hospital's prefix. It can
   start, sign, list and complete multipart uploads, but cannot read objects back: the hospital's
@@ -119,6 +122,40 @@ def _assumed_client(cfg: dict, external_id: str):
 def clear_cache() -> None:
     with _lock:
         _cache.clear()
+        _azure.clear()
+
+
+_azure: dict[tuple, object] = {}
+
+
+def hospital_azure_service(cfg: dict):
+    """(BlobServiceClient, account key or None) for a hospital's storage account, signed in as
+    NeuroCapture's app in the hospital's tenant. Tests replace this."""
+    from azure.identity import ClientSecretCredential
+    from azure.storage.blob import BlobServiceClient
+
+    from app.storage.azure import account_url
+
+    s = get_settings()
+    if not (s.azure_client_id and s.azure_client_secret):
+        raise ValueError("NC_AZURE_CLIENT_ID and NC_AZURE_CLIENT_SECRET are not set")
+    cred = ClientSecretCredential(cfg["tenant_id"], s.azure_client_id, s.azure_client_secret)
+    return BlobServiceClient(account_url(cfg["account"], cfg.get("endpoint")), credential=cred), None
+
+
+def _hospital_azure(cfg: dict):
+    from app.storage.azure import HospitalAzureStorage
+
+    k = (cfg["account"], cfg["container"], cfg["tenant_id"], cfg.get("endpoint"))
+    with _lock:
+        hit = _azure.get(k)
+    if hit:
+        return hit
+    service, key = hospital_azure_service(cfg)
+    st = HospitalAzureStorage(service, cfg["container"], get_settings().upload_url_ttl_s, key)
+    with _lock:
+        _azure[k] = st
+    return st
 
 
 def location_for(site: Site) -> dict | None:
@@ -126,6 +163,8 @@ def location_for(site: Site) -> dict | None:
     s = get_settings()
     if site.storage_kind == "s3" and site.storage_config and site.storage_external_id:
         return {"kind": "s3", **site.storage_config, "external_id": site.storage_external_id}
+    if site.storage_kind == "azure" and site.storage_config:
+        return {"kind": "azure", **site.storage_config}
     if s.storage == "s3" and s.managed_bucket_template != "{bucket}":
         return {
             "kind": "managed_s3",
@@ -143,6 +182,8 @@ def storage_at(location: dict | None) -> Storage:
     if location["kind"] == "s3":
         client = _assumed_client(location, location["external_id"])
         return HospitalS3Storage(client, location["bucket"], s.upload_url_ttl_s, location.get("kms_key_id"))
+    if location["kind"] == "azure":
+        return _hospital_azure(location)
     raise ValueError(f"unknown storage kind {location['kind']!r}")
 
 
@@ -151,5 +192,5 @@ def storage_of(f: TakeFile) -> Storage:
 
 
 def object_key(site: Site, session_id: str, take_id: str, kind: str) -> str:
-    prefix = (site.storage_config or {}).get("prefix", "") if site.storage_kind == "s3" else ""
+    prefix = (site.storage_config or {}).get("prefix", "") if site.storage_kind in ("s3", "azure") else ""
     return f"{prefix}{site.id}/{session_id}/{take_id}/{kind}.enc"

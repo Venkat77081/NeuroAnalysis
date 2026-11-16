@@ -36,7 +36,7 @@ def health(response: Response) -> Health:
         except Exception as exc:  # noqa: BLE001
             log.warning("local storage check failed: %s", type(exc).__name__)
             checks["storage"] = "error"
-    elif settings.s3_endpoint:
+    elif settings.storage == "azure" or settings.s3_endpoint:
         try:
             ping_storage()
             checks["storage"] = "ok"

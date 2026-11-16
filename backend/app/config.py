@@ -11,7 +11,8 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite+pysqlite:///:memory:"
     # Object storage: "local" (files under storage_dir, signed URLs served by this API — dev, CI,
-    # single-server pilots) or "s3" (presigned multipart on S3; production). Decision 019.
+    # single-server pilots), "s3" (presigned multipart on S3) or "azure" (SAS block uploads to Azure
+    # Blob Storage). Decisions 019, 037.
     storage: str = "local"
     storage_dir: str = "/tmp/neurocapture-storage"  # noqa: S108 - dev default; set NC_STORAGE_DIR
     public_base_url: str = "http://localhost:8000"
@@ -21,6 +22,17 @@ class Settings(BaseSettings):
     s3_bucket: str = "neurocapture-takes"
     s3_region: str = "ap-south-1"
     health_timeout_s: float = 2.0
+    # storage "azure" (decision 037): the platform's own Azure Storage account and container.
+    azure_storage_account: str | None = None
+    azure_container: str = "neurocapture-takes"
+    #: Account key; leave empty to sign with the server's managed identity (user delegation SAS).
+    azure_storage_key: str | None = None
+    #: Only for sovereign clouds or the Azurite emulator, e.g. http://127.0.0.1:10000/devstoreaccount1
+    azure_blob_endpoint: str | None = None
+    #: Hospitals' own Azure storage: NeuroCapture's multi-tenant app registration (Microsoft Entra ID).
+    #: Each hospital consents to it in its tenant and gives it a write-only role on its container.
+    azure_client_id: str | None = None
+    azure_client_secret: str | None = None
     # Auth (§13.2): JWT per operator, bound to a registered device.
     jwt_secret: str = "dev-only-change-me"  # noqa: S105 - must be set in production
     access_ttl_s: int = 900

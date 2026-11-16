@@ -2,8 +2,9 @@
 
 Both backends speak the same protocol to the phone: create a multipart upload, PUT each part to a
 URL from the server, report the part ETags, and the server assembles the object and verifies its
-SHA-256. "s3" uses presigned S3 multipart URLs; "local" stores parts on disk behind HMAC-signed
-URLs served by this API (dev, CI, single-server pilots).
+SHA-256. "s3" uses presigned S3 multipart URLs; "azure" uses SAS Put Block URLs on Azure Blob Storage
+(storage/azure.py); "local" stores parts on disk behind HMAC-signed URLs served by this API (dev,
+CI, single-server pilots).
 """
 
 import hashlib
@@ -224,10 +225,36 @@ def get_s3():
 
 
 @lru_cache
+def get_azure_service():
+    """The platform's own Azure storage account: account key, or the server's managed identity."""
+    from azure.storage.blob import BlobServiceClient
+
+    from app.storage.azure import account_url
+
+    s = get_settings()
+    if not s.azure_storage_account:
+        raise ValueError("NC_AZURE_STORAGE_ACCOUNT is required for storage azure")
+    url = account_url(s.azure_storage_account, s.azure_blob_endpoint)
+    if s.azure_storage_key:
+        cred = {"account_name": s.azure_storage_account, "account_key": s.azure_storage_key}
+    else:
+        from azure.identity import DefaultAzureCredential
+
+        cred = DefaultAzureCredential()
+    return BlobServiceClient(url, credential=cred)
+
+
+@lru_cache
 def get_storage() -> Storage:
     s = get_settings()
     if s.storage == "s3":
         return S3Storage(get_s3(), s.s3_bucket, s.upload_url_ttl_s)
+    if s.storage == "azure":
+        from app.storage.azure import AzureBlobStorage
+
+        return AzureBlobStorage(
+            get_azure_service(), s.azure_container, s.upload_url_ttl_s, s.azure_storage_key
+        )
     return LocalStorage(s.storage_dir, s.public_base_url, s.jwt_secret, s.upload_url_ttl_s)
 
 
@@ -240,7 +267,20 @@ def ensure_bucket() -> None:
 
 
 def ping_storage() -> None:
-    get_s3().head_bucket(Bucket=get_settings().s3_bucket)
+    s = get_settings()
+    if s.storage == "azure":
+        get_azure_service().get_container_client(s.azure_container).get_container_properties()
+        return
+    get_s3().head_bucket(Bucket=s.s3_bucket)
+
+
+def ensure_azure_container() -> None:
+    from azure.core.exceptions import ResourceExistsError
+
+    try:
+        get_azure_service().create_container(get_settings().azure_container)
+    except ResourceExistsError:
+        pass
 
 
 def ping_local_storage() -> None:

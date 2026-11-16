@@ -410,12 +410,15 @@ def connector_takes(
 
 
 class ObjectLocation(BaseModel):
-    """A file in the hospital's own bucket: the connector reads it with the hospital's credentials."""
+    """A file in the hospital's own storage: the connector reads it with the hospital's credentials.
+    s3: bucket (+ region); azure: account and container (decision 037)."""
 
     kind: str = "s3"
-    bucket: str
     key: str
+    bucket: str | None = None
     region: str | None = None
+    account: str | None = None
+    container: str | None = None
     endpoint: str | None = None
 
 
@@ -465,6 +468,15 @@ def connector_take(
             loc = f.location
             out.location = ObjectLocation(
                 bucket=loc["bucket"], key=f.object_key, region=loc.get("region"), endpoint=loc.get("endpoint")
+            )
+        elif f.location and f.location.get("kind") == "azure":
+            loc = f.location
+            out.location = ObjectLocation(
+                kind="azure",
+                key=f.object_key,
+                account=loc["account"],
+                container=loc["container"],
+                endpoint=loc.get("endpoint"),
             )
         else:
             out.url = storage_of(f).download_url(f.object_key, ttl)

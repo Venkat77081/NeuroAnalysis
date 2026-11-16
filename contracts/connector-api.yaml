@@ -1307,17 +1307,29 @@ components:
           type: string
           title: Kind
           default: s3
-        bucket:
-          type: string
-          title: Bucket
         key:
           type: string
           title: Key
+        bucket:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Bucket
         region:
           anyOf:
           - type: string
           - type: 'null'
           title: Region
+        account:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Account
+        container:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Container
         endpoint:
           anyOf:
           - type: string
@@ -1325,11 +1337,12 @@ components:
           title: Endpoint
       type: object
       required:
-      - bucket
       - key
       title: ObjectLocation
-      description: 'A file in the hospital''s own bucket: the connector reads it with
-        the hospital''s credentials.'
+      description: 'A file in the hospital''s own storage: the connector reads it
+        with the hospital''s credentials.
+
+        s3: bucket (+ region); azure: account and container (decision 037).'
     PatientRow:
       properties:
         mrn:

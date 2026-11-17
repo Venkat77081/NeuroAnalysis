@@ -77,6 +77,8 @@ export class FakeServer {
     ['OP-NEW', { password: 'temp-pass-1234', mustChange: true }],
   ]);
   hospital = 'Demo Hospital';
+  /** Decision 044 test hook: the hospital's own video storage is connected and passing. */
+  canRecord = true;
   /**
    * Test mode on a real phone (debug APK): the server lives in the app's memory and is gone after
    * the app restarts, so sign-ins from before are accepted again (a phone or patient it does not
@@ -810,6 +812,11 @@ export class FakeServer {
   ): HttpResponse | null {
     const patient = me.kind === 'patient' ? this.patients.get(me.id) : undefined;
     if (path.startsWith('/patient/') && !patient) return res(403);
+    if (path === '/sessions/can-record' && init.method === 'GET')
+      return res(200, {
+        can_record: this.canRecord,
+        reason: this.canRecord ? null : 'storage_not_connected',
+      });
     if (path === '/patient/pin/clear' && init.method === 'POST') {
       patient!.pin = '';
       return res(204);

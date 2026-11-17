@@ -13,10 +13,12 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.api.staff import ResetOut, deliver_staff_invite, new_staff_invite, reset_sign_in
 from app.audit import audit
+from app.config import get_settings
 from app.db import get_db
 from app.models import AuditEvent, Device, Operator, PatientAccount, Site, StaffUser
 from app.policy import policy
 from app.security import Principal, require_role, sha256_hex
+from app.storage.sites import can_record
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 admin_only = require_role("platform_admin")
@@ -58,6 +60,8 @@ class HospitalOut(BaseModel):
     operators: int = 0
     staff: int = 0
     patients: int = 0
+    #: Decision 044: storage connected and passing.
+    can_record: bool = False
 
 
 def _out(db: DbSession, site: Site) -> HospitalOut:
@@ -80,6 +84,7 @@ def _out(db: DbSession, site: Site) -> HospitalOut:
         operators=count(Operator, Operator.active.is_(True)),
         staff=count(StaffUser, StaffUser.active.is_(True)),
         patients=count(PatientAccount, PatientAccount.status == "active"),
+        can_record=can_record(site),
     )
 
 
@@ -106,6 +111,9 @@ def onboard(
         patient_ref_salt=secrets.token_hex(16),
         onboarded_by=p.actor_id,
         onboarded_at=datetime.now(UTC),
+        # Decision 044: no NeuroCapture storage. The hospital connects its own; test servers start on
+        # the development storage so the demo stack can record.
+        storage_kind="dev" if get_settings().dev_storage else "none",
     )
     db.add(site)
     db.flush()
@@ -342,6 +350,8 @@ class SetupOut(BaseModel):
     connector_check: dict | None
     storage_kind: str
     storage_check: dict | None
+    #: Decision 044: the hospital's own storage passed its test (phones may record).
+    can_record: bool
     take_key: bool
     devices: int
     operators: int
@@ -365,6 +375,7 @@ def hospital_setup(
         connector_check=site.connector_check,
         storage_kind=site.storage_kind,
         storage_check=site.storage_check,
+        can_record=can_record(site),
         take_key=db.scalar(select(SiteKey).where(SiteKey.site_id == site.id, SiteKey.status == "active"))
         is not None,
         devices=out.devices,
@@ -491,3 +502,25 @@ def set_permissions(
     )
     db.commit()
     return permissions_out(db, site)
+
+
+class PlatformSettingsOut(BaseModel):
+    """Decision 044: what this platform offers hospitals for video storage (it stores none)."""
+
+    storage_offered: list[str]
+    azure_app_registered: bool
+    azure_app_client_id: str | None
+    dev_storage: bool
+
+
+@router.get("/settings", response_model=PlatformSettingsOut)
+def platform_settings(_: Principal = Depends(admin_only)) -> PlatformSettingsOut:  # noqa: B008
+    from app.api.hospital_storage import storage_offered
+
+    s = get_settings()
+    return PlatformSettingsOut(
+        storage_offered=storage_offered(),
+        azure_app_registered=bool(s.azure_client_id),
+        azure_app_client_id=s.azure_client_id,
+        dev_storage=s.dev_storage,
+    )

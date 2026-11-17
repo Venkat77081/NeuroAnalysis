@@ -24,7 +24,8 @@ For what each folder and file does, see [`REPO_GUIDE.md`](REPO_GUIDE.md).
  │    └─ dashboard.<your-domain>  → static files       │signed│    │   activity log, reviews                       │
  │                                                     │ API  │    ├─ take keys (decrypt recordings)               │
  │  PostgreSQL  (platform database: 22 tables)         │      │    └─ reads patient records LIVE from:            │
- │  S3 bucket   (encrypted recordings)                 │      │         FHIR R4 server  OR  4 read-only SQL views  │
+ │  (no recordings: they go to each hospital's storage)│      │         FHIR R4 server  OR  4 read-only SQL views  │
+ │                                                     │      │  Own S3 bucket or Azure Blob: recordings          │
  └─────────────────────────────────────────────────────┘      └───────────────────────────────────────────────────┘
           ▲                         ▲                                         ▲
           │ HTTPS                   │ HTTPS                                   │ HTTPS (hospital network / VPN)
@@ -33,15 +34,17 @@ For what each folder and file does, see [`REPO_GUIDE.md`](REPO_GUIDE.md).
 ```
 
 - **The platform** is yours. It knows patients only by a random **NCID**. It stores accounts,
-  phones, appointments, recording requests and **encrypted** recordings. It can never decrypt
-  them (decisions 023, 027).
+  phones, appointments and recording requests. It stores **no recordings** (decision 044) and
+  could never decrypt them (decisions 023, 027).
 - **The connector** belongs to the hospital and runs inside its network. It is the only part
   that sees names, MRNs, contact details and medical history, and the only part that can
   decrypt recordings.
 - **The dashboard** runs in the browser. It calls the platform for accounts and workflow, and
   calls the hospital's connector directly for names, history and videos.
-- **The Android app** uploads recordings to the platform. Each one is encrypted with that
-  hospital's own key.
+- **The hospital's storage** (its own S3 bucket or Azure Blob container) holds the recordings.
+  NeuroCapture can only write there; the connector reads them.
+- **The Android app** uploads each recording straight into its hospital's storage, through a
+  short-lived link from the platform. Each one is encrypted with that hospital's own key.
 
 ---
 
@@ -82,13 +85,13 @@ The rest of this guide is the cloud-neutral reference they build on.
 Any cloud or a hospital-grade data centre works. The code defaults to AWS **ap-south-1
 (Mumbai)**, which keeps data in India. A simple, sensible production layout:
 
-| Part              | Recommended                                                                                                  | Minimum for a pilot                               |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| Platform database | Amazon RDS for PostgreSQL 16, Multi-AZ, automated backups, encryption on                                     | PostgreSQL 16 on the same VM, nightly dump        |
-| Recordings        | Amazon S3 bucket (`NC_STORAGE=s3`) or Azure Blob Storage (`NC_STORAGE=azure`): private, encrypted, versioned | Local disk on the API server (`NC_STORAGE=local`) |
-| API               | 2 × containers (ECS Fargate or 2 VMs) behind an Application Load Balancer with an ACM certificate            | 1 VM (2 vCPU, 4 GB RAM) with Docker and Caddy     |
-| Dashboard         | S3 + CloudFront, or the same Caddy                                                                           | Same Caddy as the API                             |
-| DNS               | `api.<your-domain>`, `dashboard.<your-domain>`                                                               | Same                                              |
+| Part              | Recommended                                                                                       | Minimum for a pilot                           |
+| ----------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Platform database | Amazon RDS for PostgreSQL 16, Multi-AZ, automated backups, encryption on                          | PostgreSQL 16 on the same VM, nightly dump    |
+| Recordings        | None on your side: each hospital's own S3 bucket or Azure Blob container (decision 044)           | Same                                          |
+| API               | 2 × containers (ECS Fargate or 2 VMs) behind an Application Load Balancer with an ACM certificate | 1 VM (2 vCPU, 4 GB RAM) with Docker and Caddy |
+| Dashboard         | S3 + CloudFront, or the same Caddy                                                                | Same Caddy as the API                         |
+| DNS               | `api.<your-domain>`, `dashboard.<your-domain>`                                                    | Same                                          |
 
 The rest of this guide uses the **single-VM pilot layout**. Each step is the same on the
 bigger layout.
@@ -182,26 +185,19 @@ NC_SERVER_PUBLIC_KEY_PATH=/keys/server-public.pem
 NC_SERVER_KEY_ID=server-1
 NC_ACCOUNT_PEPPER=<output of openssl rand -hex 32>   # from the key vault at start-up (decision 043)
 
-# --- Recordings storage: local | s3 | azure (decision 037) ---
-# local keeps recordings on this server's disk: only ONE API server can then be used, and replacing
-# the server means moving the recordings. s3 or azure keep them in cloud storage: the API server
-# holds no files, so it can be replaced or run as two or more copies behind a load balancer.
-# Pilot on one VM:
-NC_STORAGE=local
-NC_STORAGE_DIR=/data/storage
-# Production on S3 (use the server's IAM role: leave the access keys empty):
-# NC_STORAGE=s3
-# NC_S3_BUCKET=neurocapture-takes-prod
-# NC_S3_REGION=ap-south-1
-# NC_MANAGED_BUCKET_TEMPLATE={bucket}
-# NC_PLATFORM_AWS_PRINCIPAL=arn:aws:iam::<your-account-id>:role/neurocapture-api   # hospitals with their own bucket trust this
-# Production on Azure Blob (the server's managed identity signs upload links; no key):
-# NC_STORAGE=azure
-# NC_AZURE_STORAGE_ACCOUNT=ncrec<unique>
-# NC_AZURE_CONTAINER=neurocapture-takes
-# Offer hospitals their own Azure Blob container (works on any cloud): NeuroCapture's multitenant app
+# --- Recordings: each hospital's own storage (decision 044) ---
+# NeuroCapture keeps no recordings. Development storage (NC_STORAGE, NC_STORAGE_DIR, NC_S3_BUCKET,
+# NC_AZURE_STORAGE_ACCOUNT, ...) is for tests and the local demo only; keep it off:
+NC_DEV_STORAGE=false
+# Hospitals on S3: their upload role trusts this AWS identity (on AWS: the server's IAM role).
+NC_PLATFORM_AWS_PRINCIPAL=arn:aws:iam::<your-account-id>:role/neurocapture-api
+NC_S3_REGION=ap-south-1
+# Not on AWS? An IAM user that may only sts:AssumeRole (deploy/azure.md step 5c):
+# NC_S3_ACCESS_KEY=<from the key vault>
+# NC_S3_SECRET_KEY=<from the key vault>
+# Hospitals on Azure Blob: NeuroCapture's multi-tenant Entra app (deploy/azure.md step 5b):
 # NC_AZURE_CLIENT_ID=<application (client) id>
-# NC_AZURE_CLIENT_SECRET=<client secret>
+# NC_AZURE_CLIENT_SECRET=<from the key vault>
 
 # --- Safety switches (keep these values in production) ---
 NC_REQUIRE_HOSPITAL_KEY=true
@@ -237,11 +233,10 @@ docker run -d --name nc-api --restart unless-stopped \
   --env-file /srv/nc/api.env \
   -v /srv/nc/keys:/keys:ro \
   -v /srv/nc/src/config:/srv/config:ro \
-  -v nc-storage:/data/storage \
   -p 127.0.0.1:8000:8000 \
   neurocapture-api:1.0.0
 
-curl -s http://127.0.0.1:8000/health      # → {"status":"ok", ...}
+curl -s http://127.0.0.1:8000/health      # → {"status":"ok", ... "storage": "hospital_owned"}
 ```
 
 The container runs the migrations, then starts the API on port 8000. Only the HTTPS proxy
@@ -285,7 +280,7 @@ sign-in with an authenticator app. From then on, everything is done in the dashb
 
 - **Backups:**
   - the PostgreSQL database daily (RDS: automatic);
-  - the recordings volume or S3 bucket (S3 versioning);
+  - (recordings are backed up by each hospital, in its own storage);
   - the `keys/` folder (offline copy).
 - **Monitoring:** `GET https://api.example.in/health` every minute. Read the container logs
   with `docker logs nc-api`. They never contain patient names, MRNs or tokens.
@@ -421,7 +416,7 @@ NCC_SMS_DEFAULT_COUNTRY_CODE=+91
 NCC_SMS_DLT_ENTITY_ID=1201...
 NCC_SMS_DLT_TEMPLATE_IDS={"patientInviteSms": "1207...", "reminderSms": "1207..."}
 
-# Only if the hospital stores recordings in its own S3 bucket or Azure container (5.5):
+# Reading recordings from the hospital's own S3 bucket or Azure container (5.5):
 # NCC_AZURE_STORAGE_KEY=<only if the connector uses an account key instead of its managed identity>
 # NCC_S3_REGION=ap-south-1     (+ AWS credentials or instance role with read access to that prefix)
 ```
@@ -451,20 +446,23 @@ Then, in the **hospital dashboard → Data connections**:
 
 ### 5.5 Where recordings are stored (per hospital)
 
-In Data connections → Recording storage, the hospital admin chooses one of three options:
+Every hospital keeps its recordings in **its own** storage (decision 044); NeuroCapture keeps
+none. **Phones cannot record until this is set up and tested.** In Data connections → Recording
+storage, the hospital admin chooses:
 
-- **NeuroCapture storage** (default): your S3 bucket, Azure Blob container or disk. The files are
-  encrypted on the phone with the hospital's key; you cannot read them.
 - **The hospital's own Amazon S3 bucket.** The dashboard shows an ExternalId and two IAM
   policies. The hospital creates a role that lets NeuroCapture **upload only**, and gives the
-  connector its own read access. Full steps: [`connector.md`](connector.md) §2c.
+  connector its own read access. Full steps: [`deploy/aws.md`](deploy/aws.md) step 12 and
+  [`connector.md`](connector.md) §2c.
 - **The hospital's own Azure Blob container** (decision 037). The hospital approves
   NeuroCapture's app in its Microsoft Entra tenant and gives it a **write-only** custom role on
   the container (the dashboard shows the role), plus "Storage Blob Delegator" on the account. The
-  connector reads with its own identity. Offered when `NC_AZURE_CLIENT_ID` is set. Full steps:
-  [`connector.md`](connector.md) §2d and [`deploy/azure.md`](deploy/azure.md) step 12.
+  connector reads with its own identity. Offered when `NC_AZURE_CLIENT_ID` is set
+  ([`deploy/azure.md`](deploy/azure.md) step 5b). Full steps: [`deploy/azure.md`](deploy/azure.md)
+  step 12 and [`connector.md`](connector.md) §2d.
 
-The dashboard tests the storage before switching. Earlier recordings stay where they were.
+The dashboard tests the storage before saving; the card then says **Phones can record**. The
+platform admin sees a **Can record** column for every hospital.
 
 ---
 

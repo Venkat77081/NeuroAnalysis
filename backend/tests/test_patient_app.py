@@ -122,7 +122,7 @@ def test_patient_list_counts_sessions_and_platform_setup_status(api, two_hospita
     assert rows[ncid]["sessions"] == 1 and rows[ncid]["status"] == "active" and rows[ncid]["last_session_at"]
     setup = api.get(f"/platform/hospitals/{t['a']}/setup", headers=hdr(t["platform"])).json()
     assert setup["admin_accepted"] and not setup["connector_registered"] and not setup["take_key"]
-    assert setup["storage_kind"] == "managed"
+    assert setup["storage_kind"] == "dev" and setup["can_record"]
     assert api.get(f"/platform/hospitals/{t['a']}/setup", headers=hdr(t["a_tok"])).status_code == 403
 
 

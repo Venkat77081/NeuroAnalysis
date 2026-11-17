@@ -64,3 +64,24 @@ export async function clinicQueue(kit: CaptureKitPlugin, now = new Date()): Prom
 export async function notRecorded(kit: CaptureKitPlugin, requestId: string, reason: string) {
   await api(kit, 'POST', `/clinic/requests/${requestId}/not-done`, { reason });
 }
+
+/**
+ * Decision 044: may this hospital record now? (Its own video storage is connected and passing.)
+ * Offline or an older server: assume yes; the upload waits on the phone as usual.
+ */
+export async function canRecord(
+  kit: CaptureKitPlugin,
+  profile?: string,
+): Promise<{ canRecord: boolean; reason: string | null }> {
+  try {
+    const { json } = await kit.apiRequest({
+      method: 'GET',
+      path: '/sessions/can-record',
+      ...(profile ? { profile } : {}),
+    });
+    const b = JSON.parse(json) as { can_record: boolean; reason: string | null };
+    return { canRecord: b.can_record, reason: b.reason };
+  } catch {
+    return { canRecord: true, reason: null };
+  }
+}

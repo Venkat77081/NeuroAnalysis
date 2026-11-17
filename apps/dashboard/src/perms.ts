@@ -16,6 +16,7 @@ export const MENU: { page: string; perms: string[]; roles?: string[] }[] = [
     roles: ['platform_admin', 'hospital_admin', 'receptionist', 'doctor'],
   },
   { page: 'hospitals', perms: [], roles: ['platform_admin'] },
+  { page: 'platformSettings', perms: [], roles: ['platform_admin'] },
   { page: 'platformLog', perms: [], roles: ['platform_admin'] },
   { page: 'chooseTests', perms: ['requests.send'] },
   { page: 'myPatients', perms: [], roles: ['doctor'] },

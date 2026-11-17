@@ -35,12 +35,13 @@ log = logging.getLogger("neurocapture")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     check_config(get_settings())
-    if get_settings().storage == "azure":
+    # Decision 044: the platform's own bucket exists only as development storage.
+    if get_settings().dev_storage and get_settings().storage == "azure":
         try:
             ensure_azure_container()
         except Exception as exc:  # noqa: BLE001 - /health reports storage problems
             log.warning("could not ensure container: %s", type(exc).__name__)
-    if get_settings().storage == "s3" and get_settings().s3_endpoint:
+    if get_settings().dev_storage and get_settings().storage == "s3" and get_settings().s3_endpoint:
         try:
             ensure_bucket()
         except Exception as exc:  # noqa: BLE001 - /health reports storage problems

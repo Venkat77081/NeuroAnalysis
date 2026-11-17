@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, resume, signOut, type Tokens } from './api.ts';
 import { InviteAccept, SignIn } from './auth.tsx';
-import { Hospitals, PlatformLog } from './platform.tsx';
+import { Hospitals, PlatformLog, PlatformSettingsPage } from './platform.tsx';
 import { Activity, Connections, DeletionRequests, Phones, Team } from './hospital.tsx';
 import { OverviewPage } from './overview.tsx';
 import { InvitePatients } from './invites.tsx';
@@ -80,6 +80,7 @@ export function App() {
   if (permsFor) body = <PermissionsPage siteId={permsFor} onBack={() => setPermsFor(null)} />;
   else if (page === 'hospitals') body = <Hospitals onPermissions={setPermsFor} />;
   else if (page === 'platformLog') body = <PlatformLog />;
+  else if (page === 'platformSettings') body = <PlatformSettingsPage />;
   else if (page === 'overview')
     body = (
       <OverviewPage

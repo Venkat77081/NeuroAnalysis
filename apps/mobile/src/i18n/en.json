@@ -669,7 +669,8 @@
       "moved": "Your account moved to another phone.",
       "signed_out": "Signed out: sign in again.",
       "pin_reset": "Your PIN was changed: sign in again.",
-      "hospital_signed_out": "A hospital could not be moved: ask it for a new invite."
+      "hospital_signed_out": "A hospital could not be moved: ask it for a new invite.",
+      "storage_not_connected": "This hospital is not ready to receive recordings yet."
     },
     "hospitals": {
       "title": "My hospitals and clinics",
@@ -709,7 +710,9 @@
       "othersUnaffected": "Read only. Other hospitals you joined are not affected.",
       "withdrawWhere": "To leave a hospital, open it from My hospitals and choose ‘Leave this hospital’.",
       "clinicTitle": "At your visit",
-      "clinicBody": "{{doctor}} will record your movement tests at the clinic on {{date}}. Nothing to do at home."
+      "clinicBody": "{{doctor}} will record your movement tests at the clinic on {{date}}. Nothing to do at home.",
+      "gettingReady": "Getting ready",
+      "notReadyBody": "Joined. Recording opens when {{hospital}} finishes setting up."
     },
     "consent": {
       "forVisit": "{{hospital}} · request for {{date}}",
@@ -854,7 +857,8 @@
       "not_recorded": "Not recorded: {{reason}}",
       "missed": "Not recorded"
     },
-    "empty": "No patients in the queue today yet."
+    "empty": "No patients in the queue today yet.",
+    "notReady": "Your hospital is not ready to receive recordings yet: its admin needs to connect the hospital's video storage. The queue is shown; Start opens as soon as it is connected."
   },
   "testPanel": {
     "open": "Test",

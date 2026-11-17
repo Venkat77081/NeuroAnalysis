@@ -24,6 +24,7 @@ import { stepTitle } from '../session/TestIntro.tsx';
 import { BackButton, Button, Card } from '../../ui/kit.tsx';
 import { ErrorText } from '../modes/Common.tsx';
 import { InviteFlow } from './InviteFlow.tsx';
+import { canRecord } from '../../lib/clinic.ts';
 import { saveBackup } from '../../lib/appaccount.ts';
 
 type View =
@@ -116,6 +117,8 @@ interface HospitalData {
   plan: HomePlan | null;
   offline: boolean;
   error: string | null;
+  /** Decision 044: the hospital's own video storage is connected (true when unknown/offline). */
+  canRecord: boolean;
 }
 
 /** Live data for one hospital; what the phone last saw when offline or after withdrawing. */
@@ -124,7 +127,7 @@ function useHospitalData(h: PatientHospital): HospitalData | null {
   const [data, setData] = useState<HospitalData | null>(null);
   useEffect(() => {
     let cancelled = false;
-    const cached = async (): Promise<Omit<HospitalData, 'offline' | 'error'>> => ({
+    const cached = async (): Promise<Omit<HospitalData, 'offline' | 'error' | 'canRecord'>> => ({
       requests: (await repo.store.get<PatientRequest[]>(cacheKey(h, 'requests'))) ?? [],
       sessions: (await repo.store.get<HomeSession[]>(cacheKey(h, 'sessions'))) ?? [],
       plan: await repo.store.get<HomePlan>(cacheKey(h, 'plan')),
@@ -132,7 +135,7 @@ function useHospitalData(h: PatientHospital): HospitalData | null {
     void (async () => {
       if (h.withdrawnAt) {
         const c = await cached();
-        if (!cancelled) setData({ ...c, offline: false, error: null });
+        if (!cancelled) setData({ ...c, offline: false, error: null, canRecord: true });
         return;
       }
       try {
@@ -144,13 +147,27 @@ function useHospitalData(h: PatientHospital): HospitalData | null {
         await repo.store.put(cacheKey(h, 'requests'), requests);
         await repo.store.put(cacheKey(h, 'sessions'), sessions);
         await repo.store.put(cacheKey(h, 'plan'), plan);
-        if (!cancelled) setData({ requests, sessions, plan, offline: false, error: null });
+        const ready = await canRecord(capture.kit, h.profile);
+        if (!cancelled)
+          setData({
+            requests,
+            sessions,
+            plan,
+            offline: false,
+            error: null,
+            canRecord: ready.canRecord,
+          });
       } catch (e) {
         const code = errorCode(e);
         logger.warn('hospital data fetch failed', { code });
         const c = await cached();
         if (!cancelled)
-          setData({ ...c, offline: true, error: code === 'login_required' ? code : null });
+          setData({
+            ...c,
+            offline: true,
+            error: code === 'login_required' ? code : null,
+            canRecord: true,
+          });
       }
     })();
     return () => {
@@ -233,11 +250,14 @@ function HospitalCard({ h, onOpen }: { h: PatientHospital; onOpen: () => void })
   const data = useHospitalData(h);
   const open = openRequests(data);
   const next = open[0];
+  const notReady = !h.withdrawnAt && data !== null && !data.canRecord;
   const badge = h.withdrawnAt
     ? t('modes.hospitals.withdrawn')
-    : open.length > 0
-      ? t('modes.hospitals.requests', { count: open.length })
-      : t('modes.hospitals.joined');
+    : notReady
+      ? t('modes.hospitals.gettingReady')
+      : open.length > 0
+        ? t('modes.hospitals.requests', { count: open.length })
+        : t('modes.hospitals.joined');
   return (
     <li>
       <button
@@ -264,18 +284,20 @@ function HospitalCard({ h, onOpen }: { h: PatientHospital; onOpen: () => void })
           </span>
         </span>
         <span className="text-[14px] text-[#3D4552]">
-          {next
-            ? next.appointment_at
-              ? t('modes.hospitals.recordBefore', {
-                  visit: fmtDate(next.appointment_at, i18n.language),
-                  due: fmtDate(next.due_at, i18n.language),
-                })
-              : t('modes.hospitals.recordBy', { due: fmtDate(next.due_at, i18n.language) })
-            : h.withdrawnAt
-              ? t('modes.hospitals.readOnly')
-              : data?.plan?.due_now
-                ? t('modes.home.due')
-                : t('modes.hospitals.noRequests')}
+          {notReady
+            ? t('modes.hospitals.notReadyBody', { hospital: h.hospital })
+            : next
+              ? next.appointment_at
+                ? t('modes.hospitals.recordBefore', {
+                    visit: fmtDate(next.appointment_at, i18n.language),
+                    due: fmtDate(next.due_at, i18n.language),
+                  })
+                : t('modes.hospitals.recordBy', { due: fmtDate(next.due_at, i18n.language) })
+              : h.withdrawnAt
+                ? t('modes.hospitals.readOnly')
+                : data?.plan?.due_now
+                  ? t('modes.home.due')
+                  : t('modes.hospitals.noRequests')}
         </span>
       </button>
     </li>
@@ -361,6 +383,14 @@ function HospitalView({
         </p>
       )}
       <ErrorText code={data?.error ?? null} />
+      {!h.withdrawnAt && data?.canRecord === false && (
+        <p
+          className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] text-[#8A4B00]"
+          data-testid="hospital-not-ready"
+        >
+          {t('modes.hospitals.notReadyBody', { hospital: h.hospital })}
+        </p>
+      )}
       {!h.withdrawnAt &&
         open.map((r) => {
           const { steps, minutes } = testsMinutes(config, r.tests);
@@ -393,7 +423,11 @@ function HospitalView({
                 ))}
               </ul>
               <p className="text-[14px] leading-5">{t(`modes.home.med${r.med_state}`)}</p>
-              <Button onClick={() => onRecord(r)} data-testid="request-start">
+              <Button
+                disabled={data?.canRecord === false}
+                onClick={() => onRecord(r)}
+                data-testid="request-start"
+              >
                 {t('modes.home.start')}
               </Button>
             </Card>
@@ -441,7 +475,11 @@ function HospitalView({
             {t(`modes.home.med${plan.med_state}`)}
           </p>
           {plan.due_now && (
-            <Button onClick={() => onRecord(null)} data-testid="plan-start">
+            <Button
+              disabled={data?.canRecord === false}
+              onClick={() => onRecord(null)}
+              data-testid="plan-start"
+            >
               {t('modes.home.start')}
             </Button>
           )}

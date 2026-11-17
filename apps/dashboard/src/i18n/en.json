@@ -67,7 +67,9 @@
     "not_signed_up": "This person has not signed up yet: use Resend invite instead.",
     "bad_reason": "Choose a reason.",
     "sms_not_sent": "The test SMS could not be sent. Check the provider settings.",
-    "dlt_templates_invalid": "The DLT template IDs are not valid."
+    "dlt_templates_invalid": "The DLT template IDs are not valid.",
+    "storage_not_connected": "Connect your hospital's video storage first.",
+    "dev_storage_off": "Development storage is only available on test servers."
   },
   "nav": {
     "hospitals": "Hospitals",
@@ -81,7 +83,8 @@
     "assign": "Assign patients",
     "appointments": "Appointments",
     "chooseTests": "Choose tests",
-    "invite": "Invite patients"
+    "invite": "Invite patients",
+    "platformSettings": "Platform settings"
   },
   "platform": {
     "hospitalsTitle": "Hospitals and clinics",
@@ -112,7 +115,25 @@
     "stepTeam": "Doctors and operators added",
     "logTitle": "Platform activity",
     "admins": "Hospital admins",
-    "notSignedUp": "Not signed up yet"
+    "notSignedUp": "Not signed up yet",
+    "canRecord": "Can record",
+    "yes": "Yes",
+    "noStorage": "No: storage",
+    "storageKind": {
+      "none": "not connected",
+      "s3": "own S3 bucket",
+      "azure": "own Azure container",
+      "dev": "development storage"
+    },
+    "storageTitle": "Hospitals' video storage",
+    "storageIntro": "NeuroCapture stores no videos. Each hospital connects its own storage before its phones can record; these are the kinds it can choose.",
+    "kindS3": "Amazon S3: the hospital's bucket and an upload role that trusts this platform",
+    "kindAzure": "Azure Blob: the hospital's container and a role for NeuroCapture's Azure app",
+    "available": "available",
+    "azureMissing": "Azure app not registered",
+    "azureHowTo": "To offer Azure: register one multi-tenant app in NeuroCapture's Microsoft Entra ID, put its ID and secret in the key vault as NC_AZURE_CLIENT_ID and NC_AZURE_CLIENT_SECRET, and restart the API. Steps: docs/deploy/azure.md, step 5b.",
+    "azureAppId": "NeuroCapture's Azure app (client ID)",
+    "devStorageOn": "This is a test server: development storage is on (NC_DEV_STORAGE). Never use it with real patients."
   },
   "hospital": {
     "overviewTitle": "Overview",
@@ -127,8 +148,7 @@
     "keysTitle": "Recording keys",
     "keysHint": "Created on the connector with python -m ncconnector rotate-take-key. Phones encrypt each recording for the active key.",
     "noKey": "No key yet: phones cannot record until the connector registers one.",
-    "storageTitle": "Recording storage",
-    "storageManaged": "NeuroCapture storage: encrypted with your hospital's key; NeuroCapture cannot open the recordings",
+    "storageTitle": "Video storage · required",
     "storageS3": "Your own S3 bucket (upload-only role)",
     "bucket": "Bucket",
     "s3region": "Region",
@@ -206,7 +226,6 @@
     "storageOwn": "Use your own storage",
     "ownS3": "Your own Amazon S3 bucket",
     "ownAzure": "Your own Azure Blob container",
-    "useManaged": "Use NeuroCapture storage",
     "azureStep1": "A Global Administrator of your Microsoft Entra tenant approves the NeuroCapture app once:",
     "azureConsent": "open the approval page",
     "azureStep2": "In your subscription, create the custom role below (it can write blobs only: no read, list or delete).",
@@ -216,7 +235,14 @@
     "azAccount": "Storage account",
     "azContainer": "Container",
     "azTenant": "Tenant (directory) ID",
-    "azureNotOffered": "Azure Blob storage is not turned on for this NeuroCapture platform yet. Ask NeuroCapture to set it up (it needs NeuroCapture's Azure app); until then use NeuroCapture storage or your own S3 bucket."
+    "azureNotOffered": "Azure Blob storage is not available on this platform yet: NeuroCapture's Azure app is not registered. Use your own Amazon S3 bucket, or ask NeuroCapture to turn Azure on.",
+    "storageNone": "Not connected. Connect your own Amazon S3 bucket or Azure Blob container below.",
+    "storageDev": "Development storage on this test server (not for real patients).",
+    "useDev": "Use development storage (test server only)",
+    "storageReady": "Phones can record",
+    "storageNotReady": "Recording is off",
+    "storageWhy": "Recordings go straight from the phones into your own cloud storage, encrypted with your hospital's key. NeuroCapture keeps no copy and stores no videos: it only signs short upload links that can write one recording and nothing else.",
+    "recordingOff": "Recording is off until your video storage passes its test. Phones show that your hospital is not ready to receive recordings."
   },
   "doctor": {
     "patientsTitle": "My patients",
@@ -646,9 +672,9 @@
       "clinic": "clinic"
     },
     "storage": {
-      "managed": "NeuroCapture storage",
       "s3": "your S3 bucket",
-      "azure": "your Azure container"
+      "azure": "your Azure container",
+      "dev": "development storage"
     },
     "chart": {
       "uploadsAll": "Recordings uploaded per week (all hospitals)",
@@ -691,7 +717,8 @@
       "clinicQueue": "Clinic queue",
       "homeLink": "Home link sent",
       "notJoined": "Not joined",
-      "new": "new"
+      "new": "new",
+      "storage_not_connected": "storage not connected"
     },
     "tiles": {
       "hospitals": {

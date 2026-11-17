@@ -137,6 +137,9 @@ def create_take(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "wrong_key", "expected": s.key_id})
     site = db.get(Site, p.site_id)
     assert site is not None
+    from app.api.sessions import require_storage
+
+    require_storage(site)
     location = location_for(site)
     take = Take(
         client_take_id=body.client_take_id,

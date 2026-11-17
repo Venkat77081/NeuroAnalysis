@@ -1,6 +1,10 @@
-"""Where a hospital's recordings go (PLATFORM_PLAN M12, decision 026).
+"""Where a hospital's recordings go (PLATFORM_PLAN M12, decisions 026, 037, 044).
 
-- managed: NeuroCapture storage, one prefix (local) or bucket (S3 template) per hospital.
+Decision 044: NeuroCapture stores no videos. A hospital records only after it connects its own
+storage; until then sessions and takes are refused (`storage_not_connected`).
+
+- none: not connected yet, no recording.
+- dev: development storage for tests and the local demo stack (NC_DEV_STORAGE=true only).
 - azure: the hospital's own Azure Storage container (decision 037). NeuroCapture's multi-tenant app
   signs in to the hospital's tenant; its role there allows writing blobs only, so the user
   delegation SAS it hands to phones can upload but never read.
@@ -22,7 +26,7 @@ from botocore.client import Config
 
 from app.config import get_settings
 from app.models import Site, TakeFile
-from app.storage import S3Storage, Storage, get_s3, get_storage
+from app.storage import S3Storage, Storage, get_storage
 
 UPLOAD_ACTIONS = ["s3:PutObject", "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"]
 
@@ -158,27 +162,36 @@ def _hospital_azure(cfg: dict):
     return st
 
 
+def can_record(site: Site) -> bool:
+    """Decision 044: the hospital's own storage is connected and its last test passed."""
+    if site.storage_kind == "dev":
+        return get_settings().dev_storage
+    if site.storage_kind in ("s3", "azure") and site.storage_config:
+        return (site.storage_check or {}).get("upload") == "pass"
+    return False
+
+
 def location_for(site: Site) -> dict | None:
-    """Location snapshot for new files of this hospital (None = platform default storage)."""
-    s = get_settings()
+    """Location snapshot for new files of this hospital (None = development storage)."""
     if site.storage_kind == "s3" and site.storage_config and site.storage_external_id:
         return {"kind": "s3", **site.storage_config, "external_id": site.storage_external_id}
     if site.storage_kind == "azure" and site.storage_config:
         return {"kind": "azure", **site.storage_config}
-    if s.storage == "s3" and s.managed_bucket_template != "{bucket}":
-        return {
-            "kind": "managed_s3",
-            "bucket": s.managed_bucket_template.format(bucket=s.s3_bucket, site=site.id),
-        }
-    return None
+    if site.storage_kind == "dev" and get_settings().dev_storage:
+        return None
+    raise StorageNotConnectedError()
+
+
+class StorageNotConnectedError(RuntimeError):
+    """The hospital has not connected its own storage (decision 044)."""
 
 
 def storage_at(location: dict | None) -> Storage:
     s = get_settings()
     if location is None:
+        if not s.dev_storage:
+            raise StorageNotConnectedError()
         return get_storage()
-    if location["kind"] == "managed_s3":
-        return S3Storage(get_s3(), location["bucket"], s.upload_url_ttl_s)
     if location["kind"] == "s3":
         client = _assumed_client(location, location["external_id"])
         return HospitalS3Storage(client, location["bucket"], s.upload_url_ttl_s, location.get("kms_key_id"))

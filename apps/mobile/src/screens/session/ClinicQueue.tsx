@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
 import { errorCode } from '../../lib/accounts.ts';
-import { clinicQueue, notRecorded, type QueueItem } from '../../lib/clinic.ts';
+import { canRecord, clinicQueue, notRecorded, type QueueItem } from '../../lib/clinic.ts';
 import { newId } from '../../data/repo.ts';
 import { stepTitle } from './TestIntro.tsx';
 import { Button, Card } from '../../ui/kit.tsx';
@@ -27,6 +27,8 @@ export function ClinicQueue() {
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
+  /** Decision 044: the hospital's own storage must be connected before anyone records. */
+  const [ready, setReady] = useState(true);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
@@ -35,6 +37,7 @@ export function ClinicQueue() {
       (q) => !off && setItems(q),
       (e: unknown) => !off && setError(errorCode(e)),
     );
+    void canRecord(capture.kit).then((r) => !off && setReady(r.canRecord));
     return () => {
       off = true;
     };
@@ -88,6 +91,15 @@ export function ClinicQueue() {
         </button>
       </div>
       <span className="text-[12px] font-semibold text-ok">{t('clinicQueue.live')}</span>
+      {!ready && (
+        <p
+          role="alert"
+          className="rounded-xl bg-[#FDECEA] px-3 py-2.5 text-[14px] leading-5 text-bad"
+          data-testid="queue-not-ready"
+        >
+          {t('clinicQueue.notReady')}
+        </p>
+      )}
       {items.length === 0 && (
         <span className="text-[14px] text-muted" data-testid="queue-empty">
           {t('clinicQueue.empty')}
@@ -137,6 +149,7 @@ export function ClinicQueue() {
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
+                    disabled={!ready}
                     onClick={() => void start(q)}
                     data-testid="queue-start"
                   >

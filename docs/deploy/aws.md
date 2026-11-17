@@ -17,18 +17,25 @@ for US hospitals, **ap-south-1 (Mumbai)** for India. The commands below use `ap-
           ┌────────▼─────────┐  Elastic IP, security group: 80/443 from anywhere, 22 from your IP only
           │ EC2: Ubuntu 24.04│  Caddy (TLS) ─► API container (port 8000)
           │  + Docker        │             └─► dashboard static files
-          └──┬──────────┬────┘  IAM instance role (S3, Secrets Manager, STS)
+          └──┬──────────┬────┘  IAM instance role (Secrets Manager, STS)
              │          │
-   ┌─────────▼───┐  ┌───▼──────────────┐   ┌─────────────────────┐
-   │ RDS Postgres│  │ S3 bucket        │   │ SES (SMTP)           │
-   │ 16, private │  │ recordings,      │   │ staff invite e-mails │
-   │ subnet      │  │ encrypted        │   └─────────────────────┘
-   └─────────────┘  └──────────────────┘
+   ┌─────────▼───┐  ┌───▼──────────────────────┐
+   │ RDS Postgres│  │ SES (SMTP)               │
+   │ 16, private │  │ staff invites, app       │
+   │ subnet      │  │ sign-in codes            │
+   └─────────────┘  └──────────────────────────┘
+
+   Recordings ──► each hospital's own S3 bucket or Azure Blob container (never NeuroCapture's)
 ```
 
+**NeuroCapture stores no recordings** (decision 044). Every hospital connects **its own** S3 bucket
+(step 12) or Azure Blob container (step 14). Phones upload straight into it through short-lived
+links that can write one recording and nothing else. NeuroCapture can never read, list or delete
+there; the hospital's connector reads the files. Until a hospital's storage test passes, its
+phones cannot record.
+
 This is a pilot-to-production layout on one API server. To scale later, run the same container on
-ECS Fargate behind an Application Load Balancer. The database, bucket, SES and secrets stay the
-same.
+ECS Fargate behind an Application Load Balancer. The database, SES and secrets stay the same.
 
 ---
 
@@ -85,26 +92,12 @@ Database URL for the API (RDS requires TLS):
 postgresql+psycopg://neurocapture:<password>@neurocapture-db.xxxx.ap-south-1.rds.amazonaws.com:5432/neurocapture?sslmode=require
 ```
 
-## Step 4: Recordings bucket (Amazon S3)
+## Step 4: Recordings: nothing to create on your side
 
-```bash
-aws s3api create-bucket --bucket nc-takes-prod-<unique> --region ap-south-1 \
-  --create-bucket-configuration LocationConstraint=ap-south-1
-aws s3api put-public-access-block --bucket nc-takes-prod-<unique> \
-  --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-aws s3api put-bucket-versioning --bucket nc-takes-prod-<unique> --versioning-configuration Status=Enabled
-aws s3api put-bucket-encryption --bucket nc-takes-prod-<unique> \
-  --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
-# Clean up uploads that phones abandoned:
-aws s3api put-bucket-lifecycle-configuration --bucket nc-takes-prod-<unique> --lifecycle-configuration \
-  '{"Rules":[{"ID":"abort-incomplete","Status":"Enabled","Filter":{},"AbortIncompleteMultipartUpload":{"DaysAfterInitiation":7}}]}'
-```
-
-The files are already encrypted on the phone with each hospital's key; S3 encryption is a second
-layer. Phones upload with presigned URLs; no bucket CORS is needed.
-
-**Sizing (rough):** a session is about 0.3–0.5 GB of video. Measure on your own phones and set a
-budget alarm.
+There is **no NeuroCapture recordings bucket** (decision 044). The API server's role only needs
+`sts:AssumeRole` (step 6), so it can upload into the bucket each hospital creates (step 12). Do not
+set `NC_STORAGE` or `NC_S3_BUCKET` in production: they configure the development storage, which
+production keeps off (`NC_DEV_STORAGE=false`).
 
 ## Step 5: E-mail (Amazon SES over SMTP)
 
@@ -130,7 +123,7 @@ budget alarm.
 
 The platform sends staff invites and the patient app's sign-in codes (decision 043; the address
 is used for that e-mail only and is not stored). Patient invites, reminders and SMS come from each
-hospital's connector (step 12).
+hospital's connector (step 13).
 
 ## Step 6: The server (EC2)
 
@@ -154,21 +147,6 @@ hospital's connector (step 12).
      "Statement": [
        {
          "Effect": "Allow",
-         "Action": [
-           "s3:PutObject",
-           "s3:GetObject",
-           "s3:AbortMultipartUpload",
-           "s3:ListMultipartUploadParts",
-           "s3:ListBucket",
-           "s3:ListBucketMultipartUploads"
-         ],
-         "Resource": [
-           "arn:aws:s3:::nc-takes-prod-<unique>",
-           "arn:aws:s3:::nc-takes-prod-<unique>/*"
-         ]
-       },
-       {
-         "Effect": "Allow",
          "Action": "secretsmanager:GetSecretValue",
          "Resource": "arn:aws:secretsmanager:ap-south-1:<account-id>:secret:nc/*"
        },
@@ -177,8 +155,9 @@ hospital's connector (step 12).
    }
    ```
 
-   `sts:AssumeRole` is only needed for hospitals that keep recordings in **their own** bucket.
-   They allow this role (with an ExternalId) to upload into it.
+   `sts:AssumeRole` is how recordings reach hospitals: each hospital's bucket role trusts this
+   role (with an ExternalId) and allows upload only (step 12). The role has no S3 access of its
+   own.
 
 5. Connect with `ssh ubuntu@api.example.in` and install Docker, the AWS CLI and Caddy:
 
@@ -258,10 +237,11 @@ NC_PLATFORM_SIGNING_KEY_PATH=/keys/platform-signing.pem
 NC_PLATFORM_KEY_ID=platform-1
 NC_SERVER_PUBLIC_KEY_PATH=/keys/server-public.pem
 NC_SERVER_KEY_ID=server-1
-NC_STORAGE=s3
-NC_S3_BUCKET=nc-takes-prod-<unique>
+# Recordings go to each hospital's own storage (decision 044). Keep development storage off:
+NC_DEV_STORAGE=false
 NC_S3_REGION=ap-south-1
 NC_PLATFORM_AWS_PRINCIPAL=arn:aws:iam::<account-id>:role/nc-api-role
+# NC_AZURE_CLIENT_ID=<application id>       # only to offer Azure Blob as well (step 14)
 NC_REQUIRE_HOSPITAL_KEY=true
 NC_ALLOW_LEGACY_REF_HASH=false
 NC_EMAIL_PROVIDER=smtp
@@ -273,11 +253,12 @@ NC_MAIL_FROM_NAME=NeuroCapture
 NC_CONFIG_DIR=/srv/config
 ```
 
-S3 access comes from the instance role, so leave `NC_S3_ACCESS_KEY` and `NC_S3_SECRET_KEY` unset.
+The instance role assumes the hospitals' upload roles, so leave `NC_S3_ACCESS_KEY` and
+`NC_S3_SECRET_KEY` unset.
 
 ```bash
 chmod +x /srv/nc/start-api.sh && sudo /srv/nc/start-api.sh
-curl -s http://127.0.0.1:8000/health      # {"status":"ok", ... "checks": {database, storage}}
+curl -s http://127.0.0.1:8000/health      # {"status":"ok", ... "checks": {"database": "ok", "storage": "hospital_owned"}}
 ```
 
 If the container stops at once, read `docker logs nc-api`. A message starting with
@@ -334,12 +315,61 @@ docker exec -it nc-api python -m app.admin create-platform-admin --email you@exa
 | Start after reboot | `sudo crontab -e` → `@reboot /srv/nc/start-api.sh` (the container also restarts itself)                                                                                                                                   |
 | Health             | CloudWatch Synthetics canary or Route 53 health check on `https://api.example.in/health`                                                                                                                                  |
 | Logs               | `docker logs nc-api`; for CloudWatch, add `--log-driver awslogs --log-opt awslogs-group=/nc/api --log-opt awslogs-region=ap-south-1` to `docker run` (the role then needs `logs:CreateLogStream` and `logs:PutLogEvents`) |
-| Backups            | RDS automated backups and snapshots; S3 versioning; AWS Backup for the EC2 volume (optional, the server holds no data)                                                                                                    |
+| Backups            | RDS automated backups and snapshots; AWS Backup for the EC2 volume (optional, the server holds no data); recordings live with each hospital                                                                               |
 | Update             | Snapshot RDS → `git pull` → `docker build -t neurocapture-api:<new> backend/` → edit the tag in `start-api.sh` → `sudo /srv/nc/start-api.sh`                                                                              |
 | Config change      | Edit `config/*.json` in `/srv/nc/src`, run `pnpm validate`, then `sudo /srv/nc/start-api.sh`. The app needs a new APK for the same change                                                                                 |
 | Patching           | `sudo unattended-upgrades` (on by default on Ubuntu); reboot monthly                                                                                                                                                      |
 
-## Step 12: A hospital that runs its connector in AWS
+## Step 12: A hospital connects its own S3 bucket
+
+Every hospital must do this (or the Azure version, [`azure.md`](azure.md) step 12) before its
+phones can record. Until then the dashboard says **Recording is off**, the clinic phone says
+"Recording is not ready" and patients see the hospital as "Getting ready".
+
+NeuroCapture can only **upload** into the bucket: it can never read, list or delete. The hospital's
+connector reads the recordings. The files are already encrypted on the phone with the hospital's
+take key; S3 encryption is a second layer.
+
+**At the hospital** (its AWS administrator; the dashboard's Data connections → Recording storage
+→ **Your own Amazon S3 bucket** shows the ExternalId and both policies with the real values filled in):
+
+1. **Create the bucket** in the hospital's account and region:
+
+   ```bash
+   B=<hospital>-neurocapture-takes
+   aws s3api create-bucket --bucket $B --region ap-south-1 \
+     --create-bucket-configuration LocationConstraint=ap-south-1
+   aws s3api put-public-access-block --bucket $B \
+     --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+   aws s3api put-bucket-versioning --bucket $B --versioning-configuration Status=Enabled
+   aws s3api put-bucket-encryption --bucket $B \
+     --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+   # Clean up uploads that phones abandoned:
+   aws s3api put-bucket-lifecycle-configuration --bucket $B --lifecycle-configuration \
+     '{"Rules":[{"ID":"abort-incomplete","Status":"Enabled","Filter":{},"AbortIncompleteMultipartUpload":{"DaysAfterInitiation":7}}]}'
+   ```
+
+   Phones upload with presigned URLs; no bucket CORS is needed. Size: a session is about
+   0.3–0.5 GB. Set the hospital's own retention rules.
+
+2. **Create the upload role** `neurocapture-upload`:
+   - **Trust policy:** the dashboard's, which allows NeuroCapture's principal
+     (`NC_PLATFORM_AWS_PRINCIPAL`) only with the hospital's **ExternalId**.
+   - **Permissions policy:** the dashboard's, which allows only `s3:PutObject`,
+     `s3:AbortMultipartUpload` and `s3:ListMultipartUploadParts` on the bucket (or a prefix).
+
+   ```bash
+   aws iam create-role --role-name neurocapture-upload --assume-role-policy-document file://trust.json
+   aws iam put-role-policy --role-name neurocapture-upload --policy-name upload-only --policy-document file://upload.json
+   ```
+
+3. **Let the connector read:** the connector's EC2 role (step 13) gets `s3:GetObject` and
+   `s3:ListBucket` on the bucket.
+4. **In the dashboard:** bucket, region, role ARN → **Test and save**. The test assumes the role,
+   uploads a test object and checks that reading is refused. It saves only if the upload works.
+   The card then says **Phones can record**.
+
+## Step 13: A hospital that runs its connector in AWS
 
 Each hospital runs its **own** connector, in its own account and network ([`../connector.md`](../connector.md)).
 If the hospital uses AWS:
@@ -393,17 +423,15 @@ If the hospital uses AWS:
    "Not sent" means the mail or SMS settings were refused; the connector log says which (by type,
    never the address).
 
-## Step 13 (optional): Hospitals on Azure keep recordings in their own Blob container
+## Step 14 (optional): Offer Azure Blob as well
 
-The platform can run on AWS and still let a hospital keep its recordings in **its own Azure Blob
-container**, write-only for NeuroCapture (decision 037):
+The platform can run on AWS and still let hospitals on Azure connect **their own Blob container**.
+Register NeuroCapture's multi-tenant Entra app exactly as in [`azure.md`](azure.md) step 5b, then:
 
-1. Create a multitenant app registration in a Microsoft Entra tenant you own, with a client
-   secret.
-2. Store the secret: `aws secretsmanager create-secret --name nc/azure-client-secret --secret-string '<secret>'`.
-3. Add `NC_AZURE_CLIENT_ID=<application id>` to `api.env`, and
+1. Store the secret: `aws secretsmanager create-secret --name nc/azure-client-secret --secret-string '<secret>'`.
+2. Add `NC_AZURE_CLIENT_ID=<application (client) id>` to `api.env`, and
    `-e NC_AZURE_CLIENT_SECRET="$(s nc/azure-client-secret)"` to `start-api.sh`.
-4. Restart the API.
+3. Restart the API. Dashboard → **Platform settings** then lists Azure Blob.
 
 The hospital's steps are in [`azure.md`](azure.md) step 12 and in the dashboard.
 
@@ -413,7 +441,6 @@ The hospital's steps are in [`azure.md`](azure.md) step 12 and in the dashboard.
 | ---------------------------------- | -------------------------------------- |
 | EC2 t4g.medium + 40 GB             | ~ US$ 30 / month                       |
 | RDS db.t4g.medium single-AZ, 50 GB | ~ US$ 60 / month (Multi-AZ ~2×)        |
-| S3                                 | ~ US$ 0.025 per GB-month               |
 | SES                                | ~ US$ 0.10 per 1,000 e-mails           |
 | SNS SMS to India                   | per message; check current SNS pricing |
 

@@ -17,22 +17,30 @@ create is listed in [`resources.md`](resources.md).
           ┌────────▼─────────┐  public IP, NSG: 80/443 from anywhere, 22 from your IP only
           │ VM: Ubuntu 24.04 │  Caddy (TLS) ─► API container (port 8000)
           │  + Docker        │             └─► dashboard static files
-          └──┬──────────┬────┘  managed identity → Key Vault, Blob Storage
+          └──┬──────────┬────┘  managed identity → Key Vault
              │          │
-   ┌─────────▼──────┐ ┌─▼──────────────────────┐ ┌──────────────────────────────┐
-   │ Azure Database │ │ Storage account (Blob)  │ │ Azure Communication Services │
-   │ for PostgreSQL │ │ recordings, encrypted   │ │ Email over SMTP: staff       │
-   │ (Flexible)     │ │ on the phone            │ │ invites                      │
-   └────────────────┘ └─────────────────────────┘ └──────────────────────────────┘
+   ┌─────────▼──────┐ ┌─▼────────────────────────────┐
+   │ Azure Database │ │ Azure Communication Services │
+   │ for PostgreSQL │ │ Email over SMTP: staff       │
+   │ (Flexible)     │ │ invites, app sign-in codes   │
+   └────────────────┘ └──────────────────────────────┘
+
+   Recordings ──► each hospital's own Azure Blob container or S3 bucket (never NeuroCapture's)
 ```
 
-**Recordings go to Azure Blob Storage** (`NC_STORAGE=azure`, decision 037). Phones upload
-straight to Blob through short-lived links that can write one recording and nothing else; the
-API server never stores video. The API server therefore holds no data: you can replace it, or
-run two or more behind a load balancer, without moving recordings.
+**NeuroCapture stores no recordings** (decision 044). Every hospital connects **its own** Azure
+Blob container or Amazon S3 bucket. Phones upload straight into it through short-lived links that
+can write one recording and nothing else. NeuroCapture can never read, list or delete there; the
+hospital's connector reads the files. Until a hospital's storage test passes, its phones cannot
+record.
 
-Hospitals can also keep recordings in **their own** Azure Blob container (or their own S3 bucket)
-instead of NeuroCapture storage. See step 12.
+So the platform has **no storage account**. What you create instead:
+
+- **Step 5b:** NeuroCapture's Azure app registration, so hospitals can choose Azure Blob.
+- **Step 5c:** AWS credentials that can only assume roles, so hospitals can choose S3.
+
+You need at least one of them. The API server holds no data: you can replace it, or run two or
+more behind a load balancer.
 
 ---
 
@@ -149,29 +157,94 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt-get update && sudo apt-get install -y caddy
 ```
 
-## Step 5b: Recordings storage (Blob)
+## Step 5b: Register NeuroCapture's Azure app (hospitals on Azure Blob)
 
-```bash
-az storage account create -g nc-prod -n ncrec<unique> -l centralindia \
-  --sku Standard_ZRS --kind StorageV2 --https-only true --min-tls-version TLS1_2 \
-  --allow-blob-public-access false --allow-shared-key-access false
-az storage account blob-service-properties update -g nc-prod --account-name ncrec<unique> \
-  --enable-delete-retention true --delete-retention-days 30 --enable-versioning true
-# The API server's managed identity may write and read recordings, and sign upload links:
-SA=$(az storage account show -g nc-prod -n ncrec<unique> --query id -o tsv)
-az role assignment create --assignee-object-id "$(az vm show -g nc-prod -n nc-api --query identity.principalId -o tsv)" \
-  --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope "$SA"
-```
+Hospitals on Azure let **one app of yours** write into their container. You register it **once
+per platform**, in your own Microsoft Entra tenant. Each hospital then approves it in theirs
+(step 12).
 
-- **No storage key** is used: `--allow-shared-key-access false` turns keys off. The API signs
-  upload links with its managed identity (user delegation SAS). The API creates the container
-  `neurocapture-takes` on start.
-- **Redundancy:** `Standard_ZRS` keeps copies in three zones of the region. Use `Standard_LRS` for
-  a cheaper pilot.
-- **Abandoned uploads:** Azure drops uncommitted blocks from interrupted phone uploads after
-  7 days.
-- **Sizing (rough):** a session is about 0.3–0.5 GB of video. Blob storage grows by itself; set a
-  budget alert.
+You need the **Application Developer** role (or higher) in your tenant.
+
+1. **Register the app.**
+   - Azure portal → **Microsoft Entra ID** → **App registrations** → **New registration**.
+   - Name: `NeuroCapture recordings (India)` (one per market; use your market's name).
+   - Supported account types: **Accounts in any organizational directory (Any Microsoft Entra ID
+     tenant – Multitenant)**.
+   - Redirect URI: leave empty.
+   - **Register.** Copy the **Application (client) ID** from the Overview page.
+
+   Or with the CLI:
+
+   ```bash
+   APP_ID=$(az ad app create --display-name "NeuroCapture recordings (India)" \
+     --sign-in-audience AzureADMultipleOrgs --query appId -o tsv)
+   az ad sp create --id "$APP_ID"          # its service principal in your own tenant
+   echo "$APP_ID"
+   ```
+
+2. **API permissions:** none are needed. The app only gets storage roles that each hospital
+   assigns on its own container. Remove the default `User.Read` permission if you like.
+3. **Publisher details (recommended):** Branding & properties → set the publisher domain to your
+   verified domain, plus a home page, privacy and terms URL. Hospital administrators see these when
+   they approve the app. Consider Microsoft's publisher verification so the app shows as verified.
+4. **Create a client secret.**
+   - **Certificates & secrets** → **New client secret**, description `nc-api`, expiry 12 or
+     24 months.
+   - Copy the **Value** at once; it is shown only once.
+
+   ```bash
+   az ad app credential reset --id "$APP_ID" --display-name nc-api --years 1 --append --query password -o tsv
+   ```
+
+5. **Store the secret** in the key vault (step 6 creates the vault; come back here if needed):
+
+   ```bash
+   az keyvault secret set --vault-name nc-kv-<unique> -n azure-client-secret --value '<secret value>'
+   ```
+
+6. **Turn it on:**
+   - In `api.env` (step 7): `NC_AZURE_CLIENT_ID=<application (client) id>`.
+   - In `start-api.sh`: `-e NC_AZURE_CLIENT_SECRET="$(s azure-client-secret)"`.
+   - Restart the API.
+7. **Check.** Dashboard → **Platform settings** shows "Azure app registered" with your client ID,
+   and the storage choices include **Azure Blob**.
+8. **Before the secret expires,** create a new one (step 4 with `--append`), put it in the key
+   vault, and restart the API. Then delete the old one. While the secret is expired, uploads to
+   hospitals on Azure stop. Set a calendar reminder or an Entra expiry alert.
+
+The client ID is not secret: hospitals see it on their set-up page. The same app works whether the
+platform runs on Azure or AWS.
+
+## Step 5c: AWS credentials for hospitals on S3
+
+Hospitals on S3 create a role in **their** AWS account that trusts **your** AWS identity (with an
+ExternalId, step 12 in [`aws.md`](aws.md)). A platform on Azure has no AWS instance role, so create
+an AWS user that can do nothing but assume such roles:
+
+1. In your AWS account (one per market is fine): IAM → **Users** → **Create user**
+   `nc-platform-uploader`. No console access.
+2. Inline policy:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [{ "Effect": "Allow", "Action": "sts:AssumeRole", "Resource": "*" }]
+   }
+   ```
+
+3. **Security credentials** → **Create access key** (use case: application running outside AWS).
+4. Store it:
+
+   ```bash
+   az keyvault secret set --vault-name nc-kv-<unique> -n aws-access-key-id     --value '<access key id>'
+   az keyvault secret set --vault-name nc-kv-<unique> -n aws-secret-access-key --value '<secret access key>'
+   ```
+
+5. In `api.env`: `NC_PLATFORM_AWS_PRINCIPAL=arn:aws:iam::<your-account-id>:user/nc-platform-uploader`.
+   In `start-api.sh`: `-e NC_S3_ACCESS_KEY="$(s aws-access-key-id)" -e NC_S3_SECRET_KEY="$(s aws-secret-access-key)"`.
+
+The hospital's role trusts exactly this ARN. Rotate the key yearly (create a second key, switch,
+delete the old one).
 
 ## Step 6: Keys and secrets (Azure Key Vault)
 
@@ -192,6 +265,7 @@ az keyvault secret set --vault-name nc-kv-<unique> -n account-pepper      --valu
 az keyvault secret set --vault-name nc-kv-<unique> -n db-url              --value 'postgresql+psycopg://nc_admin:<pw>@nc-db-<unique>.postgres.database.azure.com:5432/neurocapture?sslmode=require'
 az keyvault secret set --vault-name nc-kv-<unique> -n smtp-username       --value '<SMTP username>'
 az keyvault secret set --vault-name nc-kv-<unique> -n smtp-password       --value '<client secret>'
+az keyvault secret set --vault-name nc-kv-<unique> -n azure-client-secret --value '<step 5b secret>'
 # Let the VM read them (its managed identity):
 az role assignment create --assignee-object-id "$(az vm show -g nc-prod -n nc-api --query identity.principalId -o tsv)" \
   --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope "$KV"
@@ -228,9 +302,15 @@ docker run -d --name nc-api --restart unless-stopped -p 127.0.0.1:8000:8000 \
   -e NC_ACCOUNT_PEPPER="$(s account-pepper)" \
   -e NC_SMTP_USERNAME="$(s smtp-username)" \
   -e NC_SMTP_PASSWORD="$(s smtp-password)" \
+  -e NC_AZURE_CLIENT_SECRET="$(s azure-client-secret)" \
+  -e NC_S3_ACCESS_KEY="$(s aws-access-key-id)" \
+  -e NC_S3_SECRET_KEY="$(s aws-secret-access-key)" \
   --env-file /srv/nc/api.env \
   neurocapture-api:1.0.0
 ```
+
+Leave out the `NC_AZURE_CLIENT_SECRET` line if you skipped step 5b, and the two `NC_S3_*` lines if
+you skipped step 5c.
 
 `/srv/nc/api.env` (no secrets in it):
 
@@ -242,10 +322,11 @@ NC_PLATFORM_SIGNING_KEY_PATH=/keys/platform-signing.pem
 NC_PLATFORM_KEY_ID=platform-1
 NC_SERVER_PUBLIC_KEY_PATH=/keys/server-public.pem
 NC_SERVER_KEY_ID=server-1
-NC_STORAGE=azure
-NC_AZURE_STORAGE_ACCOUNT=ncrec<unique>
-NC_AZURE_CONTAINER=neurocapture-takes
-# (no NC_AZURE_STORAGE_KEY: the VM's managed identity signs upload links)
+# Recordings go to each hospital's own storage (decision 044). Keep development storage off:
+NC_DEV_STORAGE=false
+NC_AZURE_CLIENT_ID=<step 5b application (client) id>
+NC_PLATFORM_AWS_PRINCIPAL=arn:aws:iam::<your-account-id>:user/nc-platform-uploader
+NC_S3_REGION=ap-south-1
 NC_REQUIRE_HOSPITAL_KEY=true
 NC_ALLOW_LEGACY_REF_HASH=false
 NC_EMAIL_PROVIDER=smtp
@@ -259,7 +340,7 @@ NC_CONFIG_DIR=/srv/config
 
 ```bash
 chmod +x /srv/nc/start-api.sh && sudo /srv/nc/start-api.sh
-curl -s http://127.0.0.1:8000/health      # {"status":"ok", ... "checks": {database, storage}}
+curl -s http://127.0.0.1:8000/health      # {"status":"ok", ... "checks": {"database": "ok", "storage": "hospital_owned"}}
 ```
 
 If the container stops at once, read `docker logs nc-api`. A message starting with
@@ -290,16 +371,16 @@ docker exec -it nc-api python -m app.admin create-platform-admin --email you@exa
 
 ## Step 10: Operations
 
-| Task               | How                                                                                                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Start after reboot | `sudo crontab -e` → `@reboot /srv/nc/start-api.sh` (the container also restarts itself)                                                                                      |
-| Health             | Azure Monitor → Application Insights **availability test** on `https://api.example.in/health`, with an alert                                                                 |
-| Logs               | `docker logs nc-api`; for central logs, install the Azure Monitor Agent and collect syslog, or run the container with `--log-driver syslog`                                  |
-| Backups            | PostgreSQL automatic backups (14 days; add long-term retention if needed); Blob soft delete and versioning (step 5b); the VM holds no data (Azure Backup for it is optional) |
-| More servers       | The API keeps no files: add a second VM with the same `start-api.sh` and put both behind Azure Application Gateway or Load Balancer                                          |
-| Update             | Back up first → `git pull` → `docker build -t neurocapture-api:<new> backend/` → edit the tag in `start-api.sh` → `sudo /srv/nc/start-api.sh`                                |
-| Config change      | Edit `config/*.json`, run `pnpm validate`, then `sudo /srv/nc/start-api.sh`. The app needs a new APK for the same change                                                     |
-| Patching           | Ubuntu unattended upgrades (on by default); Azure Update Manager for scheduled reboots                                                                                       |
+| Task               | How                                                                                                                                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start after reboot | `sudo crontab -e` → `@reboot /srv/nc/start-api.sh` (the container also restarts itself)                                                                                       |
+| Health             | Azure Monitor → Application Insights **availability test** on `https://api.example.in/health`, with an alert                                                                  |
+| Logs               | `docker logs nc-api`; for central logs, install the Azure Monitor Agent and collect syslog, or run the container with `--log-driver syslog`                                   |
+| Backups            | PostgreSQL automatic backups (14 days; add long-term retention if needed); the VM holds no data (Azure Backup for it is optional); recordings live in each hospital's storage |
+| More servers       | The API keeps no files: add a second VM with the same `start-api.sh` and put both behind Azure Application Gateway or Load Balancer                                           |
+| Update             | Back up first → `git pull` → `docker build -t neurocapture-api:<new> backend/` → edit the tag in `start-api.sh` → `sudo /srv/nc/start-api.sh`                                 |
+| Config change      | Edit `config/*.json`, run `pnpm validate`, then `sudo /srv/nc/start-api.sh`. The app needs a new APK for the same change                                                      |
+| Patching           | Ubuntu unattended upgrades (on by default); Azure Update Manager for scheduled reboots                                                                                        |
 
 ## Step 11: A hospital that runs its connector in Azure
 
@@ -364,40 +445,41 @@ If the hospital uses Azure:
    "Not sent" means the mail or SMS settings were refused; the connector log says which (by type,
    never the address).
 
-## Step 12: Letting hospitals keep recordings in their own Azure Blob container
+## Step 12: A hospital connects its own Azure Blob container
 
-A hospital can choose, in its dashboard (Data connections → Recording storage), to keep recordings
-in **its own** storage account. NeuroCapture can then only **write** there: it can never read, list
-or delete. The hospital's connector reads the recordings. The files are still encrypted on the
-phone with the hospital's key.
+Every hospital must do this (or the S3 version in [`aws.md`](aws.md) step 12) before its phones
+can record. Until then the dashboard says **Recording is off**, the clinic phone says "Recording is
+not ready" and patients see the hospital as "Getting ready".
 
-**Once, on your side (NeuroCapture):**
+NeuroCapture can only **write** into the container: it can never read, list or delete. The
+hospital's connector reads the recordings. The files are already encrypted on the phone with the
+hospital's take key.
 
-1. Entra ID → App registrations → **New registration** `NeuroCapture recordings`, _Accounts in any
-   organizational directory (multitenant)_.
-2. Create a **client secret** and store it:
+**At the hospital** (its Azure administrator; the dashboard's Data connections → Recording storage
+→ **Your own Azure Blob container** shows these steps with the real IDs filled in):
+
+1. **Create the storage**, in the hospital's subscription and region:
 
    ```bash
-   az keyvault secret set --vault-name nc-kv-<unique> -n azure-client-secret --value '<secret>'
+   az storage account create -g <rg> -n <account> -l <region> --sku Standard_ZRS --kind StorageV2 \
+     --https-only true --min-tls-version TLS1_2 --allow-blob-public-access false
+   az storage account blob-service-properties update -g <rg> --account-name <account> \
+     --enable-delete-retention true --delete-retention-days 30 --enable-versioning true
+   az storage container create --account-name <account> -n neurocapture-takes --auth-mode login
    ```
 
-3. Add to `api.env`: `NC_AZURE_CLIENT_ID=<application (client) id>`. In `start-api.sh`, add
-   `-e NC_AZURE_CLIENT_SECRET="$(s azure-client-secret)"`. Then restart the API.
+   Size: a session is about 0.3–0.5 GB. Set the hospital's own retention rules.
 
-   The dashboard then offers "Your own Azure Blob container". The same works when the platform
-   runs on AWS.
-
-**At each hospital** (its Azure administrator, guided by the dashboard):
-
-1. A Global Administrator approves the NeuroCapture app in the hospital's tenant with the link
-   in the dashboard. (Alternative: `az ad sp create --id <NeuroCapture client id>`.)
-2. Create the **custom role** the dashboard shows. It allows writing blobs only:
+2. **Approve NeuroCapture's app** in the hospital tenant. A Global Administrator (or Privileged
+   Role Administrator) opens the approval link shown in the dashboard, or runs
+   `az ad sp create --id <NeuroCapture client id>`.
+3. **Create the custom role** the dashboard shows. It allows writing blobs only:
 
    ```bash
    az role definition create --role-definition @neurocapture-uploader.json
    ```
 
-3. Assign the app two roles:
+4. **Assign the app two roles:**
    - **Storage Blob Delegator** on the storage account (lets it sign upload links);
    - the custom role on the container.
 
@@ -406,22 +488,24 @@ phone with the hospital's key.
    az role assignment create --assignee-object-id $SP --assignee-principal-type ServicePrincipal \
      --role "Storage Blob Delegator" --scope <storage account id>
    az role assignment create --assignee-object-id $SP --assignee-principal-type ServicePrincipal \
-     --role "NeuroCapture recording uploader" --scope <storage account id>/blobServices/default/containers/<container>
+     --role "NeuroCapture recording uploader" --scope <storage account id>/blobServices/default/containers/neurocapture-takes
    ```
 
-4. Give the **connector's** managed identity **Storage Blob Data Reader** on the container. (Or
-   set `NCC_AZURE_STORAGE_KEY` on the connector, if the hospital uses account keys.)
-5. In the dashboard: storage account, container, tenant ID → **Test and save**. The test signs in,
-   uploads a test block and checks that reading is refused. It saves only if the upload works.
+5. **Let the connector read:** give the connector's managed identity **Storage Blob Data Reader**
+   on the container. (Or set `NCC_AZURE_STORAGE_KEY` on the connector, if the hospital uses
+   account keys.)
+6. **In the dashboard:** storage account, container, tenant ID → **Test and save**. The test signs
+   in, uploads a test block and checks that reading is refused. It saves only if the upload works.
+   The card then says **Phones can record**.
 
-Earlier recordings stay where they were; only new ones go to the new storage.
+Role assignments can take a few minutes to apply; if the first test fails with "not allowed", wait
+five minutes and test again.
 
 ## Costs (rough, pay-as-you-go, before tax; similar in East US and Central India)
 
 | Item                                      | Pilot (1 hospital)                                         |
 | ----------------------------------------- | ---------------------------------------------------------- |
 | VM Standard_D2s_v5 + 64 GB OS disk        | ~ US$ 75 / month (B2ms: ~ US$ 35)                          |
-| Blob storage (ZRS, hot)                   | ~ US$ 0.025 per GB-month (LRS less)                        |
 | PostgreSQL Flexible, Burstable B2s, 64 GB | ~ US$ 35 / month (General Purpose + HA several times more) |
 | ACS Email                                 | ~ US$ 0.25 per 1,000 e-mails + data                        |
 

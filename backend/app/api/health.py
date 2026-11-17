@@ -29,7 +29,10 @@ def health(response: Response) -> Health:
         log.warning("database check failed: %s", type(exc).__name__)
         checks["database"] = "error"
     settings = get_settings()
-    if settings.storage == "local":
+    if not settings.dev_storage:
+        # Decision 044: recordings go to each hospital's own storage (checked per hospital).
+        checks["storage"] = "hospital_owned"
+    elif settings.storage == "local":
         try:
             ping_local_storage()
             checks["storage"] = "ok"

@@ -62,9 +62,16 @@ docker exec nc-connector python -m ncconnector take-keys   # compare fingerprint
 Phones wrap every recording key with this public key, from the next session on. Run the command
 again to rotate. Old keys stay in the folder so earlier recordings still open.
 
-### 2c. Optional: store recordings in the hospital's own S3 bucket
+### 2c–2d. Required: the hospital's own recordings storage
 
-In Data connections → Storage, the dashboard shows an ExternalId and two policies:
+NeuroCapture keeps no recordings (decision 044). Connect **one** of these (S3 or Azure Blob);
+until its test passes, the hospital's phones cannot record and the dashboard says "Recording is
+off". Full cloud steps: [`deploy/aws.md`](deploy/aws.md) step 12 and
+[`deploy/azure.md`](deploy/azure.md) step 12.
+
+### 2c. The hospital's own S3 bucket
+
+In Data connections → Recording storage → **Your own Amazon S3 bucket**, the dashboard shows an ExternalId and two policies:
 
 1. Create an IAM role that trusts the NeuroCapture principal with that ExternalId (trust policy).
 2. Allow only `s3:PutObject`, `s3:AbortMultipartUpload` and `s3:ListMultipartUploadParts`
@@ -72,9 +79,9 @@ In Data connections → Storage, the dashboard shows an ExternalId and two polic
 3. Enter the bucket, region, prefix and role ARN. The platform tests the role before switching.
 4. Give the connector read access to the same prefix, with its own AWS credentials.
 
-### 2d. Optional: store recordings in the hospital's own Azure Blob container
+### 2d. The hospital's own Azure Blob container
 
-In Data connections → Recording storage → "Your own Azure Blob container", the dashboard shows the
+In Data connections → Recording storage → **Your own Azure Blob container**, the dashboard shows the
 steps, the approval link and a custom role (decision 037):
 
 1. A Global Administrator approves the NeuroCapture app in the hospital's Microsoft Entra tenant.

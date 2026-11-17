@@ -19,6 +19,8 @@ interface Hospital {
   operators: number;
   staff: number;
   patients: number;
+  /** Decision 044: the hospital's own storage passed its test. */
+  can_record: boolean;
 }
 interface Setup {
   admin_accepted: boolean;
@@ -26,6 +28,7 @@ interface Setup {
   connector_check: Record<string, string> | null;
   storage_kind: string;
   storage_check: Record<string, string> | null;
+  can_record: boolean;
   take_key: boolean;
   devices: number;
   operators: number;
@@ -91,6 +94,7 @@ export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) =
           t('platform.devices'),
           t('platform.operators'),
           t('platform.patients'),
+          t('platform.canRecord'),
           '',
         ]}
         testId="hospitals"
@@ -114,6 +118,11 @@ export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) =
               <td className="px-4 py-3">{h.devices}</td>
               <td className="px-4 py-3">{h.operators}</td>
               <td className="px-4 py-3">{h.patients}</td>
+              <td className="px-4 py-3" data-testid={`can-record-${h.name}`}>
+                <Badge tone={h.can_record ? 'ok' : 'bad'}>
+                  {h.can_record ? t('platform.yes') : t('platform.noStorage')}
+                </Badge>
+              </td>
               <td className="flex gap-2 px-4 py-3">
                 <Button
                   variant="secondary"
@@ -165,13 +174,13 @@ function SetupSteps({ id }: { id: string }) {
   if (!s) return <ErrorNote error={error} />;
   const checkOk =
     !!s.connector_check && Object.values(s.connector_check).every((v) => v === 'pass');
-  const storageOk = s.storage_kind === 'managed' || s.storage_check?.upload === 'pass';
+  const storageOk = s.can_record;
   const steps: [string, boolean][] = [
     [t('platform.stepAdmin'), s.admin_accepted],
     [t('platform.stepConnector'), s.connector_registered],
     [t('platform.stepConnectorCheck'), checkOk],
     [t('platform.stepKey'), s.take_key],
-    [`${t('platform.stepStorage')}: ${s.storage_kind}`, storageOk],
+    [`${t('platform.stepStorage')}: ${t(`platform.storageKind.${s.storage_kind}`)}`, storageOk],
     [t('platform.stepTeam'), s.doctors > 0 && (s.operators > 0 || s.devices >= 0)],
   ];
   return (
@@ -361,6 +370,70 @@ export function PlatformLog() {
         showPatient={false}
         testId="platform-log"
       />
+    </Page>
+  );
+}
+
+interface PlatformSettings {
+  storage_offered: string[];
+  azure_app_registered: boolean;
+  azure_app_client_id: string | null;
+  dev_storage: boolean;
+}
+
+/** Decision 044: NeuroCapture stores no videos; which storage kinds hospitals can connect. */
+export function PlatformSettingsPage() {
+  const { t } = useTranslation();
+  const [s, setS] = useState<PlatformSettings | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(
+    () => void call<PlatformSettings>('GET', '/platform/settings').then(setS, setError),
+    [],
+  );
+  const kinds: [string, boolean, string][] = s
+    ? [
+        ['s3', s.storage_offered.includes('s3'), t('platform.kindS3')],
+        ['azure', s.azure_app_registered, t('platform.kindAzure')],
+      ]
+    : [];
+  return (
+    <Page title={t('nav.platformSettings')}>
+      <ErrorNote error={error} />
+      <Card title={t('platform.storageTitle')} testId="platform-storage">
+        <p className="text-[14px] leading-5 text-[#3D4552]">{t('platform.storageIntro')}</p>
+        <ul className="m-0 flex list-none flex-col p-0">
+          {kinds.map(([k, ok, label]) => (
+            <li
+              key={k}
+              className="flex items-center gap-3 border-t border-line py-2.5 text-[14px]"
+              data-testid={`kind-${k}`}
+            >
+              <span className="flex-1">{label}</span>
+              <Badge tone={ok ? 'ok' : 'warn'}>
+                {ok ? t('platform.available') : t('platform.azureMissing')}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+        {s && !s.azure_app_registered && (
+          <p className="rounded-xl bg-ground px-3 py-2.5 text-[13px] leading-[19px]">
+            {t('platform.azureHowTo')}
+          </p>
+        )}
+        {s?.azure_app_client_id && (
+          <p className="text-[13px] text-muted">
+            {t('platform.azureAppId')}: <code className="text-ink">{s.azure_app_client_id}</code>
+          </p>
+        )}
+        {s?.dev_storage && (
+          <p
+            className="rounded-xl bg-warn-soft px-3 py-2.5 text-[13px] text-warn"
+            data-testid="dev-storage-on"
+          >
+            {t('platform.devStorageOn')}
+          </p>
+        )}
+      </Card>
     </Page>
   );
 }

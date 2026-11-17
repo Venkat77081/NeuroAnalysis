@@ -31,6 +31,7 @@ from app.models import (
 )
 from app.policy import policy
 from app.security import Principal, require_role
+from app.storage.sites import can_record
 
 router = APIRouter(prefix="/overview", tags=["overview"])
 anyone = require_role("platform_admin", "hospital_admin", "receptionist", "doctor")
@@ -179,10 +180,10 @@ def _site_issue(db: DbSession, site: Site) -> str:
         return "connector_not_tested"
     if any(v != "pass" for v in site.connector_check.values()):
         return "connector_failing"
-    if site.storage_kind != "managed" and not site.storage_check:
-        return "storage_not_tested"
-    if site.storage_check and any(v != "pass" for v in site.storage_check.values()):
-        return "storage_failing"
+    if site.storage_kind == "none":
+        return "storage_not_connected"
+    if not can_record(site):
+        return "storage_failing" if site.storage_check else "storage_not_tested"
     return "ok"
 
 
@@ -291,7 +292,9 @@ def _hospital(db: DbSession, site: Site, days: int) -> OverviewOut:
         Item(key="sms", status=msg.get("sms", "unknown")),
         Item(
             key="storage",
-            status="pass" if site.storage_kind == "managed" and not storage else check(storage),
+            status="pass"
+            if can_record(site)
+            else ("missing" if site.storage_kind == "none" else check(storage)),
             place=site.storage_kind,
             at=site.storage_checked_at,
         ),

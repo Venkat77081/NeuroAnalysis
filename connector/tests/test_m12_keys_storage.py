@@ -293,7 +293,7 @@ def test_hospital_bucket_upload_only_role(env, aws, monkeypatch):
     )  # S3: parts >= 5 MiB except the last
     settings = api.get("/hospital/storage", headers=hdr(env["admin_tok"])).json()
     ext = settings["external_id"]
-    assert settings["kind"] == "managed" and ext.startswith("nc-")
+    assert settings["kind"] == "dev" and ext.startswith("nc-")
     assert settings["trust_policy"]["Statement"][0]["Condition"]["StringEquals"]["sts:ExternalId"] == ext
 
     bad = api.put(
@@ -309,7 +309,7 @@ def test_hospital_bucket_upload_only_role(env, aws, monkeypatch):
         },
     )
     assert bad.status_code == 422 and bad.json()["detail"]["upload"] == "fail"
-    assert api.get("/hospital/storage", headers=hdr(env["admin_tok"])).json()["kind"] == "managed"
+    assert api.get("/hospital/storage", headers=hdr(env["admin_tok"])).json()["kind"] == "dev"
 
     r = api.put(
         "/hospital/storage",

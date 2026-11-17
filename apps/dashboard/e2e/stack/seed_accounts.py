@@ -36,6 +36,7 @@ with _factory()() as db:
         patient_ref_salt=os.urandom(16).hex(),
         onboarded_by=root.id,
         onboarded_at=datetime.now(UTC),
+        storage_kind="dev",  # decision 044: development storage on the test stack
         connector_url=os.environ["E2E_CONNECTOR_URL"],
         connector_public_key=os.environ["E2E_CONNECTOR_PUBLIC"],
     )

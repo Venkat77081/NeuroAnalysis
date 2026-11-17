@@ -424,7 +424,7 @@ class ObjectLocation(BaseModel):
 
 class TakeFileOut(BaseModel):
     kind: str
-    #: Short-lived download link (NeuroCapture-managed storage), or null with `location` set.
+    #: Short-lived download link (development storage only), or null with `location` set (decision 044).
     url: str | None = None
     location: ObjectLocation | None = None
     sha256: str

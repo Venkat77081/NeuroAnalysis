@@ -1,7 +1,8 @@
-"""Hospital storage settings (PLATFORM_PLAN M12, decision 037): NeuroCapture-managed, the hospital's
-own S3 bucket through an upload-only IAM role that trusts the platform with a hospital-specific
-ExternalId, or the hospital's own Azure Blob container through a write-only role given to
-NeuroCapture's app in the hospital's Microsoft Entra tenant."""
+"""Hospital storage settings (PLATFORM_PLAN M12, decisions 037, 044). NeuroCapture stores no videos:
+each hospital connects its own S3 bucket (an upload-only IAM role that trusts the platform with a
+hospital-specific ExternalId) or its own Azure Blob container (a write-only role given to
+NeuroCapture's app in the hospital's Microsoft Entra tenant). Until one passes its test, the
+hospital cannot record. `dev` is a development storage for tests and the local demo stack only."""
 
 import secrets
 from datetime import UTC, datetime
@@ -77,7 +78,7 @@ class AzureIn(BaseModel):
 
 
 class StorageIn(BaseModel):
-    kind: Literal["managed", "s3", "azure"]
+    kind: Literal["s3", "azure", "dev"]
     s3: S3In | None = None
     azure: AzureIn | None = None
 
@@ -101,7 +102,13 @@ def azure_role_definition() -> dict:
 
 
 class StorageOut(BaseModel):
+    #: none (not connected: no recording) | s3 | azure | dev
     kind: str
+    #: Decision 044: true once the hospital's own storage passed its test.
+    can_record: bool = False
+    #: Kinds this platform offers: s3 always; azure when NeuroCapture's Azure app is registered;
+    #: dev only on test servers (NC_DEV_STORAGE=true).
+    offered: list[str] = []
     s3: dict | None
     external_id: str | None
     #: What the hospital puts on its IAM role: trust policy and (narrow) permissions policy.
@@ -114,6 +121,11 @@ class StorageOut(BaseModel):
     azure_app_client_id: str | None = None
     azure_consent_url: str | None = None
     azure_role_definition: dict | None = None
+
+
+def storage_offered() -> list[str]:
+    s = get_settings()
+    return ["s3"] + (["azure"] if s.azure_client_id else []) + (["dev"] if s.dev_storage else [])
 
 
 def _site(db: DbSession, p: Principal) -> Site:
@@ -135,8 +147,12 @@ def _out(site: Site) -> StorageOut:
     ext = site.storage_external_id
     app_id = get_settings().azure_client_id
     tenant = az["tenant_id"] if az else "organizations"
+    from app.storage.sites import can_record
+
     return StorageOut(
         kind=site.storage_kind,
+        can_record=can_record(site),
+        offered=storage_offered(),
         s3=cfg,
         external_id=ext,
         trust_policy=role_trust_policy(ext) if ext else None,
@@ -225,9 +241,11 @@ def set_storage_settings(
     """Switch where new recordings go. Earlier uploads stay where they are. Switching to s3 runs the
     check first and is refused unless the role works."""
     site = _site(db, p)
-    if body.kind == "managed":
-        site.storage_kind = "managed"
-        site.storage_check = None
+    if body.kind == "dev":
+        if not get_settings().dev_storage:
+            raise HTTPException(status.HTTP_409_CONFLICT, {"code": "dev_storage_off"})
+        site.storage_kind, site.storage_config = "dev", None
+        site.storage_check, site.storage_checked_at = {"upload": "pass"}, datetime.now(UTC)
     elif body.kind == "azure":
         if body.azure is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "azure_settings_required"})
@@ -297,7 +315,7 @@ def check_storage(
 ) -> StorageOut:  # noqa: B008
     site = _site(db, p)
     if site.storage_kind not in ("s3", "azure"):
-        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "managed_storage"})
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "storage_not_connected"})
     site.storage_check, site.storage_checked_at = _check(site), datetime.now(UTC)
     audit(
         db,

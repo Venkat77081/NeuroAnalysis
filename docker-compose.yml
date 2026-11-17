@@ -42,6 +42,8 @@ services:
       NC_S3_ACCESS_KEY: neurocapture
       NC_S3_SECRET_KEY: dev-only-password
       NC_S3_BUCKET: neurocapture-takes
+      # Decision 044: development storage only (production stores no videos; hospitals bring their own).
+      NC_DEV_STORAGE: 'true'
       # Decision 019: local storage by default (signed part URLs served by this API).
       NC_STORAGE: ${NC_STORAGE:-local}
       NC_STORAGE_DIR: /data/storage

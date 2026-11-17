@@ -23,6 +23,7 @@ def platform_api(tmp_path, monkeypatch):
     s = get_settings()
     monkeypatch.setattr(s, "database_url", "sqlite+pysqlite:///:memory:")
     monkeypatch.setattr(s, "storage", "local")
+    monkeypatch.setattr(s, "dev_storage", True)  # decision 044: development storage for tests
     monkeypatch.setattr(s, "storage_dir", str(tmp_path / "store"))
     monkeypatch.setattr(s, "public_base_url", "http://testserver")
     monkeypatch.setattr(s, "part_size", 1024)

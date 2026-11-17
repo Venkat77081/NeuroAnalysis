@@ -4,16 +4,17 @@ from app.main import app
 
 
 def test_health_ok_with_database_and_no_storage(monkeypatch):
+    """Decision 044: production has no platform storage; hospitals' storage is checked per hospital."""
     from app.config import get_settings
 
-    monkeypatch.setattr(get_settings(), "storage", "s3")
+    monkeypatch.setattr(get_settings(), "dev_storage", False)
     monkeypatch.setattr("app.api.health.ping_database", lambda: None)
     with TestClient(app) as client:
         r = client.get("/health")
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok"
-    assert body["checks"] == {"database": "ok", "storage": "not_configured"}
+    assert body["checks"] == {"database": "ok", "storage": "hospital_owned"}
 
 
 def test_health_503_when_database_down(monkeypatch):
@@ -31,6 +32,7 @@ def test_health_reports_storage(monkeypatch):
     from app.config import get_settings
 
     monkeypatch.setattr("app.api.health.ping_database", lambda: None)
+    monkeypatch.setattr(get_settings(), "dev_storage", True)  # development storage only
     monkeypatch.setattr(get_settings(), "storage", "s3")
     monkeypatch.setattr(get_settings(), "s3_endpoint", "http://minio:9000")
     monkeypatch.setattr("app.api.health.ping_storage", lambda: None)
@@ -58,6 +60,7 @@ def test_health_local_storage(monkeypatch, tmp_path):
     from app.config import get_settings
 
     monkeypatch.setattr("app.api.health.ping_database", lambda: None)
+    monkeypatch.setattr(get_settings(), "dev_storage", True)
     monkeypatch.setattr(get_settings(), "storage", "local")
     monkeypatch.setattr(get_settings(), "storage_dir", str(tmp_path / "s"))
     with TestClient(app) as client:

@@ -146,6 +146,7 @@ def main() -> None:
     platform_env = {
         **os.environ,
         "NC_DATABASE_URL": f"sqlite+pysqlite:///{work / 'platform.db'}",
+        "NC_DEV_STORAGE": "true",  # decision 044: test stack only
         "NC_STORAGE": "local",
         "NC_STORAGE_DIR": str(work / "store"),
         "NC_PUBLIC_BASE_URL": f"http://{host}:{P_PORT}",

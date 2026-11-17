@@ -13,6 +13,13 @@ class Settings(BaseSettings):
     # Object storage: "local" (files under storage_dir, signed URLs served by this API — dev, CI,
     # single-server pilots), "s3" (presigned multipart on S3) or "azure" (SAS block uploads to Azure
     # Blob Storage). Decisions 019, 037.
+    #: Decision 044: NeuroCapture stores no videos in production; every hospital connects its own S3
+    #: bucket or Azure container. The settings below (storage, storage_dir, s3_*, azure_storage_*,
+    #: azure_container) are a **development storage** for tests and the local demo stack only, used
+    #: when NC_DEV_STORAGE=true. Keep it false in production. Exception: s3_access_key/s3_secret_key
+    #: and s3_region are also the AWS credentials used to assume hospitals' upload roles when the
+    #: platform does not run on AWS (on AWS leave them empty: the instance role is used).
+    dev_storage: bool = False
     storage: str = "local"
     storage_dir: str = "/tmp/neurocapture-storage"  # noqa: S108 - dev default; set NC_STORAGE_DIR
     public_base_url: str = "http://localhost:8000"
@@ -92,9 +99,7 @@ class Settings(BaseSettings):
     connector_timeout_s: float = 10.0
     #: Signed request clock window (seconds).
     signature_window_s: int = 300
-    # M12: per-hospital storage. Managed hospitals on S3 get their own bucket from this template
-    # ("{bucket}" = one shared bucket with a per-hospital prefix; e.g. "nc-managed-{site}").
-    managed_bucket_template: str = "{bucket}"
+    # M12: per-hospital storage (decision 044: every hospital brings its own S3 bucket or Azure container).
     #: STS endpoint (None = AWS default) and the AWS principal hospitals trust in their role policy.
     sts_endpoint: str | None = None
     platform_aws_principal: str = "arn:aws:iam::000000000000:root"

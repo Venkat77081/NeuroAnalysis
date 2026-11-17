@@ -11,6 +11,7 @@ import secrets
 
 from sqlalchemy.orm import Session as DbSession
 
+from app.config import get_settings
 from app.db import _factory
 from app.models import Operator, Site, StaffUser
 from app.security import hash_pin, sha256_hex
@@ -22,6 +23,8 @@ def create_site(db: DbSession, name: str, region: str, enrollment_code: str) -> 
         region=region,
         enrollment_code_hash=sha256_hex(enrollment_code),
         patient_ref_salt=secrets.token_hex(16),
+        # Decision 044: hospitals connect their own storage; test servers use development storage.
+        storage_kind="dev" if get_settings().dev_storage else "none",
     )
     db.add(site)
     db.commit()

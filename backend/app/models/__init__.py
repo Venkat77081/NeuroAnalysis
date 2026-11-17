@@ -79,9 +79,9 @@ class Site(Base):
     #: Last health check: {"records": "pass", ...} — pass/fail only, never data.
     connector_check: Mapped[dict | None] = mapped_column(Json)
     connector_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
-    # M12: where this hospital's recordings are stored. managed = NeuroCapture storage, separated
-    # per hospital; s3 = the hospital's own bucket through an upload-only role.
-    storage_kind: Mapped[str] = mapped_column(String(10), default="managed")
+    # Where this hospital's recordings are stored (decision 044: always the hospital's own).
+    # none = not connected yet (no recording) | s3 | azure | dev (development storage, tests only).
+    storage_kind: Mapped[str] = mapped_column(String(10), default="none")
     #: s3: {bucket, region, endpoint?, prefix, role_arn, kms_key_id?}. References only, no secrets.
     storage_config: Mapped[dict | None] = mapped_column(Json)
     #: ExternalId the hospital puts in its role's trust policy (generated here, not a secret).

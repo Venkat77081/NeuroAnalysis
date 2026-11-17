@@ -101,6 +101,38 @@ def _patient_for(db: DbSession, p: Principal, given: PatientIn | None) -> Patien
     return patient
 
 
+def require_storage(site: Site) -> None:
+    from app.storage.sites import StorageNotConnectedError, location_for
+
+    try:
+        location_for(site)
+    except StorageNotConnectedError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "storage_not_connected"}) from exc
+
+
+class CanRecordOut(BaseModel):
+    """Decision 044: phones check this before offering Start / a record link."""
+
+    can_record: bool
+    #: storage_not_connected | storage_failing | null
+    reason: str | None
+
+
+@router.get("/can-record", response_model=CanRecordOut)
+def can_record_here(
+    p: Principal = Depends(require_device),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> CanRecordOut:
+    from app.storage.sites import can_record
+
+    site = db.get(Site, p.site_id)
+    assert site is not None
+    if can_record(site):
+        return CanRecordOut(can_record=True, reason=None)
+    connected = site.storage_kind in ("s3", "azure") and bool(site.storage_config)
+    return CanRecordOut(can_record=False, reason="storage_failing" if connected else "storage_not_connected")
+
+
 @router.post("", response_model=SessionOut, status_code=201)
 def create_session(
     body: SessionIn,
@@ -118,9 +150,10 @@ def create_session(
             client_session_id=existing.client_session_id,
             encryption_key=_key_out(db, existing),
         )
-    patient = _patient_for(db, p, body.patient)
     site = db.get(Site, p.site_id)
     assert site is not None
+    require_storage(site)  # decision 044: no recording before the hospital's own storage is connected
+    patient = _patient_for(db, p, body.patient)
     key_id, pem, owner = session_key(db, site)
     s = Session(
         client_session_id=body.client_session_id,

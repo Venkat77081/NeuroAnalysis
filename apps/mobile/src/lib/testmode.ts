@@ -49,6 +49,18 @@ export function testServer(): FakeServer {
   return server;
 }
 
+/**
+ * An invite from the pretend hospital. The first one joins the test hospital; later ones join a
+ * new one ("Test Hospital 2", …) with its own site, so the patient app lists them separately.
+ * (Every invite used to name the same site, so the app took a second one as re-joining the first.)
+ */
+export function testHospitalInvite(fake: FakeServer, joined: number): string {
+  const n = joined + 1;
+  return n === 1
+    ? fake.issueInvite()
+    : fake.issueInvite(undefined, { siteId: `site${n}`, hospital: `${fake.hospital} ${n}` });
+}
+
 type Cfg = UploadConfig & { accessToken: string; refreshToken: string };
 
 /**

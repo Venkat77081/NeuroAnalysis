@@ -10,7 +10,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MockCaptureKit } from '@neurocapture/capture-kit';
 import { capture } from '../lib/capture.ts';
-import { testModeOn, testServer } from '../lib/testmode.ts';
+import { testHospitalInvite, testModeOn, testServer } from '../lib/testmode.ts';
+import { hospitalsOf } from '../lib/hospitals.ts';
 import { useApp } from '../app/AppContext.tsx';
 import { Button, Sheet } from '../ui/kit.tsx';
 
@@ -27,7 +28,7 @@ function pretendHospital() {
 
 export function TestPanel() {
   const { t } = useTranslation();
-  const { resetApp } = useApp();
+  const { resetApp, settings } = useApp();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export function TestPanel() {
   const fake = pretendHospital();
 
   const invite = () => {
-    const l = fake.issueInvite();
+    const l = testHospitalInvite(fake, hospitalsOf(settings).length);
     setLink(l);
     setNote(t('testPanel.inviteDone'));
     globalThis.dispatchEvent(new CustomEvent('nc:invite', { detail: l }));

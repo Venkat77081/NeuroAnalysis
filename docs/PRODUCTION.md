@@ -101,7 +101,7 @@ bigger layout.
 
 You create **one empty PostgreSQL database and one user**. You do **not** create tables by
 hand: the API container runs `alembic upgrade head` on every start, which creates and upgrades
-all tables (migrations `0001` to `0017` in `backend/alembic/versions/`).
+all tables (migrations `0001` to `0019` in `backend/alembic/versions/`).
 
 ```sql
 -- as the Postgres admin user
@@ -128,6 +128,8 @@ phone number or address.** A test enforces this: `test_no_patient_identity_colum
 | `deletion_requests`                                     | Deletion requests from phones before v3                                                                      |
 | `audit_events`                                          | Who did what, when (by person: name, e-mail and role for staff)                                              |
 | `used_nonces`                                           | Replay protection for signed connector calls                                                                 |
+| `app_accounts`                                          | v11 patient app account: e-mail **fingerprint** (not the address), PIN hash, sealed backup (decision 043)    |
+| `app_account_codes`, `app_account_tokens`               | One-time e-mail codes (hashed) and the phone signed in to each app account                                   |
 
 ### 3.2 Keys and secrets to generate (once)
 
@@ -143,11 +145,16 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out server-private
 openssl pkey -in server-private.pem -pubout -out server-public.pem
 # 3. Token secret
 openssl rand -hex 32        # → NC_JWT_SECRET
+# 4. Patient app account pepper (decision 043): e-mail fingerprints and the PIN-key server share.
+openssl rand -hex 32        # → NC_ACCOUNT_PEPPER (key vault only; never change it after go-live)
 ```
 
 Store copies of these files in a password manager or secrets manager.
 
 - **If `platform-signing.pem` is lost or changed,** every hospital must re-pin its connector.
+- **If `NC_ACCOUNT_PEPPER` is lost or changed,** no patient can sign in to their app account or
+  restore their hospitals on a new phone; they would need a re-invite from every hospital. Keep it
+  only in the key vault (AWS Secrets Manager or Azure Key Vault) and back it up there.
 - **Never keep `server-private.pem` on a server in production.** Leave
   `NC_SERVER_PRIVATE_KEY_PATH` empty; recordings are protected by each hospital's own key
   (decision 027).
@@ -173,6 +180,7 @@ NC_PLATFORM_SIGNING_KEY_PATH=/keys/platform-signing.pem
 NC_PLATFORM_KEY_ID=platform-1
 NC_SERVER_PUBLIC_KEY_PATH=/keys/server-public.pem
 NC_SERVER_KEY_ID=server-1
+NC_ACCOUNT_PEPPER=<output of openssl rand -hex 32>   # from the key vault at start-up (decision 043)
 
 # --- Recordings storage: local | s3 | azure (decision 037) ---
 # local keeps recordings on this server's disk: only ONE API server can then be used, and replacing
@@ -199,16 +207,17 @@ NC_STORAGE_DIR=/data/storage
 NC_REQUIRE_HOSPITAL_KEY=true
 NC_ALLOW_LEGACY_REF_HASH=false
 
-# --- Staff invite e-mails over SMTP (decision 036) ---
+# --- E-mail over SMTP: staff invites and patients' sign-in codes (decisions 036, 043) ---
 NC_EMAIL_PROVIDER=smtp
-NC_SMTP_HOST=email-smtp.ap-south-1.amazonaws.com     # Azure: smtp.azurecomm.net
+NC_SMTP_HOST=email-smtp.<region>.amazonaws.com       # Azure: smtp.azurecomm.net
 NC_SMTP_PORT=587
 NC_SMTP_SECURITY=starttls                            # starttls (587) | ssl (465) | none (trusted relay)
 NC_SMTP_USERNAME=<SMTP user>
 NC_SMTP_PASSWORD=<SMTP password>
 NC_MAIL_FROM=no-reply@example.in                     # a verified sender
 NC_MAIL_FROM_NAME=NeuroCapture
-# The platform sends no SMS (patient messages come from each hospital's connector).
+# The platform sends no SMS. Its only patient e-mail is the app-account code, sent to the address
+# the patient types; the address is not stored. Invites and reminders come from each hospital's connector.
 NC_INVITE_LINK_BASE=neurocapture://invite?t=
 
 # --- Rules, thresholds, texts (repo config/, mounted read-only) ---

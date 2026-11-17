@@ -6,8 +6,10 @@ covers a hospital that runs its **connector** in its own Azure subscription.
 - **AWS instead?** See [`aws.md`](aws.md).
 - **Background and cloud-neutral reference:** [`../PRODUCTION.md`](../PRODUCTION.md).
 
-Region: **Central India (`centralindia`, Pune)** or South India (`southindia`), which keeps data in
-India. Replace `example.in` with your domain and `<unique>` with a short suffix of your own.
+Region: deploy **one platform per market** so data stays in that market: **East US / East US 2**
+(`eastus`, `eastus2`) for US hospitals, **Central India** (`centralindia`) for India. The commands
+below use `centralindia`; replace it (and `example.in`, `<unique>`) with your own. Every resource to
+create is listed in [`resources.md`](resources.md).
 
 ```
                 Internet
@@ -116,8 +118,9 @@ step 3.)
 When the client secret expires (you choose 6–24 months), create a new one and update Key Vault
 (step 6).
 
-The platform sends staff invites only. Patient e-mails and SMS come from each hospital's
-connector (step 11).
+The platform sends staff invites and the patient app's sign-in codes (decision 043; the address
+is used for that e-mail only and is not stored). Patient invites, reminders and SMS come from each
+hospital's connector (step 11).
 
 ## Step 5: The server (VM)
 
@@ -185,6 +188,7 @@ az role assignment create --assignee "$(az ad signed-in-user show --query id -o 
 az keyvault secret set --vault-name nc-kv-<unique> -n platform-signing-key --file platform-signing.pem
 az keyvault secret set --vault-name nc-kv-<unique> -n server-public-key   --file server-public.pem
 az keyvault secret set --vault-name nc-kv-<unique> -n jwt-secret          --value "$(openssl rand -hex 32)"
+az keyvault secret set --vault-name nc-kv-<unique> -n account-pepper      --value "$(openssl rand -hex 32)"   # never change after go-live
 az keyvault secret set --vault-name nc-kv-<unique> -n db-url              --value 'postgresql+psycopg://nc_admin:<pw>@nc-db-<unique>.postgres.database.azure.com:5432/neurocapture?sslmode=require'
 az keyvault secret set --vault-name nc-kv-<unique> -n smtp-username       --value '<SMTP username>'
 az keyvault secret set --vault-name nc-kv-<unique> -n smtp-password       --value '<client secret>'
@@ -221,6 +225,7 @@ docker run -d --name nc-api --restart unless-stopped -p 127.0.0.1:8000:8000 \
   -v /srv/nc/keys:/keys:ro -v /srv/nc/src/config:/srv/config:ro \
   -e NC_DATABASE_URL="$(s db-url)" \
   -e NC_JWT_SECRET="$(s jwt-secret)" \
+  -e NC_ACCOUNT_PEPPER="$(s account-pepper)" \
   -e NC_SMTP_USERNAME="$(s smtp-username)" \
   -e NC_SMTP_PASSWORD="$(s smtp-password)" \
   --env-file /srv/nc/api.env \
@@ -411,7 +416,7 @@ phone with the hospital's key.
 
 Earlier recordings stay where they were; only new ones go to the new storage.
 
-## Costs (rough, Central India, pay-as-you-go, before tax)
+## Costs (rough, pay-as-you-go, before tax; similar in East US and Central India)
 
 | Item                                      | Pilot (1 hospital)                                         |
 | ----------------------------------------- | ---------------------------------------------------------- |

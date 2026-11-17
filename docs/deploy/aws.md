@@ -6,7 +6,10 @@ covers a hospital that runs its **connector** in its own AWS account.
 - **Azure instead?** See [`azure.md`](azure.md).
 - **Background and cloud-neutral reference:** [`../PRODUCTION.md`](../PRODUCTION.md).
 
-Region: **ap-south-1 (Mumbai)**, which keeps data in India. Replace `example.in` with your domain.
+Region: deploy **one platform per market** so data stays in that market: **us-east-1 / us-east-2**
+for US hospitals, **ap-south-1 (Mumbai)** for India. The commands below use `ap-south-1`; replace it
+(and `example.in`) with your region and domain. Every resource to create is listed in
+[`resources.md`](resources.md).
 
 ```
                 Internet
@@ -125,8 +128,9 @@ budget alarm.
    NC_MAIL_FROM_NAME=NeuroCapture
    ```
 
-The platform sends staff invites only. Patient e-mails and SMS come from each hospital's
-connector (step 12).
+The platform sends staff invites and the patient app's sign-in codes (decision 043; the address
+is used for that e-mail only and is not stored). Patient invites, reminders and SMS come from each
+hospital's connector (step 12).
 
 ## Step 6: The server (EC2)
 
@@ -201,6 +205,7 @@ openssl pkey -in server-private.pem -pubout -out server-public.pem
 aws secretsmanager create-secret --name nc/platform-signing-key --secret-string file://platform-signing.pem
 aws secretsmanager create-secret --name nc/server-public-key   --secret-string file://server-public.pem
 aws secretsmanager create-secret --name nc/jwt-secret          --secret-string "$(openssl rand -hex 32)"
+aws secretsmanager create-secret --name nc/account-pepper      --secret-string "$(openssl rand -hex 32)"   # never change after go-live
 aws secretsmanager create-secret --name nc/db-url              --secret-string 'postgresql+psycopg://neurocapture:<pw>@<rds-endpoint>:5432/neurocapture?sslmode=require'
 aws secretsmanager create-secret --name nc/smtp-username       --secret-string '<SES SMTP username>'
 aws secretsmanager create-secret --name nc/smtp-password       --secret-string '<SES SMTP password>'
@@ -236,6 +241,7 @@ docker run -d --name nc-api --restart unless-stopped -p 127.0.0.1:8000:8000 \
   -v /srv/nc/keys:/keys:ro -v /srv/nc/src/config:/srv/config:ro \
   -e NC_DATABASE_URL="$(s nc/db-url)" \
   -e NC_JWT_SECRET="$(s nc/jwt-secret)" \
+  -e NC_ACCOUNT_PEPPER="$(s nc/account-pepper)" \
   -e NC_SMTP_USERNAME="$(s nc/smtp-username)" \
   -e NC_SMTP_PASSWORD="$(s nc/smtp-password)" \
   --env-file /srv/nc/api.env \
@@ -346,8 +352,7 @@ If the hospital uses AWS:
      reach it.
    - Restrict who can reach it with security groups or a WAF.
 2. **Database.** A small RDS PostgreSQL instance (`db.t4g.small`) or PostgreSQL on the same EC2.
-   Use `NCC_DATABASE_URL=postgresql+psycopg://…?sslmode=require`. The 5 tables are created on
-   start.
+   Use `NCC_DATABASE_URL=postgresql+psycopg://…?sslmode=require`. Its tables are created on start.
 3. **Server.** An EC2 instance (`t4g.small`) with Docker. Build and run the connector image
    ([`../PRODUCTION.md`](../PRODUCTION.md) §5.4). Keep `/data` (signing key, **take keys**) on an
    encrypted EBS volume with **AWS Backup**.
@@ -402,7 +407,7 @@ container**, write-only for NeuroCapture (decision 037):
 
 The hospital's steps are in [`azure.md`](azure.md) step 12 and in the dashboard.
 
-## Costs (rough, ap-south-1, on-demand, before tax)
+## Costs (rough, on-demand, before tax; similar in us-east-1 and ap-south-1)
 
 | Item                               | Pilot (1 hospital)                     |
 | ---------------------------------- | -------------------------------------- |

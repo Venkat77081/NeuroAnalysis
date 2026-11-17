@@ -164,7 +164,7 @@ describe('buildQuality and the device evaluation (M6, M8)', () => {
       if (code === 'SAW')
         expect(q.phasesDetected).toEqual(['seated', 'standing', 'walk_out', 'turn', 'walk_back']);
     }
-  });
+  }, 30_000); // five synthetic takes; slow CI runners need more than the 5 s default
 
   it('falls back to the live frames when the files cannot be read; plain RETAKE reasons', async () => {
     const { syntheticTake } = await import('@neurocapture/quality-core');

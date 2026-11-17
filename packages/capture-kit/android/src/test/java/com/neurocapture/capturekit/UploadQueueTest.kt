@@ -277,8 +277,17 @@ class UploadQueueTest {
             "/clinic/queue?from=2026-11-16T00%3A00%3A00%2B05%3A30&to=2026-11-17T00%3A00%3A00%2B05%3A30",
             "/clinic/requests/abc123/not-done",
             "/patient/requests",
+            "/sessions/can-record",
+            "/patient/pin/clear",
         )
-        val no = listOf("/clinic/queue", "/clinic/requests/../takes/not-done", "/takes", "/clinic/queue?x=<y>")
+        val no = listOf(
+            "/clinic/queue",
+            "/clinic/requests/../takes/not-done",
+            "/takes",
+            "/clinic/queue?x=<y>",
+            "/sessions",
+            "/sessions/can-record/x",
+        )
         ok.forEach { assertTrue(it, UploadQueue.API_PATHS.matches(it)) }
         no.forEach { assertFalse(it, UploadQueue.API_PATHS.matches(it)) }
     }

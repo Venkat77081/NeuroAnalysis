@@ -64,3 +64,23 @@ describe('withTestHospital', () => {
     expect(caps.self).toBe(kit);
   });
 });
+
+describe('testHospitalInvite', () => {
+  it('gives each new invite its own hospital and site', async () => {
+    const { FakeServer } = await import('@neurocapture/capture-kit');
+    const { testHospitalInvite } = await import('../src/lib/testmode.ts');
+    const fake = new FakeServer();
+    fake.hospital = 'Test Hospital';
+    const look = async (link: string) => {
+      const t = new URL(link).searchParams.get('t');
+      const r = await fake.http(`fake://api/patient/invite/lookup`, {
+        method: 'POST',
+        body: JSON.stringify({ token: t }),
+      });
+      return (await r.json()) as { hospital: string };
+    };
+    expect((await look(testHospitalInvite(fake, 0))).hospital).toBe('Test Hospital');
+    expect((await look(testHospitalInvite(fake, 1))).hospital).toBe('Test Hospital 2');
+    expect((await look(testHospitalInvite(fake, 2))).hospital).toBe('Test Hospital 3');
+  });
+});

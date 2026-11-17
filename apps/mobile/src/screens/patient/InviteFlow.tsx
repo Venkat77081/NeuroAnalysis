@@ -22,7 +22,7 @@ import { BackButton, Button, Card } from '../../ui/kit.tsx';
 import { QrScanner } from './QrScanner.tsx';
 import { attempt, ErrorText, Field, Screen } from '../modes/Common.tsx';
 import { DeviceCheck } from '../modes/DeviceCheck.tsx';
-import { TEST_ENDPOINT, testModeOn, testServer } from '../../lib/testmode.ts';
+import { TEST_ENDPOINT, testHospitalInvite, testModeOn, testServer } from '../../lib/testmode.ts';
 
 export function InviteFlow({
   initialToken,
@@ -144,7 +144,7 @@ export function InviteFlow({
             <Button
               onClick={() => {
                 setEndpoint(TEST_ENDPOINT);
-                void look(testServer().issueInvite());
+                void look(testHospitalInvite(testServer(), hospitalsOf(settings).length));
               }}
               data-testid="invite-join-test"
             >

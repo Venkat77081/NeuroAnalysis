@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     azure_client_secret: str | None = None
     # Auth (§13.2): JWT per operator, bound to a registered device.
     jwt_secret: str = "dev-only-change-me"  # noqa: S105 - must be set in production
+    #: v11 (decision 043): key for patient e-mail fingerprints and the PIN-key server share. Keep it in
+    #: the key vault (Azure Key Vault / AWS Secrets Manager); changing it breaks every app account.
+    account_pepper: str = "dev-only-account-pepper"
     access_ttl_s: int = 900
     refresh_ttl_s: int = 30 * 24 * 3600
     # Uploads

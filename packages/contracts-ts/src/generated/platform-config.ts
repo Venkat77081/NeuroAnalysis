@@ -148,4 +148,14 @@ export interface PlatformConfig {
      */
     onTimeDays: number;
   };
+  /**
+   * v11 patient app account (decision 043): e-mail codes, PIN pause, recovery code length. Wrong PINs use patientPin.maxFailures.
+   */
+  appAccount?: {
+    codeTtlMinutes: number;
+    codeMaxPerHour: number;
+    codeMaxAttempts: number;
+    pauseHours: number;
+    recoveryCodeChars: 24;
+  };
 }

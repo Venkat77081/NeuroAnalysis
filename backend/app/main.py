@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.api.app_account import router as app_account_router
 from app.api.auth import router as auth_router
 from app.api.clinic import router as clinic_router
 from app.api.connector_link import router as connector_router
@@ -74,3 +75,4 @@ app.include_router(requests_router)
 app.include_router(clinic_router)
 app.include_router(doctors_router)
 app.include_router(overview_router)
+app.include_router(app_account_router)

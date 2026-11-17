@@ -469,6 +469,9 @@ def test_no_patient_identity_columns():
         ("operators", "display_name_hash"),
         # Staff, not patients (user, 16 Nov 2026: activity logs name the person).
         ("operators", "name"),
+        # Decision 043: a keyed fingerprint (HMAC) of the patient's e-mail; the address is not stored.
+        ("app_accounts", "email_fp"),
+        ("app_account_codes", "email_fp"),
     }
     patient_tables = {
         "patients",

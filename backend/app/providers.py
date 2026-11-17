@@ -64,3 +64,12 @@ def staff_reset(to: str, hospital: str, by: str, link: str, hours: int) -> None:
         message("staffReset", "subject", hospital=hospital),
         message("staffReset", "body", hospital=hospital, by=by, link=link, hours=hours),
     )
+
+
+def account_code(to: str, code: str, minutes: int) -> None:
+    """v11: a one-time code for the patient app account. The address is used for this e-mail only."""
+    send_email(
+        to,
+        message("accountCode", "subject", code=code),
+        message("accountCode", "body", code=code, minutes=minutes),
+    )

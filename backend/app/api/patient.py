@@ -97,7 +97,10 @@ def invite_lookup(body: InviteLookupIn, db: DbSession = Depends(get_db)) -> Invi
 
 class AcceptIn(BaseModel):
     token: str = Field(min_length=10, max_length=200)
-    pin: str = Field(min_length=1, max_length=12)
+    #: Pre-v11 apps: a PIN for this hospital. v11 (decision 043): omitted, with `account_token`
+    #: (the app account's PIN covers every hospital; this hospital trusts the phone's secret).
+    pin: str | None = Field(default=None, min_length=1, max_length=12)
+    account_token: str | None = Field(default=None, max_length=2000)
     #: v3: no consent when joining (consent is asked before each recording session). Older apps
     #: still send the notice version; it is checked if present.
     consent_version: str | None = Field(default=None, max_length=50)
@@ -148,7 +151,13 @@ def phone_not_suitable(body: UnsuitableIn, db: DbSession = Depends(get_db)) -> N
 @router.post("/invite/accept", response_model=AcceptOut, status_code=201)
 def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:  # noqa: B008
     acc, site = _invited(db, body.token)
-    if not _pin_ok(body.pin):
+    if body.pin is None:
+        from app.api.app_account import account_from_token
+
+        if not body.account_token:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "pin_format"})
+        account_from_token(body.account_token, db)  # proves an app account; not stored or linked
+    elif not _pin_ok(body.pin):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "pin_format"})
     if body.consent_version is not None and body.consent_version != policy()["consentVersion"]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "consent_version"})
@@ -169,7 +178,7 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
     acc.status = "active"
     acc.camera_failed_fps = None  # joined with a phone that passed
     acc.camera_failed_at = None
-    acc.pin_hash = hash_pin(body.pin)
+    acc.pin_hash = hash_pin(body.pin) if body.pin is not None else None
     acc.failed_pins = 0
     acc.device_id = dev.id
     acc.consent_version = None  # consent is per recording session (v3)
@@ -206,7 +215,8 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
 class LoginIn(BaseModel):
     device_id: str
     device_secret: str
-    pin: str = Field(min_length=1, max_length=12)
+    #: Needed only while this hospital still has its own PIN (pre-v11 joins).
+    pin: str | None = Field(default=None, min_length=1, max_length=12)
 
 
 @router.post("/login", response_model=PatientTokens)
@@ -229,7 +239,7 @@ def login(body: LoginIn, db: DbSession = Depends(get_db)) -> PatientTokens:  # n
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "pin_locked"})
     if acc.status != "active":
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "account_closed"})
-    if not verify_pin(body.pin, acc.pin_hash):
+    if acc.pin_hash is not None and not verify_pin(body.pin or "", acc.pin_hash):
         acc.failed_pins += 1
         audit(db, "patient", acc.id, "patient_login_failed", site_id=acc.site_id, attempt=acc.failed_pins)
         if acc.failed_pins >= policy()["patientPin"]["maxFailures"]:
@@ -297,3 +307,75 @@ def me(p: Principal = Depends(current_principal), db: DbSession = Depends(get_db
         status=p.patient.status,
         consent_version=p.patient.consent_version,
     )
+
+
+class RotateIn(BaseModel):
+    """v11 (decision 043): a new phone takes over this hospital with the old phone's sign-in
+    (restored from the app account's backup). The old phone stops working here."""
+
+    device_id: str
+    device_secret: str
+    model: str = Field(max_length=100)
+    os_version: str = Field(max_length=50)
+    camera_check: CameraCheckIn | None = None
+
+
+@router.post("/device/rotate", response_model=AcceptOut)
+def rotate_device(body: RotateIn, db: DbSession = Depends(get_db)) -> AcceptOut:  # noqa: B008
+    from app.api.hospital import end_patient_phone
+
+    old = db.get(Device, body.device_id)
+    if (
+        not old
+        or old.kind != "patient"
+        or old.revoked_at is not None
+        or old.secret_hash != sha256_hex(body.device_secret)
+    ):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "phone not registered or removed")
+    acc = db.scalar(select(PatientAccount).where(PatientAccount.device_id == old.id))
+    site = db.get(Site, old.site_id)
+    if not acc or not site or acc.status != "active":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "phone not registered or removed")
+    if site.status == "suspended":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "hospital_suspended"})
+    fps = require_passing(body.camera_check)
+    end_patient_phone(db, acc)  # old phone, its tokens and any per-hospital PIN
+    secret = new_secret()
+    dev = Device(
+        site_id=site.id,
+        model=body.model,
+        os_version=body.os_version,
+        secret_hash=sha256_hex(secret),
+        kind="patient",
+        check_fps=fps,
+        checked_at=datetime.now(UTC),
+    )
+    db.add(dev)
+    db.flush()
+    acc.device_id = dev.id
+    tokens = _issue(db, acc, dev)
+    patient = db.get(Patient, acc.patient_id)
+    assert patient is not None
+    audit(db, "patient", acc.id, "patient_phone_moved", "device", dev.id, site_id=site.id)
+    db.commit()
+    key_id, pem = server_public_key()
+    return AcceptOut(
+        device_id=dev.id,
+        device_secret=secret,
+        site_id=site.id,
+        hospital=site.name,
+        ncid=patient.ncid,
+        server_key=ServerKey(key_id=key_id, public_key_pem=pem),
+        tokens=tokens,
+    )
+
+
+@router.post("/pin/clear", status_code=204)
+def clear_hospital_pin(p: Principal = Depends(current_principal), db: DbSession = Depends(get_db)) -> None:  # noqa: B008
+    """v11: a phone that moved to an app account stops using this hospital's own PIN."""
+    if p.patient is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "patient sign-in required")
+    p.patient.pin_hash = None
+    p.patient.failed_pins = 0
+    audit(db, "patient", p.patient.id, "patient_pin_moved_to_account", site_id=p.patient.site_id)
+    db.commit()

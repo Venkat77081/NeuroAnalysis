@@ -229,11 +229,14 @@ export function LockScreen({
   kind,
   onUnlock,
   onSignOut,
+  onForgot,
   unlock,
 }: {
   kind: 'operator' | 'patient';
   onUnlock: () => void;
   onSignOut?: () => void;
+  /** v11 patient app account: "Forgot your PIN?" (recovery code). */
+  onForgot?: () => void;
   /** Rejects with an error code: bad_login, account_locked, pin_locked, network… */
   unlock: (secret: string) => Promise<void>;
 }) {
@@ -248,7 +251,9 @@ export function LockScreen({
       } catch (e) {
         setSecret('');
         const code = errorCode(e);
-        throw new Error(code === 'bad_login' ? 'wrong' : code, { cause: e });
+        throw new Error(code === 'bad_login' || code === 'wrong_pin' ? 'wrong' : code, {
+          cause: e,
+        });
       }
       onUnlock();
     });
@@ -275,6 +280,11 @@ export function LockScreen({
       <Button disabled={busy || !secret} onClick={() => void submit()} data-testid="unlock">
         {t('modes.lock.unlock')}
       </Button>
+      {onForgot && (
+        <Button variant="ghost" onClick={onForgot} data-testid="lock-forgot">
+          {t('modes.account.forgot')}
+        </Button>
+      )}
       {onSignOut && (
         <Button variant="ghost" onClick={onSignOut} data-testid="lock-sign-out">
           {t('modes.lock.signOut')}

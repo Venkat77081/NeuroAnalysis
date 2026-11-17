@@ -125,5 +125,12 @@
     "deskDays": 14,
     "doctorUpcomingDays": 30,
     "onTimeDays": 90
+  },
+  "appAccount": {
+    "codeTtlMinutes": 10,
+    "codeMaxPerHour": 5,
+    "codeMaxAttempts": 5,
+    "pauseHours": 24,
+    "recoveryCodeChars": 24
   }
 }

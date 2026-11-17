@@ -1,3 +1,4 @@
+import { signUpPatient } from './helpers.ts';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -45,6 +46,7 @@ test('clinic phone: 55–59 fps is borderline and can still be added', async ({ 
 test('patient: phone too slow → tell my hospital; the invite still works', async ({ page }) => {
   await page.goto('/?mockSpeed=20&benchFps=41');
   await page.getByTestId('role-patient').click();
+  await signUpPatient(page);
   const link = await page.evaluate(() =>
     (globalThis as unknown as W).__ncMock.fakeServer.issueInvite(),
   );
@@ -64,8 +66,6 @@ test('patient: phone too slow → tell my hospital; the invite still works', asy
   // A phone that passes (here: the same mock, now at 60 fps) joins with the same invite.
   await setFps(page, 60);
   await page.getByTestId('device-check-again').click();
-  await page.getByTestId('pin1').fill('2580');
-  await page.getByTestId('pin2').fill('2580');
   await page.getByTestId('invite-accept').click();
   await expect(page.getByTestId('hospital-card')).toHaveCount(1);
 });

@@ -62,6 +62,13 @@ export function TestPanel() {
     fake.addClinicRequest(mrn, name, { inHours: 1 });
     setNote(t('testPanel.clinicDone', { name, mrn }));
   };
+  /** v11: wipe the app but keep the pretend hospital, as after reinstalling (sign in again). */
+  const reinstall = () => {
+    void resetApp().then(() => {
+      setOpen(false);
+      setNote(null);
+    });
+  };
   const startAgain = () => {
     if (testModeOn()) {
       void resetApp(); // test mode: wipe the app (stays in test mode)
@@ -120,6 +127,9 @@ export function TestPanel() {
             </code>
           )}
           <p className="m-0 text-[12px] leading-[18px] text-muted">{t('testPanel.memory')}</p>
+          <Button variant="secondary" onClick={reinstall} data-testid="tp-reinstall">
+            {t('testPanel.reinstall')}
+          </Button>
           <Button variant="ghost" onClick={startAgain} data-testid="tp-start-again">
             {t('testPanel.startAgain')}
           </Button>

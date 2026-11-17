@@ -24,6 +24,7 @@ import { stepTitle } from '../session/TestIntro.tsx';
 import { BackButton, Button, Card } from '../../ui/kit.tsx';
 import { ErrorText } from '../modes/Common.tsx';
 import { InviteFlow } from './InviteFlow.tsx';
+import { saveBackup } from '../../lib/appaccount.ts';
 
 type View =
   | { kind: 'list' }
@@ -43,10 +44,13 @@ function fmtDate(iso: string | null, lang: string): string {
 
 export function PatientApp({
   onLock,
+  onAddAccount,
   invite,
   onInviteUsed,
 }: {
   onLock: () => void;
+  /** v11: a pre-v11 install moves onto an app account (e-mail, same PIN, recovery code). */
+  onAddAccount: () => void;
   /** An invite link opened while the app is set up: join that hospital. */
   invite: string | null;
   onInviteUsed: () => void;
@@ -78,7 +82,7 @@ export function PatientApp({
         }}
       />
     );
-  if (view.kind === 'settings') return <SettingsView onBack={home} />;
+  if (view.kind === 'settings') return <SettingsView onBack={home} onAddAccount={onAddAccount} />;
   if (view.kind === 'hospital' && byProfile(view.profile))
     return (
       <HospitalView
@@ -311,7 +315,12 @@ function HospitalView({
         delete_recordings: false,
       });
       await capture.kit.clearUploadCredentials({ profile: h.profile });
-      await saveSettings(withdrawnFrom(settings, h.profile, new Date().toISOString()));
+      const next = withdrawnFrom(settings, h.profile, new Date().toISOString());
+      await saveSettings(next);
+      if (next.account)
+        await saveBackup(capture.kit, next.account, next.hospitals)
+          .then((account) => saveSettings({ ...next, account }))
+          .catch(() => undefined);
       setConfirm(false);
     } catch (e) {
       setError(errorCode(e));
@@ -629,7 +638,7 @@ function ConsentView({
   );
 }
 
-function SettingsView({ onBack }: { onBack: () => void }) {
+function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccount: () => void }) {
   const { t } = useTranslation();
   const { settings, saveSettings } = useApp();
   return (
@@ -653,6 +662,21 @@ function SettingsView({ onBack }: { onBack: () => void }) {
             </Button>
           ))}
         </div>
+      </Card>
+      <Card className="flex flex-col gap-2" data-testid="account-card">
+        <h2 className="text-[15px] font-bold">{t('modes.account.settingsTitle')}</h2>
+        {settings.account ? (
+          <p className="text-[14px] leading-5 text-[#3D4552]" data-testid="account-email">
+            {t('modes.account.settingsOn', { email: settings.account.email })}
+          </p>
+        ) : (
+          <>
+            <p className="text-[14px] leading-5 text-[#3D4552]">{t('modes.account.settingsOff')}</p>
+            <Button onClick={onAddAccount} data-testid="account-add">
+              {t('modes.account.settingsAdd')}
+            </Button>
+          </>
+        )}
       </Card>
       <p className="text-[13px] leading-[19px] text-muted">{t('modes.hospitals.withdrawWhere')}</p>
     </div>

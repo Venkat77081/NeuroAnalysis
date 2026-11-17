@@ -34,5 +34,9 @@
   "testEmail": {
     "subject": "NeuroCapture test e-mail from {hospital}",
     "body": "This is a test from {hospital}'s NeuroCapture connector. E-mail to patients is working.\n\nNo reply is needed."
+  },
+  "accountCode": {
+    "subject": "Your NeuroCapture code: {code}",
+    "body": "Your NeuroCapture code is {code}\n\nIt works for {minutes} minutes. If you did not ask for it, you can ignore this e-mail: nobody can open your account without your PIN.\n\nThis e-mail was sent to the address you typed in the app. NeuroCapture does not keep your e-mail address."
   }
 }

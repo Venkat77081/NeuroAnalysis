@@ -288,6 +288,18 @@ means it can be done in the browser; the rest need a real phone (L3).
 | C16 | Join with a phone below 55 fps (`?benchFps=41` in L1)       | Camera check fails before the PIN; "Tell my hospital" → "has been told"; reception sees "Phone not suitable · 41 fps" (H11); "Run the check again" on a passing phone joins with the same invite | L1, L3 |
 | C15 | Reminder (connector `python -m ncconnector send-reminders`) | The patient gets "please record by …" the day before the record-by date (dummy outbox)                                                                                                           | L2     |
 
+### C2. Patient app account (v11, decision 043)
+
+| #   | Test                                                                        | Expected                                                                                    |
+| --- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| C21 | New install → Patient: e-mail, code, PIN, recovery code                     | The code arrives by e-mail (test builds show it on screen); the recovery code is shown once |
+| C22 | Join two hospitals                                                          | No PIN asked when joining                                                                   |
+| C23 | Reinstall (test panel: "Reinstall the app"), then "Already have an account" | E-mail code + PIN → "Use this phone?" → camera check → both hospitals back                  |
+| C24 | Old phone after C23                                                         | "Signed out"; it can no longer upload to those hospitals                                    |
+| C25 | Lock → "Forgot your PIN?" → code → recovery code → new PIN                  | New recovery code; the old PIN no longer opens the app                                      |
+| C26 | Five wrong PINs                                                             | "Account paused"; the recovery code still works                                             |
+| C27 | Pre-v11 install: Settings → "Add e-mail account"                            | The current PIN becomes the app PIN; hospitals stay                                         |
+
 ### B2. Clinic queue (clinic phone)
 
 | #   | Test                                         | Expected                                                                                                  | Level  |

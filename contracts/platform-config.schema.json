@@ -373,6 +373,44 @@
           "description": "Doctor: home links recorded by their due date over this many days."
         }
       }
+    },
+    "appAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v11 patient app account (decision 043): e-mail codes, PIN pause, recovery code length. Wrong PINs use patientPin.maxFailures.",
+      "required": [
+        "codeTtlMinutes",
+        "codeMaxPerHour",
+        "codeMaxAttempts",
+        "pauseHours",
+        "recoveryCodeChars"
+      ],
+      "properties": {
+        "codeTtlMinutes": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 60
+        },
+        "codeMaxPerHour": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        },
+        "codeMaxAttempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "pauseHours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168
+        },
+        "recoveryCodeChars": {
+          "type": "integer",
+          "enum": [24]
+        }
+      }
     }
   }
 }

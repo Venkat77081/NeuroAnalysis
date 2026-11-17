@@ -8,7 +8,8 @@ import type { AppMode } from '@neurocapture/capture-kit';
 import { useApp } from './AppContext.tsx';
 import { useSession } from '../session/useSession.ts';
 import { capture } from '../lib/capture.ts';
-import { inviteToken, operatorSignIn, unlockHospitals } from '../lib/accounts.ts';
+import { errorCode, inviteToken, operatorSignIn, unlockHospitals } from '../lib/accounts.ts';
+import { unlockAccount } from '../lib/appaccount.ts';
 import { activeHospitals, hospitalsOf } from '../lib/hospitals.ts';
 import { uploadPrefs } from '../lib/uploads.ts';
 import { onInviteLink } from '../lib/deeplink.ts';
@@ -22,6 +23,7 @@ import {
 } from '../screens/modes/ClinicScreens.tsx';
 import { InviteFlow } from '../screens/patient/InviteFlow.tsx';
 import { PatientApp } from '../screens/patient/PatientApp.tsx';
+import { AccountFlow, type AccountMode } from '../screens/patient/AccountFlow.tsx';
 
 const params = new URLSearchParams(globalThis.location?.search ?? '');
 /** Mock only: `?mode=clinic-local` = a clinic phone with a local operator, no server (older e2e). */
@@ -76,6 +78,8 @@ export function Gate({
   const [dismissed, setDismissed] = useState<string | null>(null);
   // Signed in → the app opens locked; unlocking signs in again with the server.
   const [locked, setLocked] = useState(!!settings.signedIn && !settings.localDev);
+  /** v11: an account screen opened from the lock screen, Settings or a "signed out" answer. */
+  const [accountMode, setAccountMode] = useState<AccountMode | null>(null);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -134,8 +138,21 @@ export function Gate({
     );
     if (who.mustChangePassword) await saveSettings({ ...settings, mustChangePassword: true });
   };
-  const unlockPatient = (pin: string) =>
-    unlockHospitals(capture.kit, activeHospitals(settings), pin, prefs);
+  const unlockPatient = async (pin: string) => {
+    if (!settings.account)
+      return unlockHospitals(capture.kit, activeHospitals(settings), pin, prefs);
+    // v11: the app PIN is checked by the platform's account; hospitals then sign in with the phone.
+    try {
+      const { local } = await unlockAccount(capture.kit, settings.account, pin);
+      await saveSettings({ ...settings, account: local });
+    } catch (e) {
+      if (['moved', 'signed_out', 'pin_reset'].includes(errorCode(e))) setAccountMode('signedOut');
+      throw e;
+    }
+    await unlockHospitals(capture.kit, activeHospitals(settings), pin, prefs).catch(
+      () => undefined,
+    );
+  };
 
   if (effective === null) return <RoleChooser onPick={setChoice} />;
 
@@ -163,6 +180,20 @@ export function Gate({
   }
 
   // Patient app
+  if (accountMode)
+    return (
+      <AccountFlow
+        mode={accountMode}
+        onDone={() => {
+          setAccountMode(null);
+          setLocked(false);
+          setMode('patient');
+        }}
+      />
+    );
+  // v11: a new install starts with the app account (e-mail, app PIN, recovery code).
+  if (!settings.account && hospitalsOf(settings).length === 0)
+    return <AccountFlow mode="start" onDone={() => setMode('patient')} />;
   if (hospitalsOf(settings).length === 0)
     return (
       <InviteFlow
@@ -175,11 +206,19 @@ export function Gate({
     );
   // After withdrawing from every hospital only the read-only history is left: nothing to unlock.
   if (locked && activeHospitals(settings).length > 0)
-    return <LockScreen kind="patient" unlock={unlockPatient} onUnlock={() => setLocked(false)} />;
+    return (
+      <LockScreen
+        kind="patient"
+        unlock={unlockPatient}
+        onUnlock={() => setLocked(false)}
+        {...(settings.account ? { onForgot: () => setAccountMode('forgot') } : {})}
+      />
+    );
   if (snapshot.matches('setup'))
     return (
       <PatientApp
         onLock={() => setLocked(true)}
+        onAddAccount={() => setAccountMode('migrate')}
         invite={invite}
         onInviteUsed={() => setInvite(null)}
       />

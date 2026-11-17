@@ -450,3 +450,58 @@ class AuditEvent(Base):
     target_id: Mapped[str | None] = mapped_column(String(32))
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     details: Mapped[dict | None] = mapped_column(Json)
+
+
+class AppAccount(Base):
+    """v11 (decision 043): the patient's app account, one per person, for every hospital on their
+    phone. Holds no address and no hospital: the e-mail only as a keyed fingerprint, the PIN as a
+    slow hash, and an encrypted backup of the phone's hospital list that only the phone can open
+    (with the PIN plus a server secret, or with the recovery code the patient saved)."""
+
+    __tablename__ = "app_accounts"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    #: HMAC-SHA256(account pepper, normalised e-mail). The address itself is never stored.
+    email_fp: Mapped[str] = mapped_column(String(64), unique=True)
+    pin_hash: Mapped[str] = mapped_column(String(200))
+    failed_pins: Mapped[int] = mapped_column(Integer, default=0)
+    paused_until: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    #: Salt for the phone's PIN key derivation (not secret).
+    kdf_salt: Mapped[str] = mapped_column(String(64))
+    #: SHA-256 of the recovery-code check value (the phone derives it; the code never reaches us).
+    recovery_check_hash: Mapped[str | None] = mapped_column(String(64))
+    #: The phone's sealed hospital list and the two locked copies of its key (all base64, opaque).
+    backup: Mapped[str | None] = mapped_column(Text)
+    wrap_pin: Mapped[str | None] = mapped_column(Text)
+    wrap_recovery: Mapped[str | None] = mapped_column(Text)
+    backup_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+class AppAccountCode(Base):
+    """One-time e-mail code (sign-up, sign-in, forgot PIN). Stored as a hash, by e-mail fingerprint."""
+
+    __tablename__ = "app_account_codes"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    email_fp: Mapped[str] = mapped_column(String(64), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+class AppAccountToken(Base):
+    """A phone signed in to the app account. One active phone per account; moving revokes the rest."""
+
+    __tablename__ = "app_account_tokens"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    account_id: Mapped[str] = mapped_column(ForeignKey("app_accounts.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    #: Random ID the app keeps for its install; the same install refreshing is not "another phone".
+    install_id: Mapped[str] = mapped_column(String(64))
+    device_label: Mapped[str] = mapped_column(String(120))
+    last_used_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Why it stopped: moved (another phone took over) | signed_out | pin_reset.
+    revoked_reason: Mapped[str | None] = mapped_column(String(20))

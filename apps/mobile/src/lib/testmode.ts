@@ -11,6 +11,7 @@
 import {
   DEFAULT_UPLOAD_PROFILE,
   FakeServer,
+  MockCaptureKit,
   type CaptureKitPlugin,
   type UploadConfig,
 } from '@neurocapture/capture-kit';
@@ -47,6 +48,13 @@ export function testServer(): FakeServer {
     server.hospital = 'Test Hospital';
   }
   return server;
+}
+
+/** The pretend server behind this app (browser mock or APK test mode), or null for a real one. */
+export function pretendServer(kit: CaptureKitPlugin, endpoint: string): FakeServer | null {
+  if (!endpoint.startsWith('fake://')) return null;
+  if (kit instanceof MockCaptureKit) return kit.fakeServer;
+  return testModeOn() ? testServer() : null;
 }
 
 /**

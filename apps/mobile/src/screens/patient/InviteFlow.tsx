@@ -18,6 +18,7 @@ import {
 import type { DeviceCheckResult } from '../../lib/devicecheck.ts';
 import { uploadPrefs } from '../../lib/uploads.ts';
 import { hospitalsOf, profileFor, withHospital } from '../../lib/hospitals.ts';
+import { accountAccess, saveBackup } from '../../lib/appaccount.ts';
 import { BackButton, Button, Card } from '../../ui/kit.tsx';
 import { QrScanner } from './QrScanner.tsx';
 import { attempt, ErrorText, Field, Screen } from '../modes/Common.tsx';
@@ -76,48 +77,57 @@ export function InviteFlow({
   const pinOk =
     !!info && /^\d+$/.test(pin) && pin.length >= info.pinMin && pin.length <= info.pinMax;
 
+  // v11 (decision 043): with an app account there is no PIN for the hospital.
+  const account = settings.account;
   const accept = () =>
     attempt(setBusy, setError, async () => {
-      if (pin !== pin2) throw new Error('pin_mismatch');
+      if (!account && pin !== pin2) throw new Error('pin_mismatch');
       const known = hospitalsOf(settings);
+      const acct = account ? await accountAccess(capture.kit, account) : null;
       const out = await acceptInvite(
         capture.kit,
         endpoint,
         token!,
-        pin,
+        account ? null : pin,
         { model: caps?.device.model ?? 'unknown', osVersion: caps?.device.osVersion ?? 'unknown' },
         uploadPrefs(settings, config),
         (siteId) => profileFor(known, siteId),
         check!.check,
+        acct?.access,
       );
       await capture.kit.lockAppMode({ mode: 'patient' }); // this phone can never become a clinic phone
       const now = new Date().toISOString();
       // The invite is used: tell the caller first, so it is not offered again on the next render.
       onDone?.();
-      await saveSettings(
-        withHospital(
-          {
-            ...settings,
-            hospitals: known,
-            signedIn: { operatorId: 'patient', operatorCode: 'patient', role: 'patient' },
-            operatorId: 'patient',
-            patient: settings.patient ?? {
-              hospital: out.hospital,
-              ncid: out.ncid,
-              consentVersion: info!.consentVersion,
-              consentAt: now,
-            },
-          },
-          {
-            profile: out.profile,
+      const next = withHospital(
+        {
+          ...settings,
+          ...(acct ? { account: acct.local } : {}),
+          hospitals: known,
+          signedIn: { operatorId: 'patient', operatorCode: 'patient', role: 'patient' },
+          operatorId: 'patient',
+          patient: settings.patient ?? {
             hospital: out.hospital,
             ncid: out.ncid,
-            link: out.link,
-            joinedAt: now,
-            withdrawnAt: null,
+            consentVersion: info!.consentVersion,
+            consentAt: now,
           },
-        ),
+        },
+        {
+          profile: out.profile,
+          hospital: out.hospital,
+          ncid: out.ncid,
+          link: out.link,
+          joinedAt: now,
+          withdrawnAt: null,
+        },
       );
+      await saveSettings(next);
+      // The sealed copy of the hospital list on the platform (best effort; retried on the next join).
+      if (acct)
+        await saveBackup(capture.kit, acct.local, next.hospitals)
+          .then((local) => saveSettings({ ...next, account: local }))
+          .catch(() => undefined);
     });
 
   if (!info)
@@ -228,7 +238,18 @@ export function InviteFlow({
           </div>
         )}
       />
-      {passed && (
+      {passed && account && (
+        <>
+          <p className="text-[15px] leading-[22px] text-[#3D4552]" data-testid="invite-no-pin">
+            {t('modes.account.joinNoPin', { hospital: info.hospital })}
+          </p>
+          <ErrorText code={error} />
+          <Button disabled={busy} onClick={() => void accept()} data-testid="invite-accept">
+            {t('modes.account.join')}
+          </Button>
+        </>
+      )}
+      {passed && !account && (
         <>
           <h1 className="text-[26px] leading-8 font-bold">{t('modes.invite.pinTitle')}</h1>
           <p className="text-[15px] leading-[22px] text-[#3D4552]">

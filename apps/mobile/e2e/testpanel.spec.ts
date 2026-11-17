@@ -1,3 +1,4 @@
+import { signUpPatient } from './helpers.ts';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -12,9 +13,8 @@ test('test panel: join as a patient and get a record link without a console', as
   await page.getByTestId('tp-invite').click();
   await expect(page.getByTestId('tp-note')).toContainText('Invite made');
   await page.getByRole('button', { name: 'Close' }).click();
+  await signUpPatient(page); // the invite waits for the account
   await expect(page.getByTestId('invite-hospital')).toContainText('Demo Hospital');
-  await page.getByTestId('pin1').fill('2580');
-  await page.getByTestId('pin2').fill('2580');
   await page.getByTestId('invite-accept').click();
   await expect(page.getByTestId('hospital-card')).toHaveCount(1);
 

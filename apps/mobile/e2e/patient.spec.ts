@@ -1,3 +1,4 @@
+import { signUpPatient } from './helpers.ts';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -36,6 +37,8 @@ test('v3: join → record link → consent → home session; second hospital; wi
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
   await page.getByTestId('role-patient').click();
+  // v11: the app account first (e-mail, app PIN, recovery code).
+  await signUpPatient(page);
 
   // The e-mail's link, pasted (a link opened from the e-mail goes straight to the PIN screen).
   await page.getByTestId('invite-text').fill('not-a-valid-code');
@@ -45,12 +48,9 @@ test('v3: join → record link → consent → home session; second hospital; wi
   await page.getByTestId('invite-text').fill(link);
   await page.getByTestId('invite-continue').click();
   await expect(page.getByTestId('invite-hospital')).toContainText('Demo Hospital');
-  await expect(page.getByTestId('invite-notice')).toBeVisible(); // a notice, no consent box
-  await page.getByTestId('pin1').fill('2580');
-  await page.getByTestId('pin2').fill('9999');
-  await page.getByTestId('invite-accept').click();
-  await expect(page.getByRole('alert')).toContainText('do not match');
-  await page.getByTestId('pin2').fill('2580');
+  // v11: no PIN for the hospital: the app PIN covers it.
+  await expect(page.getByTestId('invite-no-pin')).toContainText('Demo Hospital');
+  await expect(page.getByTestId('pin1')).toHaveCount(0);
   await page.getByTestId('invite-accept').click();
 
   // My hospitals: joined, nothing to record yet.
@@ -125,7 +125,7 @@ test('v3: join → record link → consent → home session; second hospital; wi
   await page.getByTestId('unlock-secret').fill('2580');
   await page.getByTestId('unlock').click();
 
-  // A second hospital, with the same PIN.
+  // A second hospital: no PIN at all.
   const second = await page.evaluate(() =>
     (globalThis as unknown as W).__ncMock.fakeServer.issueInvite(undefined, {
       hospital: 'Lakeview Hospital',
@@ -136,8 +136,6 @@ test('v3: join → record link → consent → home session; second hospital; wi
   await page.getByTestId('invite-text').fill(second);
   await page.getByTestId('invite-continue').click();
   await expect(page.getByTestId('invite-hospital')).toContainText('Lakeview Hospital');
-  await page.getByTestId('pin1').fill('2580');
-  await page.getByTestId('pin2').fill('2580');
   await page.getByTestId('invite-accept').click();
   await expect(page.getByTestId('hospital-card')).toHaveCount(2);
   await page.screenshot({ path: 'test-results/patient-hospitals.png', fullPage: true });
@@ -159,7 +157,7 @@ test('v3: join → record link → consent → home session; second hospital; wi
   expect(errors).toEqual([]);
 });
 
-test('an invite link opens straight to the PIN screen; the app opens locked', async ({ page }) => {
+test('an invite link waits for the account, then joins; the app opens locked', async ({ page }) => {
   await page.goto(URL);
   // The app listens for links once it has loaded (a link sent earlier is missed on a slow machine).
   await expect(page.getByTestId('role-patient')).toBeVisible();
@@ -168,9 +166,8 @@ test('an invite link opens straight to the PIN screen; the app opens locked', as
     (l) => globalThis.dispatchEvent(new CustomEvent('nc:invite', { detail: l })),
     link,
   );
+  await signUpPatient(page, '135790');
   await expect(page.getByTestId('invite-hospital')).toContainText('Demo Hospital');
-  await page.getByTestId('pin1').fill('135790');
-  await page.getByTestId('pin2').fill('135790');
   await page.getByTestId('invite-accept').click(); // v3: no consent box at joining
   await expect(page.getByTestId('hospital-card')).toBeVisible();
   await page.reload();

@@ -2,6 +2,7 @@ import type { Patient } from '../session/machine.ts';
 import type { ServerLink, SignedIn } from '../lib/uploads.ts';
 import type { AppStore } from './store.ts';
 import type { PatientHospital } from '../lib/hospitals.ts';
+import type { AccountLocal } from '../lib/appaccount.ts';
 
 const SESSION_KEY = 'session.current';
 
@@ -25,6 +26,8 @@ export interface Settings {
   mustChangePassword: boolean;
   /** v3 patient app: every hospital joined (the first active one is also `server`/`patient`). */
   hospitals: PatientHospital[];
+  /** v11 patient app account (decision 043); null on clinic phones and pre-v11 installs. */
+  account: AccountLocal | null;
 }
 
 export const defaultSettings: Settings = {
@@ -39,6 +42,7 @@ export const defaultSettings: Settings = {
   patient: null,
   mustChangePassword: false,
   hospitals: [],
+  account: null,
 };
 
 /** Patients, session snapshot and settings on top of an AppStore. */

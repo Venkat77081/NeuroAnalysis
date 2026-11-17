@@ -199,16 +199,18 @@ export async function acceptInvite(
   kit: CaptureKitPlugin,
   endpoint: string,
   token: string,
-  pin: string,
+  /** v11: null with `accountToken` (the app account's PIN covers every hospital). */
+  pin: string | null,
   device: { model: string; osVersion: string },
   prefs: { wifiOnly: boolean; retentionHours: number },
   profile: (siteId: string) => string,
   cameraCheck: CameraCheck,
+  accountToken?: string,
 ): Promise<{ link: ServerLink; hospital: string; ncid: string; profile: string }> {
   const base = trimSlash(endpoint);
   const r = await postJson(kit, base, '/patient/invite/accept', {
     token,
-    pin,
+    ...(pin !== null ? { pin } : { account_token: accountToken }),
     model: device.model.slice(0, 100),
     os_version: device.osVersion.slice(0, 50),
     camera_check: cameraCheck,
@@ -246,6 +248,54 @@ export async function acceptInvite(
     profile: p,
   });
   return { link, hospital: b.hospital, ncid: b.ncid, profile: p };
+}
+
+/**
+ * v11 (decision 043): this phone takes over a hospital from the phone the backup came from. The old
+ * phone stops working there; the new sign-in secret is returned (the caller saves the backup).
+ */
+export async function moveHospital(
+  kit: CaptureKitPlugin,
+  old: ServerLink,
+  device: { model: string; osVersion: string },
+  prefs: { wifiOnly: boolean; retentionHours: number },
+  profile: string,
+  cameraCheck: CameraCheck,
+): Promise<ServerLink> {
+  const r = await postJson(kit, old.endpoint, '/patient/device/rotate', {
+    device_id: old.deviceId,
+    device_secret: old.deviceSecret,
+    model: device.model.slice(0, 100),
+    os_version: device.osVersion.slice(0, 50),
+    camera_check: cameraCheck,
+  });
+  if (r.status === 401) throw new Error('hospital_signed_out');
+  if (r.status === 422) {
+    await throwIfCameraCheck(r);
+    throw new ServerError('server', 'HTTP 422');
+  }
+  if (r.status >= 300) throw new ServerError('server', `HTTP ${r.status}`);
+  const b = (await r.json()) as {
+    device_id: string;
+    device_secret: string;
+    server_key: { key_id: string; public_key_pem: string };
+    tokens: { access_token: string; refresh_token: string };
+  };
+  const link: ServerLink = {
+    ...old,
+    deviceId: b.device_id,
+    deviceSecret: b.device_secret,
+    serverKeyId: b.server_key.key_id,
+    serverPublicKeyPem: b.server_key.public_key_pem,
+  };
+  await kit.configureUploads({
+    ...uploadConfig(link, prefs),
+    accessToken: b.tokens.access_token,
+    refreshToken: b.tokens.refresh_token,
+    refreshPath: '/patient/refresh',
+    profile,
+  });
+  return link;
 }
 
 /** When the stored tokens no longer work: sign in again with the PIN (server-checked). */

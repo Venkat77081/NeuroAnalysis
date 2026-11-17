@@ -60,9 +60,12 @@ describe('backup crypto', () => {
     const code = newRecoveryCode();
     const { key, check } = await recoveryKeys(code);
     const bk = randomBytes(32);
-    const backup = await sealBackup(b64(bk), [H]);
+    const backup = await sealBackup(b64(bk), [H], 'phone-a');
     const wrapped = await seal(key, bk);
-    expect(await openBackup(await open(key, wrapped), backup)).toEqual([H]);
+    expect(await openBackup(await open(key, wrapped), backup)).toEqual({
+      hospitals: [H],
+      phoneId: 'phone-a',
+    });
     expect(check).not.toBe(b64(key));
     expect((await recoveryKeys(code.toLowerCase())).check).toBe(check);
   });
@@ -103,6 +106,19 @@ describe('account against the fake server', () => {
     ).rejects.toThrow('wrong_pin');
     const b = await signIn(kit, 'fake://api', 'asha@example.com', code, '2580', phoneB, true);
     expect(b.hospitals).toEqual([H]);
+    expect(b.samePhone).toBe(false); // the backup came from install-a
+    // The same phone after a reinstall: no "other phone", and its sign-ins still work.
+    await send('asha@example.com');
+    const again = await signIn(
+      kit,
+      'fake://api',
+      'asha@example.com',
+      fake.lastAccountCode('asha@example.com')!,
+      '2580',
+      phoneB,
+      false,
+    );
+    expect(again.samePhone).toBe(false); // backup still names install-a until the new phone saves it
 
     await send('asha@example.com');
     const r = await resetWithRecovery(

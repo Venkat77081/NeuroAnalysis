@@ -254,3 +254,19 @@ def test_codes_are_limited_and_single_use(api, two_hospitals):
     with _factory()() as db:
         assert all(len(r.code_hash) == 64 for r in db.scalars(select(AppAccountCode)))
         assert "example.org" not in str([e.details for e in db.scalars(select(AuditEvent))])
+
+
+def test_same_phone_after_reinstall_is_not_another_phone(api, two_hospitals):
+    acc = signup(api)
+    c = code(api, "signin")
+    r = api.post("/account/signin", json={"email": EMAIL, "code": c, "pin": "2580", **PHONE_A})
+    assert r.status_code == 200, r.text  # same phone ID: no "use this phone?"
+    # The earlier sign-in of that install ends; the new one works.
+    assert (
+        api.post("/account/refresh", json={"refresh_token": acc["tokens"]["refresh_token"]}).status_code
+        == 401
+    )
+    assert (
+        api.post("/account/refresh", json={"refresh_token": r.json()["tokens"]["refresh_token"]}).status_code
+        == 200
+    )

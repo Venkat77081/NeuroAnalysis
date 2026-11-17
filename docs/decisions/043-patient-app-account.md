@@ -38,6 +38,21 @@
 6. **Pre-v11 installs:** Settings → "Add e-mail account". The current PIN becomes the app PIN,
    and each hospital stops using its own PIN (`POST /patient/pin/clear`).
 
+## Same phone or another phone
+
+- The app identifies the phone with CaptureKit `getPhoneId()`: SHA-256 of Android's `ANDROID_ID`.
+  That ID is per app signing key, survives a reinstall, and changes on a factory reset. The raw
+  ID never leaves the native code.
+- **Reinstall on the same phone:** e-mail code + PIN, and the hospitals are back.
+  - There is no "Use this phone?" and no camera check.
+  - The backup records which phone its hospital sign-ins belong to, and on that same phone they
+    still work.
+- **Another phone:** "Use this phone?", a camera check, then each hospital moves over and the old
+  phone is signed out.
+- The phone ID is supplied by the phone. A changed app could claim another phone's ID, but it would
+  still need the e-mail code and the PIN. The only effect is that the other phone is not signed
+  out.
+
 ## Cryptography
 
 All of this runs on the phone with WebCrypto, in `apps/mobile/src/lib/appaccount.ts`.

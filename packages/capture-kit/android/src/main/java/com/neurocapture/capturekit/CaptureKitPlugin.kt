@@ -460,6 +460,25 @@ class CaptureKitPlugin : Plugin() {
         io.execute { call.resolve(JSObject().apply { put("mode", AppMode.get(store) ?: org.json.JSONObject.NULL) }) }
     }
 
+    /**
+     * v11 (decision 043): stable per phone and app (ANDROID_ID is scoped to the app's signing key,
+     * survives reinstalling, changes on a factory reset). Hashed: the raw ID never leaves Kotlin.
+     */
+    @PluginMethod
+    fun getPhoneId(call: PluginCall) {
+        io.execute {
+            val raw = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID,
+            ) ?: ""
+            val id = if (raw.isEmpty()) "" else {
+                val d = java.security.MessageDigest.getInstance("SHA-256").digest("nc-phone:$raw".toByteArray())
+                "p" + d.joinToString("") { "%02x".format(it) }.take(40)
+            }
+            call.resolve(JSObject().apply { put("phoneId", id) })
+        }
+    }
+
     @PluginMethod
     fun lockAppMode(call: PluginCall) {
         val mode = call.getString("mode") ?: return call.reject("mode required")

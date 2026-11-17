@@ -115,6 +115,35 @@ export class FakeServer {
     }
   >();
   readonly log: string[] = [];
+  /**
+   * v11 (decision 043): patient app accounts, by e-mail (the real platform keeps only a keyed
+   * fingerprint). The backup and its locked keys are opaque here, as on the platform.
+   */
+  readonly accounts = new Map<
+    string,
+    {
+      id: string;
+      pin: string;
+      kdfSalt: string;
+      recoveryCheck: string | null;
+      backup: string | null;
+      wrapPin: string | null;
+      wrapRecovery: string | null;
+      failed: number;
+      paused: boolean;
+    }
+  >();
+  private accountCodes = new Map<string, string>();
+  private accountTokens = new Map<
+    string,
+    { email: string; install: string; label: string; revoked: string | null; at: number }
+  >();
+  private accountAccess = new Map<string, string>();
+
+  /** Test hook (and the test-mode hint on the code screen): the last code "e-mailed". */
+  lastAccountCode(email: string): string | null {
+    return this.accountCodes.get(email.trim().toLowerCase()) ?? null;
+  }
 
   private id(p: string) {
     return `${p}${++this.seq}`;
@@ -355,6 +384,7 @@ export class FakeServer {
       this.refresh.delete(String(body.refresh_token));
       return res(200, this.tokens(id, kind));
     }
+    if (path.startsWith('/account/')) return this.account(path, init, body, res);
     const pr = this.patientPublic(path, init, body, res);
     if (pr) return pr;
     if (!authed) return res(401);
@@ -496,8 +526,11 @@ export class FakeServer {
           pin_min_digits: 4,
           pin_max_digits: 6,
         });
-      const pin = String(body.pin);
-      if (!/^\d{4,6}$/.test(pin)) return res(422, { detail: { code: 'pin_format' } });
+      // v11: no hospital PIN when the phone has an app account (its token proves it).
+      const viaAccount = body.pin == null && this.accountAccess.has(String(body.account_token));
+      const pin = viaAccount ? '' : String(body.pin);
+      if (!viaAccount && !/^\d{4,6}$/.test(pin))
+        return res(422, { detail: { code: 'pin_format' } });
       const failed = this.cameraCheck(body, res);
       if (failed) return failed;
       this.phoneNotSuitable.delete(String(body.token));
@@ -526,6 +559,29 @@ export class FakeServer {
         tokens: this.tokens(acc, 'patient'),
       });
     }
+    if (path === '/patient/device/rotate') {
+      const entry = [...this.patients.entries()].find(
+        ([, p]) => p.deviceId === body.device_id && p.deviceSecret === body.device_secret,
+      );
+      if (!entry || entry[1].status !== 'active') return res(401);
+      const failed = this.cameraCheck(body, res);
+      if (failed) return failed;
+      const [acc, p] = entry;
+      p.deviceId = this.id('pdev');
+      p.deviceSecret = this.id('psecret');
+      p.pin = '';
+      for (const [rt, who] of this.refresh) if (who === `patient:${acc}`) this.refresh.delete(rt);
+      for (const [at, who] of this.principals) if (who.id === acc) this.principals.delete(at);
+      return res(200, {
+        device_id: p.deviceId,
+        device_secret: p.deviceSecret,
+        site_id: p.siteId,
+        hospital: p.hospital,
+        ncid: p.ncid,
+        server_key: { key_id: 'fake-key-1', public_key_pem: DEV_PEM },
+        tokens: this.tokens(acc, 'patient'),
+      });
+    }
     if (path === '/patient/login') {
       let entry = [...this.patients.entries()].find(
         ([, p]) => p.deviceId === body.device_id && p.deviceSecret === body.device_secret,
@@ -547,7 +603,7 @@ export class FakeServer {
       if (!entry || entry[1].status === 'closed') return res(401);
       const [acc, p] = entry;
       if (p.status === 'locked') return res(403, { detail: { code: 'pin_locked' } });
-      if (String(body.pin) !== p.pin) {
+      if (p.pin !== '' && String(body.pin) !== p.pin) {
         p.failed++;
         if (p.failed >= 5) {
           p.status = 'locked';
@@ -561,6 +617,189 @@ export class FakeServer {
     return null;
   }
 
+  /** v11 patient app account (same API as backend/app/api/app_account.py). */
+  private account(
+    path: string,
+    init: { method: string; headers?: Record<string, string> },
+    body: Record<string, unknown>,
+    res: (s: number, b?: unknown) => HttpResponse,
+  ): HttpResponse {
+    const email = String(body.email ?? '')
+      .trim()
+      .toLowerCase();
+    const err = (status: number, code: string, extra: Record<string, unknown> = {}) =>
+      res(status, { detail: { code, ...extra } });
+    const share = (e: string) => btoa(`fake-share:${e}`.padEnd(32, '.'));
+    const issue = (e: string, install: string, label: string) => {
+      const refresh = this.id('art');
+      const access = `acct-${this.id('aat')}`;
+      this.accountTokens.set(refresh, { email: e, install, label, revoked: null, at: Date.now() });
+      this.accountAccess.set(access, `${e}|${install}`);
+      return { access_token: access, refresh_token: refresh, expires_in: 900 };
+    };
+    const unlocked = (e: string, tokens: unknown, withBackup: boolean) => {
+      const a = this.accounts.get(e)!;
+      return {
+        tokens,
+        share: share(e),
+        kdf_salt: a.kdfSalt,
+        backup: withBackup ? a.backup : null,
+        wrap_pin: withBackup ? a.wrapPin : null,
+      };
+    };
+    const codeOk = () => {
+      const c = this.accountCodes.get(email);
+      return !!c && c === String(body.code);
+    };
+    const pinOk = (e: string, pin: string): HttpResponse | null => {
+      const a = this.accounts.get(e)!;
+      if (a.paused)
+        return err(403, 'paused', { until: new Date(Date.now() + 864e5).toISOString() });
+      if (a.pin === pin) {
+        a.failed = 0;
+        return null;
+      }
+      a.failed++;
+      if (a.failed >= 5) {
+        a.paused = true;
+        a.failed = 0;
+        return err(403, 'paused', { until: new Date(Date.now() + 864e5).toISOString() });
+      }
+      return err(401, 'wrong_pin', { left: 5 - a.failed });
+    };
+    const revokeAll = (e: string, reason: string, keep?: string) => {
+      for (const t of this.accountTokens.values())
+        if (t.email === e && !t.revoked && t.install !== keep) t.revoked = reason;
+    };
+    const bearer = String(init.headers?.Authorization ?? '').slice('Bearer '.length);
+    const who = this.accountAccess.get(bearer);
+    const signedIn = () => {
+      if (!who) return null;
+      const [e, install] = who.split('|') as [string, string];
+      const live = [...this.accountTokens.values()].some(
+        (t) => t.email === e && t.install === install && !t.revoked,
+      );
+      return live ? e : null;
+    };
+    if (path === '/account/code') {
+      this.accountCodes.set(email, String(100000 + Math.floor(Math.random() * 900000)));
+      return res(202, { sent: true, minutes: 10 });
+    }
+    if (path === '/account/signup') {
+      if (!codeOk()) return err(401, 'code_invalid');
+      if (this.accounts.has(email)) return err(409, 'account_exists');
+      if (!/^\d{4,6}$/.test(String(body.pin))) return err(422, 'pin_format');
+      this.accounts.set(email, {
+        id: this.id('acct'),
+        pin: String(body.pin),
+        kdfSalt: String(body.kdf_salt),
+        recoveryCheck: String(body.recovery_check),
+        backup: null,
+        wrapPin: null,
+        wrapRecovery: null,
+        failed: 0,
+        paused: false,
+      });
+      this.accountCodes.delete(email);
+      return res(
+        201,
+        unlocked(email, issue(email, String(body.install_id), String(body.device_label)), false),
+      );
+    }
+    if (path === '/account/signin') {
+      if (!codeOk()) return err(401, 'code_invalid');
+      if (!this.accounts.has(email)) return err(404, 'no_account');
+      const bad = pinOk(email, String(body.pin));
+      if (bad) return bad;
+      const other = [...this.accountTokens.values()]
+        .filter((t) => t.email === email && !t.revoked && t.install !== body.install_id)
+        .sort((a, b) => b.at - a.at)[0];
+      if (other && !body.move)
+        return err(409, 'other_phone', {
+          device_label: other.label,
+          last_used_at: new Date(other.at).toISOString(),
+        });
+      revokeAll(email, other ? 'moved' : 'signed_out');
+      this.accountCodes.delete(email);
+      return res(
+        200,
+        unlocked(email, issue(email, String(body.install_id), String(body.device_label)), true),
+      );
+    }
+    if (path === '/account/unlock' || path === '/account/refresh') {
+      let t = this.accountTokens.get(String(body.refresh_token));
+      if (!t && this.lenient) {
+        // Test mode: the pretend server forgot everything when the app restarted.
+        const e = 'test-mode@local';
+        if (!this.accounts.has(e))
+          this.accounts.set(e, {
+            id: this.id('acct'),
+            pin: String(body.pin ?? ''),
+            kdfSalt: 'dGVzdC1tb2RlLXNhbHQ',
+            recoveryCheck: null,
+            backup: null,
+            wrapPin: null,
+            wrapRecovery: null,
+            failed: 0,
+            paused: false,
+          });
+        t = { email: e, install: 'test-mode', label: 'Test phone', revoked: null, at: Date.now() };
+        this.accountTokens.set(String(body.refresh_token), t);
+      }
+      if (!t) return err(401, 'signed_out');
+      if (t.revoked) return err(401, t.revoked === 'rotated' ? 'signed_out' : t.revoked);
+      if (path === '/account/unlock') {
+        const bad = pinOk(t.email, String(body.pin));
+        if (bad) return bad;
+      }
+      t.revoked = 'rotated';
+      const tokens = issue(t.email, t.install, t.label);
+      return res(200, path === '/account/refresh' ? tokens : unlocked(t.email, tokens, false));
+    }
+    if (path === '/account/backup') {
+      const e = signedIn();
+      if (!e) return err(401, 'signed_out');
+      const a = this.accounts.get(e)!;
+      a.backup = String(body.backup);
+      a.wrapPin = String(body.wrap_pin);
+      if (body.wrap_recovery != null) a.wrapRecovery = String(body.wrap_recovery);
+      if (body.recovery_check != null) a.recoveryCheck = String(body.recovery_check);
+      return res(204);
+    }
+    if (path === '/account/recover') {
+      if (!codeOk()) return err(401, 'code_invalid');
+      const a = this.accounts.get(email);
+      if (!a) return err(404, 'no_account');
+      return res(200, { kdf_salt: a.kdfSalt, backup: a.backup, wrap_recovery: a.wrapRecovery });
+    }
+    if (path === '/account/reset-pin') {
+      if (!codeOk()) return err(401, 'code_invalid');
+      const a = this.accounts.get(email);
+      if (!a) return err(404, 'no_account');
+      if (body.forget_backup) {
+        a.backup = a.wrapPin = a.wrapRecovery = a.recoveryCheck = null;
+      } else if (!a.recoveryCheck || a.recoveryCheck !== body.recovery_check) {
+        return err(403, 'recovery_invalid');
+      }
+      a.pin = String(body.new_pin);
+      a.kdfSalt = String(body.kdf_salt);
+      a.failed = 0;
+      a.paused = false;
+      revokeAll(email, 'pin_reset');
+      this.accountCodes.delete(email);
+      return res(
+        200,
+        unlocked(email, issue(email, String(body.install_id), String(body.device_label)), false),
+      );
+    }
+    if (path === '/account/sign-out') {
+      const t = this.accountTokens.get(String(body.refresh_token));
+      if (t && !t.revoked) t.revoked = 'signed_out';
+      return res(204);
+    }
+    return res(404);
+  }
+
   /** Signed-in endpoints added in M13 (patients, operators). */
   private authed(
     path: string,
@@ -571,6 +810,10 @@ export class FakeServer {
   ): HttpResponse | null {
     const patient = me.kind === 'patient' ? this.patients.get(me.id) : undefined;
     if (path.startsWith('/patient/') && !patient) return res(403);
+    if (path === '/patient/pin/clear' && init.method === 'POST') {
+      patient!.pin = '';
+      return res(204);
+    }
     if (path === '/patient/me' && init.method === 'GET')
       return res(200, {
         ncid: patient!.ncid,

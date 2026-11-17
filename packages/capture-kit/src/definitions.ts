@@ -336,6 +336,13 @@ export interface CaptureKitPlugin {
   /** M13: the app mode set on this phone, or null before the first set-up. */
   getAppMode(): Promise<{ mode: AppMode | null }>;
   /**
+   * v11 (decision 043): a stable ID for this phone and this app, so a reinstall on the same phone
+   * is recognised (no "move to this phone?"). Android: SHA-256 of ANDROID_ID, which is per app
+   * signing key, survives reinstalling and changes on a factory reset. Never the raw ID. Empty when
+   * the phone gives none.
+   */
+  getPhoneId(): Promise<{ phoneId: string }>;
+  /**
    * M13: sets the app mode once, natively (JS cannot write it). Rejects with "mode_locked" when a
    * different mode is already set: a clinic phone can never open patient mode, nor the reverse,
    * unless the phone is reset.

@@ -130,14 +130,34 @@ export async function open(keyBytes: Uint8Array, sealed: string): Promise<Uint8A
 export interface BackupContent {
   v: 1;
   hospitals: PatientHospital[];
+  /** The phone the hospitals' sign-ins belong to (see CaptureKit getPhoneId). */
+  phoneId?: string;
 }
-export const sealBackup = (backupKey: string, hospitals: PatientHospital[]) =>
-  seal(unb64(backupKey), te.encode(JSON.stringify({ v: 1, hospitals } satisfies BackupContent)));
+export const sealBackup = (backupKey: string, hospitals: PatientHospital[], phoneId: string) =>
+  seal(
+    unb64(backupKey),
+    te.encode(JSON.stringify({ v: 1, hospitals, phoneId } satisfies BackupContent)),
+  );
 export async function openBackup(
   backupKey: Uint8Array,
   sealed: string,
-): Promise<PatientHospital[]> {
-  return (JSON.parse(td.decode(await open(backupKey, sealed))) as BackupContent).hospitals;
+): Promise<{ hospitals: PatientHospital[]; phoneId: string }> {
+  const b = JSON.parse(td.decode(await open(backupKey, sealed))) as BackupContent;
+  return { hospitals: b.hospitals, phoneId: b.phoneId ?? '' };
+}
+
+/**
+ * The phone for the account: CaptureKit's stable phone ID when there is one (a reinstall on the
+ * same phone is then recognised), else a random ID for this install.
+ */
+export async function phoneIdFor(kit: CaptureKitPlugin): Promise<string> {
+  try {
+    const { phoneId } = await kit.getPhoneId();
+    if (/^[A-Za-z0-9_-]{8,64}$/.test(phoneId)) return phoneId;
+  } catch {
+    /* older CaptureKit */
+  }
+  return newInstallId();
 }
 
 // ---------------------------------------------------------------- server calls
@@ -239,7 +259,7 @@ export async function signUp(
     'PUT',
     '/account/backup',
     {
-      backup: await sealBackup(backupKey, hospitals),
+      backup: await sealBackup(backupKey, hospitals, p.installId),
       wrap_pin: wrapPin,
       wrap_recovery: await seal(rec.key, bk),
       recovery_check: rec.check,
@@ -270,7 +290,13 @@ export async function signIn(
   pin: string,
   p: Phone,
   move: boolean,
-): Promise<{ local: AccountLocal; hospitals: PatientHospital[]; access: string }> {
+): Promise<{
+  local: AccountLocal;
+  hospitals: PatientHospital[];
+  access: string;
+  /** The backup was made on this phone: its hospital sign-ins still work here (no move). */
+  samePhone: boolean;
+}> {
   const u = await call<Unlocked>(kit, endpoint, 'POST', '/account/signin', {
     email,
     code,
@@ -280,9 +306,10 @@ export async function signIn(
   });
   if (!u.wrap_pin) throw new Error('backup_missing');
   const bk = await open(await pinKey(pin, u.kdf_salt, u.share), u.wrap_pin);
-  const hospitals = u.backup ? await openBackup(bk, u.backup) : [];
+  const opened = u.backup ? await openBackup(bk, u.backup) : { hospitals: [], phoneId: '' };
   return {
-    hospitals,
+    hospitals: opened.hospitals,
+    samePhone: opened.phoneId !== '' && opened.phoneId === p.installId,
     access: u.tokens.access_token,
     local: {
       endpoint,
@@ -333,7 +360,7 @@ export async function saveBackup(
     'PUT',
     '/account/backup',
     {
-      backup: await sealBackup(a.backupKey, hospitals),
+      backup: await sealBackup(a.backupKey, hospitals, a.installId),
       wrap_pin: a.wrapPin,
     },
     access,
@@ -353,7 +380,12 @@ export async function resetWithRecovery(
   recoveryCode: string,
   newPin: string,
   p: Phone,
-): Promise<{ local: AccountLocal; hospitals: PatientHospital[]; recoveryCode: string }> {
+): Promise<{
+  local: AccountLocal;
+  hospitals: PatientHospital[];
+  recoveryCode: string;
+  samePhone: boolean;
+}> {
   const r = await call<{ kdf_salt: string; backup: string | null; wrap_recovery: string | null }>(
     kit,
     endpoint,
@@ -369,7 +401,8 @@ export async function resetWithRecovery(
   } catch {
     throw new Error('recovery_invalid');
   }
-  const hospitals = r.backup ? await openBackup(bk, r.backup) : [];
+  const opened = r.backup ? await openBackup(bk, r.backup) : { hospitals: [], phoneId: '' };
+  const hospitals = opened.hospitals;
   const salt = newSalt();
   const u = await call<Unlocked>(kit, endpoint, 'POST', '/account/reset-pin', {
     email,
@@ -379,7 +412,8 @@ export async function resetWithRecovery(
     kdf_salt: salt,
     ...phone(p),
   });
-  return finishReset(kit, endpoint, email, newPin, salt, u, bk, hospitals, p);
+  const out = await finishReset(kit, endpoint, email, newPin, salt, u, bk, hospitals, p);
+  return { ...out, samePhone: opened.phoneId !== '' && opened.phoneId === p.installId };
 }
 
 /** Last resort: no recovery code. The account stays; the backup starts again from this phone. */
@@ -391,7 +425,12 @@ export async function resetForgettingBackup(
   newPin: string,
   p: Phone,
   hospitalsOnPhone: PatientHospital[],
-): Promise<{ local: AccountLocal; hospitals: PatientHospital[]; recoveryCode: string }> {
+): Promise<{
+  local: AccountLocal;
+  hospitals: PatientHospital[];
+  recoveryCode: string;
+  samePhone: boolean;
+}> {
   const salt = newSalt();
   const u = await call<Unlocked>(kit, endpoint, 'POST', '/account/reset-pin', {
     email,
@@ -401,7 +440,18 @@ export async function resetForgettingBackup(
     kdf_salt: salt,
     ...phone(p),
   });
-  return finishReset(kit, endpoint, email, newPin, salt, u, randomBytes(32), hospitalsOnPhone, p);
+  const out = await finishReset(
+    kit,
+    endpoint,
+    email,
+    newPin,
+    salt,
+    u,
+    randomBytes(32),
+    hospitalsOnPhone,
+    p,
+  );
+  return { ...out, samePhone: true };
 }
 
 async function finishReset(
@@ -425,7 +475,7 @@ async function finishReset(
     'PUT',
     '/account/backup',
     {
-      backup: await sealBackup(backupKey, hospitals),
+      backup: await sealBackup(backupKey, hospitals, p.installId),
       wrap_pin: wrapPin,
       wrap_recovery: await seal(rec.key, bk),
       recovery_check: rec.check,

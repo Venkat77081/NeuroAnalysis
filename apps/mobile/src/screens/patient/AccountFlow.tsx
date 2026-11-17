@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
 import {
-  newInstallId,
+  phoneIdFor,
   recoveryLooksRight,
   resetForgettingBackup,
   resetWithRecovery,
@@ -19,7 +19,7 @@ import {
   signUp,
   type AccountLocal,
 } from '../../lib/appaccount.ts';
-import { errorCode, moveHospital, unlockHospitals } from '../../lib/accounts.ts';
+import { errorCode, moveHospital, patientSignIn, unlockHospitals } from '../../lib/accounts.ts';
 import type { DeviceCheckResult } from '../../lib/devicecheck.ts';
 import {
   activeHospitals,
@@ -73,10 +73,12 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
   const pinRule = config.platform.patientPin;
   const pinOk =
     /^\d+$/.test(pin) && pin.length >= pinRule.minDigits && pin.length <= pinRule.maxDigits;
-  const phone = {
-    installId: settings.account?.installId ?? newInstallId(),
-    deviceLabel: caps ? `${caps.device.model} · Android ${caps.device.osVersion}` : 'Phone',
-  };
+  const deviceLabel = caps ? `${caps.device.model} · Android ${caps.device.osVersion}` : 'Phone';
+  /** This phone: its stable ID survives a reinstall, so the same phone is not "another phone". */
+  const getPhone = async () => ({
+    installId: settings.account?.installId ?? (await phoneIdFor(capture.kit)),
+    deviceLabel,
+  });
   const device = {
     model: caps?.device.model ?? 'unknown',
     osVersion: caps?.device.osVersion ?? 'unknown',
@@ -122,7 +124,15 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
   // ---------- sign up (also used to move a pre-v11 install: same PIN, existing hospitals)
   const doSignUp = (thePin: string, hospitals: PatientHospital[]) =>
     attempt(setBusy, setError, async () => {
-      const out = await signUp(capture.kit, endpoint, email.trim(), code, thePin, phone, hospitals);
+      const out = await signUp(
+        capture.kit,
+        endpoint,
+        email.trim(),
+        code,
+        thePin,
+        await getPhone(),
+        hospitals,
+      );
       setRecovery('');
       setSaved(false);
       go({
@@ -144,10 +154,19 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
   const doSignIn = (move: boolean) =>
     attempt(setBusy, setError, async () => {
       try {
-        const out = await signIn(capture.kit, endpoint, email.trim(), code, pin, phone, move);
+        const out = await signIn(
+          capture.kit,
+          endpoint,
+          email.trim(),
+          code,
+          pin,
+          await getPhone(),
+          move,
+        );
         if (out.hospitals.filter((h) => !h.withdrawnAt).length === 0) {
           go({ s: 'welcome', names: [], save: () => finish(out.local, out.hospitals) });
-        } else go({ s: 'check', restored: out.hospitals, local: out.local });
+        } else if (out.samePhone) await signInHere(out.hospitals, out.local);
+        else go({ s: 'check', restored: out.hospitals, local: out.local });
       } catch (e) {
         if (errorCode(e) === 'other_phone') {
           const d = (e as { detail?: Record<string, unknown> }).detail ?? {};
@@ -160,6 +179,20 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
         fail(e);
       }
     });
+
+  /**
+   * Same phone (reinstalled): the hospitals' sign-ins in the backup are this phone's own, so they
+   * still work. No camera check, nothing to move, no other phone to sign out.
+   */
+  const signInHere = async (restored: PatientHospital[], local: AccountLocal) => {
+    for (const h of restored.filter((x) => !x.withdrawnAt))
+      await patientSignIn(capture.kit, h.link, pin, prefs, h.profile).catch(() => undefined);
+    go({
+      s: 'welcome',
+      names: restored.filter((h) => !h.withdrawnAt).map((h) => h.hospital),
+      save: () => finish(local, restored),
+    });
+  };
 
   /** After the camera check: each hospital moves to this phone (the old phone stops there). */
   const restore = (check: DeviceCheckResult, restored: PatientHospital[], local: AccountLocal) =>
@@ -203,17 +236,26 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
             email.trim(),
             code,
             pin,
-            phone,
+            await getPhone(),
             onPhone,
           )
-        : await resetWithRecovery(capture.kit, endpoint, email.trim(), code, recovery, pin, phone);
+        : await resetWithRecovery(
+            capture.kit,
+            endpoint,
+            email.trim(),
+            code,
+            recovery,
+            pin,
+            await getPhone(),
+          );
       setSaved(false);
       go({
         s: 'recovery',
         code: out.recoveryCode,
         next: async () => {
-          const isNewPhone = onPhone.length === 0 && out.hospitals.some((h) => !h.withdrawnAt);
-          if (isNewPhone) return go({ s: 'check', restored: out.hospitals, local: out.local });
+          const restoring = onPhone.length === 0 && out.hospitals.some((h) => !h.withdrawnAt);
+          if (restoring && out.samePhone) return signInHere(out.hospitals, out.local);
+          if (restoring) return go({ s: 'check', restored: out.hospitals, local: out.local });
           await finish(out.local, onPhone.length > 0 ? onPhone : out.hospitals);
           onDone();
         },

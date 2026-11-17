@@ -10,7 +10,7 @@ type W = { __ncMock: { fakeServer: { issueInvite(): string } } };
 const invite = (page: Page) =>
   page.evaluate(() => (globalThis as unknown as W).__ncMock.fakeServer.issueInvite());
 
-test('v11: sign up, join, reinstall and move back, forgot PIN with the recovery code', async ({
+test('v11: sign up, join, reinstall (same phone), new phone, forgot PIN with the recovery code', async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -31,7 +31,8 @@ test('v11: sign up, join, reinstall and move back, forgot PIN with the recovery 
   await expect(page.getByTestId('account-email')).toContainText('asha@example.com');
   await page.getByRole('button', { name: 'Back' }).click();
 
-  // "Reinstall": the app's data is gone; the pretend hospital and the account remain.
+  // Reinstall on the SAME phone: e-mail code + PIN and the hospitals are back. No "move", no
+  // camera check: the phone is recognised and its hospital sign-ins still work.
   await page.getByTestId('test-panel-open').click();
   await page.getByTestId('tp-reinstall').click();
   await expect(page.getByTestId('acct-email')).toBeVisible();
@@ -44,7 +45,21 @@ test('v11: sign up, join, reinstall and move back, forgot PIN with the recovery 
   await expect(page.getByRole('alert')).toContainText('Wrong PIN');
   await page.getByTestId('acct-pin').fill('2580');
   await page.getByTestId('acct-code-next').click();
-  // The old install is still signed in: move the account to this one.
+  await expect(page.getByTestId('acct-restored')).toContainText('Demo Hospital');
+  await expect(page.getByTestId('acct-other-phone')).toHaveCount(0);
+  await page.getByTestId('acct-welcome-next').click();
+  await expect(page.getByTestId('hospital-badge')).toHaveText('Joined');
+
+  // A NEW phone (another phone ID): "Use this phone?", camera check, hospitals move over.
+  await page.evaluate(() => globalThis.localStorage.removeItem('neurocapture.phone_id'));
+  await page.getByTestId('test-panel-open').click();
+  await page.getByTestId('tp-reinstall').click();
+  await page.getByTestId('acct-have-account').click();
+  await page.getByTestId('acct-email').fill('asha@example.com');
+  await page.getByTestId('acct-email-next').click();
+  await enterCode(page);
+  await page.getByTestId('acct-pin').fill('2580');
+  await page.getByTestId('acct-code-next').click();
   await expect(page.getByTestId('acct-other-phone')).toBeVisible();
   await page.getByTestId('acct-move').click();
   await expect(page.getByTestId('acct-restored')).toContainText('Demo Hospital', {

@@ -797,6 +797,17 @@ export class MockCaptureKit implements CaptureKitPlugin {
     return { mode: v === 'clinic' || v === 'patient' ? v : null };
   }
 
+  /** Mock: kept beside the app mode, so the test panel's "reinstall" is the same phone. */
+  async getPhoneId(): Promise<{ phoneId: string }> {
+    const store = this.appModeStore();
+    let id = store.getItem('neurocapture.phone_id');
+    if (!id) {
+      id = `p${Array.from(globalThis.crypto.getRandomValues(new Uint8Array(20)), (b) => b.toString(16).padStart(2, '0')).join('')}`;
+      store.setItem('neurocapture.phone_id', id);
+    }
+    return { phoneId: id };
+  }
+
   async lockAppMode(opts: { mode: AppMode }): Promise<{ mode: AppMode }> {
     if (opts.mode !== 'clinic' && opts.mode !== 'patient') throw new Error('invalid mode');
     const { mode } = await this.getAppMode();

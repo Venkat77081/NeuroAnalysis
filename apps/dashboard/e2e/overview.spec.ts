@@ -17,6 +17,13 @@ test('v10: overviews for platform, hospital admin, front desk and doctor', async
   await expect(page.getByTestId('overview-table')).toContainText('Week of');
   await page.getByTestId('tile-hospitals').click();
   await expect(page.getByTestId('hospitals')).toBeVisible();
+  // Decision 044: each hospital records only into its own storage (the test stack: development storage).
+  await expect(page.getByTestId('can-record-Sunrise Neuro Clinic')).toHaveText('Yes');
+  await page.getByTestId('nav-platformSettings').click();
+  await expect(page.getByTestId('kind-s3')).toContainText('available');
+  await expect(page.getByTestId('kind-azure')).toContainText('Azure app not registered');
+  await expect(page.getByTestId('dev-storage-on')).toBeVisible();
+  await expect(page.getByTestId('platform-storage')).not.toContainText('NeuroCapture storage');
   await page.getByTestId('sign-out').click();
 
   // Hospital admin: set-up and health, then the e-mail and SMS card at the connector.
@@ -26,6 +33,9 @@ test('v10: overviews for platform, hospital admin, front desk and doctor', async
   const sms = page.getByTestId('overview-item-sms');
   await expect(sms).toContainText('not set up');
   await sms.getByRole('button', { name: 'Set up' }).click();
+  await expect(page.getByTestId('storage-card')).toContainText('Phones can record');
+  await expect(page.getByTestId('storage-card')).toContainText('NeuroCapture keeps no copy');
+  await expect(page.getByTestId('recording-off')).toHaveCount(0);
   const card = page.getByTestId('messaging-card');
   await expect(card).toContainText('Saved at your connector');
   await page.getByTestId('msg-sms-provider-http').click();

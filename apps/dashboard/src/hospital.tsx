@@ -70,7 +70,10 @@ interface KeyRow {
   created_at: string;
 }
 interface StorageInfo {
+  /** none (not connected: no recording) | s3 | azure | dev (decision 044) */
   kind: string;
+  can_record: boolean;
+  offered: string[];
   s3: Record<string, string> | null;
   external_id: string | null;
   trust_policy: unknown;
@@ -126,13 +129,13 @@ export function Connections() {
         setBusy(false);
       }
     });
-  const saveStorage = (kind: 'managed' | 's3' | 'azure') =>
+  const saveStorage = (kind: 'dev' | 's3' | 'azure') =>
     attempt(setError, async () => {
       try {
         await call(
           'PUT',
           '/hospital/storage',
-          kind === 'managed' ? { kind } : kind === 's3' ? { kind, s3 } : { kind, azure: az },
+          kind === 'dev' ? { kind } : kind === 's3' ? { kind, s3 } : { kind, azure: az },
         );
       } finally {
         reloadStorage(); // a failed test is shown in the check results
@@ -143,6 +146,11 @@ export function Connections() {
 
   return (
     <Page title={t('nav.connections')}>
+      {storage && !storage.can_record && (
+        <Notice tone="bad" testId="recording-off">
+          {t('hospital.recordingOff')}
+        </Notice>
+      )}
       <ErrorNote error={error ?? connErr} />
       <Card title={t('hospital.connectorTitle')} testId="connector-card">
         {conn?.registered && (
@@ -221,6 +229,11 @@ export function Connections() {
         </ul>
       </Card>
       <Card title={t('hospital.storageTitle')} testId="storage-card">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={storage?.can_record ? 'ok' : 'bad'}>
+            {storage?.can_record ? t('hospital.storageReady') : t('hospital.storageNotReady')}
+          </Badge>
+        </div>
         <p className="text-[14px]" data-testid="storage-now">
           {storage?.kind === 's3'
             ? t('hospital.storageS3')
@@ -229,8 +242,11 @@ export function Connections() {
                   account: storage.azure?.account,
                   container: storage.azure?.container,
                 })
-              : t('hospital.storageManaged')}
+              : storage?.kind === 'dev'
+                ? t('hospital.storageDev')
+                : t('hospital.storageNone')}
         </p>
+        <p className="text-[13px] leading-[19px] text-muted">{t('hospital.storageWhy')}</p>
         <div className="flex flex-wrap gap-2" role="group" aria-label={t('hospital.storageOwn')}>
           <Button
             variant={showing === 's3' ? 'secondary' : 'ghost'}
@@ -246,9 +262,13 @@ export function Connections() {
           >
             {t('hospital.ownAzure')}
           </Button>
-          {storage?.kind !== 'managed' && (
-            <Button variant="ghost" onClick={() => void saveStorage('managed')}>
-              {t('hospital.useManaged')}
+          {storage?.offered.includes('dev') && storage.kind !== 'dev' && (
+            <Button
+              variant="ghost"
+              onClick={() => void saveStorage('dev')}
+              data-testid="storage-dev"
+            >
+              {t('hospital.useDev')}
             </Button>
           )}
         </div>

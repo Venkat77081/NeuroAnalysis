@@ -133,7 +133,8 @@
     "azureMissing": "Azure app not registered",
     "azureHowTo": "To offer Azure: register one multi-tenant app in NeuroCapture's Microsoft Entra ID, put its ID and secret in the key vault as NC_AZURE_CLIENT_ID and NC_AZURE_CLIENT_SECRET, and restart the API. Steps: docs/deploy/azure.md, step 5b.",
     "azureAppId": "NeuroCapture's Azure app (client ID)",
-    "devStorageOn": "This is a test server: development storage is on (NC_DEV_STORAGE). Never use it with real patients."
+    "devStorageOn": "This is a test server: development storage is on (NC_DEV_STORAGE). Never use it with real patients.",
+    "serverOutdated": "This platform server is older than the dashboard and has no settings page yet. Update and restart the platform (the API), then reload this page."
   },
   "hospital": {
     "overviewTitle": "Overview",

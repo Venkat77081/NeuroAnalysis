@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ApiError, call } from './api.ts';
 import { ResetSignIn } from './reset.tsx';
 import { ActivityLog, type LogRow } from './activity.tsx';
-import { Badge, Button, Card, ErrorNote, Field, Page, Table } from './ui.tsx';
+import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table } from './ui.tsx';
 
 interface Hospital {
   id: string;
@@ -398,7 +398,13 @@ export function PlatformSettingsPage() {
     : [];
   return (
     <Page title={t('nav.platformSettings')}>
-      <ErrorNote error={error} />
+      {error instanceof ApiError && error.status === 404 ? (
+        <Notice tone="warn" testId="server-outdated">
+          {t('platform.serverOutdated')}
+        </Notice>
+      ) : (
+        <ErrorNote error={error} />
+      )}
       <Card title={t('platform.storageTitle')} testId="platform-storage">
         <p className="text-[14px] leading-5 text-[#3D4552]">{t('platform.storageIntro')}</p>
         <ul className="m-0 flex list-none flex-col p-0">

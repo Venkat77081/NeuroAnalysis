@@ -410,27 +410,70 @@ class Appointment(Base):
     moved_from: Mapped[datetime | None] = mapped_column(UTCDateTime())
     moved_from_doctor_id: Mapped[str | None] = mapped_column(String(32))
     moved_reason: Mapped[str | None] = mapped_column(String(24))
+    #: v14: who cancelled (staff | patient), why (a code from config), when; the desk's "seen".
+    cancelled_by: Mapped[str | None] = mapped_column(String(10))
+    cancel_reason: Mapped[str | None] = mapped_column(String(24))
+    cancelled_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    cancel_seen_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    #: v14: the doctor changed before the patient recorded: the earlier choice, for the new doctor
+    #: to confirm ({"tests", "med_state", "places", "from_doctor"}). Cleared when they send tests.
+    suggested_tests: Mapped[dict | None] = mapped_column(Json)
     __table_args__ = (UniqueConstraint("site_id", "external_ref_hash"),)
 
 
 class AppointmentChangeRequest(Base):
-    """v13: a patient asks for another date for one appointment: up to 3 days and a part of the day,
-    with a reason from a fixed list (no free text reaches the platform)."""
+    """A patient's request (no free text reaches the platform).
+
+    - kind "change" (v13/v14): another time for one appointment.
+    - kind "booking" (v14): a new appointment, with a preferred doctor (or any).
+    v14: `choices` = exact free times [{"at", "rank": preferred | alternative}]; v13 rows kept
+    `days` + `part_of_day` instead."""
 
     __tablename__ = "appointment_change_requests"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
-    appointment_id: Mapped[str] = mapped_column(ForeignKey("appointments.id"), index=True)
-    days: Mapped[list] = mapped_column(Json)  # ["2026-11-24", ...] (the hospital's dates)
-    part_of_day: Mapped[str] = mapped_column(String(10))  # morning | afternoon | any
+    #: Booking: set once the desk (or the patient's choice of an offer) books it.
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(8), default="change")  # change | booking
+    #: Booking: the preferred doctor (null = any). Change: null = the appointment's doctor only.
+    doctor_id: Mapped[str | None] = mapped_column(String(32))
+    any_doctor: Mapped[bool] = mapped_column(Boolean, default=False)
+    choices: Mapped[list | None] = mapped_column(Json)
+    purpose: Mapped[str | None] = mapped_column(String(20))  # booking: follow_up | ...
+    days: Mapped[list | None] = mapped_column(Json)  # v13 only
+    part_of_day: Mapped[str | None] = mapped_column(String(10))  # v13 only
     reason: Mapped[str | None] = mapped_column(String(20))
-    #: open → accepted (moved) | declined | withdrawn (by the patient) | closed (moved by the desk
-    #: without answering, or the appointment was cancelled).
+    #: open → accepted (moved / booked) | offered (the desk sent other times) | declined |
+    #: withdrawn (by the patient) | closed (moved or cancelled otherwise).
     status: Mapped[str] = mapped_column(String(10), default="open")
-    answer: Mapped[str | None] = mapped_column(String(20))  # declined: call_us | keep
+    answer: Mapped[str | None] = mapped_column(String(20))  # declined: a code from config
     answered_by: Mapped[str | None] = mapped_column(String(32))
     answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+class AppointmentOffer(Base):
+    """v14: the desk offers the patient up to `offer_max` times (date, time, doctor) to move an
+    appointment, or to book one they asked for. The times are held until `reply_by`. The patient
+    chooses one, keeps the current date (when still possible), asks to be called, or cancels."""
+
+    __tablename__ = "appointment_offers"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id"), index=True)
+    request_id: Mapped[str | None] = mapped_column(String(32))
+    options: Mapped[list] = mapped_column(Json)  # [{"at": iso, "doctor_id": id}]
+    #: The current date may still be kept (else the patient must choose or cancel).
+    current_possible: Mapped[bool] = mapped_column(Boolean, default=False)
+    reason: Mapped[str] = mapped_column(String(24))
+    reply_by: Mapped[datetime] = mapped_column(UTCDateTime())
+    #: open | chosen | kept | call_requested | declined (patient cancelled) | withdrawn (desk) | closed
+    status: Mapped[str] = mapped_column(String(16), default="open")
+    chosen: Mapped[int | None] = mapped_column(Integer)
+    answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    created_by: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
@@ -442,8 +485,10 @@ class AppointmentNotice(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"))
-    appointment_id: Mapped[str] = mapped_column(ForeignKey("appointments.id"))
-    kind: Mapped[str] = mapped_column(String(12))  # moved | not_changed
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id"))
+    offer_id: Mapped[str | None] = mapped_column(String(32))
+    #: moved | not_changed | offer | cancelled | booked | not_booked
+    kind: Mapped[str] = mapped_column(String(12))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
@@ -459,6 +504,8 @@ class DoctorHours(Base):
     department: Mapped[str | None] = mapped_column(String(80))
     week: Mapped[dict] = mapped_column(Json, default=dict)
     slot_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    #: v14: offered to patients booking in the app.
+    bookable: Mapped[bool] = mapped_column(Boolean, default=True)
     leave: Mapped[list] = mapped_column(Json, default=list)
     updated_by: Mapped[str | None] = mapped_column(String(32))
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)

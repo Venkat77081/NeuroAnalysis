@@ -10,6 +10,7 @@ from app.api.appointment_changes import router as appointment_changes_router
 from app.api.appointment_requests import router as appointment_requests_router
 from app.api.auth import router as auth_router
 from app.api.clinic import router as clinic_router
+from app.api.clinic_consent import router as clinic_consent_router
 from app.api.connector_link import router as connector_router
 from app.api.devices import router as devices_router
 from app.api.diagnostics import router as diagnostics_router
@@ -81,3 +82,4 @@ app.include_router(overview_router)
 app.include_router(app_account_router)
 app.include_router(appointment_changes_router)
 app.include_router(appointment_requests_router)
+app.include_router(clinic_consent_router)

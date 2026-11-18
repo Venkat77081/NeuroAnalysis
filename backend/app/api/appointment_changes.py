@@ -98,6 +98,7 @@ class SettingsOut(BaseModel):
     offer_reply_hours: int
     recording_valid_days: int
     record_due_days_before: int
+    clinic_phone_consent: bool
     #: The choices the dashboard offers (config/platform.json).
     device_min_fps_options: list[float]
     change_cutoff_hour_options: list[int]
@@ -121,6 +122,7 @@ class SettingsIn(BaseModel):
     offer_reply_hours: int | None = None
     recording_valid_days: int | None = None
     record_due_days_before: int | None = None
+    clinic_phone_consent: bool | None = None
 
 
 def _settings_out(site: Site) -> SettingsOut:

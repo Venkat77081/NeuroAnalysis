@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
+from app.api.clinic_consent import consent_state
 from app.api.requests import _staff_name, aware, request_state
 from app.audit import audit
 from app.db import get_db
@@ -33,6 +34,8 @@ class QueueItem(BaseModel):
     state: str
     recorded_by: str | None
     not_done_reason: str | None
+    #: v16 (decision 047): {"state": app_given | waiting | no_app, "phone_allowed": bool}.
+    consent: dict | None = None
 
 
 def _when(db: DbSession, r: RecordingRequest) -> datetime:
@@ -90,6 +93,7 @@ def _item(db: DbSession, r: RecordingRequest, ncid: str) -> QueueItem:
         state=request_state(db, r),
         recorded_by=by,
         not_done_reason=r.not_done_reason,
+        consent=consent_state(db, r),
     )
 
 

@@ -81,7 +81,15 @@
     "hours_overlap": "Two periods on the same day overlap.",
     "slot_not_offered": "Choose one of the offered appointment lengths.",
     "leave_invalid": "Leave must end on or after the day it starts.",
-    "appointment_cancelled": "This appointment was cancelled."
+    "appointment_cancelled": "This appointment was cancelled.",
+    "too_many_options": "Too many choices for this hospital's settings.",
+    "not_joined": "This patient does not use the app. Move the appointment and phone them.",
+    "options_invalid": "The same time is in the choices twice.",
+    "offer_target": "Choose an appointment or a request.",
+    "doctor_required": "Choose a doctor for this booking.",
+    "setting_not_offered": "Choose one of the offered values.",
+    "offer_not_open": "This offer was already answered. Reload the page.",
+    "time_taken": "That time is no longer free."
   },
   "nav": {
     "hospitals": "Hospitals",
@@ -335,7 +343,8 @@
     "status": "Status",
     "source": {
       "fhir": "From the hospital system",
-      "manual": "Added by hand"
+      "manual": "Added by hand",
+      "app": "Booked in the app"
     },
     "joined": "Joined",
     "notJoined": "Not joined",
@@ -447,7 +456,8 @@
     "clinicWhen": "Goes to the clinic queue on {{date}}. The patient does not get a link.",
     "sendClinic": "Add to the clinic queue",
     "sendBoth": "Send the link and add to the clinic queue",
-    "phoneUnsuitable": "The patient's phone failed the camera check ({{fps}} fps). Record in the clinic, or invite them again to join from another phone."
+    "phoneUnsuitable": "The patient's phone failed the camera check ({{fps}} fps). Record in the clinic, or invite them again to join from another phone.",
+    "movedFrom": "Moved from {{doctor}} before the patient recorded: their tests are filled in. Confirm or change them, then send."
   },
   "timeline": {
     "title": "Appointments and record links",
@@ -561,7 +571,17 @@
       "change_declined": "Change request answered: {{answer}}",
       "appointment_notice_sent": "Patient told about the appointment",
       "settings_changed": "Hospital settings changed",
-      "doctor_hours_changed": "Clinic hours changed"
+      "doctor_hours_changed": "Clinic hours changed",
+      "change_requested_times_one": "Patient asked to change the date ({{count}} time · {{reason}})",
+      "change_requested_times_other": "Patient asked to change the date ({{count}} times · {{reason}})",
+      "appointment_cancelled_staff": "Appointment cancelled ({{reason}})",
+      "appointment_cancelled_patient": "Patient cancelled the appointment ({{reason}})",
+      "times_offered": "Times offered to the patient",
+      "offer_chosen": "Patient chose an offered time: {{when}}",
+      "offer_kept": "Patient kept the booked date",
+      "call_requested": "Patient asked to be called",
+      "offer_withdrawn": "Offer withdrawn",
+      "booking_requested": "Patient asked for an appointment ({{purpose}})"
     },
     "place": {
       "home": "home link",
@@ -873,7 +893,7 @@
   "moves": {
     "tab": {
       "list": "Appointments",
-      "changes": "Change requests"
+      "requests": "Requests"
     },
     "countLabel": "{{count}} change requests waiting",
     "open": "Change date or doctor",
@@ -914,7 +934,8 @@
       "patient_called": "Patient phoned",
       "clinic_change": "Clinic change",
       "patient_request": "Patient asked in the app",
-      "other": "Other"
+      "other": "Other",
+      "patient_choice": "Patient chose an offered time"
     },
     "notify": "Tell the patient by SMS or e-mail too (from the hospital’s own accounts)",
     "save": "Move to {{when}} · {{doctor}}",
@@ -964,7 +985,62 @@
     "hours_one": "{{count}} hour before",
     "hours_other": "{{count}} hours before",
     "timeZone": "Hospital time zone",
-    "timeZoneHint": "Clinic hours, free times and the days patients choose are in this time zone."
+    "timeZoneHint": "Clinic hours, free times and the days patients choose are in this time zone.",
+    "bookingTitle": "Booking from the app",
+    "patientBooking": "Patients who joined may ask for an appointment in the app",
+    "bookingHint": "Which doctors are offered: Team → clinic hours → “Bookable in the app”. The desk confirms each booking.",
+    "offersTitle": "Choices the desk offers",
+    "offersHint": "The offered times are held for the patient until they answer. No answer by then: the appointment stays and the desk sees “No answer”.",
+    "recordingsTitle": "Home recordings when an appointment moves",
+    "recordingsHint": "A recording made within this many days of the new date counts for it; an older one asks for a new recording with the same tests.",
+    "num": {
+      "booking_preferred": {
+        "label": "Preferred dates the patient picks",
+        "value_one": "{{count}} date",
+        "value_other": "{{count}} dates"
+      },
+      "booking_alternatives": {
+        "label": "Alternative dates",
+        "value_one": "{{count}} date",
+        "value_other": "{{count}} dates"
+      },
+      "times_per_date": {
+        "label": "Times per date (up to)",
+        "value_one": "{{count}} time",
+        "value_other": "{{count}} times"
+      },
+      "booking_days_ahead": {
+        "label": "How far ahead they may book",
+        "value_one": "{{count}} day",
+        "value_other": "{{count}} days"
+      },
+      "booking_min_days": {
+        "label": "Earliest booking",
+        "value_one": "{{count}} day from now",
+        "value_other": "{{count}} days from now"
+      },
+      "offer_max": {
+        "label": "Choices the desk may offer",
+        "value_one": "up to {{count}}",
+        "value_other": "up to {{count}}"
+      },
+      "offer_reply_hours": {
+        "label": "Patient answers within",
+        "value_one": "{{count}} hour",
+        "value_other": "{{count}} hours"
+      },
+      "recording_valid_days": {
+        "label": "A recording counts if made within",
+        "value_one": "{{count}} day of the appointment",
+        "value_other": "{{count}} days of the appointment"
+      },
+      "record_due_days_before": {
+        "label": "New record-by date",
+        "value_one": "{{count}} day before",
+        "value_other": "{{count}} days before",
+        "value_zero": "on the day"
+      }
+    }
   },
   "hours": {
     "title": "Doctors’ clinic hours",
@@ -991,6 +1067,143 @@
     "removeLeave": "Remove",
     "badFormat": "Write hours as 09:00-13:00, with commas between them.",
     "saved": "Clinic hours saved.",
-    "save": "Save hours"
+    "save": "Save hours",
+    "bookable": "Bookable in the app (patients can ask for this doctor)"
+  },
+  "offers": {
+    "mode": {
+      "now": "Move it now",
+      "offer": "Offer {{name}} choices"
+    },
+    "modeHint": "Offer choices: the patient picks one in the app; the times are held for them.",
+    "notJoined": "This patient does not use the app: move it now and phone them.",
+    "bookTitle": "Offer {{name}} times for a new appointment",
+    "wantedHint_one": "The patient's {{count}} time is highlighted in the calendar.",
+    "wantedHint_other": "The patient's {{count}} times are highlighted in the calendar.",
+    "legendPicked": "has a choice",
+    "pickHint": "Click free times to add them to the choices (up to {{max}}).",
+    "heldTitle": "Held for another patient until they answer",
+    "held": "held",
+    "addTyped": "Add this time",
+    "choicesTitle": "Choices for {{name}} (up to {{max}})",
+    "noneYet": "No times chosen yet.",
+    "otherDoctor": "other doctor",
+    "remove": "Remove",
+    "heldFor": "These times are held for {{name}} until they answer, or for {{hours}} hours. Nobody else can be booked into them.",
+    "current": "The current date ({{when}})",
+    "currentGone": "No longer possible: {{name}} must choose one, or cancel",
+    "currentKeep": "Still possible: {{name}} may also keep it",
+    "send_one": "Send {{count}} choice to {{name}}",
+    "send_other": "Send {{count}} choices to {{name}}",
+    "sendIncomplete": "Choose times and a reason",
+    "sent_one": "{{count}} choice sent to {{name}}. You will see the answer in Requests.",
+    "sent_other": "{{count}} choices sent to {{name}}. You will see the answer in Requests.",
+    "state": {
+      "open": "Waiting for patient",
+      "no_answer": "No answer",
+      "call_requested": "Asked to be called"
+    },
+    "recRecorded": "Home recording already made: it counts for the new date if that date is within {{days}} days of it; a later date sends a new link with the same tests (or the new doctor chooses).",
+    "recNotYet": "Not recorded yet: the record-by date moves with the appointment. With another doctor, that doctor confirms the tests first."
+  },
+  "requests": {
+    "title": {
+      "change": "{{name}} asks to change the appointment",
+      "booking": "{{name}} asks for an appointment"
+    },
+    "wantsDoctor": "Doctor: {{doctor}}",
+    "anyDoctor": "Any doctor",
+    "purpose": {
+      "follow_up": "Follow-up",
+      "symptoms_changed": "Symptoms changed",
+      "medicine_review": "Medicine review",
+      "other": "Other"
+    },
+    "checkedNow": "Each time is checked against clinic hours and bookings now. Book a free one, offer other times, or decline.",
+    "legacy": "Asked for {{days}}, {{part}} (before exact times).",
+    "rank": {
+      "preferred": "Preferred",
+      "alternative": "Alternative"
+    },
+    "state": {
+      "free": "Free",
+      "taken": "Taken",
+      "leave": "Doctor on leave",
+      "off": "Outside clinic hours",
+      "past": "In the past",
+      "null": "—"
+    },
+    "book": "Book this",
+    "offerOthers": "Offer other times…",
+    "decline": "Decline…",
+    "answer": {
+      "call_us": "Please call us",
+      "keep": "Keep the booked date",
+      "fully_booked": "Fully booked",
+      "needs_referral": "Needs a referral",
+      "wrong_clinic": "Wrong clinic"
+    },
+    "pill": {
+      "change": "Change asked",
+      "booking": "New booking",
+      "call": "Asked to be called",
+      "noAnswer": "No answer",
+      "waiting": "Waiting for patient",
+      "cancelled": "Cancelled by patient"
+    },
+    "newBooking": "New appointment",
+    "choicesLine_one": "{{count}} time from {{first}} · {{free}} free now",
+    "choicesLine_other": "{{count}} times from {{first}} · {{free}} free now",
+    "asked": "Asked {{when}}",
+    "offerLine_one": "{{count}} time sent · answer by {{by}}",
+    "offerLine_other": "{{count}} times sent · answer by {{by}}",
+    "sent": "Sent {{when}}",
+    "withdrawOffer": "Withdraw offer",
+    "withdrawn": "Offer withdrawn. Change the appointment from the list, or offer new times.",
+    "reasonLine": "Reason: {{reason}}",
+    "markSeen": "Mark as seen",
+    "seen": "Marked as seen.",
+    "filter": {
+      "all": "All",
+      "booking": "New bookings",
+      "change": "Change asked",
+      "waiting": "Waiting for patient",
+      "no_answer": "No answer or call",
+      "cancelled": "Cancelled by patient"
+    },
+    "empty": "Nothing here.",
+    "what": "What",
+    "apptCol": "Appointment / doctor",
+    "detailsCol": "Details",
+    "whenCol": "When",
+    "check": "Check times",
+    "countHint": "The menu count is what needs the desk: new bookings, change requests, offers with no answer and patients asking to be called."
+  },
+  "cancel": {
+    "open": "Cancel…",
+    "title": "Cancel {{name}}'s appointment?",
+    "reason": "Reason",
+    "reasons": {
+      "patient_asked": "Patient asked (phone)",
+      "doctor_unavailable": "Doctor not available",
+      "clinic_closed": "Clinic closed",
+      "booked_by_mistake": "Booked by mistake",
+      "other": "Other"
+    },
+    "patientReason": {
+      "feeling_better": "Feeling better",
+      "cant_make_it": "Can't make it",
+      "going_elsewhere": "Going elsewhere",
+      "other": "Other"
+    },
+    "notify": "Tell {{name}} (app, plus SMS/e-mail from the hospital's accounts)",
+    "what": "Open record links are cancelled; recordings already made stay with the hospital. Can be done at any time.",
+    "confirm": "Cancel appointment",
+    "keep": "Keep it",
+    "done": "{{name}}'s appointment on {{when}} is cancelled.",
+    "by": {
+      "staff": "Cancelled · {{reason}}",
+      "patient": "Cancelled by patient · {{reason}}"
+    }
   }
 }

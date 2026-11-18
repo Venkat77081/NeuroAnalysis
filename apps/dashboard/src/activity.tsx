@@ -67,6 +67,18 @@ export function describe(t: TFunction, action: string, d: Record<string, unknown
     params.reason =
       typeof x.reason === 'string' ? t(`moves.patientReason.${x.reason}`) : t('moves.noReason');
   }
+  // v14 (decision 046): offers, cancellations, bookings.
+  if (action === 'change_requested' && typeof x.options === 'number')
+    return t('log.action.change_requested_times', { ...params, count: x.options });
+  if (action === 'appointment_cancelled' && typeof x.reason === 'string')
+    params.reason = t(
+      x.by === 'patient' ? `cancel.patientReason.${x.reason}` : `cancel.reasons.${x.reason}`,
+      { defaultValue: x.reason },
+    );
+  if (action === 'appointment_cancelled' && typeof x.by === 'string')
+    return t(`log.action.appointment_cancelled_${x.by}`, params);
+  if (typeof x.purpose === 'string')
+    params.purpose = t(`requests.purpose.${x.purpose}`, { defaultValue: x.purpose });
   if (typeof x.answer === 'string')
     params.answer = t(`moves.answer.${x.answer}`, { defaultValue: x.answer });
   if (typeof x.role === 'string') params.role = t(`roles.${x.role}`, { defaultValue: x.role });

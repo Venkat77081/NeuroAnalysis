@@ -47,8 +47,8 @@ export function App() {
     setMe(m);
     setPage(menuFor(m.role, new Set(m.permissions))[0] ?? '');
     if (m.permissions.includes('appointments.add') || m.permissions.includes('appointments.assign'))
-      call<unknown[]>('GET', '/hospital/change-requests').then(
-        (l) => setChanges(l.length),
+      call<{ count: number }>('GET', '/hospital/inbox').then(
+        (l) => setChanges(l.count),
         () => undefined,
       );
     if (m.role === 'doctor')

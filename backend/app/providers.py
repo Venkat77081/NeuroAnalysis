@@ -66,6 +66,15 @@ def staff_reset(to: str, hospital: str, by: str, link: str, hours: int) -> None:
     )
 
 
+def doctor_no_show(to: str, hospital: str, ncid: str, when: str) -> None:
+    """v18: tells the doctor a patient did not come. Only the NCID and time: no name or record."""
+    send_email(
+        to,
+        message("doctorNoShow", "subject", hospital=hospital, when=when),
+        message("doctorNoShow", "body", hospital=hospital, ncid=ncid, when=when),
+    )
+
+
 def account_code(to: str, code: str, minutes: int) -> None:
     """v11: a one-time code for the patient app account. The address is used for this e-mail only."""
     send_email(

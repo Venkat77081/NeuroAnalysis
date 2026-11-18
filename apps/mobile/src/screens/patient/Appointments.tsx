@@ -1,10 +1,14 @@
 /**
- * v13 (decision 045): the patient's upcoming appointments at one hospital, and asking for another
- * date: up to 3 days and a time of day, with a reason from a fixed list (no free text, so no health
- * details reach the platform). The appointment stays as booked until the hospital answers; the
- * answer shows here (and, if the desk chose, by SMS or e-mail from the hospital).
+ * The patient's appointments at one hospital (v13 decision 045, v14 decision 046).
+ *
+ * - Each upcoming appointment: ask to change it (exact free times on preferred and alternative
+ *   dates), cancel it (any time, reason from a list), or answer the hospital's offer of new times
+ *   (choose one, keep the current date when still possible, ask to be called, or cancel).
+ * - Book an appointment: a doctor (or any), preferred and alternative dates with free times, and
+ *   a purpose from a list. The hospital confirms one of the times, or offers others.
+ * No free text: no health details reach the platform.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
@@ -14,36 +18,78 @@ import { logger } from '../../lib/logger.ts';
 import { Button, Card } from '../../ui/kit.tsx';
 import { ErrorText } from '../modes/Common.tsx';
 
+interface ChoiceOut {
+  at: string;
+  rank: 'preferred' | 'alternative';
+}
 interface Change {
   id: string;
-  days: string[];
-  part_of_day: 'morning' | 'afternoon' | 'any';
+  kind: 'change' | 'booking';
+  choices: ChoiceOut[];
+  days?: string[] | null;
+  part_of_day?: string | null;
   reason: string | null;
-  status: 'open' | 'accepted' | 'declined' | 'closed' | 'withdrawn';
+  status: 'open' | 'offered' | 'accepted' | 'declined' | 'closed' | 'withdrawn';
   answer: string | null;
+}
+interface Offer {
+  id: string;
+  options: { index: number; at: string; doctor_name: string | null; other_doctor: boolean }[];
+  reply_by: string;
+  current_possible: boolean;
+  reason: string;
+  status: 'open' | 'call_requested';
+  late: boolean;
 }
 export interface PatientAppointment {
   id: string;
   at: string;
   doctor_name: string | null;
+  status: 'booked' | 'cancelled';
   can_ask: boolean;
   ask_until: string | null;
+  can_cancel: boolean;
   change: Change | null;
+  offer: Offer | null;
   moved_from: string | null;
   moved_from_doctor_name: string | null;
   moved_by_hospital: boolean;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  waiting_for_tests: boolean;
+}
+interface Booking {
+  id: string;
+  status: 'open' | 'offered' | 'declined';
+  doctor_name: string | null;
+  any_doctor: boolean;
+  choices: ChoiceOut[];
+  purpose: string | null;
+  answer: string | null;
+  offer: Offer | null;
+}
+interface Rules {
+  enabled: boolean;
+  preferred: number;
+  alternatives: number;
+  times_per_date: number;
+  days_ahead: number;
+  min_days: number;
 }
 interface AppointmentsOut {
   appointments: PatientAppointment[];
+  bookings: Booking[];
   time_zone: string;
-  max_days: number;
   max_days_ahead: number;
   cutoff_hours: number;
+  changes_enabled: boolean;
+  booking: Rules;
 }
-
-const PARTS = ['morning', 'afternoon', 'any'] as const;
-const DAYS_SHOWN = 14;
-const DAYS_MORE = 42;
+interface Doctor {
+  id: string;
+  name: string;
+  department: string | null;
+}
 
 /** "2026-11-24" in the hospital's time zone, `n` days from now. */
 function dayIn(n: number, tz: string): string {
@@ -54,9 +100,33 @@ function dayIn(n: number, tz: string): string {
     day: '2-digit',
   }).format(new Date(Date.now() + n * 86_400_000));
 }
-function locale(lang: string) {
-  return lang === 'hi' ? 'hi-IN' : 'en-IN';
+/** A day and "HH:MM" in the hospital's zone as an ISO time. */
+function zonedIso(day: string, hhmm: string, tz: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const [h, mi] = hhmm.split(':').map(Number);
+  const guess = Date.UTC(y!, m! - 1, d!, h!, mi!);
+  const off = (ms: number) => {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hourCycle: 'h23',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+        .formatToParts(new Date(ms))
+        .filter((x) => x.type !== 'literal')
+        .map((x) => [x.type, Number(x.value)]),
+    );
+    return Date.UTC(p.year!, p.month! - 1, p.day!, p.hour!, p.minute!) - ms;
+  };
+  let t = guess - off(guess);
+  t = guess - off(t);
+  return new Date(t).toISOString();
 }
+const locale = (lang: string) => (lang === 'hi' ? 'hi-IN' : 'en-IN');
 function when(iso: string, tz: string, lang: string): string {
   return new Date(iso).toLocaleString(locale(lang), {
     timeZone: tz,
@@ -72,6 +142,15 @@ function dayLabel(day: string, lang: string): string {
     timeZone: 'UTC',
     weekday: 'short',
     day: 'numeric',
+    month: 'short',
+  });
+}
+function timeLabel(hhmm: string, lang: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(Date.UTC(2000, 0, 1, h, m)).toLocaleTimeString(locale(lang), {
+    timeZone: 'UTC',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -84,7 +163,7 @@ function Chip({
 }: {
   on: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
   testId?: string;
   disabled?: boolean;
 }) {
@@ -99,6 +178,23 @@ function Chip({
     >
       {children}
     </button>
+  );
+}
+
+function Badge({ tone, children }: { tone: 'ok' | 'warn' | 'bad' | 'grey'; children: ReactNode }) {
+  const c = {
+    ok: 'bg-[#E3F4EA] text-[#145F38]',
+    warn: 'bg-[#FDF0DD] text-[#8A4B00]',
+    bad: 'bg-[#FDECEA] text-[#B42318]',
+    grey: 'bg-[#EDF0F3] text-[#3D4552]',
+  }[tone];
+  return (
+    <span
+      className={`shrink-0 rounded-xl px-2.5 py-0.5 text-[12px] font-semibold ${c}`}
+      data-testid="appointment-badge"
+    >
+      {children}
+    </span>
   );
 }
 
@@ -118,11 +214,17 @@ export function useAppointments(h: PatientHospital) {
       async (e: unknown) => {
         logger.warn('appointments fetch failed', { code: errorCode(e) });
         const cached = await repo.store.get<AppointmentsOut>(cacheKey(h, 'appointments'));
-        // Offline: what the phone last saw, without asking (it needs the hospital to answer).
+        // Offline: what the phone last saw, read only (answers need the hospital).
         if (!off && cached)
           setData({
             ...cached,
-            appointments: cached.appointments.map((a) => ({ ...a, can_ask: false })),
+            booking: { ...cached.booking, enabled: false },
+            appointments: cached.appointments.map((a) => ({
+              ...a,
+              can_ask: false,
+              can_cancel: false,
+              offer: null,
+            })),
           });
       },
     );
@@ -135,84 +237,179 @@ export function useAppointments(h: PatientHospital) {
   return { data, reload };
 }
 
+type View =
+  | { kind: 'list' }
+  | { kind: 'ask'; appt: PatientAppointment }
+  | { kind: 'offer'; offer: Offer; appt: PatientAppointment | null }
+  | { kind: 'cancel'; appt: PatientAppointment }
+  | { kind: 'book' };
+
 export function AppointmentsSection({ h }: { h: PatientHospital }) {
   const { t, i18n } = useTranslation();
   const { data, reload } = useAppointments(h);
-  const [asking, setAsking] = useState<string | null>(null);
+  const [view, setView] = useState<View>({ kind: 'list' });
   const [error, setError] = useState<string | null>(null);
-  if (!data || data.appointments.length === 0) return null;
+  if (!data) return null;
   const tz = data.time_zone;
   const lang = i18n.language;
-
-  const withdraw = async (c: Change) => {
+  const back = () => {
+    setView({ kind: 'list' });
+    reload();
+  };
+  const post = async (path: string, body?: unknown) => {
     setError(null);
     try {
-      await hospitalApi(capture.kit, h, 'POST', `/patient/change-requests/${c.id}/withdraw`);
+      await hospitalApi(capture.kit, h, 'POST', path, body);
       reload();
     } catch (e) {
       setError(errorCode(e));
     }
   };
 
-  const asked = data.appointments.find((a) => a.id === asking);
-  if (asked)
+  if (view.kind === 'ask')
     return (
-      <ChangeForm
+      <TimesForm
         h={h}
-        appt={asked}
         data={data}
-        onCancel={() => setAsking(null)}
-        onSent={() => {
-          setAsking(null);
-          reload();
-        }}
+        title={t('appts.askTitle')}
+        appt={view.appt}
+        onCancel={() => setView({ kind: 'list' })}
+        onSent={back}
+      />
+    );
+  if (view.kind === 'book')
+    return <BookForm h={h} data={data} onCancel={() => setView({ kind: 'list' })} onSent={back} />;
+  if (view.kind === 'offer')
+    return (
+      <OfferView
+        h={h}
+        tz={tz}
+        offer={view.offer}
+        appt={view.appt}
+        onDone={back}
+        onBack={() => setView({ kind: 'list' })}
+      />
+    );
+  if (view.kind === 'cancel')
+    return (
+      <CancelView
+        h={h}
+        tz={tz}
+        appt={view.appt}
+        onDone={back}
+        onBack={() => setView({ kind: 'list' })}
       />
     );
 
+  const nothing = data.appointments.length === 0 && data.bookings.length === 0;
+  if (nothing && !data.booking.enabled) return null;
   return (
     <section className="flex flex-col gap-3" data-testid="appointments">
       <h2 className="text-[16px] font-bold">{t('appts.title')}</h2>
       <ErrorText code={error} />
+      {data.booking.enabled && (
+        <Button
+          variant="secondary"
+          onClick={() => setView({ kind: 'book' })}
+          data-testid="book-open"
+        >
+          {t('appts.book')}
+        </Button>
+      )}
+      {data.bookings.map((b) => (
+        <Card key={b.id} className="flex flex-col gap-2" data-testid="booking-card">
+          <div className="flex items-start justify-between gap-2">
+            <b className="text-[16px]">{t('appts.bookingTitle')}</b>
+            <Badge tone={b.status === 'declined' ? 'bad' : b.offer ? 'warn' : 'warn'}>
+              {t(`appts.bookingState.${b.offer ? 'offer' : b.status}`)}
+            </Badge>
+          </div>
+          <span className="text-[14px] text-[#3D4552]">
+            {t('appts.bookingLine', {
+              doctor: b.doctor_name ?? t('appts.anyDoctor'),
+              count: b.choices.length,
+              first: b.choices[0] ? when(b.choices[0].at, tz, lang) : '',
+            })}
+          </span>
+          {b.status === 'declined' && (
+            <span className="text-[14px] text-[#3D4552]" data-testid="booking-declined">
+              {t(`appts.bookingAnswer.${b.answer ?? 'call_us'}`, { hospital: h.hospital })}
+            </span>
+          )}
+          {b.offer && (
+            <Button
+              onClick={() => setView({ kind: 'offer', offer: b.offer!, appt: null })}
+              data-testid="booking-offer-open"
+            >
+              {t('appts.chooseTime')}
+            </Button>
+          )}
+          {b.status !== 'declined' && (
+            <Button
+              variant="ghost"
+              onClick={() => void post(`/patient/change-requests/${b.id}/withdraw`)}
+              data-testid="booking-withdraw"
+            >
+              {t('appts.withdraw')}
+            </Button>
+          )}
+        </Card>
+      ))}
       {data.appointments.map((a) => {
         const c = a.change;
-        const badge =
-          c?.status === 'open'
-            ? ['warn', t('appts.badge.asked')]
-            : c?.status === 'accepted' || a.moved_from
-              ? ['ok', t('appts.badge.changed')]
-              : c?.status === 'declined'
-                ? ['bad', t('appts.badge.notChanged')]
-                : ['ok', t('appts.badge.booked')];
+        const badge: [string, 'ok' | 'warn' | 'bad' | 'grey'] =
+          a.status === 'cancelled'
+            ? [t('appts.badge.cancelled'), a.cancelled_by === 'patient' ? 'grey' : 'bad']
+            : a.offer
+              ? [t('appts.badge.chooseTime'), 'warn']
+              : c?.status === 'open'
+                ? [t('appts.badge.asked'), 'warn']
+                : c?.status === 'accepted' || a.moved_from
+                  ? [t('appts.badge.changed'), 'ok']
+                  : c?.status === 'declined'
+                    ? [t('appts.badge.notChanged'), 'bad']
+                    : [t('appts.badge.booked'), 'ok'];
         return (
           <Card key={a.id} className="flex flex-col gap-2" data-testid="appointment-card">
             <div className="flex items-start justify-between gap-2">
               <span className="text-[17px] font-bold" data-testid="appointment-when">
                 {when(a.at, tz, lang)}
               </span>
-              <span
-                className={`shrink-0 rounded-xl px-2.5 py-0.5 text-[12px] font-semibold ${
-                  {
-                    ok: 'bg-[#E3F4EA] text-[#145F38]',
-                    warn: 'bg-[#FDF0DD] text-[#8A4B00]',
-                    bad: 'bg-[#FDECEA] text-[#B42318]',
-                  }[badge[0] as 'ok' | 'warn' | 'bad']
-                }`}
-                data-testid="appointment-badge"
-              >
-                {badge[1]}
-              </span>
+              <Badge tone={badge[1]}>{badge[0]}</Badge>
             </div>
             {a.doctor_name && <span className="text-[14px] text-[#3D4552]">{a.doctor_name}</span>}
-            {c?.status === 'open' && (
-              <p className="text-[14px] leading-5 text-[#3D4552]" data-testid="appointment-asked">
-                {t('appts.youAsked', {
-                  days: c.days.map((d) => dayLabel(d, lang)).join(', '),
-                  part: t(`appts.part.${c.part_of_day}`),
-                  hospital: h.hospital,
-                })}
+            {a.status === 'cancelled' && (
+              <p className="text-[14px] text-[#3D4552]" data-testid="appointment-cancelled">
+                {a.cancelled_by === 'patient'
+                  ? t('appts.youCancelled')
+                  : t('appts.hospitalCancelled', {
+                      hospital: h.hospital,
+                      reason: t(`appts.cancelReason.${a.cancel_reason ?? 'other'}`),
+                    })}
               </p>
             )}
-            {a.moved_from && (
+            {a.offer && (
+              <>
+                <p className="text-[14px] leading-5 text-[#8A4B00]" data-testid="appointment-offer">
+                  {t('appts.offerLine', {
+                    hospital: h.hospital,
+                    by: when(a.offer.reply_by, tz, lang),
+                  })}
+                </p>
+                <Button
+                  onClick={() => setView({ kind: 'offer', offer: a.offer!, appt: a })}
+                  data-testid="appointment-offer-open"
+                >
+                  {t('appts.chooseTime')}
+                </Button>
+              </>
+            )}
+            {c?.status === 'open' && (
+              <p className="text-[14px] leading-5 text-[#3D4552]" data-testid="appointment-asked">
+                {t('appts.youAskedTimes', { count: c.choices.length, hospital: h.hospital })}
+              </p>
+            )}
+            {a.moved_from && a.status === 'booked' && (
               <p className="text-[14px] leading-5 text-[#3D4552]" data-testid="appointment-moved">
                 {a.moved_by_hospital
                   ? t('appts.movedByHospital', { hospital: h.hospital })
@@ -223,6 +420,11 @@ export function AppointmentsSection({ h }: { h: PatientHospital }) {
                 <span className="block text-[12px] text-muted">
                   {t('appts.before', { when: when(a.moved_from, tz, lang) })}
                 </span>
+              </p>
+            )}
+            {a.waiting_for_tests && (
+              <p className="text-[13px] text-muted" data-testid="appointment-waiting-tests">
+                {t('appts.waitingForTests')}
               </p>
             )}
             {c?.status === 'declined' && (
@@ -236,7 +438,7 @@ export function AppointmentsSection({ h }: { h: PatientHospital }) {
             {a.can_ask && (
               <Button
                 variant="secondary"
-                onClick={() => setAsking(a.id)}
+                onClick={() => setView({ kind: 'ask', appt: a })}
                 data-testid="appointment-ask"
               >
                 {t('appts.ask')}
@@ -245,16 +447,25 @@ export function AppointmentsSection({ h }: { h: PatientHospital }) {
             {c?.status === 'open' && (
               <Button
                 variant="ghost"
-                onClick={() => void withdraw(c)}
+                onClick={() => void post(`/patient/change-requests/${c.id}/withdraw`)}
                 data-testid="appointment-withdraw"
               >
                 {t('appts.withdraw')}
               </Button>
             )}
-            {!a.can_ask && c?.status !== 'open' && a.ask_until && (
+            {a.status === 'booked' && !a.can_ask && !c && !a.offer && a.ask_until && (
               <span className="text-[12px] text-muted" data-testid="appointment-too-late">
                 {t('appts.tooLate', { hospital: h.hospital, hours: data.cutoff_hours })}
               </span>
+            )}
+            {a.can_cancel && (
+              <Button
+                variant="ghost"
+                onClick={() => setView({ kind: 'cancel', appt: a })}
+                data-testid="appointment-cancel"
+              >
+                {t('appts.cancel')}
+              </Button>
             )}
           </Card>
         );
@@ -263,42 +474,184 @@ export function AppointmentsSection({ h }: { h: PatientHospital }) {
   );
 }
 
-function ChangeForm({
+// --- Picking exact free times (change or booking) ---
+
+interface Block {
+  day: string;
+  rank: 'preferred' | 'alternative';
+  times: string[];
+}
+
+function TimesPicker({
   h,
-  appt,
   data,
+  doctorId,
+  appointmentId,
+  blocks,
+  onBlocks,
+}: {
+  h: PatientHospital;
+  data: AppointmentsOut;
+  doctorId: string | null;
+  appointmentId: string | null;
+  blocks: Block[];
+  onBlocks: (b: Block[]) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const tz = data.time_zone;
+  const r = data.booking;
+  const first = appointmentId ? 1 : Math.max(1, r.min_days);
+  const span = appointmentId ? Math.min(data.max_days_ahead, 42) : r.days_ahead;
+  const [more, setMore] = useState(false);
+  const [rank, setRank] = useState<'preferred' | 'alternative'>('preferred');
+  const [free, setFree] = useState<Record<string, string[] | 'error'>>({});
+  const limit = { preferred: r.preferred, alternative: r.alternatives };
+  const days = Array.from({ length: Math.min(more ? span : 14, span) }, (_, i) =>
+    dayIn(first + i, tz),
+  );
+  const ofRank = (k: 'preferred' | 'alternative') => blocks.filter((b) => b.rank === k);
+
+  useEffect(() => {
+    for (const b of blocks) {
+      if (free[b.day]) continue;
+      const q = new URLSearchParams({ date: b.day });
+      if (doctorId) q.set('doctor_id', doctorId);
+      if (appointmentId) q.set('appointment_id', appointmentId);
+      hospitalApi<{ times: { time: string }[] }>(
+        capture.kit,
+        h,
+        'GET',
+        `/patient/free-times?${q.toString()}`,
+      ).then(
+        (x) => setFree((f) => ({ ...f, [b.day]: x.times.map((y) => y.time) })),
+        () => setFree((f) => ({ ...f, [b.day]: 'error' })),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks.map((b) => b.day).join(), doctorId, appointmentId]);
+
+  const toggleDay = (d: string) => {
+    const has = blocks.find((b) => b.day === d);
+    if (has) return onBlocks(blocks.filter((b) => b.day !== d));
+    if (ofRank(rank).length >= limit[rank]) return;
+    onBlocks([...blocks, { day: d, rank, times: [] }]);
+  };
+  const toggleTime = (d: string, time: string) =>
+    onBlocks(
+      blocks.map((b) =>
+        b.day !== d
+          ? b
+          : b.times.includes(time)
+            ? { ...b, times: b.times.filter((x) => x !== time) }
+            : b.times.length >= r.times_per_date
+              ? b
+              : { ...b, times: [...b.times, time].sort() },
+      ),
+    );
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="times-picker">
+      {r.alternatives > 0 && (
+        <div className="flex gap-2" role="group">
+          {(['preferred', 'alternative'] as const).map((k) => (
+            <Chip key={k} on={rank === k} onClick={() => setRank(k)} testId={`picker-rank-${k}`}>
+              {t(`appts.rank.${k}`, { n: ofRank(k).length, max: limit[k] })}
+            </Chip>
+          ))}
+        </div>
+      )}
+      <span className="text-[13px] text-muted">
+        {t('appts.pickHint', { times: r.times_per_date })}
+      </span>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('appts.whichDays')}>
+        {days.map((d) => {
+          const b = blocks.find((x) => x.day === d);
+          return (
+            <Chip key={d} on={!!b} onClick={() => toggleDay(d)} testId={`change-day-${d}`}>
+              {dayLabel(d, i18n.language)}
+              {b ? ` · ${t(`appts.rankShort.${b.rank}`)}` : ''}
+            </Chip>
+          );
+        })}
+        {!more && span > 14 && (
+          <Chip on={false} onClick={() => setMore(true)} testId="change-more">
+            {t('appts.moreDates')}
+          </Chip>
+        )}
+      </div>
+      {[...ofRank('preferred'), ...ofRank('alternative')].map((b, i) => {
+        const f = free[b.day];
+        return (
+          <Card key={b.day} className="flex flex-col gap-2" data-testid="picker-block">
+            <span className="text-[12px] font-bold text-muted uppercase">
+              {t(`appts.rankLabel.${b.rank}`, {
+                n: ofRank(b.rank).indexOf(b) + 1,
+              })}
+            </span>
+            <b className="text-[15px]">{dayLabel(b.day, i18n.language)}</b>
+            {f === undefined && <span className="text-muted">…</span>}
+            {f === 'error' && <ErrorText code="network" />}
+            {Array.isArray(f) && f.length === 0 && (
+              <span className="text-[14px] text-muted" data-testid="picker-none">
+                {t('appts.noFreeTimes')}
+              </span>
+            )}
+            {Array.isArray(f) && f.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {f.map((time) => (
+                  <Chip
+                    key={time}
+                    on={b.times.includes(time)}
+                    onClick={() => toggleTime(b.day, time)}
+                    testId={`picker-time-${i}-${time}`}
+                  >
+                    {timeLabel(time, i18n.language)}
+                  </Chip>
+                ))}
+              </div>
+            )}
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+const toChoices = (blocks: Block[], tz: string) =>
+  blocks.flatMap((b) => b.times.map((x) => ({ at: zonedIso(b.day, x, tz), rank: b.rank })));
+
+function TimesForm({
+  h,
+  data,
+  title,
+  appt,
   onCancel,
   onSent,
 }: {
   h: PatientHospital;
-  appt: PatientAppointment;
   data: AppointmentsOut;
+  title: string;
+  appt: PatientAppointment;
   onCancel: () => void;
   onSent: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const { config } = useApp();
   const tz = data.time_zone;
-  const [more, setMore] = useState(false);
-  const [days, setDays] = useState<string[]>([]);
-  const [part, setPart] = useState<(typeof PARTS)[number] | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [anyDoctor, setAnyDoctor] = useState(false);
   const [reason, setReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const offered = Array.from(
-    { length: Math.min(more ? DAYS_MORE : DAYS_SHOWN, data.max_days_ahead) },
-    (_, i) => dayIn(i + 1, tz),
-  );
-  const toggle = (d: string) =>
-    setDays((x) => (x.includes(d) ? x.filter((y) => y !== d) : [...x, d].slice(-data.max_days)));
-
+  const choices = toChoices(blocks, tz);
+  const ready = choices.some((c) => c.rank === 'preferred');
   const send = async () => {
     setBusy(true);
     setError(null);
     try {
       await hospitalApi(capture.kit, h, 'POST', `/patient/appointments/${appt.id}/change-request`, {
-        days,
-        part_of_day: part,
+        choices,
+        any_doctor: anyDoctor,
         reason,
       });
       onSent();
@@ -307,10 +660,9 @@ function ChangeForm({
     }
     setBusy(false);
   };
-
   return (
     <section className="flex flex-col gap-3" data-testid="change-form">
-      <h2 className="text-[18px] font-bold">{t('appts.askTitle')}</h2>
+      <h2 className="text-[18px] font-bold">{title}</h2>
       <Card className="flex flex-col gap-1">
         <span className="text-[12px] font-bold text-muted">
           {t('appts.nowBooked').toUpperCase()}
@@ -320,31 +672,24 @@ function ChangeForm({
           {appt.doctor_name ? ` · ${appt.doctor_name}` : ''}
         </b>
       </Card>
-      <b className="text-[15px]">{t('appts.whichDays', { n: data.max_days })}</b>
-      <div
-        className="flex flex-wrap gap-2"
-        role="group"
-        aria-label={t('appts.whichDays', { n: data.max_days })}
-      >
-        {offered.map((d) => (
-          <Chip key={d} on={days.includes(d)} onClick={() => toggle(d)} testId={`change-day-${d}`}>
-            {dayLabel(d, i18n.language)}
-          </Chip>
-        ))}
-        {!more && (
-          <Chip on={false} onClick={() => setMore(true)} testId="change-more">
-            {t('appts.moreDates')}
-          </Chip>
-        )}
-      </div>
-      <b className="text-[15px]">{t('appts.whatTime')}</b>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t('appts.whatTime')}>
-        {PARTS.map((p) => (
-          <Chip key={p} on={part === p} onClick={() => setPart(p)} testId={`change-part-${p}`}>
-            {t(`appts.partChip.${p}`)}
-          </Chip>
-        ))}
-      </div>
+      <TimesPicker
+        h={h}
+        data={data}
+        doctorId={null}
+        appointmentId={appt.id}
+        blocks={blocks}
+        onBlocks={setBlocks}
+      />
+      <label className="flex min-h-11 items-center gap-2 text-[14px]">
+        <input
+          type="checkbox"
+          checked={anyDoctor}
+          onChange={(e) => setAnyDoctor(e.target.checked)}
+          className="h-4 w-4"
+          data-testid="change-any-doctor"
+        />
+        {t('appts.anyDoctorOk')}
+      </label>
       <b className="text-[15px]">{t('appts.why')}</b>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t('appts.why')}>
         {config.platform.appointmentChanges.patientReasons.map((r) => (
@@ -362,15 +707,403 @@ function ChangeForm({
         {t('appts.staysBooked', { date: when(appt.at, tz, i18n.language) })}
       </p>
       <ErrorText code={error} />
-      <Button
-        disabled={busy || days.length === 0 || !part}
-        onClick={() => void send()}
-        data-testid="change-send"
-      >
-        {t('appts.send')}
+      <Button disabled={busy || !ready} onClick={() => void send()} data-testid="change-send">
+        {t('appts.send', { count: choices.length })}
       </Button>
       <Button variant="secondary" onClick={onCancel} data-testid="change-cancel">
         {t('common.cancel')}
+      </Button>
+    </section>
+  );
+}
+
+function BookForm({
+  h,
+  data,
+  onCancel,
+  onSent,
+}: {
+  h: PatientHospital;
+  data: AppointmentsOut;
+  onCancel: () => void;
+  onSent: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { config } = useApp();
+  const tz = data.time_zone;
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [doctors, setDoctors] = useState<Doctor[] | null>(null);
+  const [doctor, setDoctor] = useState<Doctor | 'any' | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [purpose, setPurpose] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    hospitalApi<Doctor[]>(capture.kit, h, 'GET', '/patient/doctors').then(setDoctors, (e) =>
+      setError(errorCode(e)),
+    );
+  }, [h]);
+  const choices = toChoices(blocks, tz);
+  const docId = doctor && doctor !== 'any' ? doctor.id : null;
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await hospitalApi(capture.kit, h, 'POST', '/patient/bookings', {
+        doctor_id: docId,
+        choices,
+        purpose,
+      });
+      onSent();
+    } catch (e) {
+      setError(errorCode(e));
+    }
+    setBusy(false);
+  };
+  const stepLabel = (
+    <span className="text-[12px] font-bold text-muted uppercase">
+      {t('appts.bookStep', { n: step })} · {t(`appts.bookStepName.${step}`)}
+    </span>
+  );
+  return (
+    <section className="flex flex-col gap-3" data-testid="book-form">
+      <h2 className="text-[18px] font-bold">{t('appts.book')}</h2>
+      {stepLabel}
+      {step === 1 && (
+        <>
+          {(doctors ?? []).map((d) => (
+            <Choice
+              key={d.id}
+              on={doctor !== 'any' && doctor?.id === d.id}
+              onClick={() => setDoctor(d)}
+              title={d.name}
+              sub={d.department}
+              testId={`book-doctor-${d.id}`}
+            />
+          ))}
+          <Choice
+            on={doctor === 'any'}
+            onClick={() => setDoctor('any')}
+            title={t('appts.anyDoctor')}
+            sub={t('appts.anyDoctorSub', { hospital: h.hospital })}
+            testId="book-doctor-any"
+          />
+          <Button disabled={!doctor} onClick={() => setStep(2)} data-testid="book-next">
+            {t('common.continue')}
+          </Button>
+        </>
+      )}
+      {step === 2 && (
+        <>
+          <TimesPicker
+            h={h}
+            data={data}
+            doctorId={docId}
+            appointmentId={null}
+            blocks={blocks}
+            onBlocks={setBlocks}
+          />
+          <Button
+            disabled={!choices.some((c) => c.rank === 'preferred')}
+            onClick={() => setStep(3)}
+            data-testid="book-next"
+          >
+            {t('common.continue')}
+          </Button>
+        </>
+      )}
+      {step === 3 && (
+        <>
+          <Card className="flex flex-col gap-1" data-testid="book-review">
+            <b>{doctor === 'any' ? t('appts.anyDoctor') : doctor?.name}</b>
+            {choices.map((c) => (
+              <span key={c.at} className="text-[14px]">
+                {t(`appts.rankShort.${c.rank}`)}: {when(c.at, tz, i18n.language)}
+              </span>
+            ))}
+          </Card>
+          <b className="text-[15px]">{t('appts.purposeTitle')}</b>
+          <div className="flex flex-wrap gap-2" role="group">
+            {config.platform.appointmentChanges.bookingPurposes.map((p) => (
+              <Chip
+                key={p}
+                on={purpose === p}
+                onClick={() => setPurpose(purpose === p ? null : p)}
+                testId={`book-purpose-${p}`}
+              >
+                {t(`appts.purpose.${p}`)}
+              </Chip>
+            ))}
+          </div>
+          <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] leading-5 text-[#8A4B00]">
+            {t('appts.bookConfirmNote', { hospital: h.hospital })}
+          </p>
+          <ErrorText code={error} />
+          <Button disabled={busy} onClick={() => void send()} data-testid="book-send">
+            {t('appts.bookSend')}
+          </Button>
+        </>
+      )}
+      <ErrorText code={step === 3 ? null : error} />
+      <Button
+        variant="secondary"
+        onClick={() => (step === 1 ? onCancel() : setStep((s) => (s - 1) as 1 | 2))}
+        data-testid="book-back"
+      >
+        {step === 1 ? t('common.cancel') : t('common.back')}
+      </Button>
+    </section>
+  );
+}
+
+function Choice({
+  on,
+  onClick,
+  title,
+  sub,
+  testId,
+}: {
+  on: boolean;
+  onClick: () => void;
+  title: string;
+  sub: string | null;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={`flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left ${on ? 'border-2 border-brand' : 'border border-line'}`}
+      data-testid={testId}
+    >
+      <span
+        className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 ${on ? 'border-brand' : 'border-[#C9CFD8]'}`}
+      >
+        {on && <span className="h-2 w-2 rounded-full bg-brand" />}
+      </span>
+      <span className="text-[14px] leading-5">
+        <b className="text-[15px]">{title}</b>
+        {sub && <span className="block text-[#3D4552]">{sub}</span>}
+      </span>
+    </button>
+  );
+}
+
+// --- The hospital's offer ---
+
+function OfferView({
+  h,
+  tz,
+  offer,
+  appt,
+  onDone,
+  onBack,
+}: {
+  h: PatientHospital;
+  tz: string;
+  offer: Offer;
+  appt: PatientAppointment | null;
+  onDone: () => void;
+  onBack: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { config } = useApp();
+  const [pick, setPick] = useState<number | null>(null);
+  const [none, setNone] = useState(false);
+  const [reason, setReason] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const lang = i18n.language;
+  const act = async (path: string, body?: unknown) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await hospitalApi(capture.kit, h, 'POST', `/patient/offers/${offer.id}/${path}`, body);
+      onDone();
+    } catch (e) {
+      setError(errorCode(e));
+    }
+    setBusy(false);
+  };
+  if (none)
+    return (
+      <section className="flex flex-col gap-3" data-testid="offer-none">
+        <h2 className="text-[18px] font-bold">{t('appts.noneWork')}</h2>
+        {offer.status !== 'call_requested' && (
+          <Card className="flex flex-col gap-2">
+            <b>{t('appts.callMe', { hospital: h.hospital })}</b>
+            <span className="text-[14px] text-[#3D4552]">
+              {t('appts.callMeBody', { hospital: h.hospital })}
+            </span>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void act('call')}
+              data-testid="offer-call"
+            >
+              {t('appts.callMe', { hospital: h.hospital })}
+            </Button>
+          </Card>
+        )}
+        {offer.current_possible && appt && (
+          <Card className="flex flex-col gap-2">
+            <b>{t('appts.keepCurrent', { when: when(appt.at, tz, lang) })}</b>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void act('keep')}
+              data-testid="offer-keep"
+            >
+              {t('appts.keepCurrentButton')}
+            </Button>
+          </Card>
+        )}
+        <Card className="flex flex-col gap-2">
+          <b>{t(appt ? 'appts.cancelThis' : 'appts.cancelBooking')}</b>
+          <span className="text-[14px] text-[#3D4552]">{t('appts.why')}</span>
+          <div className="flex flex-wrap gap-2" role="group">
+            {config.platform.appointmentChanges.patientCancelReasons.map((r) => (
+              <Chip
+                key={r}
+                on={reason === r}
+                onClick={() => setReason(reason === r ? null : r)}
+                testId={`offer-cancel-reason-${r}`}
+              >
+                {t(`appts.cancelReason.${r}`)}
+              </Chip>
+            ))}
+          </div>
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={() => void act('decline', { reason })}
+            data-testid="offer-decline"
+          >
+            {t(appt ? 'appts.cancelMine' : 'appts.cancelBooking')}
+          </Button>
+        </Card>
+        <ErrorText code={error} />
+        <Button variant="secondary" onClick={() => setNone(false)}>
+          {t('common.back')}
+        </Button>
+      </section>
+    );
+  return (
+    <section className="flex flex-col gap-3" data-testid="offer-view">
+      <h2 className="text-[18px] font-bold">{t('appts.chooseTitle')}</h2>
+      <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] leading-5 text-[#8A4B00]">
+        {appt
+          ? t('appts.offerIntro', {
+              hospital: h.hospital,
+              when: when(appt.at, tz, lang),
+              by: when(offer.reply_by, tz, lang),
+            })
+          : t('appts.offerIntroBooking', {
+              hospital: h.hospital,
+              by: when(offer.reply_by, tz, lang),
+            })}
+      </p>
+      {offer.late && <p className="text-[13px] text-muted">{t('appts.offerLate')}</p>}
+      {offer.options.map((o) => (
+        <Choice
+          key={o.index}
+          on={pick === o.index}
+          onClick={() => setPick(o.index)}
+          title={when(o.at, tz, lang)}
+          sub={`${o.doctor_name ?? ''}${o.other_doctor ? ` · ${t('appts.otherDoctor')}` : ''}`}
+          testId={`offer-option-${o.index}`}
+        />
+      ))}
+      <ErrorText code={error} />
+      <Button
+        disabled={busy || pick === null}
+        onClick={() => void act('choose', { index: pick })}
+        data-testid="offer-choose"
+      >
+        {pick === null
+          ? t('appts.chooseOne')
+          : t('appts.bookThis', { when: when(offer.options[pick]!.at, tz, lang) })}
+      </Button>
+      <Button variant="ghost" onClick={() => setNone(true)} data-testid="offer-none-open">
+        {t('appts.noneWork')}
+      </Button>
+      <Button variant="secondary" onClick={onBack}>
+        {t('common.back')}
+      </Button>
+    </section>
+  );
+}
+
+// --- Cancelling ---
+
+function CancelView({
+  h,
+  tz,
+  appt,
+  onDone,
+  onBack,
+}: {
+  h: PatientHospital;
+  tz: string;
+  appt: PatientAppointment;
+  onDone: () => void;
+  onBack: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { config } = useApp();
+  const [reason, setReason] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cancel = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await hospitalApi(capture.kit, h, 'POST', `/patient/appointments/${appt.id}/cancel`, {
+        reason,
+      });
+      onDone();
+    } catch (e) {
+      setError(errorCode(e));
+    }
+    setBusy(false);
+  };
+  return (
+    <section className="flex flex-col gap-3" data-testid="cancel-view">
+      <h2 className="text-[18px] font-bold">{t('appts.cancelTitle')}</h2>
+      <Card>
+        <b>
+          {when(appt.at, tz, i18n.language)}
+          {appt.doctor_name ? ` · ${appt.doctor_name}` : ''}
+        </b>
+      </Card>
+      <b className="text-[15px]">{t('appts.why')}</b>
+      <div className="flex flex-wrap gap-2" role="group">
+        {config.platform.appointmentChanges.patientCancelReasons.map((r) => (
+          <Chip
+            key={r}
+            on={reason === r}
+            onClick={() => setReason(reason === r ? null : r)}
+            testId={`cancel-reason-${r}`}
+          >
+            {t(`appts.cancelReason.${r}`)}
+          </Chip>
+        ))}
+      </div>
+      <p className="rounded-xl bg-[#E6EFF8] px-3 py-2 text-[14px] leading-5 text-[#0B4A85]">
+        {t('appts.cancelNote', { hospital: h.hospital })}
+      </p>
+      <ErrorText code={error} />
+      <Button
+        variant="danger"
+        disabled={busy}
+        onClick={() => void cancel()}
+        data-testid="cancel-confirm"
+      >
+        {t('appts.cancelMine')}
+      </Button>
+      <Button variant="secondary" onClick={onBack}>
+        {t('appts.keepIt')}
       </Button>
     </section>
   );

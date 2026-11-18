@@ -63,11 +63,19 @@ export function TestPanel() {
     fake.addAppointment(ncids[ncids.length - 1]!, { days: 5 });
     setNote(t('testPanel.appointmentDone'));
   };
+  /** v14: the desk books the patient's first time (open change or booking request). */
   const deskAnswers = () => {
-    const ap = [...fake.appointments].reverse().find((a) => a.change?.status === 'open');
-    if (!ap) return setNote(t('testPanel.noChangeAsked'));
-    fake.answerChange(ap.id, { move: { doctor: 'Dr. Menon' } });
+    const r = [...fake.appts.requests].reverse().find((x) => x.status === 'open');
+    if (!r) return setNote(t('testPanel.noChangeAsked'));
+    fake.appts.deskBook(r.id, r.kind === 'change' ? 'Dr. Menon' : undefined);
     setNote(t('testPanel.deskMoved'));
+  };
+  /** v14: the desk offers 3 times for the latest booked appointment. */
+  const deskOffers = () => {
+    const a = [...fake.appts.appointments].reverse().find((x) => x.status === 'booked');
+    if (!a) return setNote(t('testPanel.joinFirst'));
+    fake.appts.deskOffer({ appointmentId: a.id }, 3, true);
+    setNote(t('testPanel.deskOffered'));
   };
   const clinic = () => {
     const mrn = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
@@ -131,6 +139,9 @@ export function TestPanel() {
           </Button>
           <Button variant="secondary" onClick={deskAnswers} data-testid="tp-desk-moves">
             {t('testPanel.deskMoves')}
+          </Button>
+          <Button variant="secondary" onClick={deskOffers} data-testid="tp-desk-offers">
+            {t('testPanel.deskOffers')}
           </Button>
           <Button variant="secondary" onClick={clinic} data-testid="tp-clinic">
             {t('testPanel.clinic')}

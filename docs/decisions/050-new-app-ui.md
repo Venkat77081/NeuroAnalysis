@@ -49,3 +49,25 @@
 - Short and calm, 150–600 ms, played once.
 - Turned off when the phone asks for reduced motion (`prefers-reduced-motion`).
 - Never on the camera screen during a take.
+
+## Round 2 (user, 19 Nov 2026)
+
+- **Patient home:**
+  - It matches the mockup: the greeting runs full width under the status bar, with the name on
+    its own line ("Good morning, / Asha") and the date without a comma.
+  - Hospitals show as rows with an icon, a status and a chevron.
+  - Upload status is one line at the bottom.
+- **No Lock button for patients.** The app still locks itself when idle (`patientAutoLockMin`). A
+  settings (gear) button takes Lock's place in the greeting.
+- **Welcome page** (first start): a sunrise picture, "Movement recordings for your care team" and
+  two large choices, patient or clinic phone. Long-pressing the logo still opens the engineering
+  menu.
+- **Clinic phone, per the v22 mockups:**
+  - **Set-up:** a centred heading (the camera check still comes before the code, decision 035).
+  - **Sign-in:** a greeting first.
+  - **Home:** "Good morning, Kavya" with Lock (operators keep it), then "Up next" with the number
+    of patients to record and their cards; finished patients appear as short rows under "Today",
+    with practice mode below.
+  - **Consent:** scanning consent (or consent on the phone) takes the whole screen, with a
+    viewfinder and a moving scan line, plus "‹ Queue" to go back.
+  - **Ready to record:** the start button names the first test.

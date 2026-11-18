@@ -191,5 +191,10 @@
     "bookingPurposes": ["follow_up", "symptoms_changed", "medicine_review", "other"],
     "bookingDeclineAnswers": ["fully_booked", "needs_referral", "wrong_clinic", "call_us"],
     "cancelledShownDays": 14
+  },
+  "clinicConsent": {
+    "qrPrefix": "ncc1:",
+    "codeLength": 12,
+    "fallbackReasons": ["no_smartphone", "not_in_app", "phone_not_with_them", "needs_help"]
   }
 }

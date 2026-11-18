@@ -186,6 +186,11 @@ class Session(Base):
     key_id: Mapped[str | None] = mapped_column(String(50))
     #: v3: the recording request this session answers (home recording before an appointment).
     request_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    #: v16 (decision 047): where consent for a clinic recording came from: patient_app (the
+    #: patient's QR, scanned) | clinic_phone (with a reason). Null: as before (home, or older apps).
+    consent_source: Mapped[str | None] = mapped_column(String(12))
+    consent_reason: Mapped[str | None] = mapped_column(String(24))
+    consent_id: Mapped[str | None] = mapped_column(String(32))
     #: Measured fps of every take recorded in the session, retakes included (decision 035).
     attempt_fps: Mapped[list | None] = mapped_column(Json)
     __table_args__ = (UniqueConstraint("device_id", "client_session_id"),)
@@ -613,3 +618,27 @@ class AppAccountToken(Base):
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Why it stopped: moved (another phone took over) | signed_out | pin_reset.
     revoked_reason: Mapped[str | None] = mapped_column(String(20))
+
+
+class ClinicConsent(Base):
+    """v16 (decision 047): consent for one clinic recording request. Given in the patient's app
+    (a one-time code shown as a QR, valid until the end of the visit day) or on the clinic phone
+    (with a reason). The code is stored as a hash; it holds no identity."""
+
+    __tablename__ = "clinic_consents"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"))
+    request_id: Mapped[str] = mapped_column(String(32), index=True)
+    #: patient_app | clinic_phone
+    source: Mapped[str] = mapped_column(String(12))
+    code_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    reason: Mapped[str | None] = mapped_column(String(24))
+    consent_version: Mapped[str] = mapped_column(String(50))
+    agreed_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    valid_until: Mapped[datetime] = mapped_column(UTCDateTime())
+    #: active (shown, not scanned) | used (confirmed on a clinic phone) | withdrawn
+    status: Mapped[str] = mapped_column(String(10), default="active")
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    used_by: Mapped[str | None] = mapped_column(String(32))
+    session_id: Mapped[str | None] = mapped_column(String(32))

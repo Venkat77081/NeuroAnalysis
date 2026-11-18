@@ -142,6 +142,9 @@ interface PlatformHistory {
     med_state: string;
     request_id: string | null;
     takes_uploaded: number;
+    // v16 (decision 047): clinic recordings only.
+    consent_source?: 'patient_app' | 'clinic_phone' | null;
+    consent_reason?: string | null;
   }[];
 }
 
@@ -627,7 +630,14 @@ function Timeline({ ncid }: { ncid: string }) {
         })}
         {recorded(r.id).map(
           (s) =>
-            ` · ${t('timeline.uploaded', { n: s.takes_uploaded, date: fmtDate(s.started_at) })}`,
+            ` · ${t('timeline.uploaded', { n: s.takes_uploaded, date: fmtDate(s.started_at) })}` +
+            (s.consent_source
+              ? ` · ${t(`timeline.consent.${s.consent_source}`, {
+                  reason: t(`clinicConsent.reason.${s.consent_reason ?? ''}`, {
+                    defaultValue: s.consent_reason ?? '',
+                  }),
+                })}`
+              : ''),
         )}
       </span>
     </li>

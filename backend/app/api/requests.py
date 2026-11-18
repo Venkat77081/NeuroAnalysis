@@ -705,6 +705,9 @@ class SessionRow(BaseModel):
     med_state: str
     request_id: str | None
     takes_uploaded: int
+    #: v16: patient_app | clinic_phone (with a reason) for clinic recordings.
+    consent_source: str | None = None
+    consent_reason: str | None = None
 
 
 class HistoryOut(BaseModel):
@@ -757,6 +760,8 @@ def history(
                 med_state=s.med_state,
                 request_id=s.request_id,
                 takes_uploaded=n or 0,
+                consent_source=s.consent_source,
+                consent_reason=s.consent_reason,
             )
             for s, n in sessions
         ],
@@ -777,6 +782,8 @@ class PatientRequest(BaseModel):
     med_state: str
     due_at: datetime
     state: str
+    #: v16: clinic requests: the patient's consent in the app (active | used | null) and until when.
+    clinic_consent: dict | None = None
 
 
 @router.get("/patient/requests", response_model=list[PatientRequest])
@@ -807,9 +814,24 @@ def patient_requests(
                 med_state=r.med_state,
                 due_at=r.due_at,
                 state=request_state(db, r),
+                clinic_consent=_patient_consent(db, r) if r.place == "clinic" else None,
             )
         )
     return out
+
+
+def _patient_consent(db: DbSession, r: RecordingRequest) -> dict | None:
+    from app.models import ClinicConsent
+
+    c = db.scalar(
+        select(ClinicConsent)
+        .where(ClinicConsent.request_id == r.id, ClinicConsent.status.in_(("active", "used")))
+        .order_by(ClinicConsent.agreed_at.desc())
+        .limit(1)
+    )
+    if not c:
+        return None
+    return {"status": c.status, "source": c.source, "valid_until": aware(c.valid_until).isoformat()}
 
 
 # --- Reminders (sent by the hospital connector, which holds the contact details) ---

@@ -230,6 +230,7 @@ export async function sessionBody(
     consent_version: ctx.consent.version,
     consent_at: ctx.consent.at,
     ...(ctx.requestId ? { request_id: ctx.requestId } : {}),
+    ...(ctx.consentId ? { consent_id: ctx.consentId } : {}),
     app_version: APP_VERSION,
     config_versions: configVersions(config),
   };

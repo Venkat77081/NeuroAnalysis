@@ -48,7 +48,13 @@ test('M13: operator sign-in, NCID from the connector, one take uploaded', async 
   );
   await page.getByRole('button', { name: 'Refresh' }).click();
   await expect(page.getByTestId('queue-name')).toHaveText('Asha Testpatient');
+  await expect(page.getByTestId('queue-consent')).toHaveText('No app');
   await page.getByTestId('queue-start').click();
+  // v16: Asha has no app here: consent on the clinic phone, with a reason.
+  await page.getByTestId('consent-reason-no_smartphone').click();
+  await page.getByTestId('consent-phone-show').click();
+  await page.getByTestId('consent-phone-agree').check();
+  await page.getByTestId('consent-phone-confirm').click();
   await expect(page.getByTestId('patient-ref')).toContainText('••••2388');
   await expect(page.getByTestId('back-to-queue')).toBeVisible();
   const ncid = await page.evaluate(
@@ -59,7 +65,7 @@ test('M13: operator sign-in, NCID from the connector, one take uploaded', async 
   );
   expect(ncid).toMatch(/^nc_[0-9a-f]{32}$/);
   await page.getByTestId('med-ON').click();
-  await page.getByTestId('consent').check();
+  await expect(page.getByTestId('consent-confirmed')).toBeVisible();
   await page.getByTestId('start-session').click();
   await page.getByTestId('set-up-camera').click();
   await page.getByTestId('record').click();
@@ -174,9 +180,13 @@ test('clinic queue: names live, start fills the session, "not recorded" with a r
     .filter({ hasText: 'Asha Testpatient' })
     .getByTestId('queue-start')
     .click();
+  // v16: Asha has no app here: consent on the clinic phone, with a reason.
+  await page.getByTestId('consent-reason-no_smartphone').click();
+  await page.getByTestId('consent-phone-show').click();
+  await page.getByTestId('consent-phone-agree').check();
+  await page.getByTestId('consent-phone-confirm').click();
   await expect(page.getByTestId('patient-ref')).toContainText('••••2388');
-  await expect(page.getByTestId('start-session')).toBeDisabled(); // consent first
-  await page.getByTestId('consent').check();
+  await expect(page.getByTestId('consent-confirmed')).toContainText('on this phone');
   await page.getByTestId('start-session').click();
   for (let i = 0; i < 2; i++) {
     await expect(page.getByTestId('test-of')).toHaveText(`Test ${i + 1} of 2`);

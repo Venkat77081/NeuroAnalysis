@@ -7,9 +7,12 @@ import { Button } from '../../ui/kit.tsx';
 export function QrScanner({
   onResult,
   onClose,
+  hint,
 }: {
   onResult: (text: string) => void;
   onClose: () => void;
+  /** v16: what to point at (default: the invite). */
+  hint?: string;
 }) {
   const { t } = useTranslation();
   const video = useRef<HTMLVideoElement>(null);
@@ -58,7 +61,7 @@ export function QrScanner({
       </div>
       <div className="flex flex-col gap-3 bg-black/80 px-5 pt-4 pb-6">
         <p className="text-[15px]">
-          {error ? t('modes.invite.scanNoCamera') : t('modes.invite.scanHint')}
+          {error ? t('modes.invite.scanNoCamera') : (hint ?? t('modes.invite.scanHint'))}
         </p>
         <Button variant="secondary" onClick={onClose} data-testid="qr-close">
           {t('modes.invite.scanClose')}

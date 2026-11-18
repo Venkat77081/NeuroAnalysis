@@ -77,6 +77,18 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await expect(page.getByTestId('settings-saved')).toBeVisible();
   await expect(page.getByTestId('settings-fps')).toHaveValue('57');
   await expect(page.getByTestId('settings-offer_reply_hours')).toHaveValue('72');
+  // v16 (decision 047): consent on the clinic phone for patients without the app (on by default).
+  const phoneConsent = page.getByTestId('settings-phone-consent');
+  await expect(phoneConsent).toBeChecked();
+  await phoneConsent.uncheck();
+  await page.getByTestId('settings-save').click();
+  await expect(page.getByTestId('settings-saved')).toBeVisible();
+  await page.getByTestId('nav-team').click();
+  await page.getByTestId('nav-settings').click();
+  await expect(page.getByTestId('settings-phone-consent')).not.toBeChecked();
+  await page.getByTestId('settings-phone-consent').check();
+  await page.getByTestId('settings-save').click();
+  await expect(page.getByTestId('settings-phone-consent')).toBeChecked();
   await page.getByTestId('nav-team').click();
   for (const [doc, hours] of [
     ['Dr. Rao', '09:00-13:00, 14:00-17:00'],

@@ -345,6 +345,9 @@ class UploadQueue(
                 "|patient/appointments/[A-Za-z0-9]{1,40}/cancel|patient/bookings|patient/doctors" +
                 "|patient/free-times\\?[A-Za-z0-9=&%:._-]{1,200}" +
                 "|patient/offers/[A-Za-z0-9]{1,40}/(choose|keep|call|decline)" +
+                // v16: clinic consent in the app (QR) and on the clinic phone.
+                "|patient/requests/[A-Za-z0-9]{1,40}/clinic-consent(/withdraw)?" +
+                "|clinic/requests/[A-Za-z0-9]{1,40}/(consent-scan|consent-on-phone)" +
                 // Clinic phones (user, 16 Nov 2026): the day's clinic queue and "not recorded".
                 "|clinic/queue\\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic/requests/[A-Za-z0-9]{1,40}/not-done)$"
         )

@@ -19,7 +19,8 @@
     "requests",
     "permissions",
     "deviceCheck",
-    "appointmentChanges"
+    "appointmentChanges",
+    "clinicConsent"
   ],
   "properties": {
     "schemaVersion": {
@@ -710,6 +711,31 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 90
+        }
+      }
+    },
+    "clinicConsent": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v16 (decision 047): clinic recordings need the patient's consent, given in their app and shown as a one-time QR code (prefix + code) the clinic phone scans; or, when the hospital allows it, on the clinic phone with a reason.",
+      "required": ["qrPrefix", "codeLength", "fallbackReasons"],
+      "properties": {
+        "qrPrefix": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+:$"
+        },
+        "codeLength": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 32
+        },
+        "fallbackReasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
         }
       }
     }

@@ -76,6 +76,9 @@ export interface SessionInput {
   /** v3 patient app: the hospital's upload profile and the record link this session answers. */
   uploadProfile?: string;
   requestId?: string | null;
+  /** v16 (decision 047): the clinic consent the phone confirmed (QR scanned, or on the phone). */
+  consentId?: string | null;
+  consentSource?: 'patient_app' | 'clinic_phone' | null;
 }
 
 export interface SessionContext extends SessionInput {

@@ -9,7 +9,14 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
 import { errorCode } from '../../lib/accounts.ts';
-import { canRecord, clinicQueue, notRecorded, type QueueItem } from '../../lib/clinic.ts';
+import {
+  canRecord,
+  clinicQueue,
+  notRecorded,
+  type ConfirmedConsent,
+  type QueueItem,
+} from '../../lib/clinic.ts';
+import { ConsentScan, PhoneConsent } from './ClinicConsent.tsx';
 import { newId } from '../../data/repo.ts';
 import { stepTitle } from './TestIntro.tsx';
 import { Button, Card } from '../../ui/kit.tsx';
@@ -26,6 +33,8 @@ export function ClinicQueue() {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
+  /** v16: the request whose consent is being confirmed (QR scan, or on this phone). */
+  const [consenting, setConsenting] = useState<{ id: string; how: 'scan' | 'phone' } | null>(null);
   const [version, setVersion] = useState(0);
   /** Decision 044: the hospital's own storage must be connected before anyone records. */
   const [ready, setReady] = useState(true);
@@ -43,7 +52,7 @@ export function ClinicQueue() {
     };
   }, [version]);
 
-  const start = async (q: QueueItem) => {
+  const start = async (q: QueueItem, consent?: ConfirmedConsent) => {
     // The MRN stays on this phone (as for any clinic patient); the server gets the NCID only.
     const patient = {
       localId: newId('p'),
@@ -58,7 +67,20 @@ export function ClinicQueue() {
       requestId: q.request_id,
       patient,
       medState: q.med_state === 'ANY' ? null : q.med_state,
+      consent: consent
+        ? {
+            id: consent.consent_id,
+            at: consent.agreed_at,
+            version: consent.consent_version,
+            source: consent.source,
+          }
+        : null,
     });
+  };
+  /** v16 (decision 047): the first step for each patient: scan their QR, or consent here. */
+  const begin = (q: QueueItem) => {
+    if (!q.consent) return void start(q); // an older server: the operator ticks consent
+    setConsenting({ id: q.request_id, how: q.consent.state === 'no_app' ? 'phone' : 'scan' });
   };
   const skip = async (q: QueueItem, reason: string) => {
     setError(null);
@@ -127,7 +149,46 @@ export function ClinicQueue() {
               {steps.map(([code, side]) => stepTitle(t, code, side)).join(', ')} ·{' '}
               {t(`clinicQueue.med.${q.med_state}`)}
             </span>
-            {open ? (
+            {open && q.consent && (
+              <span
+                className={`self-start rounded-xl px-2.5 py-0.5 text-[12px] font-semibold ${
+                  q.consent.state === 'app_given'
+                    ? 'bg-[#E3F4EA] text-[#145F38]'
+                    : q.consent.state === 'waiting'
+                      ? 'bg-[#FDF0DD] text-[#8A4B00]'
+                      : 'bg-[#EDF0F3] text-[#3D4552]'
+                }`}
+                data-testid="queue-consent"
+              >
+                {t(`clinicConsent.state.${q.consent.state}`)}
+              </span>
+            )}
+            {open && consenting?.id === q.request_id ? (
+              consenting.how === 'scan' ? (
+                <ConsentScan
+                  q={q}
+                  onConfirmed={(c) => {
+                    setConsenting(null);
+                    void start(q, c);
+                  }}
+                  onPhone={
+                    q.consent?.phone_allowed
+                      ? () => setConsenting({ id: q.request_id, how: 'phone' })
+                      : null
+                  }
+                  onCancel={() => setConsenting(null)}
+                />
+              ) : (
+                <PhoneConsent
+                  q={q}
+                  onConfirmed={(c) => {
+                    setConsenting(null);
+                    void start(q, c);
+                  }}
+                  onCancel={() => setConsenting(null)}
+                />
+              )
+            ) : open ? (
               asking === q.request_id ? (
                 <div className="flex flex-col gap-1.5" data-testid="queue-reasons">
                   <span className="text-[13px] font-semibold">{t('clinicQueue.why')}</span>
@@ -149,11 +210,15 @@ export function ClinicQueue() {
                 <div className="flex gap-2">
                   <Button
                     className="flex-1"
-                    disabled={!ready}
-                    onClick={() => void start(q)}
+                    disabled={!ready || (q.consent?.state === 'no_app' && !q.consent.phone_allowed)}
+                    onClick={() => begin(q)}
                     data-testid="queue-start"
                   >
-                    {t('clinicQueue.start')}
+                    {!q.consent
+                      ? t('clinicQueue.start')
+                      : q.consent.state === 'no_app'
+                        ? t('clinicConsent.onPhone')
+                        : t('clinicConsent.scan')}
                   </Button>
                   <Button
                     variant="secondary"

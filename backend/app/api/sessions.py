@@ -39,6 +39,8 @@ class SessionIn(BaseModel):
     config_versions: dict[str, str]
     #: v3: the recording request this session answers (patient app).
     request_id: str | None = Field(default=None, max_length=32)
+    #: v16 (decision 047): the confirmed clinic consent (QR scanned, or on the clinic phone).
+    consent_id: str | None = Field(default=None, max_length=32)
 
 
 class EncryptionKey(BaseModel):
@@ -154,6 +156,10 @@ def create_session(
     assert site is not None
     require_storage(site)  # decision 044: no recording before the hospital's own storage is connected
     patient = _patient_for(db, p, body.patient)
+    from app.api.clinic_consent import attach_to_session
+
+    request_id = _request_for(db, p, patient, body.request_id)
+    consent = attach_to_session(db, p, request_id, body.consent_id)
     key_id, pem, owner = session_key(db, site)
     s = Session(
         client_session_id=body.client_session_id,
@@ -168,10 +174,15 @@ def create_session(
         consent_version=body.consent_version,
         consent_at=body.consent_at,
         key_id=key_id,
-        request_id=_request_for(db, p, patient, body.request_id),
+        request_id=request_id,
+        consent_source=consent.source if consent else None,
+        consent_reason=consent.reason if consent else None,
+        consent_id=consent.id if consent else None,
     )
     db.add(s)
     db.flush()
+    if consent:
+        consent.session_id = s.id
     audit(
         db, p.actor_type, p.actor_id, "session_created", "session", s.id, site_id=p.site_id, key_owner=owner
     )

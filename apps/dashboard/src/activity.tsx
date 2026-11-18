@@ -30,7 +30,8 @@ const STAFF = new Set(['platform_admin', 'hospital_admin', 'receptionist', 'doct
 const KINDS: Record<string, RegExp> = {
   invites: /invite|patient_created|ncid_created|patient_closed|patient_locked/,
   appointments: /appointment|assigned|unassigned|recording_requested|request_cancelled|reminder/,
-  recordings: /take_|session|recording_viewed|history_viewed|reviewed|readiness|checksum/,
+  recordings:
+    /take_|session|clinic_consent|recording_viewed|history_viewed|reviewed|readiness|checksum/,
   setup: /staff_|operator_|device_|connector_|two_step|hospital_|login|key|storage|plan/,
 };
 
@@ -82,6 +83,14 @@ export function describe(t: TFunction, action: string, d: Record<string, unknown
   if (typeof x.answer === 'string')
     params.answer = t(`moves.answer.${x.answer}`, { defaultValue: x.answer });
   if (typeof x.role === 'string') params.role = t(`roles.${x.role}`, { defaultValue: x.role });
+  // v16 (decision 047): consent for clinic recordings.
+  if (action === 'clinic_consent_given' && typeof x.via === 'string')
+    return t(`log.action.clinic_consent_given_${x.via}`, {
+      ...params,
+      reason: t(`clinicConsent.reason.${String(x.reason ?? '')}`, {
+        defaultValue: String(x.reason ?? ''),
+      }),
+    });
   if (action === 'staff_sign_in_reset' && typeof x.reason === 'string')
     params.reason = t(`reset.reasons.${x.reason}`, { defaultValue: x.reason });
   const fallback = action.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());

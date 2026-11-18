@@ -30,6 +30,8 @@ def defaults(site: Site | None) -> dict:
         "offer_reply_hours": int(ch["offerReplyHours"]),
         "recording_valid_days": int(ch["recordingValidDays"]),
         "record_due_days_before": int(pol["requests"]["defaultDueDaysBefore"]),
+        # v16 (decision 047): consent on the clinic phone when the patient has no app.
+        "clinic_phone_consent": True,
     }
 
 

@@ -52,6 +52,13 @@ export interface AppServices {
     requestId: string;
     patient: Patient;
     medState: 'ON' | 'OFF' | null;
+    /** v16: the consent confirmed for this clinic request (the session carries it). */
+    consent?: {
+      id: string;
+      at: string;
+      version: string;
+      source: 'patient_app' | 'clinic_phone';
+    } | null;
   }): Promise<void>;
   /** M13: wipe this phone (after withdrawing consent): CaptureKit data, app data, app mode. */
   resetApp(): Promise<void>;
@@ -209,15 +216,27 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         a.send({ type: 'START', at: new Date().toISOString() });
         setActor(a);
       },
-      async startClinicRequest({ tests, requestId, patient, medState }) {
+      async startClinicRequest({ tests, requestId, patient, medState, consent }) {
         await saving.current;
         actor.stop();
         await r.clearSession();
         const a = watch(
-          startSession({ ...inputFor(config, settings.operatorId, tests), requestId }),
+          startSession({
+            ...inputFor(config, settings.operatorId, tests),
+            requestId,
+            ...(consent
+              ? {
+                  consentId: consent.id,
+                  consentSource: consent.source,
+                  consentVersion: consent.version,
+                }
+              : {}),
+          }),
         );
         a.send({ type: 'SET_PATIENT', patient });
         if (medState) a.send({ type: 'SET_MED_STATE', medState });
+        // v16: consent was confirmed before the session (scanned QR, or on this phone).
+        if (consent) a.send({ type: 'SET_CONSENT', given: true, at: consent.at });
         setActor(a);
       },
       async resetApp() {

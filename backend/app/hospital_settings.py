@@ -19,7 +19,33 @@ def defaults(site: Site | None) -> dict:
         "change_cutoff_hours": int(ch["cutoffHours"]),
         "patient_changes": True,
         "time_zone": ch["timeZones"].get(region.upper(), ch["defaultTimeZone"]),
+        # v14 (decision 046): booking from the app, the desk's offers, recordings after a move.
+        "patient_booking": True,
+        "booking_preferred": int(ch["bookingPreferred"]),
+        "booking_alternatives": int(ch["bookingAlternatives"]),
+        "times_per_date": int(ch["timesPerDate"]),
+        "booking_days_ahead": int(ch["bookingDaysAhead"]),
+        "booking_min_days": int(ch["bookingMinDays"]),
+        "offer_max": int(ch["offerMax"]),
+        "offer_reply_hours": int(ch["offerReplyHours"]),
+        "recording_valid_days": int(ch["recordingValidDays"]),
+        "record_due_days_before": int(pol["requests"]["defaultDueDaysBefore"]),
     }
+
+
+#: Settings chosen from a list in config/platform.json (`appointmentChanges`): key → options key.
+OPTIONS = {
+    "change_cutoff_hours": "cutoffHourOptions",
+    "booking_preferred": "bookingPreferredOptions",
+    "booking_alternatives": "bookingAlternativeOptions",
+    "times_per_date": "timesPerDateOptions",
+    "booking_days_ahead": "bookingDaysAheadOptions",
+    "booking_min_days": "bookingMinDayOptions",
+    "offer_max": "offerMaxOptions",
+    "offer_reply_hours": "offerReplyHourOptions",
+    "recording_valid_days": "recordingValidDayOptions",
+    "record_due_days_before": "recordDueDaysBeforeOptions",
+}
 
 
 def site_settings(site: Site | None) -> dict:

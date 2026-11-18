@@ -1675,17 +1675,26 @@ components:
           type: string
           title: Kind
         at:
-          type: string
-          format: date-time
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
           title: At
         at_local:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
           title: At Local
         doctor_name:
           anyOf:
           - type: string
           - type: 'null'
           title: Doctor Name
+        reply_by_local:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reply By Local
       type: object
       required:
       - id

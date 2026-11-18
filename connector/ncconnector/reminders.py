@@ -72,7 +72,14 @@ def send_notices(db: DbSession) -> int:
         if rec is not None and (rec.email or rec.phone):
             channel, to = ("email", rec.email) if rec.email else ("sms", rec.phone)
             try:
-                send_appointment_notice(channel, to, n["kind"], _when(n["at_local"]), n.get("doctor_name"))
+                send_appointment_notice(
+                    channel,
+                    to,
+                    n["kind"],
+                    _when(n["at_local"]) if n.get("at_local") else None,
+                    n.get("doctor_name"),
+                    _when(n["reply_by_local"]) if n.get("reply_by_local") else None,
+                )
             except DeliveryError as exc:
                 log.warning("appointment notice not delivered: %s", exc.code)
                 continue

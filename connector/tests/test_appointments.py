@@ -98,3 +98,51 @@ def test_appointment_moved_notice(connector):
     [m] = OUTBOX
     assert m.channel == "email" and m.to == "asha.t@example.org"
     assert f"{new_at.strftime('%a %d %b')}, 9:45 am" in m.subject and "with " in m.body
+
+
+def test_offer_and_cancel_notices(connector):
+    """v14: the desk offers times (tell the patient), then cancels; the connector sends both."""
+    from zoneinfo import ZoneInfo
+
+    from ncconnector.db import factory
+    from ncconnector.providers import OUTBOX
+    from ncconnector.reminders import send_notices
+
+    env, c, api = connector, connector["client"], connector["platform"]
+    desk = _staff(env, "desk4@sunrise.example", "receptionist")
+    _staff(env, "dr4@sunrise.example", "doctor")
+    api.put("/hospital/settings", headers=hdr(env["admin_tok"]), json={"time_zone": "Asia/Kolkata"})
+    inv = c.post(
+        "/v1/invites", headers=ctoken(env, desk), json={"mrns": ["00012388"], "channel": "print"}
+    ).json()[0]
+    accept(env, inv["invite_link"])
+    dr_id = next(
+        d["id"]
+        for d in api.get("/hospital/doctors", headers=hdr(desk)).json()
+        if d["email"] == "dr4@sunrise.example"
+    )
+    at = datetime.now(UTC) + timedelta(days=3)
+    appt = api.post(
+        "/hospital/appointments",
+        headers=hdr(desk),
+        json={"ncid": inv["ncid"], "at": at.isoformat(), "doctor_id": dr_id},
+    ).json()
+    day = (datetime.now(ZoneInfo("Asia/Kolkata")) + timedelta(days=5)).date()
+    opt = datetime(day.year, day.month, day.day, 10, 0, tzinfo=ZoneInfo("Asia/Kolkata"))
+    r = api.post(
+        "/hospital/offers",
+        headers=hdr(desk),
+        json={"appointment_id": appt["id"], "options": [{"at": opt.isoformat(), "doctor_id": dr_id}]},
+    )
+    assert r.status_code == 201, r.text
+    r = api.post(
+        f"/hospital/appointments/{appt['id']}/cancel", headers=hdr(desk), json={"reason": "clinic_closed"}
+    )
+    assert r.status_code == 200, r.text
+
+    OUTBOX.clear()
+    with factory()() as db:
+        assert send_notices(db) == 2
+    offer, cancelled = OUTBOX
+    assert "choose a new time" in offer.subject and " by " in offer.body
+    assert "is cancelled" in cancelled.subject

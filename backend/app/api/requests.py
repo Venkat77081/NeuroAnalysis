@@ -25,6 +25,7 @@ from app.db import get_db
 from app.models import (
     Appointment,
     AppointmentChangeRequest,
+    AppointmentOffer,
     AuditEvent,
     Patient,
     PatientAccount,
@@ -166,6 +167,15 @@ class AppointmentOut(BaseModel):
     moved_from_doctor_name: str | None = None
     moved_reason: str | None = None
     change_request_id: str | None = None
+    #: v14: cancelled by staff | patient, with a reason code.
+    cancelled_by: str | None = None
+    cancel_reason: str | None = None
+    cancelled_at: datetime | None = None
+    #: v14: the doctor changed before the patient recorded: the earlier tests, for the new doctor
+    #: to confirm ({"tests", "med_state", "places", "from_doctor_name"}).
+    suggested_tests: dict | None = None
+    #: v14: an offer of times is with the patient: open | no_answer | call_requested.
+    offer_state: str | None = None
 
 
 def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
@@ -199,7 +209,34 @@ def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
                 AppointmentChangeRequest.appointment_id == a.id, AppointmentChangeRequest.status == "open"
             )
         ),
+        cancelled_by=a.cancelled_by,
+        cancel_reason=a.cancel_reason,
+        cancelled_at=a.cancelled_at,
+        suggested_tests={
+            **{k: v for k, v in a.suggested_tests.items() if k != "from_doctor"},
+            "from_doctor_name": _doctor_name(db, a.suggested_tests.get("from_doctor")),
+        }
+        if a.suggested_tests
+        else None,
+        offer_state=_offer_state(db, a.id),
     )
+
+
+def _offer_state(db: DbSession, appointment_id: str) -> str | None:
+    o = db.scalar(
+        select(AppointmentOffer)
+        .where(
+            AppointmentOffer.appointment_id == appointment_id,
+            AppointmentOffer.status.in_(("open", "call_requested")),
+        )
+        .order_by(AppointmentOffer.created_at.desc())
+        .limit(1)
+    )
+    if o is None:
+        return None
+    if o.status == "call_requested":
+        return "call_requested"
+    return "no_answer" if aware(o.reply_by) < datetime.now(UTC) else "open"
 
 
 def _staff_name(db: DbSession, user_id: str | None) -> str | None:
@@ -235,6 +272,9 @@ SAFE_DETAILS = (
     "days",
     "part_of_day",
     "answer",
+    "by",
+    "purpose",
+    "options",
 )
 
 
@@ -432,6 +472,14 @@ def update_appointment(
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
     if (body.at is not None or body.status is not None) and not allows(db, p, "appointments.add"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
+    if body.status == "cancelled" and a.status != "cancelled":
+        # v14: the same as "Cancel" with reason "other" (record links not yet recorded, requests
+        # and offers are closed).
+        from app.api.appointment_changes import cancel_appointment
+
+        cancel_appointment(db, a, p.actor_type, p.actor_id, "staff", "other")
+        db.commit()
+        return _appt_out(db, a, pt.ncid)
     if body.at is not None and aware(body.at) != aware(a.at) and a.status != "cancelled":
         # v13: a date change moves its record links too (and closes an open patient request).
         from app.api.appointment_changes import apply_move
@@ -458,12 +506,8 @@ def update_appointment(
         a.at = body.at
     if body.status is not None:
         a.status = body.status
-        if body.status == "cancelled":
-            from app.api.appointment_changes import close_open_changes
-
-            for r in db.scalars(select(RecordingRequest).where(RecordingRequest.appointment_id == a.id)):
-                r.status = "cancelled"
-            close_open_changes(db, a.id, p.actor_id)
+        if body.status == "booked":
+            a.cancelled_by = a.cancel_reason = a.cancelled_at = None
     if body.at is not None or body.status is not None:  # a doctor change is logged on its own
         audit(
             db,
@@ -608,6 +652,7 @@ def request_for_appointment(
     ]
     if body.repeat_every_days and "home" in body.places:
         _set_periodic(db, p, pt, list(made[0].tests), made[0].med_state, body.repeat_every_days)
+    a.suggested_tests = None  # v14: the (new) doctor confirmed the tests
     db.commit()
     return [_req_out(db, r) for r in made]
 

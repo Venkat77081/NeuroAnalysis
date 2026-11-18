@@ -675,7 +675,16 @@
       "change_already_asked": "You already asked to change this appointment. Wait for the hospital's answer, or withdraw it.",
       "changes_off": "This hospital does not take change requests in the app. Please call them.",
       "days_invalid": "Choose up to 3 days from the list.",
-      "request_not_open": "The hospital already answered this request."
+      "request_not_open": "The hospital already answered this request.",
+      "choices_invalid": "Choose times on the allowed days (preferred first).",
+      "booking_off": "This hospital does not take bookings in the app. Please call them.",
+      "booking_already_asked": "You already have a booking request waiting. Withdraw it to ask again.",
+      "doctor_not_bookable": "This doctor cannot be booked in the app.",
+      "offer_not_open": "This offer was already answered or withdrawn.",
+      "time_taken": "That time is no longer free. Choose another, or ask the hospital to call you.",
+      "cannot_keep": "The current date is no longer possible.",
+      "appointment_cancelled": "This appointment was cancelled.",
+      "reason_unknown": "Choose a reason from the list."
     },
     "hospitals": {
       "title": "My hospitals and clinics",
@@ -881,9 +890,11 @@
     "reinstall": "Reinstall the app (keeps the pretend hospital and your account)",
     "appointment": "Book an appointment (in 5 days)",
     "appointmentDone": "Appointment booked. Open the hospital to see it.",
-    "deskMoves": "Front desk accepts the change request",
-    "deskMoved": "Moved to the patient's first chosen day, with Dr. Menon.",
-    "noChangeAsked": "No open change request. Ask to change an appointment first."
+    "deskMoves": "Front desk books the open request",
+    "deskMoved": "Booked the patient's first time (a change goes to Dr. Menon).",
+    "noChangeAsked": "No open request. Ask to change or book an appointment first.",
+    "deskOffers": "Front desk offers 3 new times",
+    "deskOffered": "3 times offered for the latest appointment (the current date may be kept)."
   },
   "testMode": {
     "summary": "Test mode: these recordings stay on this phone and are not uploaded. Turning test mode off deletes them.",
@@ -908,35 +919,76 @@
       "booked": "Booked",
       "asked": "Change asked",
       "changed": "Changed",
-      "notChanged": "Not changed"
+      "notChanged": "Not changed",
+      "chooseTime": "Choose a new time",
+      "cancelled": "Cancelled"
     },
     "ask": "Ask to change the date",
+    "cancel": "Cancel appointment…",
     "withdraw": "Withdraw my request",
-    "youAsked": "You asked for {{days}}, {{part}}. {{hospital}} will reply here; until then the appointment stays as booked.",
+    "youAskedTimes_one": "You asked for {{count}} other time. {{hospital}} will reply here; until then the appointment stays as booked.",
+    "youAskedTimes_other": "You asked for {{count}} other times. {{hospital}} will reply here; until then the appointment stays as booked.",
     "movedAsAsked": "Moved as you asked.",
     "movedByHospital": "{{hospital}} changed this appointment.",
     "newDoctor": "Your doctor for it changed (was {{from}}).",
     "before": "Before: {{when}}",
+    "waitingForTests": "Your new doctor will send the tests to record before this visit.",
     "answer": {
-      "call_us": "{{hospital}} could not find another date. Your appointment stays as booked. Please call {{hospital}}.",
+      "call_us": "{{hospital}} could not find another time. Your appointment stays as booked. Please call {{hospital}}.",
       "keep": "{{hospital}} kept the booked date."
     },
     "tooLate": "Too close to change in the app (less than {{hours}} hours). Please call {{hospital}}.",
+    "youCancelled": "You cancelled this appointment.",
+    "hospitalCancelled": "Cancelled by {{hospital}}: {{reason}}.",
+    "cancelReason": {
+      "feeling_better": "Feeling better",
+      "cant_make_it": "Can’t make it",
+      "going_elsewhere": "Going elsewhere",
+      "other": "Other",
+      "patient_asked": "you asked",
+      "doctor_unavailable": "doctor not available",
+      "clinic_closed": "clinic closed",
+      "booked_by_mistake": "booked by mistake"
+    },
+    "offerLine": "{{hospital}} needs to move this appointment. Choose a new time by {{by}}.",
+    "chooseTime": "Choose a new time",
+    "chooseTitle": "Choose a new time",
+    "offerIntro": "{{hospital}} needs to move your appointment on {{when}}. Choose a new time by {{by}}.",
+    "offerIntroBooking": "{{hospital}} offers these times for the appointment you asked for. Choose one by {{by}}.",
+    "offerLate": "The deadline has passed: these times are no longer held for you, but you can still try.",
+    "otherDoctor": "another doctor",
+    "chooseOne": "Choose one of the times",
+    "bookThis": "Book {{when}}",
+    "noneWork": "None of these work…",
+    "callMe": "Ask {{hospital}} to call me",
+    "callMeBody": "{{hospital}} phones you to find another time. The times stay held until the deadline.",
+    "keepCurrent": "Keep {{when}}",
+    "keepCurrentButton": "Keep my current date",
+    "cancelThis": "Cancel this appointment",
+    "cancelBooking": "Withdraw my booking request",
+    "cancelMine": "Cancel my appointment",
+    "cancelTitle": "Cancel this appointment?",
+    "cancelNote": "{{hospital}} is told at once. To come back, book a new appointment in the app or call {{hospital}}.",
+    "keepIt": "Keep it",
     "askTitle": "Ask to change the date",
     "nowBooked": "Now booked",
-    "whichDays": "Which days suit you? (up to {{n}})",
+    "whichDays": "Which days suit you?",
+    "rank": {
+      "preferred": "Preferred dates {{n}}/{{max}}",
+      "alternative": "Alternatives {{n}}/{{max}}"
+    },
+    "rankShort": {
+      "preferred": "preferred",
+      "alternative": "alternative"
+    },
+    "rankLabel": {
+      "preferred": "Preferred {{n}}",
+      "alternative": "Alternative {{n}}"
+    },
+    "pickHint": "Tap a day, then up to {{times}} free times.",
     "moreDates": "More dates…",
-    "whatTime": "What time of day?",
-    "partChip": {
-      "morning": "Morning",
-      "afternoon": "Afternoon",
-      "any": "Any time"
-    },
-    "part": {
-      "morning": "morning",
-      "afternoon": "afternoon",
-      "any": "any time"
-    },
+    "noFreeTimes": "No free times this day. Choose another day.",
+    "anyDoctorOk": "Another doctor is fine too",
     "why": "Why? (optional)",
     "reason": {
       "cant_make_it": "Can’t make it",
@@ -945,6 +997,40 @@
       "other": "Other"
     },
     "staysBooked": "Until the hospital answers, your appointment stays on {{date}}. The doctor may change if yours is not free.",
-    "send": "Send request"
+    "send_one": "Send request ({{count}} time)",
+    "send_other": "Send request ({{count}} times)",
+    "book": "Book an appointment",
+    "bookStep": "Step {{n}} of 3",
+    "bookStepName": {
+      "1": "Doctor",
+      "2": "Your dates and times",
+      "3": "Check and send"
+    },
+    "anyDoctor": "Any doctor",
+    "anyDoctorSub": "{{hospital}} chooses",
+    "purposeTitle": "What is it for? (optional)",
+    "purpose": {
+      "follow_up": "Follow-up",
+      "symptoms_changed": "Symptoms changed",
+      "medicine_review": "Medicine review",
+      "other": "Other"
+    },
+    "bookConfirmNote": "{{hospital}} confirms one of your times, or offers others. Nothing is booked until then.",
+    "bookSend": "Send booking request",
+    "bookingTitle": "Booking request",
+    "bookingState": {
+      "open": "Waiting",
+      "offered": "Choose a time",
+      "offer": "Choose a time",
+      "declined": "Not booked"
+    },
+    "bookingLine_one": "{{doctor}} · {{count}} time from {{first}}",
+    "bookingLine_other": "{{doctor}} · {{count}} times from {{first}}",
+    "bookingAnswer": {
+      "fully_booked": "{{hospital}} is fully booked for those times. Please call {{hospital}}.",
+      "needs_referral": "{{hospital}} needs a referral first. Please call {{hospital}}.",
+      "wrong_clinic": "{{hospital}} suggests another clinic. Please call {{hospital}}.",
+      "call_us": "Please call {{hospital}} to find a time."
+    }
   }
 }

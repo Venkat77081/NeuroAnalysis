@@ -12,7 +12,7 @@ import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDat
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
-import { ChangeRequests, MovePanel } from './changes.tsx';
+import { CancelDialog, MovePanel, RequestsTab, type Inbox } from './desk.tsx';
 import { appointmentChanges } from './config.ts';
 
 export type Stage =
@@ -35,7 +35,7 @@ export interface Appointment {
   at: string;
   doctor_id: string | null;
   doctor_name: string | null;
-  source: 'manual' | 'fhir';
+  source: 'manual' | 'fhir' | 'app';
   status: 'booked' | 'cancelled';
   stage: Stage;
   requests: RequestOut[];
@@ -48,6 +48,16 @@ export interface Appointment {
   moved_from_doctor_name?: string | null;
   moved_reason?: string | null;
   change_request_id?: string | null;
+  /** v14: cancelled by staff | patient (reason code); an offer with the patient; earlier tests. */
+  cancelled_by?: string | null;
+  cancel_reason?: string | null;
+  offer_state?: 'open' | 'no_answer' | 'call_requested' | null;
+  suggested_tests?: {
+    tests: string[];
+    med_state: string;
+    places: string[];
+    from_doctor_name: string | null;
+  } | null;
 }
 export interface HistoryEvent {
   at: string;
@@ -167,10 +177,26 @@ function MoveBadges({ a, now }: { a: Appointment; now: number }) {
     a.moved_at &&
     a.moved_from &&
     now - Date.parse(a.moved_at) < appointmentChanges.movedShownDays * 86_400_000;
-  if (!a.change_request_id && !recent) return null;
+  if (!a.change_request_id && !recent && !a.offer_state && !a.cancelled_by) return null;
   return (
     <span className="mt-1 flex flex-col items-start gap-1" data-testid="appt-move-badges">
       {a.change_request_id && <Badge tone="warn">{t('moves.changeAsked')}</Badge>}
+      {a.offer_state && (
+        <Badge tone={a.offer_state === 'open' ? 'neutral' : 'bad'}>
+          {t(`offers.state.${a.offer_state}`)}
+        </Badge>
+      )}
+      {a.status === 'cancelled' && a.cancelled_by && (
+        <Badge tone="neutral">
+          {t(`cancel.by.${a.cancelled_by}`, {
+            reason: t(
+              a.cancelled_by === 'patient'
+                ? `cancel.patientReason.${a.cancel_reason ?? 'other'}`
+                : `cancel.reasons.${a.cancel_reason ?? 'other'}`,
+            ),
+          })}
+        </Badge>
+      )}
       {recent && <Badge tone="neutral">{t('moves.movedWas', { when: fmt(a.moved_from) })}</Badge>}
     </span>
   );
@@ -194,7 +220,8 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   // v13: the appointments list, or patients' change requests; the appointment being moved.
-  const [tab, setTab] = useState<'list' | 'changes'>('list');
+  const [tab, setTab] = useState<'list' | 'requests'>('list');
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const [changes, setChanges] = useState<number | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const canMove = canAdd;
@@ -219,11 +246,11 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
           call<Appointment[]>('GET', `/hospital/appointments?${RANGE_QUERY[range]}`),
           call<Doctor[]>('GET', '/hospital/doctors'),
           call<PatientRow[]>('GET', '/hospital/patients'),
-          call<unknown[]>('GET', '/hospital/change-requests').catch(() => []),
+          call<Inbox>('GET', '/hospital/inbox').catch(() => null),
         ]);
         setNow(Date.now());
-        setChanges(open.length);
-        onChangeCount?.(open.length);
+        setChanges(open?.count ?? 0);
+        onChangeCount?.(open?.count ?? 0);
         const ncids = [...new Set(list.map((a) => a.ncid))];
         const ids = ncids.length
           ? await hospital<Ident[]>('POST', '/v1/patients/lookup', { ncids })
@@ -272,7 +299,7 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
 
   const tabs = (
     <div role="tablist" className="flex gap-6 border-b border-line">
-      {(['list', 'changes'] as const).map((k) => (
+      {(['list', 'requests'] as const).map((k) => (
         <button
           key={k}
           type="button"
@@ -286,7 +313,7 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
           data-testid={`tab-${k}`}
         >
           {t(`moves.tab.${k}`)}
-          {k === 'changes' && !!changes && (
+          {k === 'requests' && !!changes && (
             <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white">
               {changes}
             </span>
@@ -295,13 +322,14 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
       ))}
     </div>
   );
-  if (tab === 'changes')
+  if (tab === 'requests')
     return (
       <Page title={t('appts.title')}>
         {tabs}
         {notice && <Notice testId="notice">{notice}</Notice>}
-        <ChangeRequests
+        <RequestsTab
           canAssign={canAssign}
+          appointments={appts ?? []}
           onChanged={(m) => {
             setNotice(m);
             reload();
@@ -462,6 +490,19 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
                         {t('moves.open')}
                       </Button>
                     )}
+                    {canMove && a.status === 'booked' && (
+                      <Button
+                        variant="secondary"
+                        aria-expanded={cancelling === a.id}
+                        onClick={() => {
+                          setCancelling(cancelling === a.id ? null : a.id);
+                          setNotice(null);
+                        }}
+                        data-testid="appt-cancel"
+                      >
+                        {t('cancel.open')}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       aria-expanded={open === a.id}
@@ -480,9 +521,26 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
                       appt={a}
                       patient={i?.name ?? a.ncid}
                       canAssign={canAssign}
+                      canOffer={joined(a.ncid)}
                       onClose={() => setMoving(null)}
                       onDone={(m) => {
                         setMoving(null);
+                        setNotice(m);
+                        reload();
+                      }}
+                    />
+                  </td>
+                </tr>
+              )}
+              {cancelling === a.id && (
+                <tr>
+                  <td colSpan={8} className="bg-[#F9FBFD] px-4 pb-4">
+                    <CancelDialog
+                      appt={a}
+                      patient={i?.name ?? a.ncid}
+                      onClose={() => setCancelling(null)}
+                      onDone={(m) => {
+                        setCancelling(null);
                         setNotice(m);
                         reload();
                       }}

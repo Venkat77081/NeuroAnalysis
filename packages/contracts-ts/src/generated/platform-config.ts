@@ -165,7 +165,7 @@ export interface PlatformConfig {
     recoveryCodeChars: 24;
   };
   /**
-   * v13: appointment changes. Patients ask for a new date (days + part of day) per appointment until cutoffHours before it; the front desk moves appointments and picks a doctor from free times (doctors' clinic hours minus booked appointments).
+   * v13/v14: appointment changes and booking from the app. Patients ask for exact free times (preferred and alternative dates) to change or book; the desk books one, offers up to offerMax held times, or declines; both sides may cancel with a reason; recordings follow a moved appointment (recordingValidDays).
    */
   appointmentChanges: {
     /**
@@ -178,8 +178,6 @@ export interface PlatformConfig {
     cutoffHourOptions: [number, ...number[]];
     maxDays: number;
     maxDaysAhead: number;
-    partsOfDay: ('morning' | 'afternoon' | 'any')[];
-    afternoonFrom: string;
     patientReasons: string[];
     declineAnswers: string[];
     deskReasons: string[];
@@ -197,5 +195,66 @@ export interface PlatformConfig {
       [k: string]: string;
     };
     defaultTimeZone: string;
+    bookingPreferred: number;
+    /**
+     * @minItems 1
+     */
+    bookingPreferredOptions: [number, ...number[]];
+    bookingAlternatives: number;
+    /**
+     * @minItems 1
+     */
+    bookingAlternativeOptions: [number, ...number[]];
+    timesPerDate: number;
+    /**
+     * @minItems 1
+     */
+    timesPerDateOptions: [number, ...number[]];
+    bookingDaysAhead: number;
+    /**
+     * @minItems 1
+     */
+    bookingDaysAheadOptions: [number, ...number[]];
+    bookingMinDays: number;
+    /**
+     * @minItems 1
+     */
+    bookingMinDayOptions: [number, ...number[]];
+    offerMax: number;
+    /**
+     * @minItems 1
+     */
+    offerMaxOptions: [number, ...number[]];
+    offerReplyHours: number;
+    /**
+     * @minItems 1
+     */
+    offerReplyHourOptions: [number, ...number[]];
+    recordingValidDays: number;
+    /**
+     * @minItems 1
+     */
+    recordingValidDayOptions: [number, ...number[]];
+    /**
+     * @minItems 1
+     */
+    recordDueDaysBeforeOptions: [number, ...number[]];
+    /**
+     * @minItems 1
+     */
+    cancelReasons: [string, ...string[]];
+    /**
+     * @minItems 1
+     */
+    patientCancelReasons: [string, ...string[]];
+    /**
+     * @minItems 1
+     */
+    bookingPurposes: [string, ...string[]];
+    /**
+     * @minItems 1
+     */
+    bookingDeclineAnswers: [string, ...string[]];
+    cancelledShownDays: number;
   };
 }

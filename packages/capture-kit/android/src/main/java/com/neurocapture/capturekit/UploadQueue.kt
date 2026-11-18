@@ -341,6 +341,10 @@ class UploadQueue(
                 // v13: the patient's appointments and asking to change one.
                 "|patient/appointments|patient/appointments/[A-Za-z0-9]{1,40}/change-request" +
                 "|patient/change-requests/[A-Za-z0-9]{1,40}/withdraw" +
+                // v14: offers, cancelling, booking from the app, free times.
+                "|patient/appointments/[A-Za-z0-9]{1,40}/cancel|patient/bookings|patient/doctors" +
+                "|patient/free-times\\?[A-Za-z0-9=&%:._-]{1,200}" +
+                "|patient/offers/[A-Za-z0-9]{1,40}/(choose|keep|call|decline)" +
                 // Clinic phones (user, 16 Nov 2026): the day's clinic queue and "not recorded".
                 "|clinic/queue\\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic/requests/[A-Za-z0-9]{1,40}/not-done)$"
         )

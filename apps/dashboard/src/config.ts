@@ -13,6 +13,10 @@ export const appointmentChanges: {
   deskReasons: string[];
   declineAnswers: string[];
   patientReasons: string[];
+  cancelReasons: string[];
+  patientCancelReasons: string[];
+  bookingPurposes: string[];
+  bookingDeclineAnswers: string[];
   movedShownDays: number;
   slotMinuteOptions: number[];
 } = platformJson.appointmentChanges;

@@ -118,17 +118,24 @@ def send_reminder(channel: str, to: str, due: str, appointment: str | None) -> N
         _sms(to, text("reminderSms", "body", hospital=hospital, due=due, appointment=appt), "reminderSms")
 
 
-def send_appointment_notice(channel: str, to: str, kind: str, when: str, doctor: str | None) -> None:
-    """v13: "your appointment is now …" (moved) or "… stays as booked" (not_changed). Raises
-    DeliveryError."""
+def send_appointment_notice(
+    channel: str, to: str, kind: str, when: str | None, doctor: str | None, by: str | None = None
+) -> None:
+    """v13/v14: moved, not_changed, offer (choose a time by …), cancelled, booked, not_booked.
+    Raises DeliveryError."""
     hospital = get_settings().hospital_name
-    key = "appointmentMoved" if kind == "moved" else "appointmentNotChanged"
-    doc = text("appointmentDoctor", "suffix", doctor=doctor) if doctor and kind == "moved" else ""
+    key = {
+        "moved": "appointmentMoved",
+        "not_changed": "appointmentNotChanged",
+        "offer": "appointmentOffer",
+        "cancelled": "appointmentCancelled",
+        "booked": "appointmentBooked",
+        "not_booked": "appointmentNotBooked",
+    }[kind]
+    doc = text("appointmentDoctor", "suffix", doctor=doctor) if doctor and kind in ("moved", "booked") else ""
+    when_part = text("appointmentOfferWhen", "suffix", when=when) if when else ""
+    values = {"hospital": hospital, "when": when or "", "doctor": doc, "by": by or "", "when_part": when_part}
     if channel == "email":
-        _email(
-            to,
-            text(f"{key}Email", "subject", hospital=hospital, when=when),
-            text(f"{key}Email", "body", hospital=hospital, when=when, doctor=doc),
-        )
+        _email(to, text(f"{key}Email", "subject", **values), text(f"{key}Email", "body", **values))
     else:
-        _sms(to, text(f"{key}Sms", "body", hospital=hospital, when=when, doctor=doc), f"{key}Sms")
+        _sms(to, text(f"{key}Sms", "body", **values), f"{key}Sms")

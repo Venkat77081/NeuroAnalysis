@@ -434,14 +434,12 @@
     "appointmentChanges": {
       "type": "object",
       "additionalProperties": false,
-      "description": "v13: appointment changes. Patients ask for a new date (days + part of day) per appointment until cutoffHours before it; the front desk moves appointments and picks a doctor from free times (doctors' clinic hours minus booked appointments).",
+      "description": "v13/v14: appointment changes and booking from the app. Patients ask for exact free times (preferred and alternative dates) to change or book; the desk books one, offers up to offerMax held times, or declines; both sides may cancel with a reason; recordings follow a moved appointment (recordingValidDays).",
       "required": [
         "cutoffHours",
         "cutoffHourOptions",
         "maxDays",
         "maxDaysAhead",
-        "partsOfDay",
-        "afternoonFrom",
         "patientReasons",
         "declineAnswers",
         "deskReasons",
@@ -450,7 +448,29 @@
         "slotMinutes",
         "slotMinuteOptions",
         "timeZones",
-        "defaultTimeZone"
+        "defaultTimeZone",
+        "bookingPreferred",
+        "bookingPreferredOptions",
+        "bookingAlternatives",
+        "bookingAlternativeOptions",
+        "timesPerDate",
+        "timesPerDateOptions",
+        "bookingDaysAhead",
+        "bookingDaysAheadOptions",
+        "bookingMinDays",
+        "bookingMinDayOptions",
+        "offerMax",
+        "offerMaxOptions",
+        "offerReplyHours",
+        "offerReplyHourOptions",
+        "recordingValidDays",
+        "recordingValidDayOptions",
+        "recordDueDaysBeforeOptions",
+        "cancelReasons",
+        "patientCancelReasons",
+        "bookingPurposes",
+        "bookingDeclineAnswers",
+        "cancelledShownDays"
       ],
       "properties": {
         "cutoffHours": {
@@ -477,16 +497,6 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 365
-        },
-        "partsOfDay": {
-          "type": "array",
-          "items": {
-            "enum": ["morning", "afternoon", "any"]
-          }
-        },
-        "afternoonFrom": {
-          "type": "string",
-          "pattern": "^[0-2][0-9]:[0-5][0-9]$"
         },
         "patientReasons": {
           "type": "array",
@@ -542,6 +552,164 @@
         },
         "defaultTimeZone": {
           "type": "string"
+        },
+        "bookingPreferred": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "bookingPreferredOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          }
+        },
+        "bookingAlternatives": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "bookingAlternativeOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          }
+        },
+        "timesPerDate": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "timesPerDateOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          }
+        },
+        "bookingDaysAhead": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "bookingDaysAheadOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          }
+        },
+        "bookingMinDays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30
+        },
+        "bookingMinDayOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 30
+          }
+        },
+        "offerMax": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "offerMaxOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          }
+        },
+        "offerReplyHours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 336
+        },
+        "offerReplyHourOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 336
+          }
+        },
+        "recordingValidDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90
+        },
+        "recordingValidDayOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90
+          }
+        },
+        "recordDueDaysBeforeOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 14
+          }
+        },
+        "cancelReasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
+        },
+        "patientCancelReasons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
+        },
+        "bookingPurposes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
+        },
+        "bookingDeclineAnswers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
+        },
+        "cancelledShownDays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 90
         }
       }
     }

@@ -130,13 +130,22 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
   const { t } = useTranslation();
   const [view, setView] = useState<LiveView | null>(null);
   const [last, setLast] = useState<{ tests: string[]; med: string; at: string } | null>(null);
-  const [tests, setTests] = useState<string[]>(TESTS);
-  const [med, setMed] = useState<'OFF' | 'ON' | 'ANY'>('OFF');
+  // v14 (decision 046): moved from another doctor before recording: their choice is filled in
+  // for this doctor to confirm.
+  const sug = a.suggested_tests ?? null;
+  const [tests, setTests] = useState<string[]>(
+    sug ? TESTS.filter((c) => sug.tests.includes(c)) : TESTS,
+  );
+  const [med, setMed] = useState<'OFF' | 'ON' | 'ANY'>(
+    sug && ['OFF', 'ON', 'ANY'].includes(sug.med_state)
+      ? (sug.med_state as 'OFF' | 'ON' | 'ANY')
+      : 'OFF',
+  );
   const [due, setDue] = useState(dayBefore(a.at));
   const [repeat, setRepeat] = useState(false);
   // Where to record (user, 16 Nov 2026): at home (record link), in the clinic (operator queue), or both.
-  const [home, setHome] = useState(true);
-  const [clinic, setClinic] = useState(false);
+  const [home, setHome] = useState(sug ? sug.places.includes('home') : true);
+  const [clinic, setClinic] = useState(sug ? sug.places.includes('clinic') : false);
   const [joined, setJoined] = useState<boolean | null>(null);
   const [unsuitableFps, setUnsuitableFps] = useState<number | null>(null);
   const [days, setDays] = useState(7);
@@ -224,6 +233,11 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
         className="min-w-96 flex-[2]"
         testId="choose-form"
       >
+        {sug && (
+          <Notice tone="warn" testId="choose-moved">
+            {t('choose.movedFrom', { doctor: sug.from_doctor_name ?? '—' })}
+          </Notice>
+        )}
         <div className="flex flex-wrap gap-2">
           {last && (
             <Button

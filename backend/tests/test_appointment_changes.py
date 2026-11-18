@@ -148,7 +148,11 @@ def test_desk_moves_with_free_times(api, two_hospitals):
     moved = r.json()
     assert datetime.fromisoformat(moved["at"]) == new_at and moved["doctor_id"] == menon
     assert datetime.fromisoformat(moved["moved_from"]) == at and moved["moved_from_doctor_name"]
-    assert datetime.fromisoformat(moved["requests"][0]["due_at"]) == due + (new_at - at)
+    # v14 (decision 046): another doctor and nothing recorded yet: the link is withdrawn and the
+    # new doctor confirms the tests (the earlier choice is kept for them).
+    assert moved["requests"][0]["state"] == "cancelled" and moved["stage"] == "needs_tests"
+    assert moved["suggested_tests"]["places"] == ["home"] and moved["suggested_tests"]["from_doctor_name"]
+    assert due
     hist = api.get(f"/hospital/appointments/{appt['id']}/history", headers=desk).json()
     actions = [e["action"] for e in hist]
     assert "appointment_moved" in actions and "appointment_doctor_changed" in actions
@@ -200,16 +204,23 @@ def test_patient_asks_and_desk_answers(api, two_hospitals):
         json={"ncid": ncid, "at": (datetime.now(UTC) + timedelta(hours=10)).isoformat(), "doctor_id": rao},
     ).json()
     out = api.get("/patient/appointments", headers=ptok).json()
-    assert out["time_zone"] == "Asia/Kolkata" and out["max_days"] == 3 and out["cutoff_hours"] == 24
+    assert out["time_zone"] == "Asia/Kolkata" and out["max_days"] == 4 and out["cutoff_hours"] == 24
     by_id = {a["id"]: a for a in out["appointments"]}
     assert by_id[a1["id"]]["can_ask"] and not by_id[soon["id"]]["can_ask"]  # within 24 h
-    days = [_local(d, 0).date().isoformat() for d in (7, 9)]
-    ask = {"days": days, "part_of_day": "morning", "reason": "unwell"}
+    # v14: exact times on preferred and alternative dates (2 + 2 dates, 2 times each by default).
+    choices = [
+        {"at": _local(7, 10).isoformat(), "rank": "preferred"},
+        {"at": _local(7, 10, 30).isoformat(), "rank": "preferred"},
+        {"at": _local(9, 11).isoformat(), "rank": "alternative"},
+    ]
+    ask = {"choices": choices, "reason": "unwell"}
     late = api.post(f"/patient/appointments/{soon['id']}/change-request", headers=ptok, json=ask)
     assert late.status_code == 409 and late.json()["detail"] == {"code": "too_late_to_change"}
     for bad in (
-        {**ask, "days": [_local(d, 0).date().isoformat() for d in (6, 7, 8, 9)]},
-        {**ask, "days": [_local(-2, 0).date().isoformat()]},
+        {**ask, "choices": [{"at": _local(d, 10).isoformat(), "rank": "preferred"} for d in (6, 7, 8)]},
+        {**ask, "choices": [{"at": _local(7, h).isoformat(), "rank": "preferred"} for h in (9, 10, 11)]},
+        {**ask, "choices": [{"at": _local(-2, 10).isoformat(), "rank": "preferred"}]},
+        {**ask, "choices": [{"at": _local(7, 10).isoformat(), "rank": "alternative"}]},
         {**ask, "reason": "my knee hurts"},
     ):
         assert (
@@ -227,9 +238,12 @@ def test_patient_asks_and_desk_answers(api, two_hospitals):
 
     # The desk sees it (the other hospital does not), with the open request on the appointment.
     reqs = api.get("/hospital/change-requests", headers=desk).json()
-    assert [(x["ncid"], x["days"], x["part_of_day"], x["reason"]) for x in reqs] == [
-        (ncid, days, "morning", "unwell")
+    assert [(x["ncid"], x["kind"], x["reason"], len(x["choices"])) for x in reqs] == [
+        (ncid, "change", "unwell", 3)
     ]
+    # Each time is checked now: Dr. Rao works 9-13 every day, so all three are free.
+    assert [c["state"] for c in reqs[0]["choices"]] == ["free", "free", "free"]
+    assert datetime.fromisoformat(reqs[0]["choices"][0]["at"]) == _local(7, 10)
     assert api.get("/hospital/change-requests", headers=hdr(t["b_desk"])).json() == []
     listed = {a["id"]: a for a in api.get("/hospital/appointments?days=14", headers=desk).json()}
     assert listed[a1["id"]]["change_request_id"] == reqs[0]["id"]
@@ -291,15 +305,19 @@ def test_cancel_closes_request_and_fhir_keeps_desk_change(api, two_hospitals):
         headers=desk,
         json={"ncid": ncid, "at": _local(5, 10).isoformat(), "doctor_id": rao},
     ).json()
-    days = [_local(7, 0).date().isoformat()]
     api.post(
         f"/patient/appointments/{a['id']}/change-request",
         headers=ptok,
-        json={"days": days, "part_of_day": "any"},
+        json={"choices": [{"at": _local(7, 10).isoformat(), "rank": "preferred"}]},
     )
     api.put(f"/hospital/appointments/{a['id']}", headers=desk, json={"status": "cancelled"})
     assert api.get("/hospital/change-requests", headers=desk).json() == []
-    assert api.get("/patient/appointments", headers=ptok).json()["appointments"] == []
+    [cancelled] = api.get("/patient/appointments", headers=ptok).json()["appointments"]
+    assert (
+        cancelled["status"] == "cancelled"
+        and cancelled["cancelled_by"] == "staff"
+        and not cancelled["can_cancel"]
+    )
 
     # Booked in the hospital system: a desk move is kept when the same time arrives again, and
     # replaced when the hospital system's time changes.

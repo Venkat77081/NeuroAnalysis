@@ -144,8 +144,6 @@
     "cutoffHourOptions": [2, 4, 12, 24, 48, 72],
     "maxDays": 3,
     "maxDaysAhead": 90,
-    "partsOfDay": ["morning", "afternoon", "any"],
-    "afternoonFrom": "13:00",
     "patientReasons": ["cant_make_it", "unwell", "travel", "other"],
     "declineAnswers": ["call_us", "keep"],
     "deskReasons": [
@@ -153,6 +151,7 @@
       "patient_called",
       "clinic_change",
       "patient_request",
+      "patient_choice",
       "other"
     ],
     "answerShownDays": 14,
@@ -163,6 +162,34 @@
       "IN": "Asia/Kolkata",
       "US": "America/New_York"
     },
-    "defaultTimeZone": "UTC"
+    "defaultTimeZone": "UTC",
+    "bookingPreferred": 2,
+    "bookingPreferredOptions": [1, 2, 3],
+    "bookingAlternatives": 2,
+    "bookingAlternativeOptions": [0, 1, 2, 3],
+    "timesPerDate": 2,
+    "timesPerDateOptions": [1, 2, 3],
+    "bookingDaysAhead": 60,
+    "bookingDaysAheadOptions": [14, 30, 60, 90],
+    "bookingMinDays": 2,
+    "bookingMinDayOptions": [0, 1, 2, 3, 7],
+    "offerMax": 3,
+    "offerMaxOptions": [1, 2, 3],
+    "offerReplyHours": 48,
+    "offerReplyHourOptions": [12, 24, 48, 72],
+    "recordingValidDays": 14,
+    "recordingValidDayOptions": [7, 14, 21, 30],
+    "recordDueDaysBeforeOptions": [0, 1, 2, 3],
+    "cancelReasons": [
+      "patient_asked",
+      "doctor_unavailable",
+      "clinic_closed",
+      "booked_by_mistake",
+      "other"
+    ],
+    "patientCancelReasons": ["feeling_better", "cant_make_it", "going_elsewhere", "other"],
+    "bookingPurposes": ["follow_up", "symptoms_changed", "medicine_review", "other"],
+    "bookingDeclineAnswers": ["fully_booked", "needs_referral", "wrong_clinic", "call_us"],
+    "cancelledShownDays": 14
   }
 }

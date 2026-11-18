@@ -5,7 +5,7 @@
  * recording. Withdrawing from a hospital keeps its history readable here (read only); only the
  * hospital can invite the patient back.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UploadStatus } from '@neurocapture/capture-kit';
 import { useApp } from '../../app/AppContext.tsx';
@@ -26,7 +26,7 @@ import { ErrorText } from '../modes/Common.tsx';
 import { InviteFlow } from './InviteFlow.tsx';
 import { canRecord } from '../../lib/clinic.ts';
 import { saveBackup } from '../../lib/appaccount.ts';
-import { AppointmentsSection } from './Appointments.tsx';
+import { AppointmentsSection, useAppointments } from './Appointments.tsx';
 import { ClinicConsentCard } from './ClinicConsentCard.tsx';
 
 type View =
@@ -124,7 +124,7 @@ interface HospitalData {
 }
 
 /** Live data for one hospital; what the phone last saw when offline or after withdrawing. */
-function useHospitalData(h: PatientHospital): HospitalData | null {
+function useHospitalData(h: PatientHospital, version = 0): HospitalData | null {
   const { repo } = useApp();
   const [data, setData] = useState<HospitalData | null>(null);
   useEffect(() => {
@@ -177,7 +177,7 @@ function useHospitalData(h: PatientHospital): HospitalData | null {
     };
     // A hospital is identified by its profile; the object itself may be rebuilt on each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [h.profile, h.withdrawnAt, repo]);
+  }, [h.profile, h.withdrawnAt, repo, version]);
   return data;
 }
 
@@ -312,6 +312,12 @@ function testsMinutes(config: ReturnType<typeof useApp>['config'], tests: string
   return { steps, minutes: Math.max(1, Math.round(totalS / 60 + steps.length * 1.5)) };
 }
 
+type Section = 'menu' | 'appointments' | 'book' | 'history' | 'recordings' | 'details';
+
+/**
+ * v17: one hospital as a menu (what needs doing now, then Your appointments, Book an appointment,
+ * Appointment history, Recordings and Hospital details) instead of one long page.
+ */
 function HospitalView({
   h,
   onBack,
@@ -322,45 +328,215 @@ function HospitalView({
   onRecord: (request: PatientRequest | null) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { config, settings, saveSettings } = useApp();
-  const data = useHospitalData(h);
+  const lang = i18n.language;
+  const [version, setVersion] = useState(0);
+  const data = useHospitalData(h, version);
+  const { data: appts, reload: reloadAppts } = useAppointments(h);
+  const [section, setSection] = useState<Section>('menu');
   const open = openRequests(data);
-  const [confirm, setConfirm] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const plan = data?.plan;
+  const clinic = clinicVisits(data);
+  const live = !h.withdrawnAt;
 
-  const withdraw = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      // v3: the hospital keeps everything already recorded; no deletion is offered here.
-      await hospitalApi(capture.kit, h, 'POST', '/patient/consent/withdraw', {
-        delete_recordings: false,
-      });
-      await capture.kit.clearUploadCredentials({ profile: h.profile });
-      const next = withdrawnFrom(settings, h.profile, new Date().toISOString());
-      await saveSettings(next);
-      if (next.account)
-        await saveBackup(capture.kit, next.account, next.hospitals)
-          .then((account) => saveSettings({ ...next, account }))
-          .catch(() => undefined);
-      setConfirm(false);
-    } catch (e) {
-      setError(errorCode(e));
-    }
-    setBusy(false);
+  const offers = live
+    ? [
+        ...(appts?.appointments ?? []).filter((a) => a.offer),
+        ...(appts?.bookings ?? []).filter((b) => b.offer),
+      ].length
+    : 0;
+  const noConsent = live
+    ? clinic.filter((r) => !['active', 'used'].includes(r.clinic_consent?.status ?? ''))
+    : [];
+  const toRecord = live ? open.length + (plan?.due_now ? 1 : 0) : 0;
+  const upcoming = (appts?.appointments ?? []).filter((a) => a.status === 'booked');
+
+  const header = (title: string, back: () => void, testId?: string) => (
+    <header className="flex items-center gap-1">
+      <BackButton onClick={back} label={t('common.back')} />
+      <h1 className="text-[20px] font-bold" data-testid={testId}>
+        {title}
+      </h1>
+    </header>
+  );
+  // Back to the menu: fetch the appointments again (a section may have changed them).
+  const toMenu = () => {
+    reloadAppts();
+    setVersion((v) => v + 1);
+    setSection('menu');
   };
-
-  const past = (data?.requests ?? []).filter((r) => r.state !== 'open');
-  return (
+  const wrap = (children: ReactNode) => (
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-4 pb-6">
-      <header className="flex items-center gap-1">
-        <BackButton onClick={onBack} label={t('common.back')} />
-        <h1 className="text-[20px] font-bold" data-testid="hospital-name">
-          {h.hospital}
-        </h1>
-      </header>
+      {children}
+    </div>
+  );
+  const notes = (
+    <>
+      {data?.offline && (
+        <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[13px] text-[#8A4B00]">
+          {t('modes.home.offline')}
+        </p>
+      )}
+      <ErrorText code={data?.error ?? null} />
+    </>
+  );
+
+  if (section === 'appointments')
+    return wrap(
+      <>
+        {header(t('modes.hospitals.menu.appointments'), toMenu, 'section-title')}
+        {notes}
+        {live &&
+          clinic
+            .filter((r) => !upcoming.some((a) => sameTime(a.at, r.appointment_at)))
+            .map((r) => <ClinicVisit key={r.id} h={h} r={r} />)}
+        {live && (
+          <AppointmentsSection
+            h={h}
+            extra={(a) =>
+              clinic
+                .filter((r) => sameTime(a.at, r.appointment_at))
+                .map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex flex-col gap-1 border-t border-[#EDF0F3] pt-2"
+                    data-testid="request-clinic"
+                  >
+                    <span className="text-[12px] font-bold text-[#0B5FAA]">
+                      {t('modes.hospitals.menu.clinicAtVisit').toUpperCase()}
+                    </span>
+                    <ClinicConsentCard h={h} request={r} />
+                  </div>
+                ))
+            }
+          />
+        )}
+      </>,
+    );
+  if (section === 'book')
+    return wrap(
+      <>
+        {header(t('modes.hospitals.menu.book'), toMenu, 'section-title')}
+        <AppointmentsSection
+          h={h}
+          start="book"
+          onLeaveBook={(sent) => (sent ? setSection('appointments') : toMenu())}
+        />
+      </>,
+    );
+  if (section === 'history')
+    return wrap(
+      <>
+        {header(t('modes.hospitals.menu.history'), toMenu, 'section-title')}
+        <AppointmentHistory h={h} />
+      </>,
+    );
+  if (section === 'recordings')
+    return wrap(
+      <>
+        {header(t('modes.hospitals.menu.recordings'), toMenu, 'section-title')}
+        {notes}
+        <RecordingsSection h={h} data={data} onRecord={onRecord} />
+      </>,
+    );
+  if (section === 'details')
+    return wrap(
+      <>
+        {header(t('modes.hospitals.menu.details'), toMenu, 'section-title')}
+        <HospitalDetails h={h} />
+      </>,
+    );
+
+  // The menu.
+  const nextAppt = upcoming[0];
+  const todo: { key: string; text: string; action: string; go: () => void; id: string }[] = [];
+  if (live && data?.canRecord !== false) {
+    for (const r of open)
+      todo.push({
+        key: r.id,
+        text: t('modes.hospitals.menu.todoRecord', {
+          count: r.tests.length,
+          date: fmtDate(r.due_at, lang),
+        }),
+        action: t('modes.hospitals.menu.start'),
+        go: () => onRecord(r),
+        id: 'needs-record',
+      });
+    if (plan?.due_now)
+      todo.push({
+        key: 'plan',
+        text: t('modes.hospitals.menu.todoPlan'),
+        action: t('modes.hospitals.menu.start'),
+        go: () => onRecord(null),
+        id: 'needs-plan',
+      });
+  }
+  for (const a of live ? (appts?.appointments ?? []) : [])
+    if (a.offer)
+      todo.push({
+        key: a.id,
+        text: t('modes.hospitals.menu.todoOffer', {
+          hospital: h.hospital,
+          date: fmtDate(a.at, lang),
+        }),
+        action: t('modes.hospitals.menu.choose'),
+        go: () => setSection('appointments'),
+        id: 'needs-offer',
+      });
+  for (const b of live ? (appts?.bookings ?? []) : [])
+    if (b.offer)
+      todo.push({
+        key: b.id,
+        text: t('modes.hospitals.menu.todoBookingOffer', { hospital: h.hospital }),
+        action: t('modes.hospitals.menu.choose'),
+        go: () => setSection('appointments'),
+        id: 'needs-offer',
+      });
+  for (const r of noConsent)
+    todo.push({
+      key: r.id,
+      text: t('modes.hospitals.menu.todoConsent', {
+        date: fmtDate(r.appointment_at ?? r.due_at, lang),
+      }),
+      action: t('modes.hospitals.menu.open'),
+      go: () => setSection('appointments'),
+      id: 'needs-consent',
+    });
+
+  const row = (id: Section, icon: string, title: string, sub: string, badge = 0, muted = false) => (
+    <button
+      key={id}
+      type="button"
+      onClick={() => setSection(id)}
+      className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
+      data-testid={`menu-${id}`}
+    >
+      <span
+        aria-hidden
+        className={`flex size-10 flex-none items-center justify-center rounded-xl text-[18px] ${muted ? 'bg-[#EDF0F3]' : 'bg-[#E6EFF8]'}`}
+      >
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <b className={`text-[15px] ${muted ? 'text-muted' : ''}`}>{title}</b>
+        <span className="text-[13px] text-muted">{sub}</span>
+      </span>
+      {badge > 0 && (
+        <span
+          className="flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white"
+          data-testid={`menu-${id}-count`}
+        >
+          {badge}
+        </span>
+      )}
+      <span aria-hidden className="text-[20px] text-muted">
+        ›
+      </span>
+    </button>
+  );
+
+  return wrap(
+    <>
+      {header(h.hospital, onBack, 'hospital-name')}
       {h.withdrawnAt && (
         <section
           className="flex flex-col gap-2 rounded-2xl border border-[#C9CFD8] bg-[#EDF0F3] p-4"
@@ -368,7 +544,7 @@ function HospitalView({
         >
           <span className="self-start rounded-xl bg-white px-2.5 py-0.5 text-[12px] font-bold text-[#3D4552]">
             {t('modes.hospitals.withdrawnOn', {
-              date: fmtDate(h.withdrawnAt, i18n.language),
+              date: fmtDate(h.withdrawnAt, lang),
             }).toUpperCase()}
           </span>
           <span className="text-[15px] leading-[22px]">
@@ -379,13 +555,8 @@ function HospitalView({
           </span>
         </section>
       )}
-      {data?.offline && (
-        <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[13px] text-[#8A4B00]">
-          {t('modes.home.offline')}
-        </p>
-      )}
-      <ErrorText code={data?.error ?? null} />
-      {!h.withdrawnAt && data?.canRecord === false && (
+      {notes}
+      {live && data?.canRecord === false && (
         <p
           className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] text-[#8A4B00]"
           data-testid="hospital-not-ready"
@@ -393,7 +564,125 @@ function HospitalView({
           {t('modes.hospitals.notReadyBody', { hospital: h.hospital })}
         </p>
       )}
-      {!h.withdrawnAt &&
+      {todo.length > 0 && (
+        <Card className="flex flex-col gap-1" data-testid="needs-now">
+          <b className="text-[15px]">{t('modes.hospitals.menu.needsNow')}</b>
+          {todo.map((x) => (
+            <div
+              key={x.key}
+              className="flex items-center gap-3 border-t border-[#EDF0F3] py-2.5"
+              data-testid={x.id}
+            >
+              <span className="flex-1 text-[14px] leading-5">{x.text}</span>
+              <Button className="!h-11 !px-4 !text-[14px]" onClick={x.go}>
+                {x.action}
+              </Button>
+            </div>
+          ))}
+        </Card>
+      )}
+      <nav className="flex flex-col gap-2.5" aria-label={h.hospital}>
+        {live &&
+          row(
+            'appointments',
+            '📅',
+            t('modes.hospitals.menu.appointments'),
+            nextAppt
+              ? t('modes.hospitals.menu.next', {
+                  date: fmtDateTime(nextAppt.at, lang),
+                  doctor: nextAppt.doctor_name ?? '',
+                })
+              : t('modes.hospitals.menu.noneBooked'),
+            offers + noConsent.length,
+          )}
+        {live &&
+          appts?.booking.enabled &&
+          row('book', '＋', t('modes.hospitals.menu.book'), t('modes.hospitals.menu.bookSub'))}
+        {row(
+          'history',
+          '🗂',
+          t('modes.hospitals.menu.history'),
+          t('modes.hospitals.menu.historySub'),
+        )}
+        {row(
+          'recordings',
+          '🎥',
+          t('modes.hospitals.menu.recordings'),
+          t('modes.hospitals.menu.recordingsSub', {
+            todo: toRecord,
+            sent: data?.sessions.length ?? 0,
+          }),
+          toRecord,
+        )}
+        {row(
+          'details',
+          'ⓘ',
+          t('modes.hospitals.menu.details'),
+          live ? t('modes.hospitals.menu.detailsSub') : t('modes.hospitals.menu.detailsSubOff'),
+          0,
+          true,
+        )}
+      </nav>
+    </>,
+  );
+}
+
+const sameTime = (a: string | null | undefined, b: string | null | undefined) =>
+  !!a && !!b && Date.parse(a) === Date.parse(b);
+
+function fmtDateTime(iso: string, lang: string): string {
+  return new Date(iso).toLocaleString(lang === 'hi' ? 'hi-IN' : 'en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/** A clinic recording not tied to a listed appointment: the visit and its consent. */
+function ClinicVisit({ h, r }: { h: PatientHospital; r: PatientRequest }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <Card className="flex flex-col gap-1" data-testid="request-clinic">
+      <span className="text-[12px] font-bold text-[#0B5FAA]">
+        {t('modes.hospitals.clinicTitle').toUpperCase()}
+      </span>
+      <span className="text-[15px] leading-[22px]">
+        {t('modes.hospitals.clinicBody', {
+          date: fmtDate(r.appointment_at ?? r.due_at, i18n.language),
+          doctor: r.doctor_name ?? t('modes.hospitals.yourDoctor'),
+        })}
+      </span>
+      <ClinicConsentCard h={h} request={r} />
+    </Card>
+  );
+}
+
+/** v17: what to record for this hospital, then what was sent and earlier requests. */
+function RecordingsSection({
+  h,
+  data,
+  onRecord,
+}: {
+  h: PatientHospital;
+  data: HospitalData | null;
+  onRecord: (request: PatientRequest | null) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { config } = useApp();
+  const open = openRequests(data);
+  const plan = data?.plan;
+  const past = (data?.requests ?? []).filter((r) => r.state !== 'open');
+  const live = !h.withdrawnAt;
+  return (
+    <>
+      {live && (
+        <span className="text-[12px] font-bold text-muted">
+          {t('modes.hospitals.menu.toRecord').toUpperCase()}
+        </span>
+      )}
+      {live &&
         open.map((r) => {
           const { steps, minutes } = testsMinutes(config, r.tests);
           return (
@@ -435,22 +724,7 @@ function HospitalView({
             </Card>
           );
         })}
-      {!h.withdrawnAt &&
-        clinicVisits(data).map((r) => (
-          <Card key={r.id} className="flex flex-col gap-1" data-testid="request-clinic">
-            <span className="text-[12px] font-bold text-[#0B5FAA]">
-              {t('modes.hospitals.clinicTitle').toUpperCase()}
-            </span>
-            <span className="text-[15px] leading-[22px]">
-              {t('modes.hospitals.clinicBody', {
-                date: fmtDate(r.appointment_at ?? r.due_at, i18n.language),
-                doctor: r.doctor_name ?? t('modes.hospitals.yourDoctor'),
-              })}
-            </span>
-            <ClinicConsentCard h={h} request={r} />
-          </Card>
-        ))}
-      {!h.withdrawnAt && plan && !plan.default && plan.next_due && (
+      {live && plan && !plan.default && plan.next_due && (
         <Card className="flex flex-col gap-2" data-testid="home-plan">
           <div className="flex items-center justify-between">
             <h2 className="text-[16px] font-bold">{t('modes.home.plan')}</h2>
@@ -488,35 +762,18 @@ function HospitalView({
           )}
         </Card>
       )}
-      {!h.withdrawnAt && <AppointmentsSection h={h} />}
-      {!h.withdrawnAt && data && open.length === 0 && !plan?.due_now && (
+      {live && data && open.length === 0 && !plan?.due_now && (
         <p className="text-[14px] text-muted" data-testid="no-requests">
           {t('modes.hospitals.nothingToRecord')}
         </p>
       )}
-
-      <h2 className="mt-1 text-[16px] font-bold">{t('modes.hospitals.history')}</h2>
+      <span className="mt-1 text-[12px] font-bold text-muted">
+        {t('modes.hospitals.menu.sent', { hospital: h.hospital }).toUpperCase()}
+      </span>
       {past.length === 0 && (data?.sessions.length ?? 0) === 0 && (
         <p className="text-[14px] text-muted">{t('modes.recordings.none')}</p>
       )}
-      <ol className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white">
-        {past.map((r) => (
-          <li
-            key={r.id}
-            className="flex flex-col gap-0.5 border-b border-[#EDF0F3] px-4 py-3 last:border-b-0"
-            data-testid="history-request"
-          >
-            <span className="text-[15px] font-semibold">
-              {fmtDate(r.appointment_at ?? r.due_at, i18n.language)}
-              {r.doctor_name ? ` · ${r.doctor_name}` : ''}
-            </span>
-            <span
-              className={`text-[13px] ${r.state === 'recorded' ? 'text-[#145F38]' : 'text-muted'}`}
-            >
-              {t(`modes.hospitals.state.${r.state}`)}
-            </span>
-          </li>
-        ))}
+      <ol className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white empty:hidden">
         {(data?.sessions ?? []).map((s) => (
           <li
             key={s.id}
@@ -537,10 +794,169 @@ function HospitalView({
             </span>
           </li>
         ))}
+        {past.map((r) => (
+          <li
+            key={r.id}
+            className="flex flex-col gap-0.5 border-b border-[#EDF0F3] px-4 py-3 last:border-b-0"
+            data-testid="history-request"
+          >
+            <span className="text-[15px] font-semibold">
+              {fmtDate(r.appointment_at ?? r.due_at, i18n.language)}
+              {r.doctor_name ? ` · ${r.doctor_name}` : ''}
+            </span>
+            <span
+              className={`text-[13px] ${r.state === 'recorded' ? 'text-[#145F38]' : 'text-muted'}`}
+            >
+              {t(`modes.hospitals.state.${r.state}`)}
+            </span>
+          </li>
+        ))}
       </ol>
+    </>
+  );
+}
 
+interface PastAppointment {
+  id: string;
+  at: string;
+  doctor_name: string | null;
+  status: 'past' | 'cancelled';
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  moved_from: string | null;
+  moved_by_hospital: boolean;
+}
+
+/** v17: past and cancelled appointments, newest first (dates, doctors, what happened). */
+function AppointmentHistory({ h }: { h: PatientHospital }) {
+  const { t, i18n } = useTranslation();
+  const { repo } = useApp();
+  const [rows, setRows] = useState<PastAppointment[] | null>(null);
+  const [filter, setFilter] = useState<'all' | 'past' | 'cancelled'>('all');
+  useEffect(() => {
+    let off = false;
+    const key = cacheKey(h, 'appointment-history');
+    const load = h.withdrawnAt
+      ? Promise.reject(new Error('withdrawn'))
+      : hospitalApi<PastAppointment[]>(capture.kit, h, 'GET', '/patient/appointments/history');
+    load.then(
+      async (r) => {
+        await repo.store.put(key, r);
+        if (!off) setRows(r);
+      },
+      async () => {
+        const cached = await repo.store.get<PastAppointment[]>(key);
+        if (!off) setRows(cached ?? []);
+      },
+    );
+    return () => {
+      off = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [h.profile, h.withdrawnAt, repo]);
+  const shown = (rows ?? []).filter((r) => filter === 'all' || r.status === filter);
+  return (
+    <>
+      <div className="flex gap-2" role="group">
+        {(['all', 'past', 'cancelled'] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            aria-pressed={filter === f}
+            onClick={() => setFilter(f)}
+            className={`min-h-11 rounded-full border px-4 text-[14px] font-semibold ${filter === f ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white text-ink'}`}
+            data-testid={`history-filter-${f}`}
+          >
+            {t(`modes.hospitals.menu.filter.${f}`)}
+          </button>
+        ))}
+      </div>
+      {rows && shown.length === 0 && (
+        <p className="text-[14px] text-muted" data-testid="history-none">
+          {t('modes.hospitals.menu.historyNone')}
+        </p>
+      )}
+      {shown.map((r) => {
+        const cancelled = r.status === 'cancelled';
+        const what = cancelled
+          ? r.cancelled_by === 'patient'
+            ? t('modes.hospitals.menu.cancelledByYou')
+            : t('modes.hospitals.menu.cancelledByHospital', { hospital: h.hospital })
+          : t('modes.hospitals.menu.pastVisit');
+        return (
+          <Card key={r.id} className="flex flex-col gap-1" data-testid="history-appt">
+            <div className="flex items-start justify-between gap-2">
+              <b className="text-[15px]">{fmtDateTime(r.at, i18n.language)}</b>
+              <span
+                className={`rounded-xl px-2.5 py-0.5 text-[12px] font-semibold whitespace-nowrap ${cancelled ? 'bg-[#EDF0F3] text-[#3D4552]' : 'bg-[#E3F4EA] text-[#145F38]'}`}
+                data-testid="history-appt-state"
+              >
+                {what}
+              </span>
+            </div>
+            <span className="text-[13px] text-muted">
+              {[
+                r.doctor_name,
+                cancelled && r.cancel_reason
+                  ? t(`appts.cancelReason.${r.cancel_reason}`, { defaultValue: '' })
+                  : '',
+                r.moved_from
+                  ? t('modes.hospitals.menu.movedFrom', {
+                      date: fmtDate(r.moved_from, i18n.language),
+                    })
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          </Card>
+        );
+      })}
+      <span className="text-[12px] leading-[17px] text-muted">
+        {t('modes.hospitals.menu.historyNote')}
+      </span>
+    </>
+  );
+}
+
+/** v17: the hospital's details and leaving it (withdraw), moved off the main screen. */
+function HospitalDetails({ h }: { h: PatientHospital }) {
+  const { t } = useTranslation();
+  const { settings, saveSettings } = useApp();
+  const [confirm, setConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const withdraw = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      // v3: the hospital keeps everything already recorded; no deletion is offered here.
+      await hospitalApi(capture.kit, h, 'POST', '/patient/consent/withdraw', {
+        delete_recordings: false,
+      });
+      await capture.kit.clearUploadCredentials({ profile: h.profile });
+      const next = withdrawnFrom(settings, h.profile, new Date().toISOString());
+      await saveSettings(next);
+      if (next.account)
+        await saveBackup(capture.kit, next.account, next.hospitals)
+          .then((account) => saveSettings({ ...next, account }))
+          .catch(() => undefined);
+      setConfirm(false);
+    } catch (e) {
+      setError(errorCode(e));
+    }
+    setBusy(false);
+  };
+  return (
+    <>
+      <Card className="flex flex-col gap-1">
+        <b className="text-[16px]">{h.hospital}</b>
+        <span className="text-[14px] leading-5 text-[#3D4552]">
+          {t('modes.hospitals.menu.detailsBody', { hospital: h.hospital })}
+        </span>
+      </Card>
       {!h.withdrawnAt && (
-        <Card className="mt-2 flex flex-col gap-2">
+        <Card className="flex flex-col gap-2">
           <h2 className="text-[15px] font-bold">{t('modes.settings.withdrawTitle')}</h2>
           <p className="text-[13px] leading-[19px] text-[#3D4552]">
             {t('modes.hospitals.withdrawBody', { hospital: h.hospital })}
@@ -575,7 +991,7 @@ function HospitalView({
           {t('modes.hospitals.othersUnaffected')}
         </p>
       )}
-    </div>
+    </>
   );
 }
 

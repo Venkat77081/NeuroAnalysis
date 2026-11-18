@@ -57,7 +57,10 @@ test('v3: join → record link → consent → home session; second hospital; wi
   await expect(page.getByTestId('hospital-card')).toHaveCount(1);
   await expect(page.getByTestId('hospital-badge')).toHaveText('Joined');
   await page.getByTestId('hospital-card').click();
+  await expect(page.getByTestId('needs-now')).toHaveCount(0);
+  await page.getByTestId('menu-recordings').click();
   await expect(page.getByTestId('no-requests')).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
 
   // The doctor chooses the tests and sends the record link.
@@ -69,18 +72,25 @@ test('v3: join → record link → consent → home session; second hospital; wi
   });
   // (The fake server lives in the page: no reload here.) Opening the hospital fetches it live.
   await page.getByTestId('hospital-card').click();
+  await expect(page.getByTestId('needs-record')).toContainText('Record 5 tests');
+  await expect(page.getByTestId('menu-recordings-count')).toHaveText('1');
+  await page.getByTestId('menu-recordings').click();
   await expect(page.getByTestId('request-card')).toContainText('Dr. Rao asks for 5 tests');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByTestId('menu-appointments').click();
   await expect(page.getByTestId('request-clinic')).toContainText('at the clinic');
+  await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByTestId('hospital-badge')).toHaveText('1 request');
   await page.getByTestId('hospital-card').click();
   await page.screenshot({ path: 'test-results/patient-hospital.png', fullPage: true });
-  await page.getByTestId('request-start').click();
+  await page.getByTestId('needs-record').getByRole('button').click();
 
   // Consent right before the camera: no tick, no recording.
   await expect(page.getByTestId('consent-for')).toContainText('Demo Hospital');
   await expect(page.getByTestId('consent-start')).toBeDisabled();
   await page.getByTestId('consent-cancel').click();
+  await page.getByTestId('menu-recordings').click();
   await expect(page.getByTestId('request-card')).toBeVisible();
   await page.getByTestId('request-start').click();
   await page.getByTestId('consent-check').check();
@@ -113,8 +123,10 @@ test('v3: join → record link → consent → home session; second hospital; wi
   await page.getByTestId('end-session').click();
   await expect(page.getByTestId('hospital-badge')).toHaveText('Joined');
   await page.getByTestId('hospital-card').click();
+  await page.getByTestId('menu-recordings').click();
   await expect(page.getByTestId('history-request')).toContainText('Recorded · uploaded');
   await expect(page.getByTestId('rec-session')).toContainText('5 tests uploaded');
+  await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
 
   // Lock and unlock with the PIN.
@@ -142,11 +154,16 @@ test('v3: join → record link → consent → home session; second hospital; wi
 
   // Withdraw from the first: history stays, read only; the other hospital is not affected.
   await page.getByTestId('hospital-card').filter({ hasText: 'Demo Hospital' }).click();
+  await page.getByTestId('menu-details').click();
   await page.getByTestId('withdraw').click();
   await page.getByTestId('withdraw-yes').click();
+  await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByTestId('hospital-withdrawn')).toBeVisible();
+  await expect(page.getByTestId('menu-appointments')).toHaveCount(0);
+  await page.getByTestId('menu-recordings').click();
   await expect(page.getByTestId('history-request')).toContainText('Recorded · uploaded');
   await expect(page.getByTestId('request-start')).toBeHidden();
+  await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(
     page.getByTestId('hospital-card').filter({ hasText: 'Demo Hospital' }),

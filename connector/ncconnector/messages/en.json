@@ -86,5 +86,16 @@
   },
   "appointmentNotBookedSms": {
     "body": "{hospital}: we could not book the appointment you asked for. Please call us."
+  },
+  "doctorNoShow": {
+    "subject": "{hospital}: a patient did not come ({when})",
+    "body": "A patient did not come to their appointment with you on {when} at {hospital}. The front desk marked it and the appointment is cancelled.\n\nPatient: {ncid} (open them in NeuroCapture to see their name from the hospital's records).\n\nThe patient has been told and can book again."
+  },
+  "appointmentNoShowEmail": {
+    "subject": "{hospital}: we missed you on {when}",
+    "body": "You did not come to your appointment at {hospital} on {when}, so it is cancelled.\n\nTo book again, use the NeuroCapture app or call {hospital}."
+  },
+  "appointmentNoShowSms": {
+    "body": "{hospital}: you missed your appointment on {when}; it is cancelled. Book again in the NeuroCapture app or call us."
   }
 }

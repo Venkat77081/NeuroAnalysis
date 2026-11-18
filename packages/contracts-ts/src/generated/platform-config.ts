@@ -117,6 +117,12 @@ export interface PlatformConfig {
      * Phones list: takes recorded on each phone over this many days, and how many were below warnBelowFps.
      */
     usageDays: number;
+    /**
+     * Pass levels a hospital admin may choose for its phones (v13); the lowest is minFps. A hospital can be stricter, never looser.
+     *
+     * @minItems 1
+     */
+    minFpsOptions: [number, ...number[]];
   };
   /**
    * v10 Overview pages (decision 042): time windows for the cards and the chart.
@@ -157,5 +163,39 @@ export interface PlatformConfig {
     codeMaxAttempts: number;
     pauseHours: number;
     recoveryCodeChars: 24;
+  };
+  /**
+   * v13: appointment changes. Patients ask for a new date (days + part of day) per appointment until cutoffHours before it; the front desk moves appointments and picks a doctor from free times (doctors' clinic hours minus booked appointments).
+   */
+  appointmentChanges: {
+    /**
+     * Default: patients may ask until this many hours before the appointment (a hospital admin can change it).
+     */
+    cutoffHours: number;
+    /**
+     * @minItems 1
+     */
+    cutoffHourOptions: [number, ...number[]];
+    maxDays: number;
+    maxDaysAhead: number;
+    partsOfDay: ('morning' | 'afternoon' | 'any')[];
+    afternoonFrom: string;
+    patientReasons: string[];
+    declineAnswers: string[];
+    deskReasons: string[];
+    answerShownDays: number;
+    movedShownDays: number;
+    slotMinutes: number;
+    /**
+     * @minItems 1
+     */
+    slotMinuteOptions: [number, ...number[]];
+    /**
+     * Default time zone by hospital region; a hospital admin can change it.
+     */
+    timeZones: {
+      [k: string]: string;
+    };
+    defaultTimeZone: string;
   };
 }

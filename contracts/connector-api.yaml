@@ -1025,6 +1025,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
     servers: *id001
+  /connector/v1/appointment-notices/due:
+    get:
+      tags:
+      - appointment changes
+      summary: Notices Due
+      operationId: notices_due_connector_v1_appointment_notices_due_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/NoticeOut'
+                type: array
+                title: Response Notices Due Connector V1 Appointment Notices Due Get
+    servers: *id001
+  /connector/v1/appointment-notices/{notice_id}/sent:
+    post:
+      tags:
+      - appointment changes
+      summary: Notice Sent
+      operationId: notice_sent_connector_v1_appointment_notices__notice_id__sent_post
+      parameters:
+      - name: notice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Notice Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
 components:
   schemas:
     AccessIn:
@@ -1623,6 +1663,38 @@ components:
       required:
       - ncid
       title: NewPatientOut
+    NoticeOut:
+      properties:
+        id:
+          type: string
+          title: Id
+        ncid:
+          type: string
+          title: Ncid
+        kind:
+          type: string
+          title: Kind
+        at:
+          type: string
+          format: date-time
+          title: At
+        at_local:
+          type: string
+          title: At Local
+        doctor_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Doctor Name
+      type: object
+      required:
+      - id
+      - ncid
+      - kind
+      - at
+      - at_local
+      - doctor_name
+      title: NoticeOut
     ObjectLocation:
       properties:
         kind:

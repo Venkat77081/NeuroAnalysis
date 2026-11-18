@@ -256,7 +256,11 @@ export class FakeServer {
       this.connectorMap.set(mrn, ncid);
     }
     this.connectorNames.set(ncid, name);
-    const at = new Date(Date.now() + (opts.inHours ?? 1) * 3_600_000).toISOString();
+    // Today's queue: by default an hour from now, but never past midnight (tests run at any hour).
+    let atMs = Date.now() + (opts.inHours ?? 1) * 3_600_000;
+    if ((opts.inHours ?? 1) <= 2 && new Date(atMs).getDate() !== new Date().getDate())
+      atMs = Date.now() + 60_000;
+    const at = new Date(atMs).toISOString();
     const id = this.id('rq');
     this.requests.push({
       id,

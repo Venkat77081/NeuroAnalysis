@@ -1,4 +1,10 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from './api.ts';
 
@@ -169,4 +175,98 @@ export function fmtDate(iso: string | null | undefined): string {
   return iso
     ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
+}
+
+/**
+ * v15: a dialog over the page (the list underneath stays where it was). Closes with ✕, Esc or a
+ * click outside; with unsaved choices (`dirty`) it asks first. Focus stays inside while open and
+ * returns to the button that opened it. On a narrow window it fills the screen.
+ */
+export function Dialog({
+  title,
+  sub,
+  size = 'md',
+  dirty = false,
+  onClose,
+  children,
+  testId,
+}: {
+  title: string;
+  sub?: ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+  dirty?: boolean;
+  onClose: () => void;
+  children: ReactNode;
+  testId?: string;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDialogElement>(null);
+  const opener = useRef<Element | null>(null);
+  const leaving = useRef(false);
+  useEffect(() => {
+    const d = ref.current;
+    opener.current = document.activeElement;
+    leaving.current = false;
+    if (d && !d.open) d.showModal();
+    return () => {
+      leaving.current = true;
+      d?.close();
+      if (opener.current instanceof HTMLElement) opener.current.focus();
+    };
+  }, []);
+  const close = () => {
+    if (dirty && !globalThis.confirm(t('app.discard'))) return;
+    onClose();
+  };
+  const width = { sm: 'sm:max-w-[540px]', md: 'sm:max-w-[760px]', lg: 'sm:max-w-[1040px]' }[size];
+  return (
+    <dialog
+      ref={ref}
+      aria-label={title}
+      onCancel={(e) => {
+        e.preventDefault();
+        close();
+      }}
+      onClose={() => {
+        // The browser may close it on Esc even when asked not to: keep it open until the page
+        // closes it (after "Discard?" is answered).
+        if (!leaving.current) ref.current?.showModal();
+      }}
+      onClick={(e) => {
+        if (e.target === ref.current) close();
+      }}
+      className={`m-0 h-full max-h-none w-full max-w-none bg-white p-0 text-ink backdrop:bg-[#14181F]/45 sm:m-auto sm:h-auto sm:max-h-[90vh] sm:w-[calc(100%-48px)] sm:rounded-2xl sm:shadow-2xl ${width}`}
+      data-testid={testId}
+    >
+      <div className="flex h-full max-h-full flex-col sm:max-h-[90vh]">
+        <div className="flex items-start gap-3 border-b border-line px-6 py-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[19px] font-bold">{title}</h2>
+            {sub && <span className="text-[13px] text-muted">{sub}</span>}
+          </div>
+          <button
+            type="button"
+            onClick={close}
+            aria-label={t('app.close')}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-[18px] text-muted"
+            data-testid="dialog-close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+          {children}
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+/** The buttons at the bottom of a dialog: stay visible while the content scrolls. */
+export function DialogFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky bottom-[-20px] -mx-6 -mb-5 mt-auto flex flex-wrap items-end gap-3 border-t border-line bg-[#FBFCFD] px-6 py-3.5">
+      {children}
+    </div>
+  );
 }

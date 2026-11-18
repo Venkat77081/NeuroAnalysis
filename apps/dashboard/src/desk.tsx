@@ -25,7 +25,7 @@ import {
   zonedIso,
   zonedTime,
 } from './changes.tsx';
-import { Badge, Button, Card, ErrorNote, Notice, Table, fmt } from './ui.tsx';
+import { Badge, Button, Card, Dialog, DialogFooter, ErrorNote, Notice, Table, fmt } from './ui.tsx';
 import type { RequestOut as LinkOut } from './appointments.tsx';
 
 // --- Types ---
@@ -277,29 +277,28 @@ export function MovePanel({
     setBusy(false);
   };
 
-  if (!settings || !today) return <p className="text-muted">{t('app.loading')}</p>;
+  const dialogTitle = appt
+    ? t('moves.title', { name: patient })
+    : t('offers.bookTitle', { name: patient });
+  if (!settings || !today)
+    return (
+      <Dialog title={dialogTitle} size="lg" onClose={onClose} testId="move-panel">
+        <p className="text-muted">{t('app.loading')}</p>
+      </Dialog>
+    );
   return (
-    <section
-      className="flex flex-col gap-4 rounded-2xl border border-brand bg-white p-5"
-      data-testid="move-panel"
-      aria-label={t('moves.title', { name: patient })}
+    <Dialog
+      title={dialogTitle}
+      sub={`${
+        appt
+          ? `${t('moves.booked', { when: fmt(appt.at), doctor: appt.doctor_name ?? '—' })} · `
+          : ''
+      }${t('moves.zone', { tz })}`}
+      size="lg"
+      dirty={picks.length > 0 || !!time}
+      onClose={onClose}
+      testId="move-panel"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[18px] font-bold">
-            {appt ? t('moves.title', { name: patient }) : t('offers.bookTitle', { name: patient })}
-          </h2>
-          <span className="text-[13px] text-muted">
-            {appt
-              ? `${t('moves.booked', { when: fmt(appt.at), doctor: appt.doctor_name ?? '—' })} · `
-              : ''}
-            {t('moves.zone', { tz })}
-          </span>
-        </div>
-        <Button variant="secondary" onClick={onClose} data-testid="move-close">
-          {t('moves.close')}
-        </Button>
-      </div>
       {appt && (
         <div className="flex flex-wrap items-center gap-3">
           <div
@@ -544,7 +543,7 @@ export function MovePanel({
           {t('moves.doctorChange', { to: chosenName, from: appt.doctor_name ?? '—' })}
         </Notice>
       )}
-      <div className="flex flex-wrap items-end gap-4">
+      <DialogFooter>
         {!request && (
           <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
             {t('moves.why')}
@@ -575,35 +574,30 @@ export function MovePanel({
           />
           {t('moves.notify')}
         </label>
-      </div>
-      <ErrorNote error={error} />
-      {offering ? (
-        <Button
-          className="self-start"
-          disabled={busy || !readyOffer}
-          onClick={() => void offer()}
-          data-testid="offer-send"
-        >
-          {readyOffer
-            ? t('offers.send', { count: picks.length, name: patient })
-            : t('offers.sendIncomplete')}
-        </Button>
-      ) : (
-        <Button
-          className="self-start"
-          disabled={busy || !readyNow}
-          onClick={() => void move()}
-          data-testid="move-save"
-        >
-          {readyNow
-            ? t('moves.save', {
-                when: `${fmtDay(shownDay!)}, ${fmtTime(time)}`,
-                doctor: chosenName,
-              })
-            : t('moves.saveIncomplete')}
-        </Button>
-      )}
-    </section>
+        <span className="flex-1" />
+        <ErrorNote error={error} />
+        {offering ? (
+          <Button
+            disabled={busy || !readyOffer}
+            onClick={() => void offer()}
+            data-testid="offer-send"
+          >
+            {readyOffer
+              ? t('offers.send', { count: picks.length, name: patient })
+              : t('offers.sendIncomplete')}
+          </Button>
+        ) : (
+          <Button disabled={busy || !readyNow} onClick={() => void move()} data-testid="move-save">
+            {readyNow
+              ? t('moves.save', {
+                  when: `${fmtDay(shownDay!)}, ${fmtTime(time)}`,
+                  doctor: chosenName,
+                })
+              : t('moves.saveIncomplete')}
+          </Button>
+        )}
+      </DialogFooter>
+    </Dialog>
   );
 }
 
@@ -696,32 +690,19 @@ export function RequestPanel({
       />
     );
   return (
-    <section
-      className="flex flex-col gap-3 rounded-2xl border border-brand bg-white p-5"
-      data-testid="request-panel"
+    <Dialog
+      title={t(`requests.title.${req.kind}`, { name: patient })}
+      sub={`${
+        req.kind === 'change'
+          ? t('moves.booked', { when: fmt(req.appointment_at), doctor: req.doctor_name ?? '—' })
+          : t('requests.wantsDoctor', { doctor: req.doctor_name ?? t('requests.anyDoctor') })
+      }${req.purpose ? ` · ${t(`requests.purpose.${req.purpose}`)}` : ''}${
+        req.reason ? ` · ${t(`moves.patientReason.${req.reason}`)}` : ''
+      }`}
+      size="md"
+      onClose={onClose}
+      testId="request-panel"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[18px] font-bold">
-            {t(`requests.title.${req.kind}`, { name: patient })}
-          </h2>
-          <span className="text-[13px] text-muted">
-            {req.kind === 'change'
-              ? t('moves.booked', {
-                  when: fmt(req.appointment_at),
-                  doctor: req.doctor_name ?? '—',
-                })
-              : t('requests.wantsDoctor', {
-                  doctor: req.doctor_name ?? t('requests.anyDoctor'),
-                })}
-            {req.purpose ? ` · ${t(`requests.purpose.${req.purpose}`)}` : ''}
-            {req.reason ? ` · ${t(`moves.patientReason.${req.reason}`)}` : ''}
-          </span>
-        </div>
-        <Button variant="secondary" onClick={onClose} data-testid="request-close">
-          {t('moves.close')}
-        </Button>
-      </div>
       <Notice>{t('requests.checkedNow')}</Notice>
       {req.days && (
         <span className="text-[14px]">
@@ -798,7 +779,7 @@ export function RequestPanel({
           </div>
         </Card>
       )}
-    </section>
+    </Dialog>
   );
 }
 
@@ -1084,7 +1065,14 @@ export function CancelDialog({
     setBusy(false);
   };
   return (
-    <Card title={t('cancel.title', { name: patient })} testId="cancel-dialog">
+    <Dialog
+      title={t('cancel.title', { name: patient })}
+      sub={t('cancel.sub')}
+      size="sm"
+      dirty={!!reason}
+      onClose={onClose}
+      testId="cancel-dialog"
+    >
       <span className="text-[14px]">
         {fmt(appt.at)} · {appt.doctor_name ?? '—'}
       </span>
@@ -1128,7 +1116,7 @@ export function CancelDialog({
           {t('cancel.keep')}
         </Button>
       </div>
-    </Card>
+    </Dialog>
   );
 }
 

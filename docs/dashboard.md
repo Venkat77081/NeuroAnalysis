@@ -95,6 +95,17 @@ Hospitals → Roles and permissions.
   offered and the reply time, and how long a recording counts after a move. Team → clinic hours:
   "Bookable in the app" for each doctor.
 
+## Dialogs on the front desk (v15)
+
+History, Change date or doctor (move or offer), Check times (Requests) and Cancel open as dialogs
+over the appointment list instead of expanding a row:
+
+- Close with ✕, Esc or a click outside; with times or a reason already chosen, the dialog asks
+  "Discard what you chose?" first.
+- Focus stays in the dialog and returns to the button that opened it.
+- The buttons at the bottom stay visible while the dialog scrolls; on a narrow window it fills the
+  screen.
+
 ## Local run
 
 ```bash

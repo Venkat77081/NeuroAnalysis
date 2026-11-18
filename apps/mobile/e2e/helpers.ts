@@ -13,7 +13,12 @@ export async function openDeviceCheck(page: Page): Promise<void> {
  * v11 (decision 043): a new patient install signs up first (e-mail, code from the pretend
  * server's hint, app PIN, recovery code). Returns the recovery code.
  */
-export async function signUpPatient(page: Page, pin = '2580', email = 'asha@example.com') {
+export async function signUpPatient(
+  page: Page,
+  pin = '2580',
+  email = 'asha@example.com',
+  firstName = 'Asha',
+) {
   await page.getByTestId('acct-email').fill(email);
   await page.getByTestId('acct-email-next').click();
   await enterCode(page);
@@ -24,6 +29,11 @@ export async function signUpPatient(page: Page, pin = '2580', email = 'asha@exam
   const recovery = (await page.getByTestId('acct-recovery-code').textContent())!.trim();
   await page.getByTestId('acct-recovery-saved').check();
   await page.getByTestId('acct-recovery-next').click();
+  // New UI: the first name for the greeting (kept on the phone); empty skips it.
+  if (firstName) {
+    await page.getByTestId('acct-first-name').fill(firstName);
+    await page.getByTestId('acct-name-next').click();
+  } else await page.getByTestId('acct-name-skip').click();
   return recovery;
 }
 

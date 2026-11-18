@@ -72,7 +72,6 @@ test('v3: join → record link → consent → home session; second hospital; wi
   });
   // (The fake server lives in the page: no reload here.) Opening the hospital fetches it live.
   await page.getByTestId('hospital-card').click();
-  await expect(page.getByTestId('needs-record')).toContainText('Record 5 tests');
   await expect(page.getByTestId('menu-recordings-count')).toHaveText('1');
   await page.getByTestId('menu-recordings').click();
   await expect(page.getByTestId('request-card')).toContainText('Dr. Rao asks for 5 tests');
@@ -82,17 +81,20 @@ test('v3: join → record link → consent → home session; second hospital; wi
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByTestId('hospital-badge')).toHaveText('1 request');
-  await page.getByTestId('hospital-card').click();
-  await page.screenshot({ path: 'test-results/patient-hospital.png', fullPage: true });
-  await page.getByTestId('needs-record').getByRole('button').click();
+  // Home: the greeting and the to-do card start the recording.
+  await expect(page.getByTestId('greeting-text')).toContainText('Asha');
+  await expect(page.getByTestId('todo-card')).toHaveCount(2); // the recording and clinic consent
+  await expect(page.getByTestId('todo-card').first()).toContainText('Record 5 tests');
+  await page.waitForTimeout(3000); // let the greeting and cards finish their entrance
+  await page.screenshot({ path: 'test-results/patient-home.png', fullPage: true });
+  await page.getByTestId('todo-record').click();
 
   // Consent right before the camera: no tick, no recording.
   await expect(page.getByTestId('consent-for')).toContainText('Demo Hospital');
   await expect(page.getByTestId('consent-start')).toBeDisabled();
   await page.getByTestId('consent-cancel').click();
-  await page.getByTestId('menu-recordings').click();
-  await expect(page.getByTestId('request-card')).toBeVisible();
-  await page.getByTestId('request-start').click();
+  await expect(page.getByTestId('greeting')).toBeVisible(); // back to home
+  await page.getByTestId('todo-record').click();
   await page.getByTestId('consent-check').check();
   await page.screenshot({ path: 'test-results/patient-consent.png', fullPage: true });
   await page.getByTestId('consent-start').click();

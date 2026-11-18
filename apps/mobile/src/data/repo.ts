@@ -28,6 +28,8 @@ export interface Settings {
   hospitals: PatientHospital[];
   /** v11 patient app account (decision 043); null on clinic phones and pre-v11 installs. */
   account: AccountLocal | null;
+  /** New UI (decision 050): the patient's first name for the greeting. Kept on this phone only. */
+  firstName: string | null;
 }
 
 export const defaultSettings: Settings = {
@@ -43,6 +45,7 @@ export const defaultSettings: Settings = {
   mustChangePassword: false,
   hospitals: [],
   account: null,
+  firstName: null,
 };
 
 /** Patients, session snapshot and settings on top of an AppStore. */

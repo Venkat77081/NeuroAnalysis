@@ -5,7 +5,7 @@
  * recording. Withdrawing from a hospital keeps its history readable here (read only); only the
  * hospital can invite the patient back.
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UploadStatus } from '@neurocapture/capture-kit';
 import { useApp } from '../../app/AppContext.tsx';
@@ -28,11 +28,12 @@ import { canRecord } from '../../lib/clinic.ts';
 import { saveBackup } from '../../lib/appaccount.ts';
 import { AppointmentsSection, useAppointments } from './Appointments.tsx';
 import { ClinicConsentCard } from './ClinicConsentCard.tsx';
+import { Greeting, dayPart } from '../../ui/Greeting.tsx';
 
 type View =
   | { kind: 'list' }
-  | { kind: 'hospital'; profile: string }
-  | { kind: 'consent'; profile: string; request: PatientRequest | null }
+  | { kind: 'hospital'; profile: string; section?: Section }
+  | { kind: 'consent'; profile: string; request: PatientRequest | null; from: 'list' | 'hospital' }
   | { kind: 'join'; token: string | null }
   | { kind: 'settings' };
 
@@ -90,8 +91,11 @@ export function PatientApp({
     return (
       <HospitalView
         h={byProfile(view.profile)!}
+        start={view.section}
         onBack={home}
-        onRecord={(request) => setView({ kind: 'consent', profile: view.profile, request })}
+        onRecord={(request) =>
+          setView({ kind: 'consent', profile: view.profile, request, from: 'hospital' })
+        }
       />
     );
   if (view.kind === 'consent' && byProfile(view.profile))
@@ -99,13 +103,16 @@ export function PatientApp({
       <ConsentView
         h={byProfile(view.profile)!}
         request={view.request}
-        onCancel={() => setView({ kind: 'hospital', profile: view.profile })}
+        onCancel={() =>
+          view.from === 'list' ? home() : setView({ kind: 'hospital', profile: view.profile })
+        }
       />
     );
   return (
     <HospitalList
       hospitals={hospitals}
-      onOpen={(profile) => setView({ kind: 'hospital', profile })}
+      onOpen={(profile, section) => setView({ kind: 'hospital', profile, section })}
+      onRecord={(profile, request) => setView({ kind: 'consent', profile, request, from: 'list' })}
       onJoin={() => setView({ kind: 'join', token: null })}
       onSettings={() => setView({ kind: 'settings' })}
       onLock={onLock}
@@ -190,44 +197,245 @@ const openRequests = (d: HospitalData | null) =>
 const clinicVisits = (d: HospitalData | null) =>
   (d?.requests ?? []).filter((r) => r.state === 'open' && r.place === 'clinic');
 
+/** Everything the home screen shows for one hospital (fetched once, shared by its card and to-dos). */
+interface HomeData {
+  data: HospitalData | null;
+  appts: ReturnType<typeof useAppointments>['data'];
+}
+
+/** Loads one hospital's data and reports it to the home screen. Renders nothing. */
+function HospitalLoader({
+  h,
+  version,
+  onData,
+}: {
+  h: PatientHospital;
+  version: number;
+  onData: (profile: string, d: HomeData) => void;
+}) {
+  const data = useHospitalData(h, version);
+  const { data: appts, reload } = useAppointments(h);
+  useEffect(() => {
+    if (version) reload();
+  }, [version, reload]);
+  useEffect(() => onData(h.profile, { data, appts }), [h.profile, data, appts, onData]);
+  return null;
+}
+
+interface Todo {
+  key: string;
+  kind: 'record' | 'plan' | 'offer' | 'consent';
+  h: PatientHospital;
+  tag: string;
+  title: string;
+  sub: string;
+  action: string;
+  disabled?: boolean;
+  go: () => void;
+}
+
+/** New UI (decision 050): greeting, then every to-do across hospitals as swipe cards, then the
+ * hospitals. Hospital screens show only their menu. */
 function HospitalList({
   hospitals,
   onOpen,
+  onRecord,
   onJoin,
   onSettings,
   onLock,
 }: {
   hospitals: PatientHospital[];
-  onOpen: (profile: string) => void;
+  onOpen: (profile: string, section?: Section) => void;
+  onRecord: (profile: string, request: PatientRequest | null) => void;
   onJoin: () => void;
   onSettings: () => void;
   onLock: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { settings, config } = useApp();
+  const lang = i18n.language;
   const [uploads, setUploads] = useState<UploadStatus[]>([]);
+  const [homes, setHomes] = useState<Record<string, HomeData>>({});
+  const onData = useCallback(
+    (profile: string, d: HomeData) => setHomes((m) => ({ ...m, [profile]: d })),
+    [],
+  );
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     void capture.kit.listUploads().then((r) => setUploads(r.uploads));
   }, []);
+  // Back in the foreground: fetch again so the to-do cards are fresh.
+  useEffect(() => {
+    const on = () => {
+      if (globalThis.document?.visibilityState === 'visible') setVersion((v) => v + 1);
+    };
+    globalThis.document?.addEventListener('visibilitychange', on);
+    return () => globalThis.document?.removeEventListener('visibilitychange', on);
+  }, []);
   const pending = uploads.filter((u) => u.state !== 'completed').length;
   const anyActive = hospitals.some((h) => !h.withdrawnAt);
+
+  const todos: Todo[] = [];
+  for (const h of hospitals) {
+    if (h.withdrawnAt) continue;
+    const { data, appts } = homes[h.profile] ?? { data: null, appts: null };
+    const blocked = data?.canRecord === false;
+    for (const r of openRequests(data))
+      todos.push({
+        key: r.id,
+        kind: 'record',
+        h,
+        tag: t('todo.record', { hospital: h.hospital }),
+        title: t('todo.recordTitle', { count: r.tests.length }),
+        sub: t('todo.recordSub', {
+          date: fmtDate(r.due_at, lang),
+          minutes: testsMinutes(config, r.tests).minutes,
+        }),
+        action: t('todo.start'),
+        disabled: blocked,
+        go: () => onRecord(h.profile, r),
+      });
+    if (data?.plan?.due_now && !data.plan.default)
+      todos.push({
+        key: `${h.profile}-plan`,
+        kind: 'plan',
+        h,
+        tag: t('todo.record', { hospital: h.hospital }),
+        title: t('todo.plan'),
+        sub: t('modes.home.minutes', { n: testsMinutes(config, data.plan.tests).minutes }),
+        action: t('todo.start'),
+        disabled: blocked,
+        go: () => onRecord(h.profile, null),
+      });
+    for (const a of appts?.appointments ?? [])
+      if (a.offer)
+        todos.push({
+          key: `${a.id}-offer`,
+          kind: 'offer',
+          h,
+          tag: t('todo.offer', { hospital: h.hospital }),
+          title: t('todo.offerTitle', { date: fmtDate(a.at, lang) }),
+          sub: t('todo.offerSub', { by: fmtDateTime(a.offer.reply_by, lang) }),
+          action: t('todo.choose'),
+          go: () => onOpen(h.profile, 'appointments'),
+        });
+    for (const b of appts?.bookings ?? [])
+      if (b.offer)
+        todos.push({
+          key: `${b.id}-offer`,
+          kind: 'offer',
+          h,
+          tag: t('todo.offer', { hospital: h.hospital }),
+          title: t('todo.offerBooking'),
+          sub: t('todo.offerSub', { by: fmtDateTime(b.offer.reply_by, lang) }),
+          action: t('todo.choose'),
+          go: () => onOpen(h.profile, 'appointments'),
+        });
+    for (const r of clinicVisits(data))
+      if (!['active', 'used'].includes(r.clinic_consent?.status ?? ''))
+        todos.push({
+          key: `${r.id}-consent`,
+          kind: 'consent',
+          h,
+          tag: t('todo.consent', { hospital: h.hospital }),
+          title: t('todo.consentTitle', { date: fmtDate(r.appointment_at ?? r.due_at, lang) }),
+          sub: t('todo.consentSub'),
+          action: t('todo.open'),
+          go: () => onOpen(h.profile, 'appointments'),
+        });
+  }
+  const loaded = hospitals.every((h) => h.withdrawnAt || homes[h.profile]?.data);
+  const part = dayPart();
+
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-6 pb-6">
-      <header className="flex items-start justify-between gap-2">
-        <h1 className="text-[24px] leading-8 font-bold">{t('modes.hospitals.title')}</h1>
-        {anyActive && (
-          <Button
-            variant="secondary"
-            className="!h-12 !px-4"
-            onClick={onLock}
-            data-testid="lock-now"
-          >
-            {t('modes.lock.lockNow')}
-          </Button>
-        )}
-      </header>
-      <ul className="flex flex-col gap-3">
-        {hospitals.map((h) => (
-          <HospitalCard key={h.profile} h={h} onOpen={() => onOpen(h.profile)} />
+      {hospitals.map((h) => (
+        <HospitalLoader key={h.profile} h={h} version={version} onData={onData} />
+      ))}
+      <Greeting
+        name={settings.firstName}
+        part={part}
+        line={
+          !anyActive || !loaded
+            ? null
+            : todos.length
+              ? t('greeting.todo', { count: todos.length })
+              : part === 'evening'
+                ? t('greeting.eveningTip')
+                : t('greeting.nothing')
+        }
+        right={
+          anyActive && (
+            <button
+              type="button"
+              onClick={onLock}
+              className="min-h-9 rounded-full bg-white/70 px-3 text-[13px] font-semibold text-brand"
+              data-testid="lock-now"
+            >
+              {t('modes.lock.lockNow')}
+            </button>
+          )
+        }
+      />
+      {todos.length > 0 && (
+        <section className="flex flex-col gap-2" data-testid="todos">
+          <h2 className="m-0 text-[15px] font-bold">{t('greeting.upNext')}</h2>
+          <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1">
+            {todos.map((x, i) => (
+              <article
+                key={x.key}
+                className="nc-fade-up flex w-[78%] max-w-[300px] flex-none snap-start flex-col gap-1.5 rounded-2xl border border-line bg-white p-4"
+                style={{ animationDelay: `${i * 0.08}s` }}
+                data-testid="todo-card"
+                data-kind={x.kind}
+              >
+                <span
+                  className={`text-[11px] font-bold ${x.kind === 'consent' ? 'text-brand' : 'text-[#8A4B00]'}`}
+                >
+                  {x.tag.toUpperCase()}
+                </span>
+                <b className="text-[16px]">{x.title}</b>
+                <span className="text-[13px] text-muted">{x.sub}</span>
+                <Button
+                  className="mt-1.5 !h-11"
+                  disabled={x.disabled}
+                  onClick={x.go}
+                  data-testid={`todo-${x.kind}`}
+                >
+                  {x.action}
+                </Button>
+              </article>
+            ))}
+          </div>
+          {todos.length > 1 && (
+            <span className="text-[12px] text-muted">{t('greeting.swipe')} →</span>
+          )}
+        </section>
+      )}
+      {anyActive && loaded && todos.length === 0 && (
+        <Card
+          className="nc-fade-up flex items-center gap-3 !border-[#CDEBD8] !bg-[#F0FAF4]"
+          data-testid="caught-up"
+        >
+          <span aria-hidden className="text-[26px]">
+            🌿
+          </span>
+          <span className="flex flex-col">
+            <b>{t('greeting.caughtUp')}</b>
+            <span className="text-[13px] text-muted">{t('greeting.caughtUpBody')}</span>
+          </span>
+        </Card>
+      )}
+      <h2 className="m-0 text-[15px] font-bold">{t('modes.hospitals.title')}</h2>
+      <ul className="m-0 flex list-none flex-col gap-3 p-0">
+        {hospitals.map((h, i) => (
+          <HospitalCard
+            key={h.profile}
+            h={h}
+            index={i}
+            home={homes[h.profile]}
+            onOpen={() => onOpen(h.profile)}
+          />
         ))}
       </ul>
       <Card className="flex flex-col gap-1">
@@ -247,9 +455,19 @@ function HospitalList({
   );
 }
 
-function HospitalCard({ h, onOpen }: { h: PatientHospital; onOpen: () => void }) {
+function HospitalCard({
+  h,
+  index,
+  home,
+  onOpen,
+}: {
+  h: PatientHospital;
+  index: number;
+  home: HomeData | undefined;
+  onOpen: () => void;
+}) {
   const { t, i18n } = useTranslation();
-  const data = useHospitalData(h);
+  const data = home?.data ?? null;
   const open = openRequests(data);
   const next = open[0];
   const notReady = !h.withdrawnAt && data !== null && !data.canRecord;
@@ -261,7 +479,7 @@ function HospitalCard({ h, onOpen }: { h: PatientHospital; onOpen: () => void })
         ? t('modes.hospitals.requests', { count: open.length })
         : t('modes.hospitals.joined');
   return (
-    <li>
+    <li className="nc-fade-up" style={{ animationDelay: `${0.1 + index * 0.1}s` }}>
       <button
         type="button"
         onClick={onOpen}
@@ -313,6 +531,7 @@ function testsMinutes(config: ReturnType<typeof useApp>['config'], tests: string
 }
 
 type Section = 'menu' | 'appointments' | 'book' | 'history' | 'recordings' | 'details';
+const ROW_ORDER: Section[] = ['appointments', 'book', 'history', 'recordings', 'details'];
 
 /**
  * v17: one hospital as a menu (what needs doing now, then Your appointments, Book an appointment,
@@ -320,10 +539,13 @@ type Section = 'menu' | 'appointments' | 'book' | 'history' | 'recordings' | 'de
  */
 function HospitalView({
   h,
+  start = 'menu',
   onBack,
   onRecord,
 }: {
   h: PatientHospital;
+  /** Opened from a to-do card on the home screen: straight to that section. */
+  start?: Section;
   onBack: () => void;
   onRecord: (request: PatientRequest | null) => void;
 }) {
@@ -332,7 +554,7 @@ function HospitalView({
   const [version, setVersion] = useState(0);
   const data = useHospitalData(h, version);
   const { data: appts, reload: reloadAppts } = useAppointments(h);
-  const [section, setSection] = useState<Section>('menu');
+  const [section, setSection] = useState<Section>(start);
   const open = openRequests(data);
   const plan = data?.plan;
   const clinic = clinicVisits(data);
@@ -448,66 +670,13 @@ function HospitalView({
 
   // The menu.
   const nextAppt = upcoming[0];
-  const todo: { key: string; text: string; action: string; go: () => void; id: string }[] = [];
-  if (live && data?.canRecord !== false) {
-    for (const r of open)
-      todo.push({
-        key: r.id,
-        text: t('modes.hospitals.menu.todoRecord', {
-          count: r.tests.length,
-          date: fmtDate(r.due_at, lang),
-        }),
-        action: t('modes.hospitals.menu.start'),
-        go: () => onRecord(r),
-        id: 'needs-record',
-      });
-    if (plan?.due_now)
-      todo.push({
-        key: 'plan',
-        text: t('modes.hospitals.menu.todoPlan'),
-        action: t('modes.hospitals.menu.start'),
-        go: () => onRecord(null),
-        id: 'needs-plan',
-      });
-  }
-  for (const a of live ? (appts?.appointments ?? []) : [])
-    if (a.offer)
-      todo.push({
-        key: a.id,
-        text: t('modes.hospitals.menu.todoOffer', {
-          hospital: h.hospital,
-          date: fmtDate(a.at, lang),
-        }),
-        action: t('modes.hospitals.menu.choose'),
-        go: () => setSection('appointments'),
-        id: 'needs-offer',
-      });
-  for (const b of live ? (appts?.bookings ?? []) : [])
-    if (b.offer)
-      todo.push({
-        key: b.id,
-        text: t('modes.hospitals.menu.todoBookingOffer', { hospital: h.hospital }),
-        action: t('modes.hospitals.menu.choose'),
-        go: () => setSection('appointments'),
-        id: 'needs-offer',
-      });
-  for (const r of noConsent)
-    todo.push({
-      key: r.id,
-      text: t('modes.hospitals.menu.todoConsent', {
-        date: fmtDate(r.appointment_at ?? r.due_at, lang),
-      }),
-      action: t('modes.hospitals.menu.open'),
-      go: () => setSection('appointments'),
-      id: 'needs-consent',
-    });
-
   const row = (id: Section, icon: string, title: string, sub: string, badge = 0, muted = false) => (
     <button
       key={id}
       type="button"
       onClick={() => setSection(id)}
-      className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
+      className="nc-fade-up flex min-h-16 w-full items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
+      style={{ animationDelay: `${ROW_ORDER.indexOf(id) * 0.08}s` }}
       data-testid={`menu-${id}`}
     >
       <span
@@ -522,7 +691,7 @@ function HospitalView({
       </span>
       {badge > 0 && (
         <span
-          className="flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white"
+          className="nc-pulse flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white"
           data-testid={`menu-${id}-count`}
         >
           {badge}
@@ -563,23 +732,6 @@ function HospitalView({
         >
           {t('modes.hospitals.notReadyBody', { hospital: h.hospital })}
         </p>
-      )}
-      {todo.length > 0 && (
-        <Card className="flex flex-col gap-1" data-testid="needs-now">
-          <b className="text-[15px]">{t('modes.hospitals.menu.needsNow')}</b>
-          {todo.map((x) => (
-            <div
-              key={x.key}
-              className="flex items-center gap-3 border-t border-[#EDF0F3] py-2.5"
-              data-testid={x.id}
-            >
-              <span className="flex-1 text-[14px] leading-5">{x.text}</span>
-              <Button className="!h-11 !px-4 !text-[14px]" onClick={x.go}>
-                {x.action}
-              </Button>
-            </div>
-          ))}
-        </Card>
       )}
       <nav className="flex flex-col gap-2.5" aria-label={h.hospital}>
         {live &&

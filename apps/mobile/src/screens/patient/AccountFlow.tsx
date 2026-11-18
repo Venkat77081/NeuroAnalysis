@@ -31,6 +31,7 @@ import { builtInServer, SERVER_FIELD_SHOWN } from '../../lib/server.ts';
 import { pretendServer } from '../../lib/testmode.ts';
 import { uploadPrefs } from '../../lib/uploads.ts';
 import { Button, Card } from '../../ui/kit.tsx';
+import { dayPart } from '../../ui/Greeting.tsx';
 import { attempt, ErrorText, Field, Screen } from '../modes/Common.tsx';
 import { DeviceCheck } from '../modes/DeviceCheck.tsx';
 
@@ -42,6 +43,8 @@ type Step =
   | { s: 'pin'; path: 'signup' | 'forgot' | 'forgotFresh' }
   | { s: 'currentPin' }
   | { s: 'recovery'; code: string; next: () => Promise<void> }
+  /** New UI (decision 050): the first name for the greeting, kept on this phone only. */
+  | { s: 'name'; next: (firstName: string) => Promise<void> }
   | { s: 'enterRecovery' }
   | { s: 'noRecovery' }
   | { s: 'move'; label: string; lastUsed: string }
@@ -110,9 +113,10 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     });
 
   /** Saves the account and hospitals on this phone; `fresh` replaces the hospital list. */
-  const finish = async (local: AccountLocal, hospitals?: PatientHospital[]) => {
+  const finish = async (local: AccountLocal, hospitals?: PatientHospital[], firstName?: string) => {
     await saveSettings({
       ...settings,
+      ...(firstName !== undefined ? { firstName: firstName.trim().slice(0, 40) } : {}),
       account: local,
       ...(hospitals ? { hospitals } : {}),
       signedIn: { operatorId: 'patient', operatorCode: 'patient', role: 'patient' },
@@ -135,18 +139,18 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
       );
       setRecovery('');
       setSaved(false);
+      const done = async (firstName?: string) => {
+        if (mode === 'migrate')
+          for (const h of activeHospitals(settings))
+            await hospitalApi(capture.kit, h, 'POST', '/patient/pin/clear').catch(() => undefined);
+        await finish(out.local, undefined, firstName);
+        onDone();
+      };
       go({
         s: 'recovery',
         code: out.recoveryCode,
-        next: async () => {
-          if (mode === 'migrate')
-            for (const h of activeHospitals(settings))
-              await hospitalApi(capture.kit, h, 'POST', '/patient/pin/clear').catch(
-                () => undefined,
-              );
-          await finish(out.local);
-          onDone();
-        },
+        // New accounts are asked for a first name (optional) after the recovery code.
+        next: async () => (mode === 'migrate' ? done() : go({ s: 'name', next: done })),
       });
     });
 
@@ -559,6 +563,10 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
           </Button>
         </Screen>
       );
+    case 'name':
+      return (
+        <NameStep busy={busy} onNext={(n) => void attempt(setBusy, setError, () => step.next(n))} />
+      );
     case 'enterRecovery':
       return (
         <Screen title={t('modes.account.enterRecoveryTitle')}>
@@ -703,4 +711,55 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
         </Screen>
       );
   }
+}
+
+/** New UI (decision 050): "What should we call you?" with a live preview of the greeting. */
+export function NameStep({
+  busy,
+  onNext,
+  initial = '',
+}: {
+  busy: boolean;
+  onNext: (firstName: string) => void;
+  initial?: string;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState(initial);
+  return (
+    <Screen title={t('greeting.nameTitle')}>
+      <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('greeting.nameHint')}</p>
+      <Field
+        id="acct-first-name"
+        label={t('greeting.nameLabel')}
+        value={name}
+        maxLength={40}
+        autoComplete="given-name"
+        onChange={(e) => setName(e.target.value)}
+        data-testid="acct-first-name"
+      />
+      <div
+        className="nc-fade-up rounded-2xl px-4 py-3 text-[#3B2417]"
+        style={{ background: 'linear-gradient(160deg, #fff1e0, #fde3cf)' }}
+        data-testid="acct-name-preview"
+      >
+        <span className="text-[12px] opacity-80">{t('greeting.namePreview').toUpperCase()}</span>
+        <b className="block text-[20px]">
+          {name.trim()
+            ? t(`greeting.${dayPart()}Name`, { name: name.trim().split(/\s+/)[0] })
+            : t(`greeting.${dayPart()}`)}
+        </b>
+      </div>
+      <Button disabled={busy} onClick={() => onNext(name)} data-testid="acct-name-next">
+        {t('modes.account.continue')}
+      </Button>
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={() => onNext('')}
+        data-testid="acct-name-skip"
+      >
+        {t('greeting.skip')}
+      </Button>
+    </Screen>
+  );
 }

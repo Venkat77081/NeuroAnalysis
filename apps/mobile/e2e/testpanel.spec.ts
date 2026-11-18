@@ -23,7 +23,8 @@ test('test panel: join as a patient and get a record link without a console', as
   await expect(page.getByTestId('tp-note')).toContainText('Record link sent');
   await page.getByRole('button', { name: 'Close' }).click();
   await page.getByTestId('hospital-card').click();
-  await expect(page.getByTestId('needs-record')).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('todo-record')).toBeVisible();
 
   // Start again clears everything (the fake server forgets on reload anyway).
   await page.getByTestId('test-panel-open').click();

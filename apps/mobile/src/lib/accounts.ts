@@ -85,6 +85,7 @@ export async function operatorSignIn(
     operator_id: string;
     role: string;
     must_change_password?: boolean;
+    name?: string | null;
   };
   await kit.configureUploads({
     ...uploadConfig(link, prefs),
@@ -97,6 +98,7 @@ export async function operatorSignIn(
     operatorCode: code,
     role: b.role,
     mustChangePassword: !!b.must_change_password,
+    name: b.name ?? null,
   };
 }
 

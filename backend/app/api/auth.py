@@ -114,6 +114,8 @@ class TokenOut(BaseModel):
     operator_id: str
     role: str
     must_change_password: bool = False
+    #: New UI (decision 050): the operator's name, for the clinic phone's greeting. Staff, not patients.
+    name: str | None = None
 
 
 def _issue(db: DbSession, op: Operator, dev: Device) -> TokenOut:
@@ -132,6 +134,7 @@ def _issue(db: DbSession, op: Operator, dev: Device) -> TokenOut:
         refresh_token=refresh,
         expires_in=ttl,
         operator_id=op.id,
+        name=op.name,
         role=op.role,
         must_change_password=op.must_change_password,
     )

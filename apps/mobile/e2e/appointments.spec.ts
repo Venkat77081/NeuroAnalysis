@@ -104,9 +104,11 @@ test('the hospital offers times: choose one; none work and cancel', async ({ pag
   const id = await fake(page, (f) => f.addAppointment(f.joinedNcids()[0]!, { days: 6 }));
   await fake(page, (f, a) => f.appts.deskOffer({ appointmentId: a }, 3), id);
   await page.getByTestId('hospital-card').click();
-  // The menu says what needs doing now and opens the appointments.
+  // The hospital menu counts it; the home screen's to-do card opens the appointments.
   await expect(page.getByTestId('menu-appointments-count')).toHaveText('1');
-  await page.getByTestId('needs-offer').getByRole('button').click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('todo-card')).toContainText('New time for');
+  await page.getByTestId('todo-offer').click();
   const card = page.getByTestId('appointment-card');
   await expect(card.getByTestId('appointment-badge')).toHaveText('Choose a new time');
   await expect(card.getByTestId('appointment-ask')).toHaveCount(0);

@@ -37,10 +37,11 @@ test('patient agrees in the app, sees the QR and can withdraw', async ({ page })
     page,
     "(f) => f.sendRequest(f.joinedNcids()[0], { place: 'clinic', appointmentDays: 0.02 })",
   );
+  // The home screen (fresh after opening the hospital) asks for consent as a to-do card.
   await page.getByTestId('hospital-card').click();
-  // The menu asks for consent and opens Your appointments.
-  await expect(page.getByTestId('needs-consent')).toContainText('Give consent');
-  await page.getByTestId('needs-consent').getByRole('button').click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('todo-card')).toContainText('Give consent');
+  await page.getByTestId('todo-consent').click();
   const card = page.getByTestId('request-clinic');
   await card.getByTestId('clinic-consent-open').click();
   await expect(page.getByTestId('clinic-consent-give')).toBeDisabled();

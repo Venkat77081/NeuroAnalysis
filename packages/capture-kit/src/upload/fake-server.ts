@@ -179,6 +179,8 @@ export class FakeServer {
       refresh_token: refresh,
       expires_in: 900,
       operator_id: op,
+      // New UI: the operator's name for the clinic phone's greeting (staff only).
+      name: kind === 'operator' ? 'Kavya R' : null,
       role: kind,
       must_change_password: kind === 'operator' && (this.operators.get(op)?.mustChange ?? false),
     };

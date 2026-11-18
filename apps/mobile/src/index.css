@@ -44,3 +44,125 @@ html.camera-active body,
 html.camera-active #root {
   background: transparent;
 }
+
+/* New UI (decision 050): calm motion, played once; none when the phone asks for reduced motion.
+   Never used on the camera screen while recording. */
+@keyframes nc-rise {
+  from {
+    transform: translateY(40px);
+    opacity: 0.2;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes nc-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(251, 146, 60, 0);
+  }
+  50% {
+    box-shadow: 0 0 36px 8px rgba(251, 146, 60, 0.35);
+  }
+}
+@keyframes nc-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes nc-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+@keyframes nc-draw {
+  from {
+    stroke-dashoffset: 60;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes nc-twinkle {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes nc-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
+}
+@keyframes nc-pop {
+  from {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.nc-rise {
+  animation:
+    nc-rise 2.4s ease-out both,
+    nc-glow 3s ease-in-out 2.4s 2;
+}
+.nc-moon {
+  animation: nc-rise 2.4s ease-out both;
+}
+.nc-fade-up {
+  animation: nc-fade-up 0.35s ease-out both;
+}
+.nc-pulse {
+  animation: nc-pulse 0.8s ease-in-out 2;
+}
+.nc-draw {
+  stroke-dasharray: 60;
+  animation: nc-draw 0.6s ease-out 0.2s both;
+}
+.nc-twinkle {
+  animation: nc-twinkle 2s ease-in-out infinite;
+}
+.nc-shake {
+  animation: nc-shake 0.4s ease-in-out;
+}
+.nc-pop {
+  animation: nc-pop 0.35s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nc-rise,
+  .nc-fade-up,
+  .nc-pulse,
+  .nc-draw,
+  .nc-twinkle,
+  .nc-shake,
+  .nc-pop {
+    animation: none !important;
+    opacity: 1 !important;
+    stroke-dashoffset: 0 !important;
+  }
+}

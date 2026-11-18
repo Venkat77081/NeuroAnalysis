@@ -108,7 +108,12 @@ export function OperatorSignIn() {
       setPassword('');
       await saveSettings({
         ...settings,
-        signedIn: { operatorId: who.operatorId, operatorCode: who.operatorCode, role: who.role },
+        signedIn: {
+          operatorId: who.operatorId,
+          operatorCode: who.operatorCode,
+          role: who.role,
+          name: who.name,
+        },
         operatorId: who.operatorCode,
         mustChangePassword: who.mustChangePassword,
       });
@@ -241,15 +246,22 @@ export function LockScreen({
   unlock: (secret: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
+  const { settings } = useApp();
   const [secret, setSecret] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
+  // New UI: "Welcome back, Asha" (patient's name on this phone, or the operator's name).
+  const who = (kind === 'patient' ? settings.firstName : settings.signedIn?.name)
+    ?.trim()
+    .split(/\s+/)[0];
   const submit = () =>
     attempt(setBusy, setError, async () => {
       try {
         await unlock(secret);
       } catch (e) {
         setSecret('');
+        setTries((n) => n + 1);
         const code = errorCode(e);
         throw new Error(code === 'bad_login' || code === 'wrong_pin' ? 'wrong' : code, {
           cause: e,
@@ -258,18 +270,20 @@ export function LockScreen({
       onUnlock();
     });
   return (
-    <Screen title={t('modes.lock.title')}>
+    <Screen title={who ? t('greeting.welcomeBack', { name: who }) : t('modes.lock.title')}>
       <p className="text-[15px] text-[#3D4552]">{t(`modes.lock.${kind}Hint`)}</p>
       <p className="text-[13px] text-muted">{t('modes.lock.online')}</p>
-      <Field
-        id="unlock-secret"
-        label={kind === 'operator' ? t('modes.signIn.password') : 'PIN'}
-        type="password"
-        inputMode={kind === 'patient' ? 'numeric' : undefined}
-        value={secret}
-        onChange={(e) => setSecret(e.target.value)}
-        data-testid="unlock-secret"
-      />
+      <div key={tries} className={tries ? 'nc-shake' : undefined}>
+        <Field
+          id="unlock-secret"
+          label={kind === 'operator' ? t('modes.signIn.password') : 'PIN'}
+          type="password"
+          inputMode={kind === 'patient' ? 'numeric' : undefined}
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+          data-testid="unlock-secret"
+        />
+      </div>
       {error === 'wrong' ? (
         <p role="alert" className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad">
           {t('modes.lock.wrong')}

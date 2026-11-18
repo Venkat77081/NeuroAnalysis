@@ -39,6 +39,8 @@ export interface SignedIn {
   operatorId: string;
   operatorCode: string;
   role: string;
+  /** New UI: the operator's name from the hospital's staff list (greeting only). */
+  name?: string | null;
 }
 
 export class ServerError extends Error {

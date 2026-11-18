@@ -8,7 +8,20 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, hospital } from './api.ts';
-import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
+import {
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  DialogFooter,
+  ErrorNote,
+  Field,
+  Notice,
+  Page,
+  Table,
+  fmt,
+  fmtDate,
+} from './ui.tsx';
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
@@ -509,56 +522,78 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
                       onClick={() => setOpen(open === a.id ? null : a.id)}
                       data-testid="appt-history-btn"
                     >
-                      {open === a.id ? t('appts.hideHistory') : t('appts.history')}
+                      {t('appts.history')}
                     </Button>
                   </div>
                 </td>
               </tr>
-              {moving === a.id && (
-                <tr>
-                  <td colSpan={8} className="bg-[#F9FBFD] px-4 pb-4">
-                    <MovePanel
-                      appt={a}
-                      patient={i?.name ?? a.ncid}
-                      canAssign={canAssign}
-                      canOffer={joined(a.ncid)}
-                      onClose={() => setMoving(null)}
-                      onDone={(m) => {
-                        setMoving(null);
-                        setNotice(m);
-                        reload();
-                      }}
-                    />
-                  </td>
-                </tr>
-              )}
-              {cancelling === a.id && (
-                <tr>
-                  <td colSpan={8} className="bg-[#F9FBFD] px-4 pb-4">
-                    <CancelDialog
-                      appt={a}
-                      patient={i?.name ?? a.ncid}
-                      onClose={() => setCancelling(null)}
-                      onDone={(m) => {
-                        setCancelling(null);
-                        setNotice(m);
-                        reload();
-                      }}
-                    />
-                  </td>
-                </tr>
-              )}
-              {open === a.id && (
-                <tr>
-                  <td colSpan={8} className="bg-[#F9FBFD] px-4 pb-4">
-                    <AppointmentHistory id={a.id} />
-                  </td>
-                </tr>
-              )}
             </Fragment>
           );
         })}
       </Table>
+      {(appts ?? [])
+        .filter((a) => a.id === moving || a.id === cancelling || a.id === open)
+        .map((a) => {
+          const name = ident[a.ncid]?.name ?? a.ncid;
+          const done = (m: string) => {
+            setMoving(null);
+            setCancelling(null);
+            setOpen(null);
+            setNotice(m);
+            reload();
+          };
+          if (a.id === moving)
+            return (
+              <MovePanel
+                key={`m${a.id}`}
+                appt={a}
+                patient={name}
+                canAssign={canAssign}
+                canOffer={joined(a.ncid)}
+                onClose={() => setMoving(null)}
+                onDone={done}
+              />
+            );
+          if (a.id === cancelling)
+            return (
+              <CancelDialog
+                key={`c${a.id}`}
+                appt={a}
+                patient={name}
+                onClose={() => setCancelling(null)}
+                onDone={done}
+              />
+            );
+          return (
+            <Dialog
+              key={`h${a.id}`}
+              title={t('appts.historyTitle', { name })}
+              sub={`${fmt(a.at)} · ${a.doctor_name ?? '—'}${
+                ident[a.ncid] ? ` · MRN ${ident[a.ncid]!.mrn}` : ''
+              }`}
+              onClose={() => setOpen(null)}
+              testId="history-dialog"
+            >
+              <AppointmentHistory id={a.id} />
+              {canMove && a.status === 'booked' && Date.parse(a.at) > now && (
+                <DialogFooter>
+                  <span className="flex-1" />
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setOpen(null);
+                      setMoving(a.id);
+                    }}
+                    data-testid="history-move"
+                  >
+                    {t('moves.open')}
+                  </Button>
+                  <Button onClick={() => setOpen(null)}>{t('moves.close')}</Button>
+                </DialogFooter>
+              )}
+            </Dialog>
+          );
+        })}
       {appts?.length === 0 && (
         <Notice tone="warn" testId="no-appointments">
           {t('appts.none')}

@@ -224,5 +224,26 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await expect(h).toContainText('Patient asked to change the date (3 times');
   await expect(h).toContainText('Patient chose an offered time');
   await expect(h).toContainText('Patient cancelled the appointment (Feeling better)');
+  // v15: the desk's panels are dialogs over the list; Esc closes; unsaved choices ask first.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('history-dialog')).toHaveCount(0);
+  await expect(page.getByTestId('appointments')).toBeVisible();
+  const live = page
+    .getByTestId(`appt-${s.patient_mrn}`)
+    .filter({ hasText: 'Waiting for doctor' })
+    .first();
+  await live.getByTestId('appt-history-btn').click();
+  await expect(page.getByTestId('history-dialog')).toBeVisible();
+  await page.getByTestId('history-move').click();
+  const dlg = page.getByTestId('move-panel');
+  await expect(dlg).toBeVisible();
+  await expect(page.getByTestId('history-dialog')).toHaveCount(0);
+  await dlg.getByTestId('move-time').fill('10:00');
+  page.once('dialog', (d) => void d.dismiss());
+  await page.keyboard.press('Escape');
+  await expect(dlg).toBeVisible(); // "Discard what you chose?" → No
+  page.once('dialog', (d) => void d.accept());
+  await dlg.getByTestId('dialog-close').click();
+  await expect(dlg).toHaveCount(0);
   expect(errors).toEqual([]);
 });

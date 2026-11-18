@@ -71,3 +71,19 @@
   - **Consent:** scanning consent (or consent on the phone) takes the whole screen, with a
     viewfinder and a moving scan line, plus "‹ Queue" to go back.
   - **Ready to record:** the start button names the first test.
+
+## Round 3 (user, 19 Nov 2026; mockup v23, option A)
+
+- **Logo:** the NeuroCapture logo sits at the top left of the greeting card on every screen that
+  has one:
+  - the patient home;
+  - the clinic sign-in;
+  - the clinic queue.
+
+  Long-pressing it opens the settings menu. The separate logo row under the greeting is gone.
+
+- **Sun and moon:** they sit below the phone's status bar.
+- **Patient:** Settings is a round button fixed at the bottom-right corner.
+- **Clinic phone:** Lock is a pill fixed at the bottom-right corner of the queue.
+- **Test fix:** the test server no longer puts "today's" clinic patient after midnight when the
+  tests run late in the evening.

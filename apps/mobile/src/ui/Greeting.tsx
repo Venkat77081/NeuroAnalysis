@@ -32,16 +32,24 @@ export function Greeting({
 }) {
   const { t, i18n } = useTranslation();
   const dark = part === 'evening';
-  const date = new Date().toLocaleDateString(i18n.language === 'hi' ? 'hi-IN' : 'en-IN', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const date = new Date()
+    .toLocaleDateString(i18n.language === 'hi' ? 'hi-IN' : 'en-IN', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    })
+    .replace(',', '');
   const first = name?.trim().split(/\s+/)[0];
   return (
     <section
-      className={`relative overflow-hidden ${card ? 'rounded-[22px] px-4 pt-5 pb-4' : '-mx-5 -mt-6 rounded-b-[26px] px-5 pt-7 pb-5'} ${dark ? 'text-white' : 'text-[#3B2417]'}`}
-      style={{ background: SKY[part] }}
+      className={`relative overflow-hidden ${card ? 'rounded-[22px] px-4 pt-5 pb-4' : '-mx-5 rounded-b-[26px] px-5 pb-6'} ${dark ? 'text-white' : 'text-[#3B2417]'}`}
+      style={{
+        background: SKY[part],
+        // Full width, under the status bar too (the page has top padding for it).
+        ...(card
+          ? {}
+          : { marginTop: 'calc(-1.5rem - var(--sat))', paddingTop: 'calc(1.75rem + var(--sat))' }),
+      }}
       data-testid="greeting"
       data-part={part}
     >
@@ -82,7 +90,7 @@ export function Greeting({
         {right}
       </div>
       <h1
-        className="m-0 mt-1 pr-16 text-[27px] leading-8 font-extrabold"
+        className="m-0 mt-1 pr-16 text-[28px] leading-[34px] font-extrabold whitespace-pre-line"
         data-testid="greeting-text"
       >
         {first ? t(`greeting.${part}Name`, { name: first }) : t(`greeting.${part}`)}

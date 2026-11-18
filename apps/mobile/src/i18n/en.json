@@ -171,7 +171,9 @@
       "queueOnly": "Patient not in the queue? Ask the doctor to add a clinic recording for today. It appears in the queue after Refresh.",
       "backToQueue": "Back to queue",
       "consentFromApp": "Consent confirmed: the patient agreed in their app (QR scanned).",
-      "consentOnPhone": "Consent confirmed on this phone."
+      "consentOnPhone": "Consent confirmed on this phone.",
+      "readyTitle": "Ready to record",
+      "startFirst": "Start: {{test}}"
     },
     "intro": {
       "testOf": "Test {{n}} of {{of}}",
@@ -527,7 +529,9 @@
       "patientHint": "My hospital invited me to record movement tests at home.",
       "clinic": "This is a clinic phone",
       "clinicHint": "Set up by the hospital for its operators.",
-      "note": "This choice cannot be changed later without resetting the phone."
+      "note": "This choice cannot be changed later without resetting the phone.",
+      "welcome": "Movement recordings for your care team",
+      "welcomeHint": "Short video tests, at home or at the clinic, sent safely to your own hospital."
     },
     "clinicSetup": {
       "title": "Register this clinic phone",
@@ -914,7 +918,11 @@
       "missed": "Not recorded"
     },
     "empty": "No patients in the queue today yet.",
-    "notReady": "Your hospital is not ready to receive recordings yet: its admin needs to connect the hospital's video storage. The queue is shown; Start opens as soon as it is connected."
+    "notReady": "Your hospital is not ready to receive recordings yet: its admin needs to connect the hospital's video storage. The queue is shown; Start opens as soon as it is connected.",
+    "today": "Today",
+    "toRecord_one": "{{count}} patient to record",
+    "toRecord_other": "{{count}} patients to record",
+    "backToQueue": "Queue"
   },
   "testPanel": {
     "open": "Test",
@@ -1155,9 +1163,9 @@
     "morning": "Good morning",
     "afternoon": "Good afternoon",
     "evening": "Good evening",
-    "morningName": "Good morning, {{name}}",
-    "afternoonName": "Good afternoon, {{name}}",
-    "eveningName": "Good evening, {{name}}",
+    "morningName": "Good morning,\n{{name}}",
+    "afternoonName": "Good afternoon,\n{{name}}",
+    "eveningName": "Good evening,\n{{name}}",
     "todo_one": "You have {{count}} thing to do",
     "todo_other": "You have {{count}} things to do",
     "nothing": "Nothing to do today.",
@@ -1176,7 +1184,8 @@
     "nameSetting": "Your first name (on this phone only)",
     "clinicLine_one": "{{count}} patient to record today",
     "clinicLine_other": "{{count}} patients to record today",
-    "clinicPhone": "Clinic phone"
+    "clinicPhone": "Clinic phone",
+    "signInLine": "Clinic phone · sign in to record today’s patients"
   },
   "todo": {
     "record": "RECORD · {{hospital}}",

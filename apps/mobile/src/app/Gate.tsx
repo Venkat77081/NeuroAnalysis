@@ -78,6 +78,13 @@ export function Gate({
   const [dismissed, setDismissed] = useState<string | null>(null);
   // Signed in → the app opens locked; unlocking signs in again with the server.
   const [locked, setLocked] = useState(!!settings.signedIn && !settings.localDev);
+  // Mock/e2e only: patients have no Lock button (the app locks when idle); tests lock it this way.
+  useEffect(() => {
+    if (capture.implementation === 'native') return;
+    const on = () => setLocked(true);
+    globalThis.addEventListener('nc:lock', on);
+    return () => globalThis.removeEventListener('nc:lock', on);
+  }, []);
   /** v11: an account screen opened from the lock screen, Settings or a "signed out" answer. */
   const [accountMode, setAccountMode] = useState<AccountMode | null>(null);
   useEffect(() => {
@@ -217,7 +224,6 @@ export function Gate({
   if (snapshot.matches('setup'))
     return (
       <PatientApp
-        onLock={() => setLocked(true)}
         onAddAccount={() => setAccountMode('migrate')}
         invite={invite}
         onInviteUsed={() => setInvite(null)}

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EngineeringMenu } from '../EngineeringMenu.tsx';
 import { Logo } from '../session/SessionHome.tsx';
-import { Screen } from './Common.tsx';
 
 /**
  * First run (M13): patient app or clinic phone. The choice is locked natively once set up.
@@ -12,27 +11,87 @@ import { Screen } from './Common.tsx';
 export function RoleChooser({ onPick }: { onPick: (mode: 'patient' | 'clinic') => void }) {
   const { t } = useTranslation();
   const [menu, setMenu] = useState(false);
-  const option = (mode: 'patient' | 'clinic') => (
-    <button
-      type="button"
-      onClick={() => onPick(mode)}
-      data-testid={`role-${mode}`}
-      className="flex min-h-[88px] flex-col items-start gap-1 rounded-2xl border border-line bg-white px-4 py-4 text-left"
-    >
-      <span className="text-[18px] font-bold">{t(`modes.role.${mode}`)}</span>
-      <span className="text-[14px] leading-5 text-muted">{t(`modes.role.${mode}Hint`)}</span>
-    </button>
-  );
+  // New UI (decision 050): a welcome page with a sunrise, then the two choices.
   return (
-    <Screen title={t('modes.role.title')}>
-      <div className="-mb-2 flex items-center gap-2 text-[14px] font-semibold text-muted">
+    <div className="mx-auto flex min-h-full max-w-md flex-col bg-ground px-5 pb-6">
+      <div
+        className="relative -mx-5 h-[260px] overflow-hidden"
+        style={{
+          marginTop: 'calc(-1 * var(--sat))',
+          background: 'linear-gradient(170deg, #fff1e0 0%, #fde3cf 45%, #e6eff8 100%)',
+        }}
+        aria-hidden="true"
+      >
+        <span
+          className="nc-rise absolute top-[96px] left-1/2 size-24 -translate-x-1/2 rounded-full"
+          style={{ background: 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c)' }}
+        />
+        <span className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#F6F7F9]" />
+      </div>
+      <div className="relative z-10 -mt-6 flex items-center gap-2 text-[14px] font-semibold text-muted">
         <Logo onLongPress={() => setMenu(true)} />
         {t('app.name')}
       </div>
-      {option('patient')}
-      {option('clinic')}
-      <p className="text-[13px] leading-5 text-muted">{t('modes.role.note')}</p>
+      <h1 className="nc-fade-up mt-3 mb-1 text-[28px] leading-[34px] font-extrabold">
+        {t('modes.role.welcome')}
+      </h1>
+      <p
+        className="nc-fade-up m-0 text-[15px] leading-[22px] text-[#3D4552]"
+        style={{ animationDelay: '0.1s' }}
+      >
+        {t('modes.role.welcomeHint')}
+      </p>
+      <div className="mt-auto flex flex-col gap-3 pt-8">
+        <span className="text-[13px] font-semibold text-muted">{t('modes.role.title')}</span>
+        <button
+          type="button"
+          onClick={() => onPick('patient')}
+          className="nc-fade-up flex min-h-[72px] items-center gap-3 rounded-2xl bg-brand px-4 py-3 text-left text-white"
+          style={{ animationDelay: '0.2s' }}
+          data-testid="role-patient"
+        >
+          <span
+            aria-hidden
+            className="flex size-11 flex-none items-center justify-center rounded-xl bg-white/15 text-[22px]"
+          >
+            🙂
+          </span>
+          <span className="flex flex-1 flex-col">
+            <span className="text-[17px] font-bold">{t('modes.role.patient')}</span>
+            <span className="text-[13px] leading-[18px] opacity-90">
+              {t('modes.role.patientHint')}
+            </span>
+          </span>
+          <span aria-hidden className="text-[22px]">
+            ›
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onPick('clinic')}
+          className="nc-fade-up flex min-h-[72px] items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
+          style={{ animationDelay: '0.3s' }}
+          data-testid="role-clinic"
+        >
+          <span
+            aria-hidden
+            className="flex size-11 flex-none items-center justify-center rounded-xl bg-brand-soft text-[22px]"
+          >
+            🏥
+          </span>
+          <span className="flex flex-1 flex-col">
+            <span className="text-[17px] font-bold">{t('modes.role.clinic')}</span>
+            <span className="text-[13px] leading-[18px] text-muted">
+              {t('modes.role.clinicHint')}
+            </span>
+          </span>
+          <span aria-hidden className="text-[22px] text-muted">
+            ›
+          </span>
+        </button>
+        <p className="m-0 text-[12px] leading-[18px] text-muted">{t('modes.role.note')}</p>
+      </div>
       {menu && <EngineeringMenu onClose={() => setMenu(false)} />}
-    </Screen>
+    </div>
   );
 }

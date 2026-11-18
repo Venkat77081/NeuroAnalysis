@@ -27,7 +27,12 @@ const time = (iso: string, lang: string) =>
     minute: '2-digit',
   });
 
-export function ClinicQueue() {
+export function ClinicQueue({
+  onFocus,
+}: {
+  /** New UI: consent takes the whole screen; the home screen hides everything else. */
+  onFocus?: (focused: boolean) => void;
+} = {}) {
   const { t, i18n } = useTranslation();
   const { config, repo, startClinicRequest } = useApp();
   const [items, setItems] = useState<QueueItem[] | null>(null);
@@ -35,6 +40,10 @@ export function ClinicQueue() {
   const [asking, setAsking] = useState<string | null>(null);
   /** v16: the request whose consent is being confirmed (QR scan, or on this phone). */
   const [consenting, setConsenting] = useState<{ id: string; how: 'scan' | 'phone' } | null>(null);
+  useEffect(() => {
+    onFocus?.(!!consenting);
+    return () => onFocus?.(false);
+  }, [consenting, onFocus]);
   const [version, setVersion] = useState(0);
   /** Decision 044: the hospital's own storage must be connected before anyone records. */
   const [ready, setReady] = useState(true);
@@ -100,6 +109,27 @@ export function ClinicQueue() {
       </p>
     );
   if (!items) return null;
+  /** Done today (recorded or not): a short row with its state. */
+  const row = (q: QueueItem) => (
+    <div
+      key={q.request_id}
+      className="flex items-center justify-between gap-2 rounded-xl border border-line bg-white px-3.5 py-2.5 text-[14px]"
+      data-testid="queue-item"
+    >
+      <span className="min-w-0">
+        <b className="tabular-nums">{time(q.at, i18n.language)}</b> ·{' '}
+        <span data-testid="queue-name">{q.name ?? q.mrn ?? '—'}</span>
+      </span>
+      <span
+        className={`text-[12px] font-bold whitespace-nowrap ${q.state === 'recorded' ? 'text-ok' : 'text-bad'}`}
+        data-testid="queue-state"
+      >
+        {t(`clinicQueue.state.${q.state}`, {
+          reason: q.not_done_reason ? t(`clinicQueue.reason.${q.not_done_reason}`) : '',
+        })}
+      </span>
+    </div>
+  );
   const card = (q: QueueItem, wide: boolean) => {
     const steps = config.session.order.filter(([code]) => q.tests.includes(code));
     const open = q.state === 'open';
@@ -136,32 +166,7 @@ export function ClinicQueue() {
             {t(`clinicConsent.state.${q.consent.state}`)}
           </span>
         )}
-        {open && consenting?.id === q.request_id ? (
-          consenting.how === 'scan' ? (
-            <ConsentScan
-              q={q}
-              onConfirmed={(c) => {
-                setConsenting(null);
-                void start(q, c);
-              }}
-              onPhone={
-                q.consent?.phone_allowed
-                  ? () => setConsenting({ id: q.request_id, how: 'phone' })
-                  : null
-              }
-              onCancel={() => setConsenting(null)}
-            />
-          ) : (
-            <PhoneConsent
-              q={q}
-              onConfirmed={(c) => {
-                setConsenting(null);
-                void start(q, c);
-              }}
-              onCancel={() => setConsenting(null)}
-            />
-          )
-        ) : open ? (
+        {open ? (
           asking === q.request_id ? (
             <div className="flex flex-col gap-1.5" data-testid="queue-reasons">
               <span className="text-[13px] font-semibold">{t('clinicQueue.why')}</span>
@@ -217,10 +222,50 @@ export function ClinicQueue() {
   };
   const openItems = items.filter((q) => q.state === 'open');
   const doneItems = items.filter((q) => q.state !== 'open');
+  const cq = consenting && items.find((q) => q.request_id === consenting.id);
+  if (cq && consenting)
+    // New UI (decision 050): consent on its own screen, with the way back to the queue.
+    return (
+      <section className="nc-fade-up flex flex-col gap-3" data-testid="clinic-queue">
+        <button
+          type="button"
+          onClick={() => setConsenting(null)}
+          className="min-h-11 self-start text-[14px] font-semibold text-brand"
+        >
+          ‹ {t('clinicQueue.backToQueue')}
+        </button>
+        {consenting.how === 'scan' ? (
+          <ConsentScan
+            q={cq}
+            onConfirmed={(c) => {
+              setConsenting(null);
+              void start(cq, c);
+            }}
+            onPhone={
+              cq.consent?.phone_allowed
+                ? () => setConsenting({ id: cq.request_id, how: 'phone' })
+                : null
+            }
+            onCancel={() => setConsenting(null)}
+          />
+        ) : (
+          <PhoneConsent
+            q={cq}
+            onConfirmed={(c) => {
+              setConsenting(null);
+              void start(cq, c);
+            }}
+            onCancel={() => setConsenting(null)}
+          />
+        )}
+      </section>
+    );
   return (
     <section className="flex flex-col gap-2" data-testid="clinic-queue">
       <div className="flex items-baseline justify-between">
-        <h2 className="m-0 text-[17px] font-bold">{t('clinicQueue.title')}</h2>
+        <h2 className="m-0 text-[15px] font-semibold text-muted">
+          {t('clinicQueue.toRecord', { count: openItems.length })}
+        </h2>
         <button
           type="button"
           onClick={reload}
@@ -229,7 +274,6 @@ export function ClinicQueue() {
           {t('clinicQueue.refresh')}
         </button>
       </div>
-      <span className="text-[12px] font-semibold text-ok">{t('clinicQueue.live')}</span>
       {!ready && (
         <p
           role="alert"
@@ -250,7 +294,13 @@ export function ClinicQueue() {
           {openItems.map((q) => card(q, openItems.length > 1))}
         </div>
       )}
-      {doneItems.map((q) => card(q, false))}
+      {doneItems.length > 0 && (
+        <>
+          <h3 className="m-0 mt-2 text-[15px] font-bold">{t('clinicQueue.today')}</h3>
+          {doneItems.map(row)}
+        </>
+      )}
+      <span className="mt-1 text-[12px] font-semibold text-ok">{t('clinicQueue.live')}</span>
       {error && (
         <p role="alert" className="text-[13px] text-bad">
           {t(`modes.errors.${error}`, { defaultValue: t('modes.errors.generic') })}

@@ -132,7 +132,7 @@ test('v3: join → record link → consent → home session; second hospital; wi
   await page.getByRole('button', { name: 'Back' }).click();
 
   // Lock and unlock with the PIN.
-  await page.getByTestId('lock-now').click();
+  await page.evaluate(() => globalThis.dispatchEvent(new Event('nc:lock'))); // idle lock
   await page.getByTestId('unlock-secret').fill('1111');
   await page.getByTestId('unlock').click();
   await expect(page.getByRole('alert')).toContainText('not right');

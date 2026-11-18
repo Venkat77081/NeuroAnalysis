@@ -66,6 +66,7 @@ export function SessionHome({
   const { ctx, send } = useSession();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [picker, setPicker] = useState(false);
+  const [queueFocus, setQueueFocus] = useState(false);
   const [uploads, setUploads] = useState(false);
   const [draft, setDraft] = useState({ ref: '', yob: '', sex: '' as '' | 'M' | 'F' | 'O' });
   const native = capture.implementation === 'native';
@@ -114,10 +115,33 @@ export function SessionHome({
 
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col bg-ground">
+      {/* New UI (decision 050): a clinic phone greets the signed-in operator, full width. */}
+      {queueOnly && !ctx.patient && !training && !queueFocus && (
+        <div className="px-5 pt-6">
+          <Greeting
+            name={settings.signedIn?.name}
+            line={t('greeting.clinicPhone')}
+            right={
+              onLock && (
+                <button
+                  type="button"
+                  onClick={onLock}
+                  className="min-h-11 rounded-full bg-white/70 px-3 text-[13px] font-semibold text-brand"
+                  data-testid="lock-now"
+                >
+                  {t('modes.lock.lockNow')}
+                </button>
+              )
+            }
+          />
+        </div>
+      )}
       <header className="flex items-center justify-between px-5 pt-4 pb-2">
         <div className="flex items-center gap-2.5">
           <Logo onLongPress={onEngineering} />
-          <span className="text-[17px] font-bold">{t('app.name')}</span>
+          {!(queueOnly && !ctx.patient && !training) && (
+            <span className="text-[17px] font-bold">{t('app.name')}</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -126,7 +150,7 @@ export function SessionHome({
           >
             {t(`home.mode.${capture.implementation}`)}
           </span>
-          {onLock && (
+          {onLock && !(queueOnly && !ctx.patient && !training) && (
             <button
               type="button"
               onClick={onLock}
@@ -140,12 +164,14 @@ export function SessionHome({
       </header>
 
       <main className="flex flex-1 flex-col gap-3.5 px-5 pt-1">
-        {/* New UI: clinic phones greet the signed-in operator (name from the hospital's staff list). */}
-        {settings.server && settings.signedIn && !settings.localDev && (
-          <Greeting card name={settings.signedIn.name} line={t('greeting.clinicPhone')} />
-        )}
-        <div className="flex items-baseline justify-between">
-          <h1 className="m-0 text-[26px] font-bold">{t('session.home.title')}</h1>
+        <div className={`flex items-baseline justify-between ${queueFocus ? 'hidden' : ''}`}>
+          <h1 className="m-0 text-[26px] font-bold">
+            {queueOnly && ctx.patient && !training
+              ? t('session.home.readyTitle')
+              : waitingForQueue
+                ? t('greeting.upNext')
+                : t('session.home.title')}
+          </h1>
           <button
             type="button"
             className="flex min-h-12 items-center gap-1.5 rounded-full px-2 text-[13px] text-muted"
@@ -160,27 +186,45 @@ export function SessionHome({
           </button>
         </div>
 
-        <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
-          <input
-            type="checkbox"
-            checked={training}
-            onChange={(e) => send({ type: 'SET_TRAINING', on: e.target.checked })}
-            className="size-6 accent-brand"
-            data-testid="practice-toggle"
-          />
-          <span className="flex flex-col">
-            <span className="font-semibold">{t('session.practice.toggle')}</span>
-            <span className="text-xs text-muted">{t('session.practice.detail')}</span>
-          </span>
-        </label>
+        {!queueOnly && (
+          <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={training}
+              onChange={(e) => send({ type: 'SET_TRAINING', on: e.target.checked })}
+              className="size-6 accent-brand"
+              data-testid="practice-toggle"
+            />
+            <span className="flex flex-col">
+              <span className="font-semibold">{t('session.practice.toggle')}</span>
+              <span className="text-xs text-muted">{t('session.practice.detail')}</span>
+            </span>
+          </label>
+        )}
 
         {!training &&
           settings.server &&
           settings.signedIn &&
           !settings.localDev &&
-          !ctx.patient && <ClinicQueue />}
+          !ctx.patient && <ClinicQueue onFocus={setQueueFocus} />}
 
-        {!training && queueOnly && !ctx.patient && (
+        {queueOnly && !ctx.patient && !queueFocus && (
+          <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={training}
+              onChange={(e) => send({ type: 'SET_TRAINING', on: e.target.checked })}
+              className="size-6 accent-brand"
+              data-testid="practice-toggle"
+            />
+            <span className="flex flex-col">
+              <span className="font-semibold">{t('session.practice.toggle')}</span>
+              <span className="text-xs text-muted">{t('session.practice.detail')}</span>
+            </span>
+          </label>
+        )}
+
+        {!training && queueOnly && !ctx.patient && !queueFocus && (
           <p
             className="m-0 rounded-2xl bg-[#EDF0F3] px-4 py-3 text-[14px] leading-[20px] text-[#3D4552]"
             data-testid="queue-only-hint"
@@ -337,7 +381,11 @@ export function SessionHome({
             onClick={() => send({ type: 'START', at: new Date().toISOString() })}
             data-testid="start-session"
           >
-            {training ? t('session.practice.start') : t('session.home.start')}
+            {training
+              ? t('session.practice.start')
+              : queueOnly && ctx.plan[0]
+                ? t('session.home.startFirst', { test: t(`tests.${ctx.plan[0].code}`) })
+                : t('session.home.start')}
           </Button>
         </footer>
       )}

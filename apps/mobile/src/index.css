@@ -134,6 +134,17 @@ html.camera-active #root {
 .nc-moon {
   animation: nc-rise 2.4s ease-out both;
 }
+@keyframes nc-scan {
+  from {
+    top: 25%;
+  }
+  to {
+    top: 72%;
+  }
+}
+.nc-scanline {
+  animation: nc-scan 1.6s ease-in-out infinite alternate;
+}
 .nc-fade-up {
   animation: nc-fade-up 0.35s ease-out both;
 }
@@ -155,6 +166,7 @@ html.camera-active #root {
 }
 @media (prefers-reduced-motion: reduce) {
   .nc-rise,
+  .nc-scanline,
   .nc-moon,
   .nc-fade-up,
   .nc-pulse,

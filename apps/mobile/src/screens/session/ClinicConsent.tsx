@@ -57,14 +57,26 @@ export function ConsentScan({
       />
     );
   return (
-    <Card className="flex flex-col gap-2.5" data-testid="consent-scan">
-      <b className="text-[16px]">{t('clinicConsent.scanTitle', { name: q.name ?? q.mrn ?? '' })}</b>
+    <div className="flex flex-col gap-3" data-testid="consent-scan">
+      <h1 className="m-0 text-[24px] leading-8 font-bold">{t('clinicConsent.scan')}</h1>
       <span className="text-[14px] text-[#3D4552]">
+        {q.name ?? q.mrn ?? ''} ·{' '}
         {q.consent?.state === 'app_given' ? t('clinicConsent.given') : t('clinicConsent.waiting')}
       </span>
-      <Button disabled={busy} onClick={() => setScanning(true)} data-testid="consent-scan-camera">
-        {t('clinicConsent.scan')}
-      </Button>
+      {/* New UI (decision 050): a viewfinder to tap; the camera opens full screen to scan. */}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setScanning(true)}
+        className="relative flex h-64 items-center justify-center overflow-hidden rounded-2xl bg-[#1D232C]"
+        data-testid="consent-scan-camera"
+      >
+        <span className="size-44 rounded-2xl border-[3px] border-white shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
+        <span className="nc-scanline absolute inset-x-[30%] h-[3px] bg-[#6EE7A0]" />
+        <span className="absolute bottom-3 text-[13px] text-white">
+          {t('clinicConsent.scanHint')}
+        </span>
+      </button>
       <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
         {t('clinicConsent.typeCode')}
         <input
@@ -100,7 +112,7 @@ export function ConsentScan({
       <Button variant="secondary" onClick={onCancel}>
         {t('common.cancel')}
       </Button>
-    </Card>
+    </div>
   );
 }
 

@@ -11,6 +11,7 @@ import type { DeviceCheckResult } from '../../lib/devicecheck.ts';
 import { Button } from '../../ui/kit.tsx';
 import { attempt, ErrorText, Field, Screen } from './Common.tsx';
 import { DeviceCheck } from './DeviceCheck.tsx';
+import { Greeting } from '../../ui/Greeting.tsx';
 
 export function ClinicSetup({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
@@ -39,8 +40,30 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
       onDone();
     });
   return (
-    <Screen title={t('modes.clinicSetup.title')}>
-      <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('modes.clinicSetup.hint')}</p>
+    <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-8 pb-6">
+      {/* New UI (decision 050): a centred heading for setting up the phone. */}
+      <div className="nc-fade-up flex flex-col items-center gap-2 text-center">
+        <span className="flex size-16 items-center justify-center rounded-2xl bg-brand text-white">
+          <svg
+            width="30"
+            height="30"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="6" width="13" height="12" rx="2" />
+            <path d="M16 10l5-3v10l-5-3z" />
+          </svg>
+        </span>
+        <h1 className="m-0 text-[24px] leading-8 font-bold">{t('modes.clinicSetup.title')}</h1>
+        <p className="m-0 text-[15px] leading-[22px] text-[#3D4552]">
+          {t('modes.clinicSetup.hint')}
+        </p>
+      </div>
       <DeviceCheck who="clinic" onResult={setCheck} />
       {passed && (
         <>
@@ -85,7 +108,7 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
           </Button>
         </>
       )}
-    </Screen>
+    </div>
   );
 }
 
@@ -119,8 +142,10 @@ export function OperatorSignIn() {
       });
     });
   return (
-    <Screen title={t('modes.signIn.title')}>
-      <span className="text-[13px] font-semibold text-muted">{t('modes.signIn.hospital')}</span>
+    <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-6 pb-6">
+      {/* New UI (decision 050): the greeting before sign-in (no name yet). */}
+      <Greeting line={t('greeting.signInLine')} />
+      <h1 className="m-0 text-[24px] leading-8 font-bold">{t('modes.signIn.title')}</h1>
       <Field
         id="op-id"
         label={t('modes.signIn.operator')}
@@ -145,7 +170,7 @@ export function OperatorSignIn() {
       >
         {t('modes.signIn.submit')}
       </Button>
-    </Screen>
+    </div>
   );
 }
 

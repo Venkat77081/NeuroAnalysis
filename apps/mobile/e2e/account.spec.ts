@@ -70,7 +70,7 @@ test('v11: sign up, join, reinstall (same phone), new phone, forgot PIN with the
   await expect(page.getByTestId('hospital-badge')).toHaveText('Joined');
 
   // Forgot PIN from the lock screen: e-mail code, recovery code, new PIN, new recovery code.
-  await page.getByTestId('lock-now').click();
+  await page.evaluate(() => globalThis.dispatchEvent(new Event('nc:lock'))); // idle lock
   await page.getByTestId('lock-forgot').click();
   await page.getByTestId('acct-email-next').click(); // the e-mail is remembered on this phone
   await enterCode(page);
@@ -89,7 +89,7 @@ test('v11: sign up, join, reinstall (same phone), new phone, forgot PIN with the
   await expect(page.getByTestId('hospital-card')).toHaveCount(1);
 
   // The new PIN opens the app; the old one does not.
-  await page.getByTestId('lock-now').click();
+  await page.evaluate(() => globalThis.dispatchEvent(new Event('nc:lock'))); // idle lock
   await page.getByTestId('unlock-secret').fill('2580');
   await page.getByTestId('unlock').click();
   await expect(page.getByRole('alert')).toContainText('not right');

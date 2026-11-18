@@ -47,12 +47,10 @@ function fmtDate(iso: string | null, lang: string): string {
 }
 
 export function PatientApp({
-  onLock,
   onAddAccount,
   invite,
   onInviteUsed,
 }: {
-  onLock: () => void;
   /** v11: a pre-v11 install moves onto an app account (e-mail, same PIN, recovery code). */
   onAddAccount: () => void;
   /** An invite link opened while the app is set up: join that hospital. */
@@ -115,7 +113,6 @@ export function PatientApp({
       onRecord={(profile, request) => setView({ kind: 'consent', profile, request, from: 'list' })}
       onJoin={() => setView({ kind: 'join', token: null })}
       onSettings={() => setView({ kind: 'settings' })}
-      onLock={onLock}
     />
   );
 }
@@ -242,14 +239,12 @@ function HospitalList({
   onRecord,
   onJoin,
   onSettings,
-  onLock,
 }: {
   hospitals: PatientHospital[];
   onOpen: (profile: string, section?: Section) => void;
   onRecord: (profile: string, request: PatientRequest | null) => void;
   onJoin: () => void;
   onSettings: () => void;
-  onLock: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const { settings, config } = useApp();
@@ -365,16 +360,29 @@ function HospitalList({
                 : t('greeting.nothing')
         }
         right={
-          anyActive && (
-            <button
-              type="button"
-              onClick={onLock}
-              className="min-h-9 rounded-full bg-white/70 px-3 text-[13px] font-semibold text-brand"
-              data-testid="lock-now"
+          // New UI (user, 19 Nov 2026): no Lock for patients (the app still locks itself when idle).
+          <button
+            type="button"
+            onClick={onSettings}
+            aria-label={t('modes.home.settings')}
+            className={`flex size-11 items-center justify-center rounded-full text-[20px] ${part === 'evening' ? 'bg-white/15 text-white' : 'bg-white/70 text-[#3B2417]'}`}
+            data-testid="home-settings"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              {t('modes.lock.lockNow')}
-            </button>
-          )
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+            </svg>
+          </button>
         }
       />
       {todos.length > 0 && (
@@ -438,19 +446,17 @@ function HospitalList({
           />
         ))}
       </ul>
-      <Card className="flex flex-col gap-1">
-        <h2 className="text-[15px] font-bold">{t('modes.recordings.onPhone')}</h2>
-        <span className="text-[14px]" data-testid="rec-pending">
-          {pending > 0 ? t('modes.recordings.pending', { n: pending }) : t('uploads.allDone')}
-        </span>
-      </Card>
-      <Button variant="secondary" onClick={onJoin} data-testid="join-hospital">
-        {t('modes.hospitals.join')}
+      <Button variant="ghost" onClick={onJoin} data-testid="join-hospital">
+        ＋ {t('modes.hospitals.join')}
       </Button>
+      <p className="m-0 flex items-center gap-2 text-[13px] text-muted" data-testid="rec-pending">
+        <span
+          aria-hidden
+          className={`size-2 rounded-full ${pending > 0 ? 'bg-[#F2A23A]' : 'bg-ok'}`}
+        />
+        {pending > 0 ? t('modes.recordings.pending', { n: pending }) : t('uploads.allDone')}
+      </p>
       <p className="text-[13px] leading-[19px] text-muted">{t('modes.hospitals.separate')}</p>
-      <Button variant="secondary" onClick={onSettings} data-testid="home-settings">
-        {t('modes.home.settings')}
-      </Button>
     </div>
   );
 }
@@ -478,46 +484,52 @@ function HospitalCard({
       : open.length > 0
         ? t('modes.hospitals.requests', { count: open.length })
         : t('modes.hospitals.joined');
+  const line = notReady
+    ? t('modes.hospitals.notReadyBody', { hospital: h.hospital })
+    : next
+      ? next.appointment_at
+        ? t('modes.hospitals.recordBefore', {
+            visit: fmtDate(next.appointment_at, i18n.language),
+            due: fmtDate(next.due_at, i18n.language),
+          })
+        : t('modes.hospitals.recordBy', { due: fmtDate(next.due_at, i18n.language) })
+      : h.withdrawnAt
+        ? t('modes.hospitals.readOnly')
+        : data?.plan?.due_now
+          ? t('modes.home.due')
+          : t('modes.hospitals.noRequests');
   return (
     <li className="nc-fade-up" style={{ animationDelay: `${0.1 + index * 0.1}s` }}>
       <button
         type="button"
         onClick={onOpen}
-        className={`flex w-full flex-col gap-1 rounded-2xl border px-4 py-3.5 text-left ${
-          open.length > 0 ? 'border-2 border-brand bg-white' : 'border-line bg-white'
-        }`}
+        className="flex min-h-[72px] w-full items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
         data-testid="hospital-card"
       >
-        <span className="flex items-center justify-between gap-2">
-          <span className="text-[17px] font-bold">{h.hospital}</span>
-          <span
-            className={`rounded-xl px-2.5 py-0.5 text-[12px] font-bold ${
-              h.withdrawnAt
-                ? 'bg-[#EDF0F3] text-[#3D4552]'
-                : open.length > 0
-                  ? 'bg-[#FDF0DD] text-[#8A4B00]'
-                  : 'bg-[#E3F4EA] text-[#145F38]'
-            }`}
-            data-testid="hospital-badge"
-          >
-            {badge}
-          </span>
+        <span
+          aria-hidden
+          className={`flex size-11 flex-none items-center justify-center rounded-xl text-[20px] ${h.withdrawnAt ? 'bg-[#EDF0F3]' : 'bg-brand-soft'}`}
+        >
+          🏥
         </span>
-        <span className="text-[14px] text-[#3D4552]">
-          {notReady
-            ? t('modes.hospitals.notReadyBody', { hospital: h.hospital })
-            : next
-              ? next.appointment_at
-                ? t('modes.hospitals.recordBefore', {
-                    visit: fmtDate(next.appointment_at, i18n.language),
-                    due: fmtDate(next.due_at, i18n.language),
-                  })
-                : t('modes.hospitals.recordBy', { due: fmtDate(next.due_at, i18n.language) })
-              : h.withdrawnAt
-                ? t('modes.hospitals.readOnly')
-                : data?.plan?.due_now
-                  ? t('modes.home.due')
-                  : t('modes.hospitals.noRequests')}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-[16px] font-bold">{h.hospital}</span>
+          <span className="text-[13px] leading-[18px] text-muted">{line}</span>
+        </span>
+        <span
+          className={`rounded-xl px-2.5 py-0.5 text-[12px] font-bold whitespace-nowrap ${
+            h.withdrawnAt
+              ? 'bg-[#EDF0F3] text-[#3D4552]'
+              : open.length > 0
+                ? 'bg-bad text-white'
+                : 'bg-[#E3F4EA] text-[#145F38]'
+          }`}
+          data-testid="hospital-badge"
+        >
+          {badge}
+        </span>
+        <span aria-hidden className="text-[20px] text-muted">
+          ›
         </span>
       </button>
     </li>

@@ -33,6 +33,8 @@ export interface PatientRequest {
   med_state: 'OFF' | 'ON' | 'ANY';
   due_at: string;
   state: 'open' | 'recorded' | 'missed' | 'cancelled';
+  /** v16: clinic requests: the patient's consent given in the app (active) or confirmed (used). */
+  clinic_consent?: { status: 'active' | 'used'; source: string; valid_until: string } | null;
 }
 
 /** The hospitals in the settings, including a pre-v3 single hospital. */

@@ -17,6 +17,8 @@ export interface QueueItem {
   state: 'open' | 'recorded' | 'not_recorded' | 'missed';
   recorded_by: string | null;
   not_done_reason: string | null;
+  /** v16 (decision 047): the patient's consent: given in the app, waiting, or no app. */
+  consent?: { state: 'app_given' | 'waiting' | 'no_app'; phone_allowed: boolean } | null;
   /** From the hospital's records, live (null when the records cannot be reached). */
   name?: string | null;
   mrn?: string | null;
@@ -84,4 +86,35 @@ export async function canRecord(
   } catch {
     return { canRecord: true, reason: null };
   }
+}
+
+/** v16: a consent confirmed for a clinic recording (scanned from the patient's app, or on this phone). */
+export interface ConfirmedConsent {
+  consent_id: string;
+  source: 'patient_app' | 'clinic_phone';
+  agreed_at: string;
+  consent_version: string;
+  reason?: string | null;
+}
+
+/** Checks the code the patient shows (QR text, or typed) for this clinic request. */
+export function scanConsent(
+  kit: CaptureKitPlugin,
+  requestId: string,
+  code: string,
+): Promise<ConfirmedConsent> {
+  return api<ConfirmedConsent>(kit, 'POST', `/clinic/requests/${requestId}/consent-scan`, { code });
+}
+
+/** The patient read and agreed on this clinic phone (no app, or cannot show the code). */
+export function phoneConsent(
+  kit: CaptureKitPlugin,
+  requestId: string,
+  reason: string,
+  consentVersion: string,
+): Promise<ConfirmedConsent> {
+  return api<ConfirmedConsent>(kit, 'POST', `/clinic/requests/${requestId}/consent-on-phone`, {
+    reason,
+    consent_version: consentVersion,
+  });
 }

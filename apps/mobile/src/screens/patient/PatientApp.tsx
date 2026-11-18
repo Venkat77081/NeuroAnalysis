@@ -27,6 +27,7 @@ import { InviteFlow } from './InviteFlow.tsx';
 import { canRecord } from '../../lib/clinic.ts';
 import { saveBackup } from '../../lib/appaccount.ts';
 import { AppointmentsSection } from './Appointments.tsx';
+import { ClinicConsentCard } from './ClinicConsentCard.tsx';
 
 type View =
   | { kind: 'list' }
@@ -446,6 +447,7 @@ function HospitalView({
                 doctor: r.doctor_name ?? t('modes.hospitals.yourDoctor'),
               })}
             </span>
+            <ClinicConsentCard h={h} request={r} />
           </Card>
         ))}
       {!h.withdrawnAt && plan && !plan.default && plan.next_due && (

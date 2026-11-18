@@ -169,7 +169,9 @@
       "start": "Start session",
       "resume": "Session in progress",
       "queueOnly": "Patient not in the queue? Ask the doctor to add a clinic recording for today. It appears in the queue after Refresh.",
-      "backToQueue": "Back to queue"
+      "backToQueue": "Back to queue",
+      "consentFromApp": "Consent confirmed: the patient agreed in their app (QR scanned).",
+      "consentOnPhone": "Consent confirmed on this phone."
     },
     "intro": {
       "testOf": "Test {{n}} of {{of}}",
@@ -1031,6 +1033,63 @@
       "needs_referral": "{{hospital}} needs a referral first. Please call {{hospital}}.",
       "wrong_clinic": "{{hospital}} suggests another clinic. Please call {{hospital}}.",
       "call_us": "Please call {{hospital}} to find a time."
+    }
+  },
+  "clinicConsent": {
+    "state": {
+      "app_given": "Consent in app",
+      "waiting": "Waiting for consent",
+      "no_app": "No app"
+    },
+    "scan": "Scan consent QR",
+    "onPhone": "Consent on this phone…",
+    "scanTitle": "Consent for {{name}}",
+    "scanHint": "Point the camera at the QR code on the patient's phone.",
+    "given": "The patient agreed in their app. Scan the QR code on their phone.",
+    "waiting": "The patient uses the app but has not agreed yet. Ask them to open the hospital in the app and give consent, then scan.",
+    "typeCode": "Or type the code shown under the QR",
+    "checkCode": "Check the code",
+    "cannotShow": "Patient cannot show the code? Consent on this phone",
+    "phoneTitle": "Consent on this phone · {{name}}",
+    "whyNotApp": "Why not in the app?",
+    "reason": {
+      "no_smartphone": "No smartphone",
+      "not_in_app": "Not in the app",
+      "phone_not_with_them": "Phone not with them",
+      "needs_help": "Needs help reading"
+    },
+    "showToPatient": "Show consent to the patient",
+    "text_one": "The hospital will film {{count}} short movement test on this phone today. The video is encrypted and goes only to the hospital's own storage; only your care team can watch it. You can say no without any effect on your care.",
+    "text_other": "The hospital will film {{count}} short movement tests on this phone today. The videos are encrypted and go only to the hospital's own storage; only your care team can watch them. You can say no without any effect on your care.",
+    "version": "Consent text version {{version}}",
+    "agree": "I agree to be recorded today",
+    "agreeButton": "I agree",
+    "error": {
+      "wrong_patient": "This code is for another patient or visit.",
+      "consent_expired": "This code is not for today. Ask the patient to agree again in the app.",
+      "consent_withdrawn": "The patient withdrew consent. Do not record.",
+      "consent_used": "This code was already used.",
+      "consent_unknown": "Code not recognised. Check it, or scan again.",
+      "phone_consent_off": "This hospital does not allow consent on the clinic phone.",
+      "network": "No connection: the code must be checked with the hospital."
+    },
+    "patient": {
+      "ask": "Before the visit, give your consent here; at the clinic you show a QR code.",
+      "open": "Give consent for the clinic recording",
+      "title": "Consent for the clinic recording",
+      "text_one": "{{hospital}} will film {{count}} short movement test on a clinic phone at your visit. The video is encrypted on that phone and goes only to {{hospital}}'s own storage; only your care team can watch it. You can say no now, or at the clinic, without any effect on your care.",
+      "text_other": "{{hospital}} will film {{count}} short movement tests on a clinic phone at your visit. The videos are encrypted on that phone and go only to {{hospital}}'s own storage; only your care team can watch them. You can say no now, or at the clinic, without any effect on your care.",
+      "agree": "I agree to be recorded at the clinic for this visit",
+      "give": "I agree · show my QR code",
+      "notNow": "Not now",
+      "showTitle": "Show this at the clinic",
+      "qrAlt": "Consent QR code",
+      "validUntil": "Valid for this visit only, until {{until}}.",
+      "noIdentity": "The code holds no name or health details: only a one-time check the clinic phone confirms with the hospital.",
+      "withdraw": "I no longer agree (withdraw)",
+      "given": "Consent given, valid until {{until}}.",
+      "show": "Show my QR code",
+      "used": "Consent confirmed at the clinic."
     }
   }
 }

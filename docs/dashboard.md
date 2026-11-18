@@ -80,6 +80,21 @@ Hospitals → Roles and permissions.
     change appointments, until how many hours before, and the hospital's time zone.
   - **Team → Doctors' clinic hours:** weekly hours, appointment length and leave for each doctor.
 
+## Offers, cancellations and booking from the app (v14, decision 046)
+
+- **Front desk:**
+  - "Change date or doctor" has two modes: **Move it now**, or **Offer choices**. Offer choices
+    sends up to 3 held times (date, time, doctor) for the patient to choose in the app.
+  - **Cancel…** on every appointment asks for a reason.
+  - **Requests tab:** new bookings and change requests (each time checked now: free, taken,
+    doctor on leave), offers waiting or without an answer (or "asked to be called"), and
+    appointments the patient cancelled.
+- **Doctor:** after a move to them before the patient recorded, "Choose tests" shows the earlier
+  tests to confirm.
+- **Hospital admin → Settings:** booking from the app (dates, times, how far ahead), choices
+  offered and the reply time, and how long a recording counts after a move. Team → clinic hours:
+  "Bookable in the app" for each doctor.
+
 ## Local run
 
 ```bash

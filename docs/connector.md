@@ -133,7 +133,9 @@ user `SELECT` on these views only. The connector runs SELECTs with bound paramet
   asks the platform for due notices (`/connector/v1/appointment-notices/due`). It sends "your
   appointment is now …" or "… stays as booked" with the hospital's own e-mail or SMS account, in
   the hospital's time zone. With SMS in India, register DLT templates for `appointmentMovedSms` and
-  `appointmentNotChangedSms` (text in `config/messages/en.json`).
+  `appointmentNotChangedSms`, and for v14 (decision 046) also `appointmentOfferSms`,
+  `appointmentCancelledSms`, `appointmentBookedSms` and `appointmentNotBookedSms` (text in
+  `config/messages/en.json`).
 
 ## Small clinics
 

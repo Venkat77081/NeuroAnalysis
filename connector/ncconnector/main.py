@@ -32,11 +32,12 @@ log = logging.getLogger("ncconnector")
 
 async def _reminder_loop(every_s: int) -> None:
     from ncconnector.db import factory
-    from ncconnector.reminders import send_due
+    from ncconnector.reminders import send_due, send_notices
 
     def run() -> None:
         with factory()() as db:
             send_due(db)
+            send_notices(db)
 
     while True:
         try:

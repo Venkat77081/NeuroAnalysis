@@ -95,6 +95,14 @@ Hospitals → Roles and permissions.
   offered and the reply time, and how long a recording counts after a move. Team → clinic hours:
   "Bookable in the app" for each doctor.
 
+## Consent for clinic recordings (v16, decision 047)
+
+- **Hospital admin → Settings → Consent for clinic recordings:** whether patients without the app
+  may agree on the clinic phone (on by default).
+- **Doctor → patient timeline:** each clinic recording shows how consent was given: in the app
+  (QR scanned) or on the clinic phone, with the reason.
+- **Activity:** consent given, checked by the clinic phone, and withdrawn.
+
 ## Dialogs on the front desk (v15)
 
 History, Change date or doctor (move or offer), Check times (Requests) and Cancel open as dialogs

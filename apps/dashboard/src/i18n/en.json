@@ -1202,7 +1202,8 @@
       "doctor_unavailable": "Doctor not available",
       "clinic_closed": "Clinic closed",
       "booked_by_mistake": "Booked by mistake",
-      "other": "Other"
+      "other": "Other",
+      "no_show": "Did not come"
     },
     "patientReason": {
       "feeling_better": "Feeling better",
@@ -1228,5 +1229,16 @@
       "phone_not_with_them": "phone not with them",
       "needs_help": "needed help"
     }
+  },
+  "noShow": {
+    "open": "Did not come…",
+    "badge": "Did not come",
+    "title": "Did {{name}} not come?",
+    "notify": "Tell {{name}} (app, plus SMS/e-mail from the hospital's accounts)",
+    "what": "The appointment is cancelled and open record links are closed. {{doctor}} is told by e-mail. Recordings already made stay with the hospital.",
+    "whatNoDoctor": "The appointment is cancelled and open record links are closed. Recordings already made stay with the hospital.",
+    "confirm": "Mark as did not come",
+    "keep": "Keep it",
+    "done": "{{name}}'s appointment on {{when}} is marked as did not come and cancelled."
   }
 }

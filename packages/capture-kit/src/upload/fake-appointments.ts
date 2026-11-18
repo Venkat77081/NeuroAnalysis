@@ -311,7 +311,12 @@ export class FakeAppointments {
             id: a.id,
             at: a.at,
             doctor_name: a.doctor_name,
-            status: a.status === 'cancelled' ? 'cancelled' : 'past',
+            status:
+              a.status !== 'cancelled'
+                ? 'past'
+                : a.cancel_reason === 'no_show'
+                  ? 'no_show'
+                  : 'cancelled',
             cancelled_by: a.cancelled_by,
             cancel_reason: a.cancel_reason,
             moved_from: a.moved_from,

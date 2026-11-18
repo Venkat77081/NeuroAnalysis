@@ -555,8 +555,8 @@ class PastAppointment(BaseModel):
     id: str
     at: datetime
     doctor_name: str | None
-    #: past (booked, date gone by) | cancelled
-    status: Literal["past", "cancelled"]
+    #: past (booked, date gone by) | cancelled | no_show (v18: the desk marked they did not come)
+    status: Literal["past", "cancelled", "no_show"]
     cancelled_by: str | None
     cancel_reason: str | None
     moved_from: datetime | None
@@ -587,7 +587,13 @@ def patient_appointment_history(
                 id=a.id,
                 at=a.at,
                 doctor_name=_doctor_name(db, a.doctor_id),
-                status="cancelled" if a.status == "cancelled" else "past",
+                status=(
+                    "past"
+                    if a.status != "cancelled"
+                    else "no_show"
+                    if a.cancel_reason == "no_show"
+                    else "cancelled"
+                ),
                 cancelled_by=a.cancelled_by,
                 cancel_reason=a.cancel_reason,
                 moved_from=a.moved_from,

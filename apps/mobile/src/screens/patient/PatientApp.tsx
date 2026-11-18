@@ -820,7 +820,7 @@ interface PastAppointment {
   id: string;
   at: string;
   doctor_name: string | null;
-  status: 'past' | 'cancelled';
+  status: 'past' | 'cancelled' | 'no_show';
   cancelled_by: string | null;
   cancel_reason: string | null;
   moved_from: string | null;
@@ -854,7 +854,10 @@ function AppointmentHistory({ h }: { h: PatientHospital }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [h.profile, h.withdrawnAt, repo]);
-  const shown = (rows ?? []).filter((r) => filter === 'all' || r.status === filter);
+  const shown = (rows ?? []).filter(
+    (r) =>
+      filter === 'all' || r.status === filter || (filter === 'cancelled' && r.status === 'no_show'),
+  );
   return (
     <>
       <div className="flex gap-2" role="group">
@@ -877,12 +880,15 @@ function AppointmentHistory({ h }: { h: PatientHospital }) {
         </p>
       )}
       {shown.map((r) => {
-        const cancelled = r.status === 'cancelled';
-        const what = cancelled
-          ? r.cancelled_by === 'patient'
-            ? t('modes.hospitals.menu.cancelledByYou')
-            : t('modes.hospitals.menu.cancelledByHospital', { hospital: h.hospital })
-          : t('modes.hospitals.menu.pastVisit');
+        const cancelled = r.status !== 'past';
+        const what =
+          r.status === 'no_show'
+            ? t('modes.hospitals.menu.noShow')
+            : cancelled
+              ? r.cancelled_by === 'patient'
+                ? t('modes.hospitals.menu.cancelledByYou')
+                : t('modes.hospitals.menu.cancelledByHospital', { hospital: h.hospital })
+              : t('modes.hospitals.menu.pastVisit');
         return (
           <Card key={r.id} className="flex flex-col gap-1" data-testid="history-appt">
             <div className="flex items-start justify-between gap-2">
@@ -897,7 +903,7 @@ function AppointmentHistory({ h }: { h: PatientHospital }) {
             <span className="text-[13px] text-muted">
               {[
                 r.doctor_name,
-                cancelled && r.cancel_reason
+                r.status === 'cancelled' && r.cancel_reason
                   ? t(`appts.cancelReason.${r.cancel_reason}`, { defaultValue: '' })
                   : '',
                 r.moved_from

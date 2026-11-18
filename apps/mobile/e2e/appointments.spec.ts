@@ -11,6 +11,7 @@ type Appts = {
   appointments: { id: string; status: string; at: string; doctor_name: string }[];
   deskBook(id: string, doctor?: string): void;
   deskOffer(t: { appointmentId?: string; requestId?: string }, n?: number, keep?: boolean): string;
+  deskCancel(id: string, reason?: string): void;
 };
 type Fake = {
   issueInvite(): string;
@@ -198,4 +199,20 @@ test('cancel any time; book an appointment and choose an offered time', async ({
       .filter({ hasText: 'Dr. Menon' })
       .getByTestId('appointment-badge'),
   ).toHaveText('Booked');
+});
+
+test('v18: the desk marked that the patient did not come', async ({ page }) => {
+  await joined(page);
+  await fake(page, (f) => {
+    const id = f.addAppointment(f.joinedNcids()[0]!, { days: -0.05, doctor: 'Dr. Rao' });
+    f.appts.deskCancel(id, 'no_show');
+  });
+  await page.getByTestId('hospital-card').click();
+  await section(page, 'history');
+  const row = page.getByTestId('history-appt').first();
+  await expect(row.getByTestId('history-appt-state')).toHaveText('Did not come');
+  await page.getByTestId('history-filter-cancelled').click();
+  await expect(page.getByTestId('history-appt')).toHaveCount(1);
+  await page.getByTestId('history-filter-past').click();
+  await expect(page.getByTestId('history-none')).toBeVisible();
 });

@@ -1037,6 +1037,75 @@ export function RequestsTab({
 
 // --- Cancel ---
 
+/** v18 (decision 049): from the appointment's time on, the desk marks that the patient did not
+ * come. The appointment is cancelled; the patient (optional) and the doctor are told. */
+export function NoShowDialog({
+  appt,
+  patient,
+  onDone,
+  onClose,
+}: {
+  appt: Movable;
+  patient: string;
+  onDone: (message: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [notify, setNotify] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const mark = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await call('POST', `/hospital/appointments/${appt.id}/no-show`, { notify });
+      onDone(t('noShow.done', { name: patient, when: fmt(appt.at) }));
+    } catch (e) {
+      setError(e);
+    }
+    setBusy(false);
+  };
+  return (
+    <Dialog
+      title={t('noShow.title', { name: patient })}
+      sub={`${fmt(appt.at)} · ${appt.doctor_name ?? '—'}`}
+      size="sm"
+      onClose={onClose}
+      testId="no-show-dialog"
+    >
+      <label className="flex min-h-11 items-center gap-2 text-[14px]">
+        <input
+          type="checkbox"
+          checked={notify}
+          onChange={(e) => setNotify(e.target.checked)}
+          className="h-4 w-4"
+          data-testid="no-show-notify"
+        />
+        {t('noShow.notify', { name: patient })}
+      </label>
+      <Notice tone="warn">
+        {appt.doctor_name
+          ? t('noShow.what', { doctor: appt.doctor_name })
+          : t('noShow.whatNoDoctor')}
+      </Notice>
+      <ErrorNote error={error} />
+      <div className="flex flex-wrap gap-2.5">
+        <Button
+          variant="danger"
+          disabled={busy}
+          onClick={() => void mark()}
+          data-testid="no-show-confirm"
+        >
+          {t('noShow.confirm')}
+        </Button>
+        <Button variant="secondary" onClick={onClose}>
+          {t('noShow.keep')}
+        </Button>
+      </div>
+    </Dialog>
+  );
+}
+
 export function CancelDialog({
   appt,
   patient,

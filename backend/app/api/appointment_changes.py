@@ -13,6 +13,7 @@ sends. Patients' requests, bookings and the desk's offers are in `appointment_re
 - Cancelling (desk or patient, any time) needs a reason code; recordings already made stay.
 """
 
+import logging
 import re
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
@@ -34,6 +35,7 @@ from app.api.requests import (
 )
 from app.audit import audit
 from app.db import get_db
+from app.delivery import DeliveryError
 from app.hospital_settings import OPTIONS, site_settings, site_tz, valid_time_zone
 from app.models import (
     Appointment,
@@ -50,9 +52,13 @@ from app.models import (
 )
 from app.permissions import allows, require
 from app.policy import policy
+from app.providers import doctor_no_show
 from app.security import Principal
 
 router = APIRouter(tags=["appointment changes"])
+log = logging.getLogger("neurocapture.appointments")
+#: v18: the cancel reason when the desk marks that the patient did not come.
+NO_SHOW = "no_show"
 can_change = require("appointments.add", "appointments.assign")
 can_view = require("appointments.view", "appointments.add", "appointments.assign")
 any_staff = require(
@@ -697,6 +703,52 @@ def desk_cancel(
     return _appt_out(db, a, pt.ncid)
 
 
+class NoShowIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    #: Tell the patient (SMS / e-mail from the connector, and the app).
+    notify: bool = True
+
+
+@router.post("/hospital/appointments/{appt_id}/no-show", response_model=AppointmentOut)
+def desk_no_show(
+    appt_id: str,
+    body: NoShowIn,
+    p: Principal = Depends(can_change),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> AppointmentOut:
+    """v18 (decision 049): the patient did not come. From the appointment's time on, the desk marks
+    it: the appointment is cancelled (reason `no_show`), the patient is told, and so is the doctor
+    (e-mail with the NCID and time only)."""
+    a, pt = _appointment(db, p, appt_id)
+    if not allows(db, p, "appointments.add"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
+    if a.status == "cancelled":
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "appointment_cancelled"})
+    if datetime.now(UTC) < aware(a.at):
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "not_yet"})
+    for r in db.scalars(
+        select(RecordingRequest).where(
+            RecordingRequest.appointment_id == a.id, RecordingRequest.place == "clinic"
+        )
+    ):
+        if request_state(db, r) == "recorded":
+            # The clinic recorded the patient at this visit: they came.
+            raise HTTPException(status.HTTP_409_CONFLICT, {"code": "recorded_at_visit"})
+    cancel_appointment(db, a, p.actor_type, p.actor_id, "staff", NO_SHOW)
+    if body.notify:
+        notice(db, a.site_id, a.patient_id, "no_show", appointment_id=a.id)
+    doctor = db.get(StaffUser, a.doctor_id) if a.doctor_id else None
+    site = db.get(Site, a.site_id)
+    db.commit()
+    if doctor and doctor.active and doctor.email:
+        when = aware(a.at).astimezone(site_tz(site)).strftime("%a %d %b %Y, %H:%M")
+        try:
+            doctor_no_show(doctor.email, site.name, pt.ncid, when)
+        except DeliveryError:
+            log.warning("doctor no-show e-mail not sent")
+    return _appt_out(db, a, pt.ncid)
+
+
 @router.post("/hospital/appointments/{appt_id}/cancellation-seen", status_code=204)
 def cancellation_seen(
     appt_id: str, p: Principal = Depends(can_view), db: DbSession = Depends(get_db)
@@ -712,7 +764,7 @@ def cancellation_seen(
 class NoticeOut(BaseModel):
     id: str
     ncid: str
-    #: moved | not_changed | offer | cancelled | booked | not_booked
+    #: moved | not_changed | offer | cancelled | booked | not_booked | no_show
     kind: str
     at: datetime | None
     #: The same time in the hospital's time zone (ISO with offset), for the message text.

@@ -121,7 +121,8 @@ def send_reminder(channel: str, to: str, due: str, appointment: str | None) -> N
 def send_appointment_notice(
     channel: str, to: str, kind: str, when: str | None, doctor: str | None, by: str | None = None
 ) -> None:
-    """v13/v14: moved, not_changed, offer (choose a time by …), cancelled, booked, not_booked.
+    """v13/v14: moved, not_changed, offer (choose a time by …), cancelled, booked, not_booked;
+    v18: no_show.
     Raises DeliveryError."""
     hospital = get_settings().hospital_name
     key = {
@@ -131,6 +132,8 @@ def send_appointment_notice(
         "cancelled": "appointmentCancelled",
         "booked": "appointmentBooked",
         "not_booked": "appointmentNotBooked",
+        # v18 (decision 049): the desk marked that the patient did not come.
+        "no_show": "appointmentNoShow",
     }[kind]
     doc = text("appointmentDoctor", "suffix", doctor=doctor) if doctor and kind in ("moved", "booked") else ""
     when_part = text("appointmentOfferWhen", "suffix", when=when) if when else ""

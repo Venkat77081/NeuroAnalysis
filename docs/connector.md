@@ -134,8 +134,8 @@ user `SELECT` on these views only. The connector runs SELECTs with bound paramet
   appointment is now …" or "… stays as booked" with the hospital's own e-mail or SMS account, in
   the hospital's time zone. With SMS in India, register DLT templates for `appointmentMovedSms` and
   `appointmentNotChangedSms`, and for v14 (decision 046) also `appointmentOfferSms`,
-  `appointmentCancelledSms`, `appointmentBookedSms` and `appointmentNotBookedSms` (text in
-  `config/messages/en.json`).
+  `appointmentCancelledSms`, `appointmentBookedSms` and `appointmentNotBookedSms`, and for v18
+  (decision 049) `appointmentNoShowSms` (text in `config/messages/en.json`).
 
 ## Small clinics
 

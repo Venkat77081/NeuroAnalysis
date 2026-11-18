@@ -25,6 +25,8 @@ export const MENU: { page: string; perms: string[]; roles?: string[] }[] = [
   { page: 'connections', perms: ['setup.connections'] },
   { page: 'team', perms: ['setup.team'] },
   { page: 'phones', perms: ['setup.phones'] },
+  // v13: phones' pass level, appointment change cut-off, time zone.
+  { page: 'settings', perms: ['setup.settings'] },
   { page: 'activity', perms: ['setup.activity'] },
 ];
 

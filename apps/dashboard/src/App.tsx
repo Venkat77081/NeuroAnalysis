@@ -9,6 +9,7 @@ import { OverviewPage } from './overview.tsx';
 import { InvitePatients } from './invites.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
 import { Appointments } from './appointments.tsx';
+import { HospitalSettingsPage } from './changes.tsx';
 import { ChooseTests, waitingForTests } from './choose.tsx';
 import { PermsContext, menuFor } from './perms.ts';
 import { PermissionsPage } from './permissions.tsx';
@@ -38,11 +39,18 @@ export function App() {
   const [permsFor, setPermsFor] = useState<string | null>(null);
   /** v3: appointments waiting for this doctor's tests (count in the menu). */
   const [waiting, setWaiting] = useState<number | null>(null);
+  /** v13: patients' open change requests (count in the menu). */
+  const [changes, setChanges] = useState<number | null>(null);
 
   const loadMe = async () => {
     const m = await call<Me>('GET', '/staff/me');
     setMe(m);
     setPage(menuFor(m.role, new Set(m.permissions))[0] ?? '');
+    if (m.permissions.includes('appointments.add') || m.permissions.includes('appointments.assign'))
+      call<unknown[]>('GET', '/hospital/change-requests').then(
+        (l) => setChanges(l.length),
+        () => undefined,
+      );
     if (m.role === 'doctor')
       waitingForTests(m.id).then(
         (l) => setWaiting(l.length),
@@ -101,7 +109,8 @@ export function App() {
   else if (page === 'phones') body = <Phones />;
   else if (page === 'invite') body = <InvitePatients />;
   else if (page === 'activity') body = <Activity />;
-  else if (page === 'appointments') body = <Appointments />;
+  else if (page === 'appointments') body = <Appointments onChangeCount={setChanges} />;
+  else if (page === 'settings') body = <HospitalSettingsPage />;
   else if (page === 'chooseTests') body = <ChooseTests meId={me.id} onCount={setWaiting} />;
   else if (patient) body = <PatientView ncid={patient} onBack={() => setPatient(null)} />;
   else body = <MyPatients onOpen={setPatient} />;
@@ -129,6 +138,15 @@ export function App() {
             data-testid={`nav-${p}`}
           >
             <span className="flex-1">{t(`nav.${p}`)}</span>
+            {p === 'appointments' && !!changes && (
+              <span
+                className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white"
+                data-testid="change-count"
+                aria-label={t('moves.countLabel', { count: changes })}
+              >
+                {changes}
+              </span>
+            )}
             {p === 'chooseTests' && !!waiting && (
               <span
                 className="rounded-[10px] bg-brand px-2 text-[12px] text-white"

@@ -55,5 +55,36 @@
   },
   "appointmentDoctor": {
     "suffix": " with {doctor}"
+  },
+  "appointmentOfferEmail": {
+    "subject": "{hospital}: please choose a new time for your appointment",
+    "body": "{hospital} needs to move your appointment{when_part}. Open the NeuroCapture app and choose one of the times offered, by {by}.\n\nIf none of them suit you, you can ask {hospital} to call you, or cancel the appointment in the app."
+  },
+  "appointmentOfferSms": {
+    "body": "{hospital}: please choose a new time for your appointment{when_part} in the NeuroCapture app by {by}."
+  },
+  "appointmentOfferWhen": {
+    "suffix": " on {when}"
+  },
+  "appointmentCancelledEmail": {
+    "subject": "{hospital}: your appointment on {when} is cancelled",
+    "body": "{hospital} has cancelled your appointment on {when}.\n\nTo book again, use the NeuroCapture app or call {hospital}."
+  },
+  "appointmentCancelledSms": {
+    "body": "{hospital}: your appointment on {when} is cancelled. Book again in the NeuroCapture app or call us."
+  },
+  "appointmentBookedEmail": {
+    "subject": "{hospital}: your appointment is booked for {when}",
+    "body": "{hospital} has booked your appointment for {when}{doctor}.\n\nOpen the NeuroCapture app and choose {hospital} to see it."
+  },
+  "appointmentBookedSms": {
+    "body": "{hospital}: your appointment is booked for {when}{doctor}. See the NeuroCapture app."
+  },
+  "appointmentNotBookedEmail": {
+    "subject": "{hospital}: about your appointment request",
+    "body": "{hospital} could not book the appointment you asked for in the app.\n\nPlease call {hospital} to find a time."
+  },
+  "appointmentNotBookedSms": {
+    "body": "{hospital}: we could not book the appointment you asked for. Please call us."
   }
 }

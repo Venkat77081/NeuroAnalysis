@@ -344,6 +344,8 @@ class UploadQueue(
                 // v14: offers, cancelling, booking from the app, free times.
                 "|patient/appointments/[A-Za-z0-9]{1,40}/cancel|patient/bookings|patient/doctors" +
                 "|patient/free-times\\?[A-Za-z0-9=&%:._-]{1,200}" +
+                // v17: the calendar's free days and the patient's appointment history.
+                "|patient/free-days\\?[A-Za-z0-9=&%:._-]{1,200}|patient/appointments/history" +
                 "|patient/offers/[A-Za-z0-9]{1,40}/(choose|keep|call|decline)" +
                 // v16: clinic consent in the app (QR) and on the clinic phone.
                 "|patient/requests/[A-Za-z0-9]{1,40}/clinic-consent(/withdraw)?" +

@@ -268,21 +268,56 @@ export class FakeAppointments {
       });
     }
     if (p === '/patient/doctors' && method === 'GET') return res(200, FAKE_DOCTORS.slice(0, 2));
+    const taken = () =>
+      new Set(this.appointments.filter((a) => a.status === 'booked').map((a) => a.at));
+    const held = () =>
+      new Set(this.offers.filter((o) => this.live(o)).flatMap((o) => o.options.map((x) => x.at)));
+    const freeOn = (day: string, t: Set<string>, h: Set<string>) => {
+      const min = q.get('appointment_id') ? now : now + 2 * DAY;
+      return TIMES.filter((x) => {
+        const at = ist(day, x);
+        return Date.parse(at) > min && !t.has(at) && !h.has(at);
+      });
+    };
     if (p === '/patient/free-times' && method === 'GET') {
       const day = q.get('date') ?? '';
       const doctor = q.get('doctor_id') ?? 'drrao';
-      const taken = new Set(
-        this.appointments.filter((a) => a.status === 'booked').map((a) => a.at),
-      );
-      const held = new Set(
-        this.offers.filter((o) => this.live(o)).flatMap((o) => o.options.map((x) => x.at)),
-      );
-      const min = q.get('appointment_id') ? now : now + 2 * DAY;
-      const times = TIMES.filter((t) => {
-        const at = ist(day, t);
-        return Date.parse(at) > min && !taken.has(at) && !held.has(at);
-      }).map((t) => ({ time: t, doctor_id: doctor }));
+      const times = freeOn(day, taken(), held()).map((t) => ({ time: t, doctor_id: doctor }));
       return res(200, { date: day, times });
+    }
+    // v17: free-time counts per day for the calendar.
+    if (p === '/patient/free-days' && method === 'GET') {
+      const from = Date.parse(`${q.get('from') ?? ''}T00:00:00Z`);
+      const to = Date.parse(`${q.get('to') ?? ''}T00:00:00Z`);
+      if (!(to >= from) || (to - from) / DAY + 1 > 62)
+        return res(422, { detail: { code: 'range_too_long' } });
+      const t = taken();
+      const h = held();
+      const days = [];
+      for (let d = from; d <= to; d += DAY) {
+        const day = new Date(d).toISOString().slice(0, 10);
+        days.push({ date: day, free: freeOn(day, t, h).length });
+      }
+      return res(200, { days });
+    }
+    // v17: past and cancelled appointments, newest first.
+    if (p === '/patient/appointments/history' && method === 'GET') {
+      return res(
+        200,
+        this.appointments
+          .filter((a) => a.ncid === ncid && (a.status === 'cancelled' || Date.parse(a.at) < now))
+          .sort((a, b) => b.at.localeCompare(a.at))
+          .map((a) => ({
+            id: a.id,
+            at: a.at,
+            doctor_name: a.doctor_name,
+            status: a.status === 'cancelled' ? 'cancelled' : 'past',
+            cancelled_by: a.cancelled_by,
+            cancel_reason: a.cancel_reason,
+            moved_from: a.moved_from,
+            moved_by_hospital: a.moved_by_hospital,
+          })),
+      );
     }
     const ask = /^\/patient\/appointments\/([A-Za-z0-9]+)\/change-request$/.exec(p);
     if (ask && method === 'POST') {

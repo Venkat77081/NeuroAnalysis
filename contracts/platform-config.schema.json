@@ -471,7 +471,9 @@
         "patientCancelReasons",
         "bookingPurposes",
         "bookingDeclineAnswers",
-        "cancelledShownDays"
+        "cancelledShownDays",
+        "patientHistoryMax",
+        "freeDaysMaxSpan"
       ],
       "properties": {
         "cutoffHours": {
@@ -711,6 +713,18 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 90
+        },
+        "patientHistoryMax": {
+          "description": "v17: past appointments shown in the patient app's Appointment history.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "freeDaysMaxSpan": {
+          "description": "v17: most days one calendar request may ask free-time counts for.",
+          "type": "integer",
+          "minimum": 7,
+          "maximum": 120
         }
       }
     },

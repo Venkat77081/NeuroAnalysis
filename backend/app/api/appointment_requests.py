@@ -469,17 +469,8 @@ class FreeTimesOut(BaseModel):
     times: list[FreeTime]
 
 
-@router.get("/patient/free-times", response_model=FreeTimesOut)
-def patient_free_times(
-    day: date = Query(alias="date"),
-    doctor_id: str | None = Query(default=None, max_length=32),
-    appointment_id: str | None = Query(default=None, max_length=32),
-    p: Principal = Depends(current_principal),  # noqa: B008
-    db: DbSession = Depends(get_db),  # noqa: B008
-) -> FreeTimesOut:
-    """Free times on one day: with one doctor, the appointment's doctor (changing it), or any
-    bookable doctor. Booking: not before `booking_min_days`."""
-    acc = _patient(p)
+def _free_setup(db: DbSession, acc, doctor_id: str | None, appointment_id: str | None):
+    """Which doctors, which appointment (when changing one) and the earliest bookable moment."""
     site = db.get(Site, acc.site_id)
     a = db.get(Appointment, appointment_id) if appointment_id else None
     if appointment_id and (not a or a.patient_id != acc.patient_id):
@@ -494,19 +485,116 @@ def patient_free_times(
     else:
         doctors = [d for d in doctors_of(db, site.id) if (h := db.get(DoctorHours, d.id)) and h.bookable]
     now_ = _now()
-    tz = site_tz(site)
     not_before = None
     if a is None:
+        tz = site_tz(site)
         first = now_.astimezone(tz).date() + timedelta(days=int(site_settings(site)["booking_min_days"]))
         not_before = datetime.combine(first, time(0), tzinfo=tz)
-    held = held_times(db, site.id, now_)
+    return site, a, doctors, now_, not_before
+
+
+def _free_on(db, site, a, doctors, now_, not_before, held, day: date) -> dict[str, str]:
     times: dict[str, str] = {}
     for d in doctors:
         for t in doctor_day(
             db, site, d, day, a.id if a else None, now_, held=held, not_before=not_before
         ).free:
             times.setdefault(t, d.id)
+    return times
+
+
+@router.get("/patient/free-times", response_model=FreeTimesOut)
+def patient_free_times(
+    day: date = Query(alias="date"),
+    doctor_id: str | None = Query(default=None, max_length=32),
+    appointment_id: str | None = Query(default=None, max_length=32),
+    p: Principal = Depends(current_principal),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> FreeTimesOut:
+    """Free times on one day: with one doctor, the appointment's doctor (changing it), or any
+    bookable doctor. Booking: not before `booking_min_days`."""
+    acc = _patient(p)
+    site, a, doctors, now_, not_before = _free_setup(db, acc, doctor_id, appointment_id)
+    held = held_times(db, site.id, now_)
+    times = _free_on(db, site, a, doctors, now_, not_before, held, day)
     return FreeTimesOut(date=day, times=[FreeTime(time=t, doctor_id=times[t]) for t in sorted(times)])
+
+
+class FreeDay(BaseModel):
+    date: date
+    free: int
+
+
+class FreeDaysOut(BaseModel):
+    days: list[FreeDay]
+
+
+@router.get("/patient/free-days", response_model=FreeDaysOut)
+def patient_free_days(
+    start: date = Query(alias="from"),
+    end: date = Query(alias="to"),
+    doctor_id: str | None = Query(default=None, max_length=32),
+    appointment_id: str | None = Query(default=None, max_length=32),
+    p: Principal = Depends(current_principal),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> FreeDaysOut:
+    """v17: how many free times each day has, for the app's calendar (a month at a time)."""
+    acc = _patient(p)
+    if end < start or (end - start).days + 1 > int(cfg()["freeDaysMaxSpan"]):
+        raise _bad("range_too_long")
+    site, a, doctors, now_, not_before = _free_setup(db, acc, doctor_id, appointment_id)
+    held = held_times(db, site.id, now_)
+    out, day = [], start
+    while day <= end:
+        out.append(FreeDay(date=day, free=len(_free_on(db, site, a, doctors, now_, not_before, held, day))))
+        day += timedelta(days=1)
+    return FreeDaysOut(days=out)
+
+
+class PastAppointment(BaseModel):
+    id: str
+    at: datetime
+    doctor_name: str | None
+    #: past (booked, date gone by) | cancelled
+    status: Literal["past", "cancelled"]
+    cancelled_by: str | None
+    cancel_reason: str | None
+    moved_from: datetime | None
+    moved_by_hospital: bool
+
+
+@router.get("/patient/appointments/history", response_model=list[PastAppointment])
+def patient_appointment_history(
+    p: Principal = Depends(current_principal),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> list[PastAppointment]:
+    """v17: the patient's past and cancelled appointments at this hospital, newest first. Only
+    dates, doctors and what happened; no notes or results."""
+    acc = _patient(p)
+    now_ = _now()
+    out = []
+    for a in db.scalars(
+        select(Appointment)
+        .where(
+            Appointment.patient_id == acc.patient_id,
+            (Appointment.status == "cancelled") | (Appointment.at < now_),
+        )
+        .order_by(Appointment.at.desc())
+        .limit(int(cfg()["patientHistoryMax"]))
+    ):
+        out.append(
+            PastAppointment(
+                id=a.id,
+                at=a.at,
+                doctor_name=_doctor_name(db, a.doctor_id),
+                status="cancelled" if a.status == "cancelled" else "past",
+                cancelled_by=a.cancelled_by,
+                cancel_reason=a.cancel_reason,
+                moved_from=a.moved_from,
+                moved_by_hospital=a.moved_from is not None and a.moved_reason not in PATIENT_SIDE,
+            )
+        )
+    return out
 
 
 class ChangeIn(BaseModel):

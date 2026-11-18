@@ -61,11 +61,14 @@ export function TestIntro() {
             {t('session.intro.end')}
           </button>
         </div>
-        <div className="h-1 rounded bg-line">
-          <div
-            className="h-1 rounded bg-brand"
-            style={{ width: `${((ctx.index + 1) / ctx.plan.length) * 100}%` }}
-          />
+        {/* New UI: one segment per test (done, this one, still to come). */}
+        <div className="flex gap-1.5" aria-hidden data-testid="test-progress">
+          {ctx.plan.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 flex-1 rounded-full ${i < ctx.index ? 'bg-ok' : i === ctx.index ? 'bg-brand' : 'bg-line'}`}
+            />
+          ))}
         </div>
       </header>
 
@@ -130,7 +133,7 @@ export function TestIntro() {
         </div>
 
         <div
-          className="relative flex h-44 items-center justify-center rounded-2xl bg-[#1C222B] text-sm text-[#B8C0CC]"
+          className="nc-fade-up relative flex h-44 items-center justify-center rounded-2xl bg-gradient-to-br from-[#E6EFF8] to-[#FDE3CF] text-sm font-semibold text-[#3D4552]"
           aria-label={t('session.intro.demoMissing')}
         >
           {cfg.instructions.demoVideo === 'TBD'
@@ -140,8 +143,12 @@ export function TestIntro() {
 
         <ol className="m-0 flex list-none flex-col gap-2.5 p-0" data-testid="steps">
           {steps.map((s, i) => (
-            <li key={i} className="flex gap-3 text-[15px] leading-snug">
-              <span className="flex size-[26px] flex-none items-center justify-center rounded-full bg-ink text-[13px] font-bold text-white">
+            <li
+              key={i}
+              className="nc-fade-up flex gap-3 text-[15px] leading-snug"
+              style={{ animationDelay: `${0.1 + i * 0.08}s` }}
+            >
+              <span className="flex size-[26px] flex-none items-center justify-center rounded-full bg-brand text-[13px] font-bold text-white">
                 {i + 1}
               </span>
               <span>{s}</span>

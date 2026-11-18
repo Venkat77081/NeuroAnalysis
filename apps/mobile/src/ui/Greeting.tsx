@@ -21,11 +21,14 @@ export function Greeting({
   line,
   right,
   part = dayPart(),
+  card = false,
 }: {
   name?: string | null;
   line?: ReactNode;
   right?: ReactNode;
   part?: DayPart;
+  /** Inside a padded page (clinic phone): a rounded card instead of a full-width header. */
+  card?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const dark = part === 'evening';
@@ -37,7 +40,7 @@ export function Greeting({
   const first = name?.trim().split(/\s+/)[0];
   return (
     <section
-      className={`relative -mx-5 -mt-6 overflow-hidden rounded-b-[26px] px-5 pt-7 pb-5 ${dark ? 'text-white' : 'text-[#3B2417]'}`}
+      className={`relative overflow-hidden ${card ? 'rounded-[22px] px-4 pt-5 pb-4' : '-mx-5 -mt-6 rounded-b-[26px] px-5 pt-7 pb-5'} ${dark ? 'text-white' : 'text-[#3B2417]'}`}
       style={{ background: SKY[part] }}
       data-testid="greeting"
       data-part={part}

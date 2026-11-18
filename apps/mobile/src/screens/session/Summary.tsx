@@ -46,6 +46,21 @@ export function Summary() {
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col bg-ground">
       <header className="flex flex-col gap-1 px-5 pt-5 pb-2">
+        {/* New UI: a tick that draws itself when the session is done. */}
+        {!ctx.aborted && (
+          <svg width="72" height="72" viewBox="0 0 96 96" aria-hidden data-testid="done-tick">
+            <circle cx="48" cy="48" r="40" fill="#E3F4EA" />
+            <path
+              className="nc-draw"
+              d="M30 49 l12 12 l24 -26"
+              fill="none"
+              stroke="#1B7F4B"
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
         <h1 className="m-0 text-[26px] font-bold">{t('session.summary.title')}</h1>
         <span className="text-sm text-muted">
           {t('session.summary.meta', {

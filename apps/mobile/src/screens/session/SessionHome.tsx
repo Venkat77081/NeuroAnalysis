@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Greeting } from '../../ui/Greeting.tsx';
 import { useTranslation } from 'react-i18next';
 import { ClinicQueue } from './ClinicQueue.tsx';
 import { useApp } from '../../app/AppContext.tsx';
@@ -139,6 +140,10 @@ export function SessionHome({
       </header>
 
       <main className="flex flex-1 flex-col gap-3.5 px-5 pt-1">
+        {/* New UI: clinic phones greet the signed-in operator (name from the hospital's staff list). */}
+        {settings.server && settings.signedIn && !settings.localDev && (
+          <Greeting card name={settings.signedIn.name} line={t('greeting.clinicPhone')} />
+        )}
         <div className="flex items-baseline justify-between">
           <h1 className="m-0 text-[26px] font-bold">{t('session.home.title')}</h1>
           <button

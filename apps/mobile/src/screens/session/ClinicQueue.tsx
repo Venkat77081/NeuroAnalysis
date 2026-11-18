@@ -100,6 +100,123 @@ export function ClinicQueue() {
       </p>
     );
   if (!items) return null;
+  const card = (q: QueueItem, wide: boolean) => {
+    const steps = config.session.order.filter(([code]) => q.tests.includes(code));
+    const open = q.state === 'open';
+    return (
+      <Card
+        key={q.request_id}
+        className={`nc-fade-up flex flex-col gap-1.5 ${open ? '' : 'opacity-75'} ${wide ? 'w-[86%] max-w-[340px] flex-none snap-start' : ''}`}
+        data-testid="queue-item"
+      >
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[16px] font-bold" data-testid="queue-name">
+            {q.name ?? t('clinicQueue.noName')}
+          </span>
+          <span className="text-[13px] font-semibold">{time(q.at, i18n.language)}</span>
+        </div>
+        <span className="text-[13px] text-muted">
+          {[q.mrn ? `MRN ${q.mrn}` : null, q.doctor_name].filter(Boolean).join(' · ')}
+        </span>
+        <span className="text-[13px] text-muted">
+          {steps.map(([code, side]) => stepTitle(t, code, side)).join(', ')} ·{' '}
+          {t(`clinicQueue.med.${q.med_state}`)}
+        </span>
+        {open && q.consent && (
+          <span
+            className={`self-start rounded-xl px-2.5 py-0.5 text-[12px] font-semibold ${
+              q.consent.state === 'app_given'
+                ? 'bg-[#E3F4EA] text-[#145F38]'
+                : q.consent.state === 'waiting'
+                  ? 'bg-[#FDF0DD] text-[#8A4B00]'
+                  : 'bg-[#EDF0F3] text-[#3D4552]'
+            }`}
+            data-testid="queue-consent"
+          >
+            {t(`clinicConsent.state.${q.consent.state}`)}
+          </span>
+        )}
+        {open && consenting?.id === q.request_id ? (
+          consenting.how === 'scan' ? (
+            <ConsentScan
+              q={q}
+              onConfirmed={(c) => {
+                setConsenting(null);
+                void start(q, c);
+              }}
+              onPhone={
+                q.consent?.phone_allowed
+                  ? () => setConsenting({ id: q.request_id, how: 'phone' })
+                  : null
+              }
+              onCancel={() => setConsenting(null)}
+            />
+          ) : (
+            <PhoneConsent
+              q={q}
+              onConfirmed={(c) => {
+                setConsenting(null);
+                void start(q, c);
+              }}
+              onCancel={() => setConsenting(null)}
+            />
+          )
+        ) : open ? (
+          asking === q.request_id ? (
+            <div className="flex flex-col gap-1.5" data-testid="queue-reasons">
+              <span className="text-[13px] font-semibold">{t('clinicQueue.why')}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {config.platform.requests.clinicNotDoneReasons.map((r) => (
+                  <Button
+                    key={r}
+                    variant="secondary"
+                    className="!h-11 !px-3 !text-[13px]"
+                    onClick={() => void skip(q, r)}
+                    data-testid={`reason-${r}`}
+                  >
+                    {t(`clinicQueue.reason.${r}`)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={!ready || (q.consent?.state === 'no_app' && !q.consent.phone_allowed)}
+                onClick={() => begin(q)}
+                data-testid="queue-start"
+              >
+                {!q.consent
+                  ? t('clinicQueue.start')
+                  : q.consent.state === 'no_app'
+                    ? t('clinicConsent.onPhone')
+                    : t('clinicConsent.scan')}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setAsking(q.request_id)}
+                data-testid="queue-skip"
+              >
+                {t('clinicQueue.notRecorded')}
+              </Button>
+            </div>
+          )
+        ) : (
+          <span
+            className={`text-[13px] font-semibold ${q.state === 'recorded' ? 'text-ok' : 'text-bad'}`}
+            data-testid="queue-state"
+          >
+            {t(`clinicQueue.state.${q.state}`, {
+              reason: q.not_done_reason ? t(`clinicQueue.reason.${q.not_done_reason}`) : '',
+            })}
+          </span>
+        )}
+      </Card>
+    );
+  };
+  const openItems = items.filter((q) => q.state === 'open');
+  const doneItems = items.filter((q) => q.state !== 'open');
   return (
     <section className="flex flex-col gap-2" data-testid="clinic-queue">
       <div className="flex items-baseline justify-between">
@@ -127,121 +244,13 @@ export function ClinicQueue() {
           {t('clinicQueue.empty')}
         </span>
       )}
-      {items.map((q) => {
-        const steps = config.session.order.filter(([code]) => q.tests.includes(code));
-        const open = q.state === 'open';
-        return (
-          <Card
-            key={q.request_id}
-            className={`flex flex-col gap-1.5 ${open ? '' : 'opacity-75'}`}
-            data-testid="queue-item"
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[16px] font-bold" data-testid="queue-name">
-                {q.name ?? t('clinicQueue.noName')}
-              </span>
-              <span className="text-[13px] font-semibold">{time(q.at, i18n.language)}</span>
-            </div>
-            <span className="text-[13px] text-muted">
-              {[q.mrn ? `MRN ${q.mrn}` : null, q.doctor_name].filter(Boolean).join(' · ')}
-            </span>
-            <span className="text-[13px] text-muted">
-              {steps.map(([code, side]) => stepTitle(t, code, side)).join(', ')} ·{' '}
-              {t(`clinicQueue.med.${q.med_state}`)}
-            </span>
-            {open && q.consent && (
-              <span
-                className={`self-start rounded-xl px-2.5 py-0.5 text-[12px] font-semibold ${
-                  q.consent.state === 'app_given'
-                    ? 'bg-[#E3F4EA] text-[#145F38]'
-                    : q.consent.state === 'waiting'
-                      ? 'bg-[#FDF0DD] text-[#8A4B00]'
-                      : 'bg-[#EDF0F3] text-[#3D4552]'
-                }`}
-                data-testid="queue-consent"
-              >
-                {t(`clinicConsent.state.${q.consent.state}`)}
-              </span>
-            )}
-            {open && consenting?.id === q.request_id ? (
-              consenting.how === 'scan' ? (
-                <ConsentScan
-                  q={q}
-                  onConfirmed={(c) => {
-                    setConsenting(null);
-                    void start(q, c);
-                  }}
-                  onPhone={
-                    q.consent?.phone_allowed
-                      ? () => setConsenting({ id: q.request_id, how: 'phone' })
-                      : null
-                  }
-                  onCancel={() => setConsenting(null)}
-                />
-              ) : (
-                <PhoneConsent
-                  q={q}
-                  onConfirmed={(c) => {
-                    setConsenting(null);
-                    void start(q, c);
-                  }}
-                  onCancel={() => setConsenting(null)}
-                />
-              )
-            ) : open ? (
-              asking === q.request_id ? (
-                <div className="flex flex-col gap-1.5" data-testid="queue-reasons">
-                  <span className="text-[13px] font-semibold">{t('clinicQueue.why')}</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {config.platform.requests.clinicNotDoneReasons.map((r) => (
-                      <Button
-                        key={r}
-                        variant="secondary"
-                        className="!h-11 !px-3 !text-[13px]"
-                        onClick={() => void skip(q, r)}
-                        data-testid={`reason-${r}`}
-                      >
-                        {t(`clinicQueue.reason.${r}`)}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    disabled={!ready || (q.consent?.state === 'no_app' && !q.consent.phone_allowed)}
-                    onClick={() => begin(q)}
-                    data-testid="queue-start"
-                  >
-                    {!q.consent
-                      ? t('clinicQueue.start')
-                      : q.consent.state === 'no_app'
-                        ? t('clinicConsent.onPhone')
-                        : t('clinicConsent.scan')}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setAsking(q.request_id)}
-                    data-testid="queue-skip"
-                  >
-                    {t('clinicQueue.notRecorded')}
-                  </Button>
-                </div>
-              )
-            ) : (
-              <span
-                className={`text-[13px] font-semibold ${q.state === 'recorded' ? 'text-ok' : 'text-bad'}`}
-                data-testid="queue-state"
-              >
-                {t(`clinicQueue.state.${q.state}`, {
-                  reason: q.not_done_reason ? t(`clinicQueue.reason.${q.not_done_reason}`) : '',
-                })}
-              </span>
-            )}
-          </Card>
-        );
-      })}
+      {/* New UI: open patients as swipe cards; recorded or not-recorded ones as a list. */}
+      {openItems.length > 0 && (
+        <div className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1">
+          {openItems.map((q) => card(q, openItems.length > 1))}
+        </div>
+      )}
+      {doneItems.map((q) => card(q, false))}
       {error && (
         <p role="alert" className="text-[13px] text-bad">
           {t(`modes.errors.${error}`, { defaultValue: t('modes.errors.generic') })}

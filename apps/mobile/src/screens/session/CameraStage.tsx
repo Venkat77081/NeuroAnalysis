@@ -346,8 +346,8 @@ export function CameraStage() {
           </span>
         )}
         {phase === 'framing' && (
-          <span className={allowed.length > 1 ? '' : 'ml-auto'}>
-            <LandmarksToggle on={showLm} onChange={toggleLm} />
+          <span className="order-2">
+            <LandmarksToggle compact on={showLm} onChange={toggleLm} />
           </span>
         )}
         {phase === 'framing' && allowed.length > 1 && (
@@ -358,17 +358,20 @@ export function CameraStage() {
               rememberOrientation(step.code, next);
               setOrientation(next);
             }}
-            className="rounded-full bg-[#0E1116] px-3 py-2 text-[13px] font-semibold"
+            className="order-3 flex size-12 items-center justify-center rounded-full bg-[#0E1116] text-[18px] font-semibold"
             aria-label={t('session.framing.switchOrientation')}
             data-testid="orientation-toggle"
           >
-            {t(
-              `session.framing.orientation.${orientation === 'portrait' ? 'landscape' : 'portrait'}`,
-            )}
+            <span aria-hidden="true">⟲</span>
+            <span className="sr-only">
+              {t(
+                `session.framing.orientation.${orientation === 'portrait' ? 'landscape' : 'portrait'}`,
+              )}
+            </span>
           </button>
         )}
         <div className={L.title}>
-          <span className="text-sm font-semibold">
+          <span className="block max-w-full truncate text-sm font-semibold">
             {ctx.training && (
               <span
                 className="mr-1.5 rounded-md bg-[#F2A23A] px-1.5 py-0.5 text-[11px] font-bold text-[#1A1206]"
@@ -379,7 +382,7 @@ export function CameraStage() {
             )}
             {stepTitle(t, step.code, step.side)}
           </span>
-          <span className="text-[11px] text-[#B8C0CC]">
+          <span className="block max-w-full truncate text-[11px] text-[#B8C0CC]">
             {t('session.framing.mode', {
               res: cfg.camera.resolution,
               fps,
@@ -544,7 +547,11 @@ function Countdown({
   }, [seconds, lock]);
   return (
     <div className="absolute inset-0 flex items-center justify-center" aria-live="assertive">
-      <span className="text-[120px] font-bold drop-shadow-lg" data-testid="countdown">
+      <span
+        key={count}
+        className="nc-pop text-[120px] font-bold drop-shadow-lg"
+        data-testid="countdown"
+      >
         {count > 0 ? count : ''}
       </span>
     </div>
@@ -626,7 +633,8 @@ function RecordingPanel({
 const PORTRAIT = {
   guide: 'pointer-events-none absolute inset-0',
   header: 'absolute inset-x-0 top-[var(--sat)] flex items-center justify-between gap-2 p-3',
-  title: 'flex flex-col items-end rounded-xl bg-[#0E1116] px-3 py-1.5',
+  // New UI: the title sits next to Back and takes the room left, one line each (no clipping).
+  title: 'order-1 flex min-w-0 flex-1 flex-col items-start rounded-2xl bg-[#0E1116]/90 px-3 py-1.5',
   hints: 'absolute inset-x-4 top-[calc(5rem+var(--sat))] flex flex-col gap-2',
   hint: 'm-0 rounded-2xl bg-[#0E1116] px-4 py-3 text-[15px]',
   panel:

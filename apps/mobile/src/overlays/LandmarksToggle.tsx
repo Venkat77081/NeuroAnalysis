@@ -4,9 +4,12 @@ import { useTranslation } from 'react-i18next';
 export function LandmarksToggle({
   on,
   onChange,
+  compact = false,
 }: {
   on: boolean;
   onChange: (on: boolean) => void;
+  /** New UI: on the camera screen, a round icon button (the name stays for screen readers). */
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -15,7 +18,8 @@ export function LandmarksToggle({
       role="switch"
       aria-checked={on}
       onClick={() => onChange(!on)}
-      className={`flex h-12 items-center gap-2 rounded-full px-3 text-[13px] font-semibold ${
+      aria-label={compact ? t('session.landmarks') : undefined}
+      className={`flex h-12 items-center justify-center gap-2 rounded-full text-[13px] font-semibold ${compact ? 'w-12' : 'px-3'} ${
         on ? 'bg-[#4FC3F7] text-[#0E1116]' : 'bg-[#0E1116] text-white'
       }`}
       data-testid="landmarks-switch"
@@ -24,7 +28,7 @@ export function LandmarksToggle({
         className={`size-2.5 rounded-full ${on ? 'bg-[#0E1116]' : 'bg-[#8C96A5]'}`}
         aria-hidden="true"
       />
-      {t('session.landmarks')}
+      {!compact && t('session.landmarks')}
     </button>
   );
 }

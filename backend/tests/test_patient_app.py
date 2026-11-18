@@ -428,7 +428,8 @@ def test_withdraw_keeps_history_and_recordings_and_rejoin(api, two_hospitals):
     assert again["ncid"] == ncid
     hist = api.get(f"/hospital/patients/{ncid}/history", headers=hdr(t["a_desk"])).json()
     assert hist["app_status"] == "active" and hist["withdrawn_at"] is None and len(hist["sessions"]) == 1
-    assert api.get("/hospital/settings", headers=hdr(t["a_tok"])).status_code == 404
+    # v13: /hospital/settings now holds the hospital admin's settings (phones, appointment changes).
+    assert api.get("/hospital/settings", headers=hdr(t["a_tok"])).json()["patient_changes"] is True
 
 
 def test_joining_needs_no_consent(api, two_hospitals):

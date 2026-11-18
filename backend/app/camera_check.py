@@ -8,6 +8,8 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.hospital_settings import site_settings
+from app.models import Site
 from app.policy import policy
 
 
@@ -17,9 +19,15 @@ class CameraCheckIn(BaseModel):
     ran_at: datetime | None = None
 
 
-def require_passing(check: CameraCheckIn | None) -> float:
-    """The measured fps, or 422 when the check is missing or below the minimum."""
-    need = float(policy()["deviceCheck"]["minFps"])
+def min_fps(site: Site | None) -> float:
+    """v13: the hospital's pass level (a hospital admin may be stricter than config, never looser)."""
+    base = float(policy()["deviceCheck"]["minFps"])
+    return max(base, float(site_settings(site)["device_min_fps"]))
+
+
+def require_passing(check: CameraCheckIn | None, site: Site | None = None) -> float:
+    """The measured fps, or 422 when the check is missing or below the hospital's minimum."""
+    need = min_fps(site)
     if check is None:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "camera_check_required", "min_fps": need}

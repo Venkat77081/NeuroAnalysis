@@ -66,7 +66,7 @@ def device_register(body: RegisterIn, db: DbSession = Depends(get_db)) -> Regist
     if not site or site.status == "suspended":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "unknown enrollment code")
     # Checked before the code is used: a phone that fails leaves the code for another phone.
-    fps = require_passing(body.camera_check)
+    fps = require_passing(body.camera_check, site)
     secret = new_secret()
     dev = Device(
         site_id=site.id,

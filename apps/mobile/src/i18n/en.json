@@ -766,7 +766,8 @@
         "cancelledByYou": "Cancelled by you",
         "cancelledByHospital": "Cancelled by {{hospital}}",
         "movedFrom": "moved from {{date}}",
-        "historyNote": "Only dates, doctors and what happened. Notes and results stay with your care team."
+        "historyNote": "Only dates, doctors and what happened. Notes and results stay with your care team.",
+        "noShow": "Did not come"
       }
     },
     "consent": {
@@ -989,7 +990,8 @@
       "patient_asked": "you asked",
       "doctor_unavailable": "doctor not available",
       "clinic_closed": "clinic closed",
-      "booked_by_mistake": "booked by mistake"
+      "booked_by_mistake": "booked by mistake",
+      "no_show": "you did not come to it"
     },
     "offerLine": "{{hospital}} needs to move this appointment. Choose a new time by {{by}}.",
     "chooseTime": "Choose a new time",

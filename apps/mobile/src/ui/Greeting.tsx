@@ -46,7 +46,7 @@ export function Greeting({
         <>
           <span
             aria-hidden
-            className="nc-rise absolute top-5 right-8 size-11 rounded-full shadow-[-12px_6px_0_0_#fde68a]"
+            className="nc-moon absolute top-5 right-8 size-11 rounded-full shadow-[-12px_6px_0_0_#fde68a]"
           />
           {[
             [62, 18],

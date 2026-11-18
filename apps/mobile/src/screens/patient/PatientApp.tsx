@@ -380,7 +380,7 @@ function HospitalList({
       {todos.length > 0 && (
         <section className="flex flex-col gap-2" data-testid="todos">
           <h2 className="m-0 text-[15px] font-bold">{t('greeting.upNext')}</h2>
-          <div className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1">
+          <div className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1">
             {todos.map((x, i) => (
               <article
                 key={x.key}
@@ -1278,6 +1278,23 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
             </Button>
           ))}
         </div>
+      </Card>
+      <Card className="flex flex-col gap-2" data-testid="name-card">
+        <label htmlFor="settings-first-name" className="text-[15px] font-bold">
+          {t('greeting.nameSetting')}
+        </label>
+        <input
+          id="settings-first-name"
+          defaultValue={settings.firstName ?? ''}
+          maxLength={40}
+          autoComplete="given-name"
+          onBlur={(e) =>
+            void saveSettings({ ...settings, firstName: e.target.value.trim().slice(0, 40) })
+          }
+          className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[16px]"
+          data-testid="settings-first-name"
+        />
+        <span className="text-[13px] text-muted">{t('greeting.nameHint')}</span>
       </Card>
       <Card className="flex flex-col gap-2" data-testid="account-card">
         <h2 className="text-[15px] font-bold">{t('modes.account.settingsTitle')}</h2>

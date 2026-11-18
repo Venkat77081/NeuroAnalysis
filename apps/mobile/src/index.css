@@ -155,6 +155,7 @@ html.camera-active #root {
 }
 @media (prefers-reduced-motion: reduce) {
   .nc-rise,
+  .nc-moon,
   .nc-fade-up,
   .nc-pulse,
   .nc-draw,

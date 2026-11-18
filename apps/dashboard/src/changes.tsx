@@ -105,6 +105,8 @@ export interface Settings {
   offer_reply_hours: number;
   recording_valid_days: number;
   record_due_days_before: number;
+  // v16 (decision 047)
+  clinic_phone_consent: boolean;
   options: Record<string, number[]>;
 }
 type NumKey =
@@ -283,6 +285,21 @@ export function HospitalSettingsPage() {
               {(['recording_valid_days', 'record_due_days_before'] as NumKey[]).map((k) => num(k))}
             </div>
             <span className="text-[13px] text-muted">{t('settings.recordingsHint')}</span>
+          </Card>
+          <Card title={t('settings.consentTitle')} testId="settings-consent">
+            <label className="flex min-h-11 items-center gap-2 text-[14px]">
+              <input
+                type="checkbox"
+                checked={v.clinic_phone_consent}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, clinic_phone_consent: e.target.checked }))
+                }
+                className="h-4 w-4"
+                data-testid="settings-phone-consent"
+              />
+              {t('settings.phoneConsent')}
+            </label>
+            <span className="text-[13px] text-muted">{t('settings.consentHint')}</span>
           </Card>
           <Button
             className="self-start"

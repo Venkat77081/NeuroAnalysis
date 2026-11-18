@@ -479,6 +479,10 @@
     "place": {
       "home": "At home",
       "clinic": "In the clinic"
+    },
+    "consent": {
+      "patient_app": "consent in the app (QR scanned)",
+      "clinic_phone": "consent on the clinic phone ({{reason}})"
     }
   },
   "invite": {
@@ -584,7 +588,11 @@
       "offer_kept": "Patient kept the booked date",
       "call_requested": "Patient asked to be called",
       "offer_withdrawn": "Offer withdrawn",
-      "booking_requested": "Patient asked for an appointment ({{purpose}})"
+      "booking_requested": "Patient asked for an appointment ({{purpose}})",
+      "clinic_consent_given_app": "The patient agreed in the app to a clinic recording",
+      "clinic_consent_given_clinic_phone": "The patient agreed on the clinic phone ({{reason}})",
+      "clinic_consent_scanned": "The clinic phone checked the patient's consent code",
+      "clinic_consent_withdrawn": "The patient withdrew consent for a clinic recording"
     },
     "place": {
       "home": "home link",
@@ -1043,7 +1051,10 @@
         "value_other": "{{count}} days before",
         "value_zero": "on the day"
       }
-    }
+    },
+    "consentTitle": "Consent for clinic recordings",
+    "phoneConsent": "Patients without the app may agree on the clinic phone",
+    "consentHint": "Patients with the app agree in it and show a one-time QR code that the clinic phone scans before recording. If this is on, a patient without the app (or who cannot show the code) reads and agrees on the clinic phone, and the operator records why."
   },
   "hours": {
     "title": "Doctors’ clinic hours",
@@ -1209,5 +1220,13 @@
       "patient": "Cancelled by patient · {{reason}}"
     },
     "sub": "Book again if needed."
+  },
+  "clinicConsent": {
+    "reason": {
+      "no_smartphone": "no smartphone",
+      "not_in_app": "not in the app",
+      "phone_not_with_them": "phone not with them",
+      "needs_help": "needed help"
+    }
   }
 }

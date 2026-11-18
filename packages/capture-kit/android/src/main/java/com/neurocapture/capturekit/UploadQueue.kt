@@ -338,6 +338,9 @@ class UploadQueue(
             "^/(patient/(plan|sessions|me|requests|consent/withdraw|pin/clear)|auth/(connector-token|change-password)" +
                 // Decision 044: may this hospital record (its own storage connected)?
                 "|sessions/can-record" +
+                // v13: the patient's appointments and asking to change one.
+                "|patient/appointments|patient/appointments/[A-Za-z0-9]{1,40}/change-request" +
+                "|patient/change-requests/[A-Za-z0-9]{1,40}/withdraw" +
                 // Clinic phones (user, 16 Nov 2026): the day's clinic queue and "not recorded".
                 "|clinic/queue\\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic/requests/[A-Za-z0-9]{1,40}/not-done)$"
         )

@@ -278,6 +278,9 @@ class UploadQueueTest {
             "/clinic/requests/abc123/not-done",
             "/patient/requests",
             "/sessions/can-record",
+            "/patient/appointments",
+            "/patient/appointments/abc123/change-request",
+            "/patient/change-requests/abc123/withdraw",
             "/patient/pin/clear",
         )
         val no = listOf(
@@ -287,6 +290,8 @@ class UploadQueueTest {
             "/clinic/queue?x=<y>",
             "/sessions",
             "/sessions/can-record/x",
+            "/patient/appointments/abc/../x/change-request",
+            "/patient/change-requests/abc123/withdraw/x",
         )
         ok.forEach { assertTrue(it, UploadQueue.API_PATHS.matches(it)) }
         no.forEach { assertFalse(it, UploadQueue.API_PATHS.matches(it)) }

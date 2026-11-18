@@ -26,6 +26,7 @@ import { ErrorText } from '../modes/Common.tsx';
 import { InviteFlow } from './InviteFlow.tsx';
 import { canRecord } from '../../lib/clinic.ts';
 import { saveBackup } from '../../lib/appaccount.ts';
+import { AppointmentsSection } from './Appointments.tsx';
 
 type View =
   | { kind: 'list' }
@@ -485,6 +486,7 @@ function HospitalView({
           )}
         </Card>
       )}
+      {!h.withdrawnAt && <AppointmentsSection h={h} />}
       {!h.withdrawnAt && data && open.length === 0 && !plan?.due_now && (
         <p className="text-[14px] text-muted" data-testid="no-requests">
           {t('modes.hospitals.nothingToRecord')}

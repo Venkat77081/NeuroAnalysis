@@ -728,7 +728,46 @@
       "clinicTitle": "At your visit",
       "clinicBody": "{{doctor}} will record your movement tests at the clinic on {{date}}. Nothing to do at home.",
       "gettingReady": "Getting ready",
-      "notReadyBody": "Joined. Recording opens when {{hospital}} finishes setting up."
+      "notReadyBody": "Joined. Recording opens when {{hospital}} finishes setting up.",
+      "menu": {
+        "needsNow": "Needs you now",
+        "start": "Start",
+        "choose": "Choose",
+        "open": "Open",
+        "todoRecord_one": "Record {{count}} test before {{date}}",
+        "todoRecord_other": "Record {{count}} tests before {{date}}",
+        "todoPlan": "Your regular recording is due",
+        "todoOffer": "{{hospital}} needs to move your {{date}} visit: choose a new time",
+        "todoBookingOffer": "{{hospital}} offered times for your booking: choose one",
+        "todoConsent": "Give consent for your clinic recording on {{date}}",
+        "appointments": "Your appointments",
+        "next": "Next: {{date}} · {{doctor}}",
+        "noneBooked": "Nothing booked",
+        "book": "Book an appointment",
+        "bookSub": "Ask for a date with a doctor",
+        "history": "Appointment history",
+        "historySub": "Past and cancelled visits",
+        "recordings": "Recordings",
+        "recordingsSub": "{{todo}} to record · {{sent}} sent",
+        "details": "Hospital details",
+        "detailsSub": "About your data, leave this hospital",
+        "detailsSubOff": "About your data",
+        "detailsBody": "Your recordings go to {{hospital}}’s own storage and only your care team there can watch them. Your name and records stay with {{hospital}}.",
+        "clinicAtVisit": "Clinic recording at this visit",
+        "toRecord": "To record",
+        "sent": "Sent to {{hospital}}",
+        "filter": {
+          "all": "All",
+          "past": "Past",
+          "cancelled": "Cancelled"
+        },
+        "historyNone": "No past appointments yet.",
+        "pastVisit": "Past visit",
+        "cancelledByYou": "Cancelled by you",
+        "cancelledByHospital": "Cancelled by {{hospital}}",
+        "movedFrom": "moved from {{date}}",
+        "historyNote": "Only dates, doctors and what happened. Notes and results stay with your care team."
+      }
     },
     "consent": {
       "forVisit": "{{hospital}} · request for {{date}}",
@@ -976,7 +1015,7 @@
     "nowBooked": "Now booked",
     "whichDays": "Which days suit you?",
     "rank": {
-      "preferred": "Preferred dates {{n}}/{{max}}",
+      "preferred": "Preferred {{n}}/{{max}}",
       "alternative": "Alternatives {{n}}/{{max}}"
     },
     "rankShort": {
@@ -987,7 +1026,7 @@
       "preferred": "Preferred {{n}}",
       "alternative": "Alternative {{n}}"
     },
-    "pickHint": "Tap a day, then up to {{times}} free times.",
+    "pickHint": "Tap a day with a dot, then pick up to {{times}} free times.",
     "moreDates": "More dates…",
     "noFreeTimes": "No free times this day. Choose another day.",
     "anyDoctorOk": "Another doctor is fine too",
@@ -1033,7 +1072,25 @@
       "needs_referral": "{{hospital}} needs a referral first. Please call {{hospital}}.",
       "wrong_clinic": "{{hospital}} suggests another clinic. Please call {{hospital}}.",
       "call_us": "Please call {{hospital}} to find a time."
-    }
+    },
+    "cal": {
+      "prev": "Earlier month",
+      "next": "Later month",
+      "tag": {
+        "preferred": "PREF",
+        "alternative": "ALT"
+      },
+      "legend": "Dot: free times. Grey: no free times, closed or too far ahead.",
+      "full_one": "You have chosen {{count}} {{rank}} date. Tap it to change times, remove it, or switch above.",
+      "full_other": "You have chosen {{count}} {{rank}} dates. Tap one to change times, remove it, or switch above.",
+      "remove": "Remove this date",
+      "upTo_one": "Pick up to {{count}} time.",
+      "upTo_other": "Pick up to {{count}} times.",
+      "am": "Morning",
+      "pm": "Afternoon",
+      "noTimeYet": "Pick a time"
+    },
+    "none": "No upcoming appointments."
   },
   "clinicConsent": {
     "state": {

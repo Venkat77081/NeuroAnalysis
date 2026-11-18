@@ -38,6 +38,9 @@ test('patient agrees in the app, sees the QR and can withdraw', async ({ page })
     "(f) => f.sendRequest(f.joinedNcids()[0], { place: 'clinic', appointmentDays: 0.02 })",
   );
   await page.getByTestId('hospital-card').click();
+  // The menu asks for consent and opens Your appointments.
+  await expect(page.getByTestId('needs-consent')).toContainText('Give consent');
+  await page.getByTestId('needs-consent').getByRole('button').click();
   const card = page.getByTestId('request-clinic');
   await card.getByTestId('clinic-consent-open').click();
   await expect(page.getByTestId('clinic-consent-give')).toBeDisabled();
@@ -50,6 +53,11 @@ test('patient agrees in the app, sees the QR and can withdraw', async ({ page })
     code.replace(/(.{4})(?=.)/g, '$1-'),
   );
   await page.screenshot({ path: 'test-results/v16-patient-qr.png', fullPage: true });
+  // Back on the menu, consent is no longer asked for.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('needs-consent')).toHaveCount(0);
+  await page.getByTestId('menu-appointments').click();
+  await page.getByTestId('clinic-consent-show').click();
 
   // Withdraw: the code no longer works; the patient can agree again.
   await page.getByTestId('clinic-consent-withdraw').click();

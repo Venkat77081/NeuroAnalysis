@@ -285,6 +285,8 @@ class UploadQueueTest {
             "/patient/bookings",
             "/patient/doctors",
             "/patient/free-times?date=2026-11-24&doctor_id=abc123",
+            "/patient/free-days?from=2026-11-01&to=2026-11-30&doctor_id=abc123",
+            "/patient/appointments/history",
             "/patient/offers/abc123/choose",
             "/patient/offers/abc123/decline",
             "/patient/requests/abc123/clinic-consent",
@@ -305,6 +307,8 @@ class UploadQueueTest {
             "/patient/offers/abc123/delete",
             "/clinic/requests/abc123/consent-scan/x",
             "/patient/free-times?date=<x>",
+            "/patient/free-days",
+            "/patient/appointments/history/x",
         )
         ok.forEach { assertTrue(it, UploadQueue.API_PATHS.matches(it)) }
         no.forEach { assertFalse(it, UploadQueue.API_PATHS.matches(it)) }

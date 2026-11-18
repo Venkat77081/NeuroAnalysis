@@ -115,5 +115,5 @@ export async function hospitalApi<T>(
 /** Store keys for what the phone last saw of a hospital (shown offline and after withdrawing). */
 export const cacheKey = (
   h: PatientHospital,
-  what: 'requests' | 'sessions' | 'plan' | 'appointments',
+  what: 'requests' | 'sessions' | 'plan' | 'appointments' | 'appointment-history',
 ) => `patient.h.${h.profile}.${what}`;

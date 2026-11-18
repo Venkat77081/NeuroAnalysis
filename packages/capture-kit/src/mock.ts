@@ -741,7 +741,7 @@ export class MockCaptureKit implements CaptureKitPlugin {
     profile?: string;
   }): Promise<{ json: string }> {
     const allowed =
-      /^\/(patient\/(plan|sessions|me|requests|consent\/withdraw|pin\/clear)|auth\/(connector-token|change-password)|sessions\/can-record|patient\/appointments|patient\/appointments\/[A-Za-z0-9]{1,40}\/change-request|patient\/change-requests\/[A-Za-z0-9]{1,40}\/withdraw|patient\/appointments\/[A-Za-z0-9]{1,40}\/cancel|patient\/bookings|patient\/doctors|patient\/free-times\?[A-Za-z0-9=&%:._-]{1,200}|patient\/offers\/[A-Za-z0-9]{1,40}\/(choose|keep|call|decline)|patient\/requests\/[A-Za-z0-9]{1,40}\/clinic-consent(\/withdraw)?|clinic\/requests\/[A-Za-z0-9]{1,40}\/(consent-scan|consent-on-phone)|clinic\/queue\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic\/requests\/[A-Za-z0-9]{1,40}\/not-done)$/;
+      /^\/(patient\/(plan|sessions|me|requests|consent\/withdraw|pin\/clear)|auth\/(connector-token|change-password)|sessions\/can-record|patient\/appointments|patient\/appointments\/history|patient\/appointments\/[A-Za-z0-9]{1,40}\/change-request|patient\/change-requests\/[A-Za-z0-9]{1,40}\/withdraw|patient\/appointments\/[A-Za-z0-9]{1,40}\/cancel|patient\/bookings|patient\/doctors|patient\/(free-times|free-days)\?[A-Za-z0-9=&%:._-]{1,200}|patient\/offers\/[A-Za-z0-9]{1,40}\/(choose|keep|call|decline)|patient\/requests\/[A-Za-z0-9]{1,40}\/clinic-consent(\/withdraw)?|clinic\/requests\/[A-Za-z0-9]{1,40}\/(consent-scan|consent-on-phone)|clinic\/queue\?[A-Za-z0-9=&%:.+_-]{1,200}|clinic\/requests\/[A-Za-z0-9]{1,40}\/not-done)$/;
     if ((opts.method !== 'GET' && opts.method !== 'POST') || !allowed.test(opts.path))
       throw new Error('not_allowed');
     const cfg = this.uploadCfgs.get(profileOf(opts.profile));

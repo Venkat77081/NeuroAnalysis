@@ -8,7 +8,7 @@
  *   a purpose from a list. The hospital confirms one of the times, or offers others.
  * No free text: no health details reach the platform.
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../app/AppContext.tsx';
 import { capture } from '../../lib/capture.ts';
@@ -244,10 +244,23 @@ type View =
   | { kind: 'cancel'; appt: PatientAppointment }
   | { kind: 'book' };
 
-export function AppointmentsSection({ h }: { h: PatientHospital }) {
+export function AppointmentsSection({
+  h,
+  start = 'list',
+  onLeaveBook,
+  extra,
+}: {
+  h: PatientHospital;
+  /** v17: the menu's "Book an appointment" opens the booking form directly. */
+  start?: 'list' | 'book';
+  /** Leaving the booking form opened from the menu (sent: show the appointments). */
+  onLeaveBook?: (sent: boolean) => void;
+  /** v17: more for one appointment (a clinic recording's consent at that visit). */
+  extra?: (a: PatientAppointment) => ReactNode;
+}) {
   const { t, i18n } = useTranslation();
   const { data, reload } = useAppointments(h);
-  const [view, setView] = useState<View>({ kind: 'list' });
+  const [view, setView] = useState<View>(start === 'book' ? { kind: 'book' } : { kind: 'list' });
   const [error, setError] = useState<string | null>(null);
   if (!data) return null;
   const tz = data.time_zone;
@@ -278,7 +291,14 @@ export function AppointmentsSection({ h }: { h: PatientHospital }) {
       />
     );
   if (view.kind === 'book')
-    return <BookForm h={h} data={data} onCancel={() => setView({ kind: 'list' })} onSent={back} />;
+    return (
+      <BookForm
+        h={h}
+        data={data}
+        onCancel={() => (onLeaveBook ? onLeaveBook(false) : setView({ kind: 'list' }))}
+        onSent={() => (onLeaveBook ? onLeaveBook(true) : back())}
+      />
+    );
   if (view.kind === 'offer')
     return (
       <OfferView
@@ -302,12 +322,15 @@ export function AppointmentsSection({ h }: { h: PatientHospital }) {
     );
 
   const nothing = data.appointments.length === 0 && data.bookings.length === 0;
-  if (nothing && !data.booking.enabled) return null;
   return (
     <section className="flex flex-col gap-3" data-testid="appointments">
-      <h2 className="text-[16px] font-bold">{t('appts.title')}</h2>
       <ErrorText code={error} />
-      {data.booking.enabled && (
+      {nothing && (
+        <p className="text-[14px] text-muted" data-testid="appts-none">
+          {t('appts.none')}
+        </p>
+      )}
+      {data.booking.enabled && nothing && (
         <Button
           variant="secondary"
           onClick={() => setView({ kind: 'book' })}
@@ -378,6 +401,7 @@ export function AppointmentsSection({ h }: { h: PatientHospital }) {
               <Badge tone={badge[1]}>{badge[0]}</Badge>
             </div>
             {a.doctor_name && <span className="text-[14px] text-[#3D4552]">{a.doctor_name}</span>}
+            {a.status === 'booked' && extra?.(a)}
             {a.status === 'cancelled' && (
               <p className="text-[14px] text-[#3D4552]" data-testid="appointment-cancelled">
                 {a.cancelled_by === 'patient'
@@ -482,6 +506,26 @@ interface Block {
   times: string[];
 }
 
+const ymd = (y: number, m: number, d: number) =>
+  `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+/** "2026-11" → [first day, last day] of that month. */
+function monthBounds(month: string): [string, string] {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  return [ymd(y, m, 1), ymd(y, m, new Date(Date.UTC(y, m, 0)).getUTCDate())];
+}
+const shiftDay = (day: string) =>
+  new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+function shiftMonth(month: string, n: number): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * v17: a month calendar instead of a row of date bubbles. Days with free times have a dot; full,
+ * closed or out-of-range days are grey. Tapping a day adds it as a preferred or alternative date
+ * (up to the hospital's numbers) and shows its free times, in morning and afternoon.
+ */
 function TimesPicker({
   h,
   data,
@@ -498,43 +542,88 @@ function TimesPicker({
   onBlocks: (b: Block[]) => void;
 }) {
   const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const tz = data.time_zone;
   const r = data.booking;
-  const first = appointmentId ? 1 : Math.max(1, r.min_days);
-  const span = appointmentId ? Math.min(data.max_days_ahead, 42) : r.days_ahead;
-  const [more, setMore] = useState(false);
+  const first = dayIn(appointmentId ? 1 : Math.max(1, r.min_days), tz);
+  const last = dayIn(
+    (appointmentId ? 1 : Math.max(1, r.min_days)) +
+      (appointmentId ? data.max_days_ahead : r.days_ahead) -
+      1,
+    tz,
+  );
+  const [month, setMonth] = useState(first.slice(0, 7));
   const [rank, setRank] = useState<'preferred' | 'alternative'>('preferred');
+  const [focus, setFocus] = useState<string | null>(null);
+  const [full, setFull] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number | 'error'>>({});
+  const asked = useRef(new Set<string>());
   const [free, setFree] = useState<Record<string, string[] | 'error'>>({});
   const limit = { preferred: r.preferred, alternative: r.alternatives };
-  const days = Array.from({ length: Math.min(more ? span : 14, span) }, (_, i) =>
-    dayIn(first + i, tz),
-  );
   const ofRank = (k: 'preferred' | 'alternative') => blocks.filter((b) => b.rank === k);
+  const ordered = [...ofRank('preferred'), ...ofRank('alternative')];
+  const key = `${doctorId ?? ''}|${appointmentId ?? ''}`;
 
+  // Free-time counts for the month shown (one request a month).
   useEffect(() => {
-    for (const b of blocks) {
-      if (free[b.day]) continue;
-      const q = new URLSearchParams({ date: b.day });
-      if (doctorId) q.set('doctor_id', doctorId);
-      if (appointmentId) q.set('appointment_id', appointmentId);
-      hospitalApi<{ times: { time: string }[] }>(
-        capture.kit,
-        h,
-        'GET',
-        `/patient/free-times?${q.toString()}`,
-      ).then(
-        (x) => setFree((f) => ({ ...f, [b.day]: x.times.map((y) => y.time) })),
-        () => setFree((f) => ({ ...f, [b.day]: 'error' })),
-      );
-    }
+    const [a, b] = monthBounds(month);
+    const from = a < first ? first : a;
+    const to = b > last ? last : b;
+    if (from > to || asked.current.has(`${key}|${from}`)) return;
+    asked.current.add(`${key}|${from}`);
+    const q = new URLSearchParams({ from, to });
+    if (doctorId) q.set('doctor_id', doctorId);
+    if (appointmentId) q.set('appointment_id', appointmentId);
+    hospitalApi<{ days: { date: string; free: number }[] }>(
+      capture.kit,
+      h,
+      'GET',
+      `/patient/free-days?${q.toString()}`,
+    ).then(
+      (x) =>
+        setCounts((c) => ({
+          ...c,
+          ...Object.fromEntries(x.days.map((d) => [`${key}|${d.date}`, d.free])),
+        })),
+      // Offline or failed: every day in range stays tappable (its times say what is free).
+      () =>
+        setCounts((c) => {
+          const n = { ...c };
+          for (let d = from; d <= to; d = shiftDay(d)) n[`${key}|${d}`] = 'error';
+          return n;
+        }),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks.map((b) => b.day).join(), doctorId, appointmentId]);
+  }, [month, key]);
 
-  const toggleDay = (d: string) => {
-    const has = blocks.find((b) => b.day === d);
-    if (has) return onBlocks(blocks.filter((b) => b.day !== d));
-    if (ofRank(rank).length >= limit[rank]) return;
+  // The free times of the day being looked at.
+  useEffect(() => {
+    if (!focus || free[focus]) return;
+    const q = new URLSearchParams({ date: focus });
+    if (doctorId) q.set('doctor_id', doctorId);
+    if (appointmentId) q.set('appointment_id', appointmentId);
+    hospitalApi<{ times: { time: string }[] }>(
+      capture.kit,
+      h,
+      'GET',
+      `/patient/free-times?${q.toString()}`,
+    ).then(
+      (x) => setFree((f) => ({ ...f, [focus]: x.times.map((y) => y.time) })),
+      () => setFree((f) => ({ ...f, [focus]: 'error' })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, doctorId, appointmentId]);
+
+  const tapDay = (d: string) => {
+    setFull(false);
+    if (blocks.some((b) => b.day === d)) return setFocus(d);
+    if (ofRank(rank).length >= limit[rank]) return setFull(true);
     onBlocks([...blocks, { day: d, rank, times: [] }]);
+    setFocus(d);
+  };
+  const removeDay = (d: string) => {
+    onBlocks(blocks.filter((b) => b.day !== d));
+    setFocus(null);
   };
   const toggleTime = (d: string, time: string) =>
     onBlocks(
@@ -549,70 +638,220 @@ function TimesPicker({
       ),
     );
 
+  // The month grid, Monday first.
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  const [mStart, mEnd] = monthBounds(month);
+  const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
+  const daysIn = Number(mEnd.slice(8));
+  const weekdays = Array.from({ length: 7 }, (_, i) =>
+    new Intl.DateTimeFormat(locale(lang), { weekday: 'narrow', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(2026, 10, 16 + i)),
+    ),
+  );
+  const monthName = new Intl.DateTimeFormat(locale(lang), {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, 1)));
+  const canPrev = mStart > first;
+  const canNext = mEnd < last;
+  const fb = focus ? blocks.find((b) => b.day === focus) : undefined;
+  const fi = fb ? ordered.indexOf(fb) : -1;
+  const ft = focus ? free[focus] : undefined;
+  const slot = (time: string) => (
+    <button
+      key={time}
+      type="button"
+      onClick={() => toggleTime(focus!, time)}
+      aria-pressed={!!fb?.times.includes(time)}
+      className={`h-11 rounded-lg border text-[14px] font-semibold ${
+        fb?.times.includes(time)
+          ? 'border-brand bg-brand text-white'
+          : 'border-[#C9CFD8] bg-white text-ink'
+      }`}
+      data-testid={`picker-time-${fi}-${time}`}
+    >
+      {timeLabel(time, lang)}
+    </button>
+  );
+
   return (
     <div className="flex flex-col gap-3" data-testid="times-picker">
       {r.alternatives > 0 && (
-        <div className="flex gap-2" role="group">
+        <div
+          className="grid grid-cols-2 overflow-hidden rounded-xl border border-[#C9CFD8]"
+          role="group"
+        >
           {(['preferred', 'alternative'] as const).map((k) => (
-            <Chip key={k} on={rank === k} onClick={() => setRank(k)} testId={`picker-rank-${k}`}>
+            <button
+              key={k}
+              type="button"
+              aria-pressed={rank === k}
+              onClick={() => {
+                setRank(k);
+                setFull(false);
+              }}
+              className={`min-h-11 text-[14px] font-semibold ${rank === k ? 'bg-brand text-white' : 'bg-white text-ink'}`}
+              data-testid={`picker-rank-${k}`}
+            >
               {t(`appts.rank.${k}`, { n: ofRank(k).length, max: limit[k] })}
-            </Chip>
+            </button>
           ))}
         </div>
       )}
-      <span className="text-[13px] text-muted">
-        {t('appts.pickHint', { times: r.times_per_date })}
-      </span>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t('appts.whichDays')}>
-        {days.map((d) => {
-          const b = blocks.find((x) => x.day === d);
-          return (
-            <Chip key={d} on={!!b} onClick={() => toggleDay(d)} testId={`change-day-${d}`}>
-              {dayLabel(d, i18n.language)}
-              {b ? ` · ${t(`appts.rankShort.${b.rank}`)}` : ''}
-            </Chip>
-          );
-        })}
-        {!more && span > 14 && (
-          <Chip on={false} onClick={() => setMore(true)} testId="change-more">
-            {t('appts.moreDates')}
-          </Chip>
-        )}
-      </div>
-      {[...ofRank('preferred'), ...ofRank('alternative')].map((b, i) => {
-        const f = free[b.day];
-        return (
-          <Card key={b.day} className="flex flex-col gap-2" data-testid="picker-block">
-            <span className="text-[12px] font-bold text-muted uppercase">
-              {t(`appts.rankLabel.${b.rank}`, {
-                n: ofRank(b.rank).indexOf(b) + 1,
-              })}
+      <Card className="flex flex-col gap-2 !p-3" data-testid="picker-calendar">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setMonth(shiftMonth(month, -1))}
+            aria-label={t('appts.cal.prev')}
+            className="flex size-11 items-center justify-center rounded-lg text-[22px] text-brand disabled:text-[#C3C8D0]"
+            data-testid="picker-prev-month"
+          >
+            ‹
+          </button>
+          <b className="text-[16px]" data-testid="picker-month">
+            {monthName}
+          </b>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setMonth(shiftMonth(month, 1))}
+            aria-label={t('appts.cal.next')}
+            className="flex size-11 items-center justify-center rounded-lg text-[22px] text-brand disabled:text-[#C3C8D0]"
+            data-testid="picker-next-month"
+          >
+            ›
+          </button>
+        </div>
+        <div className="grid grid-cols-7 gap-1" role="grid" aria-label={t('appts.whichDays')}>
+          {weekdays.map((w, i) => (
+            <span key={i} className="text-center text-[11px] font-bold text-muted">
+              {w}
             </span>
-            <b className="text-[15px]">{dayLabel(b.day, i18n.language)}</b>
-            {f === undefined && <span className="text-muted">…</span>}
-            {f === 'error' && <ErrorText code="network" />}
-            {Array.isArray(f) && f.length === 0 && (
-              <span className="text-[14px] text-muted" data-testid="picker-none">
-                {t('appts.noFreeTimes')}
-              </span>
-            )}
-            {Array.isArray(f) && f.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {f.map((time) => (
-                  <Chip
-                    key={time}
-                    on={b.times.includes(time)}
-                    onClick={() => toggleTime(b.day, time)}
-                    testId={`picker-time-${i}-${time}`}
-                  >
-                    {timeLabel(time, i18n.language)}
-                  </Chip>
-                ))}
-              </div>
-            )}
-          </Card>
-        );
-      })}
+          ))}
+          {Array.from({ length: lead }, (_, i) => (
+            <span key={`b${i}`} />
+          ))}
+          {Array.from({ length: daysIn }, (_, i) => {
+            const d = ymd(y, m, i + 1);
+            const c = counts[`${key}|${d}`];
+            const inRange = d >= first && d <= last;
+            const b = blocks.find((x) => x.day === d);
+            const open = inRange && (b || (typeof c === 'number' && c > 0) || c === 'error');
+            const base =
+              'relative flex h-10 flex-col items-center justify-center rounded-lg text-[14px]';
+            if (!open)
+              return (
+                <span key={d} className={`${base} text-[#B4BAC3]`} aria-disabled="true">
+                  {i + 1}
+                </span>
+              );
+            const cls = b
+              ? b.rank === 'preferred'
+                ? 'bg-brand font-bold text-white'
+                : 'border-2 border-brand font-bold text-brand'
+              : 'font-semibold text-ink';
+            return (
+              <button
+                key={d}
+                type="button"
+                onClick={() => tapDay(d)}
+                aria-pressed={!!b}
+                aria-label={dayLabel(d, lang)}
+                className={`${base} ${cls} ${focus === d ? 'ring-2 ring-[#0B5FAA]/40' : ''}`}
+                data-testid={`change-day-${d}`}
+              >
+                {i + 1}
+                {b ? (
+                  <span className="text-[8px] leading-[9px] font-bold">
+                    {t(`appts.cal.tag.${b.rank}`)}
+                  </span>
+                ) : (
+                  <span className="mt-0.5 size-1.5 rounded-full bg-[#1F8A4C]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-[11px] text-muted">{t('appts.cal.legend')}</span>
+      </Card>
+      {full && (
+        <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[13px] text-[#8A4B00]" role="status">
+          {t('appts.cal.full', { count: limit[rank], rank: t(`appts.rankShort.${rank}`) })}
+        </p>
+      )}
+      {!focus && (
+        <span className="text-[13px] text-muted">
+          {t('appts.pickHint', { times: r.times_per_date })}
+        </span>
+      )}
+      {focus && fb && (
+        <Card className="flex flex-col gap-2" data-testid="picker-day">
+          <div className="flex items-center justify-between gap-2">
+            <b className="text-[15px]">
+              {dayLabel(focus, lang)} · {t(`appts.rankShort.${fb.rank}`)}
+            </b>
+            <button
+              type="button"
+              onClick={() => removeDay(focus)}
+              className="min-h-11 px-1 text-[13px] font-semibold text-bad"
+              data-testid="picker-remove"
+            >
+              {t('appts.cal.remove')}
+            </button>
+          </div>
+          <span className="text-[13px] text-muted">
+            {t('appts.cal.upTo', { count: r.times_per_date })}
+          </span>
+          {ft === undefined && <span className="text-muted">…</span>}
+          {ft === 'error' && <ErrorText code="network" />}
+          {Array.isArray(ft) && ft.length === 0 && (
+            <span className="text-[14px] text-muted" data-testid="picker-none">
+              {t('appts.noFreeTimes')}
+            </span>
+          )}
+          {Array.isArray(ft) &&
+            (['am', 'pm'] as const).map((part) => {
+              const list = ft.filter((x) => (part === 'am' ? x < '12:00' : x >= '12:00'));
+              return list.length === 0 ? null : (
+                <div key={part} className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-bold text-muted uppercase">
+                    {t(`appts.cal.${part}`)}
+                  </span>
+                  <div className="grid grid-cols-4 gap-1.5">{list.map(slot)}</div>
+                </div>
+              );
+            })}
+        </Card>
+      )}
+      {ordered.length > 0 && (
+        <ol className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white">
+          {ordered.map((b) => (
+            <li key={b.day} data-testid="picker-block">
+              <button
+                type="button"
+                onClick={() => {
+                  setFocus(b.day);
+                  setMonth(b.day.slice(0, 7));
+                }}
+                className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-[#EDF0F3] px-4 py-2 text-left text-[14px]"
+              >
+                <span>
+                  <b>{t(`appts.rankLabel.${b.rank}`, { n: ofRank(b.rank).indexOf(b) + 1 })}</b> ·{' '}
+                  {dayLabel(b.day, lang)}
+                </span>
+                <span className={b.times.length ? 'text-ink' : 'text-[#8A4B00]'}>
+                  {b.times.length
+                    ? b.times.map((x) => timeLabel(x, lang)).join(', ')
+                    : t('appts.cal.noTimeYet')}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

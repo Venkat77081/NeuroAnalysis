@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signUpPatient } from './helpers.ts';
+import { pickDay, section, signUpPatient } from './helpers.ts';
 
 /**
  * v13/v14 (decisions 045, 046) in the patient app: ask to change an appointment with exact free
@@ -38,9 +38,16 @@ async function joined(page: Page) {
   await page.getByTestId('invite-continue').click();
   await page.getByTestId('invite-accept').click();
 }
+/** Back to the hospitals list, then this hospital's appointments again (fresh from the server). */
 const reopen = async (page: Page) => {
   await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
   await page.getByTestId('hospital-card').click();
+  await section(page, 'appointments');
+};
+const openAppointments = async (page: Page) => {
+  await page.getByTestId('hospital-card').click();
+  await section(page, 'appointments');
 };
 
 test('change with exact times; the desk books one; withdraw; too late', async ({ page }) => {
@@ -50,7 +57,7 @@ test('change with exact times; the desk books one; withdraw; too late', async ({
     f.addAppointment(n, { days: 6, doctor: 'Dr. Rao' });
     f.addAppointment(n, { days: 0.5, doctor: 'Dr. Iyer' });
   });
-  await page.getByTestId('hospital-card').click();
+  await openAppointments(page);
   const cards = page.getByTestId('appointment-card');
   await expect(cards).toHaveCount(2);
   await expect(cards.first().getByTestId('appointment-ask')).toHaveCount(0);
@@ -60,15 +67,16 @@ test('change with exact times; the desk books one; withdraw; too late', async ({
   await later.getByTestId('appointment-ask').click();
   const form = page.getByTestId('change-form');
   await expect(page.getByTestId('change-send')).toBeDisabled();
-  const days = form.locator('[data-testid^="change-day-"]');
-  await days.nth(3).click(); // preferred 1
+  await expect(form.getByTestId('picker-calendar')).toBeVisible();
+  await pickDay(page, 4); // preferred 1
   await page.getByTestId('picker-time-0-10:00').click();
   await page.getByTestId('picker-time-0-10:30').click();
   await page.getByTestId('picker-rank-alternative').click();
-  await days.nth(5).click(); // alternative 1
+  await pickDay(page, 6); // alternative 1
   await page.getByTestId('picker-time-1-11:00').click();
   await page.getByTestId('change-reason-unwell').click();
   await expect(page.getByTestId('change-send')).toHaveText('Send request (3 times)');
+  await page.screenshot({ path: 'test-results/v17-calendar.png', fullPage: true });
   await page.screenshot({ path: 'test-results/v14-ask-change.png', fullPage: true });
   await page.getByTestId('change-send').click();
   await expect(later.getByTestId('appointment-badge')).toHaveText('Change asked');
@@ -79,7 +87,7 @@ test('change with exact times; the desk books one; withdraw; too late', async ({
   await later.getByTestId('appointment-withdraw').click();
   await expect(later.getByTestId('appointment-badge')).toHaveText('Booked');
   await later.getByTestId('appointment-ask').click();
-  await form.locator('[data-testid^="change-day-"]').nth(2).click();
+  await pickDay(page, 3);
   await page.getByTestId('picker-time-0-09:30').click();
   await page.getByTestId('change-send').click();
   await fake(page, (f) => f.appts.deskBook(f.appts.requests[1]!.id, 'Dr. Menon'));
@@ -95,6 +103,9 @@ test('the hospital offers times: choose one; none work and cancel', async ({ pag
   const id = await fake(page, (f) => f.addAppointment(f.joinedNcids()[0]!, { days: 6 }));
   await fake(page, (f, a) => f.appts.deskOffer({ appointmentId: a }, 3), id);
   await page.getByTestId('hospital-card').click();
+  // The menu says what needs doing now and opens the appointments.
+  await expect(page.getByTestId('menu-appointments-count')).toHaveText('1');
+  await page.getByTestId('needs-offer').getByRole('button').click();
   const card = page.getByTestId('appointment-card');
   await expect(card.getByTestId('appointment-badge')).toHaveText('Choose a new time');
   await expect(card.getByTestId('appointment-ask')).toHaveCount(0);
@@ -122,12 +133,21 @@ test('the hospital offers times: choose one; none work and cancel', async ({ pag
     'You cancelled this appointment.',
   );
   await expect(c.getByTestId('appointment-cancel')).toHaveCount(0);
+
+  // v17: Appointment history lists it as cancelled by the patient.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('needs-offer')).toHaveCount(0); // the menu is fresh
+  await page.screenshot({ path: 'test-results/v17-menu.png', fullPage: true });
+  await section(page, 'history');
+  await expect(page.getByTestId('history-appt').first()).toContainText('Cancelled by you');
+  await page.getByTestId('history-filter-past').click();
+  await expect(page.getByTestId('history-none')).toBeVisible();
 });
 
 test('cancel any time; book an appointment and choose an offered time', async ({ page }) => {
   await joined(page);
   await fake(page, (f) => f.addAppointment(f.joinedNcids()[0]!, { days: 0.3 }));
-  await page.getByTestId('hospital-card').click();
+  await openAppointments(page);
   // Within the change cut-off: no change, but cancelling is always possible.
   await page.getByTestId('appointment-cancel').click();
   await page.getByTestId('cancel-reason-feeling_better').click();
@@ -135,23 +155,23 @@ test('cancel any time; book an appointment and choose an offered time', async ({
   await expect(page.getByTestId('appointment-badge').first()).toHaveText('Cancelled');
 
   // Book: doctor → dates and times → purpose → send.
-  await page.getByTestId('book-open').click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await section(page, 'book');
   await expect(page.getByTestId('book-next')).toBeDisabled();
   await page.getByTestId('book-doctor-drrao').click();
   await page.getByTestId('book-next').click();
-  const picker = page.getByTestId('times-picker');
-  const days = picker.locator('[data-testid^="change-day-"]');
-  await days.nth(1).click();
+  await pickDay(page, 3);
   await page.getByTestId('picker-time-0-09:30').click();
   await page.getByTestId('picker-time-0-10:00').click();
   await page.getByTestId('picker-time-0-10:30').click(); // only 2 per date
-  await days.nth(3).click();
+  await pickDay(page, 5);
   await page.getByTestId('picker-time-1-11:00').click();
   await page.getByTestId('picker-rank-alternative').click();
-  await days.nth(5).click();
+  await pickDay(page, 7);
   await page.getByTestId('picker-time-2-12:00').click();
-  await days.nth(6).click();
-  await days.nth(7).click(); // 2 alternatives at most
+  await pickDay(page, 8);
+  await pickDay(page, 9); // 2 alternatives at most
+  await expect(page.getByRole('status')).toContainText('2 alternative dates');
   await expect(page.getByTestId('picker-block')).toHaveCount(4);
   await page.screenshot({ path: 'test-results/v14-book.png', fullPage: true });
   await page.getByTestId('book-next').click();

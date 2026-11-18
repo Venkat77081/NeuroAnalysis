@@ -190,7 +190,9 @@
     "patientCancelReasons": ["feeling_better", "cant_make_it", "going_elsewhere", "other"],
     "bookingPurposes": ["follow_up", "symptoms_changed", "medicine_review", "other"],
     "bookingDeclineAnswers": ["fully_booked", "needs_referral", "wrong_clinic", "call_us"],
-    "cancelledShownDays": 14
+    "cancelledShownDays": 14,
+    "patientHistoryMax": 50,
+    "freeDaysMaxSpan": 62
   },
   "clinicConsent": {
     "qrPrefix": "ncc1:",

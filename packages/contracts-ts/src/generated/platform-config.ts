@@ -256,6 +256,14 @@ export interface PlatformConfig {
      */
     bookingDeclineAnswers: [string, ...string[]];
     cancelledShownDays: number;
+    /**
+     * v17: past appointments shown in the patient app's Appointment history.
+     */
+    patientHistoryMax: number;
+    /**
+     * v17: most days one calendar request may ask free-time counts for.
+     */
+    freeDaysMaxSpan: number;
   };
   /**
    * v16 (decision 047): clinic recordings need the patient's consent, given in their app and shown as a one-time QR code (prefix + code) the clinic phone scans; or, when the hospital allows it, on the clinic phone with a reason.

@@ -247,6 +247,12 @@ def test_cancel_by_desk_and_patient(api, two_hospitals):
     assert out[a["id"]]["cancelled_by"] == "staff" and out[b["id"]]["cancelled_by"] == "patient"
     hist = api.get(f"/hospital/appointments/{b['id']}/history", headers=desk).json()
     assert hist[-1]["action"] == "appointment_cancelled" and hist[-1]["details"]["by"] == "patient"
+    # v17: the patient's Appointment history lists both cancellations, newest first.
+    past = api.get("/patient/appointments/history", headers=ptok).json()
+    assert [(x["id"], x["status"], x["cancelled_by"]) for x in past] == [
+        (b["id"], "cancelled", "patient"),
+        (a["id"], "cancelled", "staff"),
+    ]
 
 
 def test_change_request_answered_with_alternatives(api, two_hospitals):
@@ -313,6 +319,12 @@ def test_booking_from_the_app(api, two_hospitals):
     assert api.get(f"/patient/free-times?date={tomorrow}&doctor_id={rao}", headers=ptok).json()["times"] == []
     day5 = _local(5, 0).date().isoformat()
     assert len(api.get(f"/patient/free-times?date={day5}", headers=ptok).json()["times"]) == 14
+    # v17: free times per day for the app's calendar (same rules as one day).
+    q = f"from={tomorrow}&to={day5}&doctor_id={rao}"
+    days = api.get(f"/patient/free-days?{q}", headers=ptok).json()["days"]
+    assert days[0] == {"date": tomorrow, "free": 0} and days[-1] == {"date": day5, "free": 14}
+    far = _local(80, 0).date().isoformat()
+    assert api.get(f"/patient/free-days?from={tomorrow}&to={far}", headers=ptok).status_code == 422
 
     choices = [
         {"at": _local(5, 9, 30).isoformat(), "rank": "preferred"},

@@ -103,6 +103,13 @@ Hospitals → Roles and permissions.
   (QR scanned) or on the clinic phone, with the reason.
 - **Activity:** consent given, checked by the clinic phone, and withdrawn.
 
+## Did not come (v18, decision 049)
+
+- **Front desk:** "Did not come…" on a booked appointment once its time has passed. It cancels
+  the appointment, tells the patient (optional, on by default) and e-mails the doctor (NCID and
+  time only).
+- **Desk and doctor:** the appointment shows "Did not come".
+
 ## Dialogs on the front desk (v15)
 
 History, Change date or doctor (move or offer), Check times (Requests) and Cancel open as dialogs

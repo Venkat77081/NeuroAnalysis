@@ -5,6 +5,7 @@
  */
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Logo } from './Logo.tsx';
 
 export type DayPart = 'morning' | 'afternoon' | 'evening';
 export const dayPart = (d = new Date()): DayPart =>
@@ -22,6 +23,8 @@ export function Greeting({
   right,
   part = dayPart(),
   card = false,
+  onLogo,
+  chip,
 }: {
   name?: string | null;
   line?: ReactNode;
@@ -29,6 +32,10 @@ export function Greeting({
   part?: DayPart;
   /** Inside a padded page (clinic phone): a rounded card instead of a full-width header. */
   card?: boolean;
+  /** New UI round 3: the logo sits top left in the card; long-press opens the settings menu. */
+  onLogo?: () => void;
+  /** A small status next to the logo (e.g. mock mode). */
+  chip?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const dark = part === 'evening';
@@ -57,7 +64,8 @@ export function Greeting({
         <>
           <span
             aria-hidden
-            className="nc-moon absolute top-5 right-8 size-11 rounded-full shadow-[-12px_6px_0_0_#fde68a]"
+            className="nc-moon absolute right-8 size-11 rounded-full shadow-[-12px_6px_0_0_#fde68a]"
+            style={{ top: card ? '1.25rem' : 'calc(1.25rem + var(--sat))' }}
           />
           {[
             [62, 18],
@@ -69,21 +77,33 @@ export function Greeting({
               key={i}
               aria-hidden
               className="nc-twinkle absolute size-1 rounded-full bg-white"
-              style={{ right: `${r! + 30}px`, top: `${top}px`, animationDelay: `${i * 0.4}s` }}
+              style={{
+                right: `${r! + 30}px`,
+                top: card ? `${top}px` : `calc(${top}px + var(--sat))`,
+                animationDelay: `${i * 0.4}s`,
+              }}
             />
           ))}
         </>
       ) : (
         <span
           aria-hidden
-          className="nc-rise absolute top-4 right-5 size-14 rounded-full"
+          className="nc-rise absolute right-5 size-14 rounded-full"
           style={{
+            top: card ? '1rem' : 'calc(1rem + var(--sat))',
             background:
               part === 'morning'
                 ? 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c)'
                 : 'radial-gradient(circle, #fff7c2, #fbbf24)',
           }}
         />
+      )}
+      {onLogo && (
+        <div className="relative z-10 mb-3 flex items-center gap-2 pr-16">
+          <Logo onLongPress={onLogo} />
+          <b className="text-[14px]">{t('app.name')}</b>
+          {chip}
+        </div>
       )}
       <div className="relative z-10 flex items-center justify-between gap-2 pr-16">
         <span className="text-[13px] opacity-80">{date}</span>

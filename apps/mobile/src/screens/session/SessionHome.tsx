@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Greeting } from '../../ui/Greeting.tsx';
 import { useTranslation } from 'react-i18next';
 import { ClinicQueue } from './ClinicQueue.tsx';
@@ -12,42 +12,8 @@ import type { MedState, Patient } from '../../session/machine.ts';
 import { Button, Card, Sheet } from '../../ui/kit.tsx';
 import { UploadSetup } from '../UploadSetup.tsx';
 
-const LONG_PRESS_MS = 1200;
-
-export function Logo({ onLongPress }: { onLongPress: () => void }) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const start = () => {
-    timer.current = setTimeout(onLongPress, LONG_PRESS_MS);
-  };
-  const cancel = () => {
-    if (timer.current) clearTimeout(timer.current);
-  };
-  return (
-    <div
-      className="flex size-8 select-none items-center justify-center rounded-lg bg-brand text-white"
-      onPointerDown={start}
-      onPointerUp={cancel}
-      onPointerLeave={cancel}
-      onContextMenu={(e) => e.preventDefault()}
-      data-testid="logo"
-    >
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="3" y="6" width="13" height="12" rx="2" />
-        <path d="M16 10l5-3v10l-5-3" />
-      </svg>
-    </div>
-  );
-}
+export { Logo } from '../../ui/Logo.tsx';
+import { Logo } from '../../ui/Logo.tsx';
 
 export function SessionHome({
   onEngineering,
@@ -113,55 +79,57 @@ export function SessionHome({
     setPicker(false);
   }
 
+  const greetingShown = queueOnly && !ctx.patient && !training && !queueFocus;
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col bg-ground">
       {/* New UI (decision 050): a clinic phone greets the signed-in operator, full width. */}
-      {queueOnly && !ctx.patient && !training && !queueFocus && (
+      {greetingShown && (
         <div className="px-5 pt-6">
           <Greeting
             name={settings.signedIn?.name}
             line={t('greeting.clinicPhone')}
-            right={
-              onLock && (
-                <button
-                  type="button"
-                  onClick={onLock}
-                  className="min-h-11 rounded-full bg-white/70 px-3 text-[13px] font-semibold text-brand"
-                  data-testid="lock-now"
+            onLogo={onEngineering}
+            chip={
+              !native && (
+                <span
+                  className="min-w-0 truncate rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-warn"
+                  data-testid="mode-badge"
                 >
-                  {t('modes.lock.lockNow')}
-                </button>
+                  {t(`home.mode.${capture.implementation}`)}
+                </span>
               )
             }
           />
         </div>
       )}
-      <header className="flex items-center justify-between px-5 pt-4 pb-2">
-        <div className="flex items-center gap-2.5">
-          <Logo onLongPress={onEngineering} />
-          {!(queueOnly && !ctx.patient && !training) && (
-            <span className="text-[17px] font-bold">{t('app.name')}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`rounded-full px-2.5 py-1.5 text-xs font-semibold ${native ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}
-            data-testid="mode-badge"
-          >
-            {t(`home.mode.${capture.implementation}`)}
-          </span>
-          {onLock && !(queueOnly && !ctx.patient && !training) && (
-            <button
-              type="button"
-              onClick={onLock}
-              className="min-h-12 rounded-full px-3 text-[13px] font-semibold text-brand"
-              data-testid="lock-now"
+      {!greetingShown && (
+        <header className="flex items-center justify-between px-5 pt-4 pb-2">
+          <div className="flex items-center gap-2.5">
+            <Logo onLongPress={onEngineering} />
+            {!(queueOnly && !ctx.patient && !training) && (
+              <span className="text-[17px] font-bold">{t('app.name')}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-2.5 py-1.5 text-xs font-semibold ${native ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'}`}
+              data-testid="mode-badge"
             >
-              {t('modes.lock.lockNow')}
-            </button>
-          )}
-        </div>
-      </header>
+              {t(`home.mode.${capture.implementation}`)}
+            </span>
+            {onLock && !greetingShown && (
+              <button
+                type="button"
+                onClick={onLock}
+                className="min-h-12 rounded-full px-3 text-[13px] font-semibold text-brand"
+                data-testid="lock-now"
+              >
+                {t('modes.lock.lockNow')}
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       <main className="flex flex-1 flex-col gap-3.5 px-5 pt-1">
         <div className={`flex items-baseline justify-between ${queueFocus ? 'hidden' : ''}`}>
@@ -373,6 +341,32 @@ export function SessionHome({
         )}
       </main>
 
+      {/* New UI round 3: on the clinic queue, Lock is a pill fixed at the bottom right. */}
+      {greetingShown && onLock && (
+        <button
+          type="button"
+          onClick={onLock}
+          className="fixed right-4 bottom-[calc(1rem+var(--sab))] z-30 flex h-14 items-center gap-2 rounded-full bg-ink px-5 text-[15px] font-bold text-white shadow-[0_6px_18px_rgba(20,24,31,0.2)]"
+          data-testid="lock-now"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="4" y="11" width="16" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+          {t('modes.lock.lockNow')}
+        </button>
+      )}
+      {greetingShown && <div aria-hidden className="h-20" />}
       {!waitingForQueue && (
         <footer className="px-5 pt-3 pb-6">
           <Button

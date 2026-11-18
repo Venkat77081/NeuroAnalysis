@@ -12,6 +12,7 @@ import { Button } from '../../ui/kit.tsx';
 import { attempt, ErrorText, Field, Screen } from './Common.tsx';
 import { DeviceCheck } from './DeviceCheck.tsx';
 import { Greeting } from '../../ui/Greeting.tsx';
+import { EngineeringMenu } from '../EngineeringMenu.tsx';
 
 export function ClinicSetup({ onDone }: { onDone: () => void }) {
   const { t } = useTranslation();
@@ -117,6 +118,7 @@ export function OperatorSignIn() {
   const { config, settings, saveSettings } = useApp();
   const [operator, setOperator] = useState(settings.signedIn?.operatorCode ?? '');
   const [password, setPassword] = useState('');
+  const [menu, setMenu] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submit = () =>
@@ -144,7 +146,8 @@ export function OperatorSignIn() {
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-6 pb-6">
       {/* New UI (decision 050): the greeting before sign-in (no name yet). */}
-      <Greeting line={t('greeting.signInLine')} />
+      <Greeting line={t('greeting.signInLine')} onLogo={() => setMenu(true)} />
+      {menu && <EngineeringMenu onClose={() => setMenu(false)} />}
       <h1 className="m-0 text-[24px] leading-8 font-bold">{t('modes.signIn.title')}</h1>
       <Field
         id="op-id"

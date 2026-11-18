@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { signIn, stack } from './support.ts';
+import { apiToken, signIn, stack } from './support.ts';
 
 /**
  * v13 + v14 (decisions 045, 046), against the real platform + connector: the hospital admin sets
@@ -258,4 +258,63 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await dlg.getByTestId('dialog-close').click();
   await expect(dlg).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test('v18: the desk marks that the patient did not come', async ({ page, request }) => {
+  const s = stack();
+  // An appointment that started 30 minutes ago (made through the API, as the desk).
+  const tok = await apiToken(s.desk_email, s.desk_totp);
+  const h = { Authorization: `Bearer ${tok}` };
+  const docs = (await (
+    await request.get(`${s.platform_url}/hospital/doctors`, { headers: h })
+  ).json()) as { id: string; email: string }[];
+  const made = await request.post(`${s.platform_url}/hospital/appointments`, {
+    headers: h,
+    data: {
+      ncid: s.patient_ncid,
+      at: new Date(Date.now() - 30 * 60_000).toISOString(),
+      doctor_id: docs.find((d) => d.email === s.doctor_email)!.id,
+    },
+  });
+  expect(made.status()).toBe(201);
+  const id = ((await made.json()) as { id: string }).id;
+
+  // Wait for a fresh sign-in code (the API sign-in above used this one).
+  await page.waitForTimeout(31_000 - (Date.now() % 30_000));
+  await signIn(page, s.desk_email, s.desk_totp);
+  await page.getByTestId('nav-appointments').click();
+  const row = page
+    .getByTestId(`appt-${s.patient_mrn}`)
+    .filter({ has: page.getByTestId('appt-no-show') });
+  await expect(row).toHaveCount(1);
+  await row.getByTestId('appt-no-show').click();
+  const dialog = page.getByTestId('no-show-dialog');
+  await expect(dialog).toContainText('told by e-mail');
+  await expect(dialog.getByTestId('no-show-notify')).toBeChecked();
+  await page.screenshot({ path: 'test-results/v18-no-show.png', fullPage: true });
+  await dialog.getByTestId('no-show-confirm').click();
+  await expect(page.getByTestId('notice')).toContainText('did not come');
+  await expect(page.getByTestId('appt-no-show')).toHaveCount(0);
+  await expect(
+    page.getByTestId(`appt-${s.patient_mrn}`).filter({ hasText: 'Did not come' }),
+  ).toHaveCount(1);
+
+  // The patient's app: cancelled, and "did not come" in Appointment history.
+  const pt = await patient(request);
+  const mine = await pt.mine();
+  expect(mine.appointments.find((a) => a.id === id)?.status).toBe('cancelled');
+  const r = await request.post(`${s.platform_url}/patient/login`, {
+    data: {
+      device_id: s.patient_device_id,
+      device_secret: s.patient_device_secret,
+      pin: s.patient_pin,
+    },
+  });
+  const ph = {
+    Authorization: `Bearer ${((await r.json()) as { access_token: string }).access_token}`,
+  };
+  const past = (await (
+    await request.get(`${s.platform_url}/patient/appointments/history`, { headers: ph })
+  ).json()) as { id: string; status: string }[];
+  expect(past.find((a) => a.id === id)?.status).toBe('no_show');
 });

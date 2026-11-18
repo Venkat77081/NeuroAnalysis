@@ -25,7 +25,7 @@ import {
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
-import { CancelDialog, MovePanel, RequestsTab, type Inbox } from './desk.tsx';
+import { CancelDialog, MovePanel, NoShowDialog, RequestsTab, type Inbox } from './desk.tsx';
 import { appointmentChanges } from './config.ts';
 
 export type Stage =
@@ -116,6 +116,13 @@ const STAGE_TONE: Record<Stage, 'ok' | 'warn' | 'bad' | 'neutral'> = {
 export function StageBadge({ a }: { a: Appointment }) {
   const { t } = useTranslation();
   const live = a.requests.filter((r) => r.state !== 'cancelled');
+  if (a.stage === 'cancelled' && a.cancel_reason === 'no_show')
+    // v18 (decision 049): the desk marked that the patient did not come.
+    return (
+      <span data-testid="appt-stage">
+        <Badge tone="bad">{t('noShow.badge')}</Badge>
+      </span>
+    );
   if (
     a.stage === 'needs_doctor' ||
     a.stage === 'needs_tests' ||
@@ -190,7 +197,13 @@ function MoveBadges({ a, now }: { a: Appointment; now: number }) {
     a.moved_at &&
     a.moved_from &&
     now - Date.parse(a.moved_at) < appointmentChanges.movedShownDays * 86_400_000;
-  if (!a.change_request_id && !recent && !a.offer_state && !a.cancelled_by) return null;
+  if (
+    !a.change_request_id &&
+    !recent &&
+    !a.offer_state &&
+    (!a.cancelled_by || a.cancel_reason === 'no_show')
+  )
+    return null;
   return (
     <span className="mt-1 flex flex-col items-start gap-1" data-testid="appt-move-badges">
       {a.change_request_id && <Badge tone="warn">{t('moves.changeAsked')}</Badge>}
@@ -199,7 +212,7 @@ function MoveBadges({ a, now }: { a: Appointment; now: number }) {
           {t(`offers.state.${a.offer_state}`)}
         </Badge>
       )}
-      {a.status === 'cancelled' && a.cancelled_by && (
+      {a.status === 'cancelled' && a.cancelled_by && a.cancel_reason !== 'no_show' && (
         <Badge tone="neutral">
           {t(`cancel.by.${a.cancelled_by}`, {
             reason: t(
@@ -235,6 +248,7 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   // v13: the appointments list, or patients' change requests; the appointment being moved.
   const [tab, setTab] = useState<'list' | 'requests'>('list');
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [noShow, setNoShow] = useState<string | null>(null);
   const [changes, setChanges] = useState<number | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const canMove = canAdd;
@@ -516,6 +530,19 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
                         {t('cancel.open')}
                       </Button>
                     )}
+                    {canMove && a.status === 'booked' && Date.parse(a.at) <= now && (
+                      <Button
+                        variant="secondary"
+                        aria-expanded={noShow === a.id}
+                        onClick={() => {
+                          setNoShow(noShow === a.id ? null : a.id);
+                          setNotice(null);
+                        }}
+                        data-testid="appt-no-show"
+                      >
+                        {t('noShow.open')}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       aria-expanded={open === a.id}
@@ -532,12 +559,13 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
         })}
       </Table>
       {(appts ?? [])
-        .filter((a) => a.id === moving || a.id === cancelling || a.id === open)
+        .filter((a) => a.id === moving || a.id === cancelling || a.id === noShow || a.id === open)
         .map((a) => {
           const name = ident[a.ncid]?.name ?? a.ncid;
           const done = (m: string) => {
             setMoving(null);
             setCancelling(null);
+            setNoShow(null);
             setOpen(null);
             setNotice(m);
             reload();
@@ -551,6 +579,16 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
                 canAssign={canAssign}
                 canOffer={joined(a.ncid)}
                 onClose={() => setMoving(null)}
+                onDone={done}
+              />
+            );
+          if (a.id === noShow)
+            return (
+              <NoShowDialog
+                key={`n${a.id}`}
+                appt={a}
+                patient={name}
+                onClose={() => setNoShow(null)}
                 onDone={done}
               />
             );

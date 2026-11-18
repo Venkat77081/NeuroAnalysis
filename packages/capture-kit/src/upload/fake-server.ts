@@ -70,6 +70,21 @@ export class FakeServer {
     place: 'home' | 'clinic';
     notDone?: { reason: string; by: string };
   }[] = [];
+  /** v16 (decision 047): clinic consents by request: the patient's code, or given on the phone. */
+  readonly clinicConsents = new Map<
+    string,
+    {
+      id: string;
+      code: string | null;
+      status: 'active' | 'used' | 'withdrawn';
+      source: 'patient_app' | 'clinic_phone';
+      agreedAt: string;
+      reason: string | null;
+      sessionKey: string | null;
+    }
+  >();
+  /** v16: the hospital allows consent on the clinic phone (no app). */
+  clinicPhoneConsent = true;
   /** v13/v14: appointments, patients' requests, the desk's offers (decisions 045, 046). */
   readonly appts = new FakeAppointments();
   /** The fake connector's records: NCID → name (for the clinic queue's live names). */
@@ -278,6 +293,30 @@ export class FakeServer {
     return Date.parse(r.due_at) < Date.now() ? 'missed' : 'open';
   }
 
+  /** v16 test hook: the code the patient's app shows for this clinic request (null if none). */
+  clinicCode(requestId: string): string | null {
+    const c = this.clinicConsents.get(requestId);
+    return c?.status === 'active' ? c.code : null;
+  }
+
+  /**
+   * v16 test hook: as if the patient agreed in their app on another phone; returns the code their
+   * app would show (the QR holds `ncc1:` + code).
+   */
+  giveClinicConsent(requestId: string): string {
+    const code = 'K7QM4TRX9P2W';
+    this.clinicConsents.set(requestId, {
+      id: this.id('cc'),
+      code,
+      status: 'active',
+      source: 'patient_app',
+      agreedAt: new Date().toISOString(),
+      reason: null,
+      sessionKey: null,
+    });
+    return code;
+  }
+
   /** v3 test hook: the NCIDs of the patients who joined, newest last. */
   joinedNcids(): string[] {
     return [...this.patients.values()].map((p) => p.ncid);
@@ -408,6 +447,14 @@ export class FakeServer {
       const who = me.kind === 'patient' ? me.id : null;
       if (me.kind === 'operator' && body.patient && !(body.patient as { ncid?: string }).ncid)
         return res(422, { detail: { code: 'ncid_required' } });
+      // v16: a clinic phone's session for a clinic request needs the confirmed consent.
+      const req = this.requests.find((r) => r.id === body.request_id);
+      if (me.kind === 'operator' && req?.place === 'clinic' && !this.sessions.has(key)) {
+        const c = this.clinicConsents.get(req.id);
+        if (!c || c.status !== 'used' || c.id !== body.consent_id || c.sessionKey)
+          return res(422, { detail: { code: 'clinic_consent_required' } });
+        c.sessionKey = key;
+      }
       if (!this.sessions.has(key))
         this.sessions.set(key, {
           id: this.id('S'),
@@ -839,6 +886,42 @@ export class FakeServer {
       const r = this.appts.handle(path, init.method, body, patient!.ncid, res);
       if (r) return r;
     }
+    const pc = /^\/patient\/requests\/([A-Za-z0-9]+)\/clinic-consent(\/withdraw)?$/.exec(path);
+    if (pc && init.method === 'POST') {
+      const r = this.requests.find(
+        (x) => x.id === pc[1] && x.ncid === patient!.ncid && x.place === 'clinic',
+      );
+      if (!r) return res(404);
+      if (pc[2]) {
+        const c = this.clinicConsents.get(r.id);
+        if (!c || c.status !== 'active') return res(409, { detail: { code: 'no_consent' } });
+        c.status = 'withdrawn';
+        return res(204);
+      }
+      const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+      const code = Array.from(
+        { length: 12 },
+        () => abc[Math.floor(Math.random() * abc.length)],
+      ).join('');
+      const at = new Date();
+      const until = new Date(Date.parse(r.appointment_at ?? r.due_at));
+      until.setHours(23, 59, 59, 0);
+      this.clinicConsents.set(r.id, {
+        id: this.id('cc'),
+        code,
+        status: 'active',
+        source: 'patient_app',
+        agreedAt: at.toISOString(),
+        reason: null,
+        sessionKey: null,
+      });
+      return res(201, {
+        code,
+        qr: `ncc1:${code}`,
+        agreed_at: at.toISOString(),
+        valid_until: until.toISOString(),
+      });
+    }
     if (path === '/patient/requests' && init.method === 'GET') {
       return res(
         200,
@@ -847,7 +930,15 @@ export class FakeServer {
           .reverse()
           .map((full) => {
             const { ncid: _n, cancelled: _c, notDone: _d, ...r } = full;
-            return { ...r, state: this.requestState(full) };
+            const c = this.clinicConsents.get(full.id);
+            return {
+              ...r,
+              state: this.requestState(full),
+              clinic_consent:
+                c && c.status !== 'withdrawn'
+                  ? { status: c.status, source: c.source, valid_until: r.due_at }
+                  : null,
+            };
           }),
       );
     }
@@ -910,6 +1001,15 @@ export class FakeServer {
             return at >= from && at < to;
           })
           .map((r) => ({
+            consent: {
+              state:
+                this.clinicConsents.get(r.id)?.status === 'active'
+                  ? 'app_given'
+                  : this.joinedNcids().includes(r.ncid)
+                    ? 'waiting'
+                    : 'no_app',
+              phone_allowed: this.clinicPhoneConsent,
+            },
             request_id: r.id,
             ncid: r.ncid,
             at: r.appointment_at ?? r.due_at,
@@ -921,6 +1021,48 @@ export class FakeServer {
             not_done_reason: r.notDone?.reason ?? null,
           })),
       );
+    }
+    const cs = /^\/clinic\/requests\/([A-Za-z0-9]+)\/(consent-scan|consent-on-phone)$/.exec(path);
+    if (cs && init.method === 'POST') {
+      const r = this.requests.find((x) => x.id === cs[1] && x.place === 'clinic');
+      if (!r) return res(404);
+      if (cs[2] === 'consent-on-phone') {
+        if (!this.clinicPhoneConsent) return res(409, { detail: { code: 'phone_consent_off' } });
+        const c = {
+          id: this.id('cc'),
+          code: null,
+          status: 'used' as const,
+          source: 'clinic_phone' as const,
+          agreedAt: new Date().toISOString(),
+          reason: String(body.reason),
+          sessionKey: null,
+        };
+        this.clinicConsents.set(r.id, c);
+        return res(200, {
+          consent_id: c.id,
+          source: c.source,
+          agreed_at: c.agreedAt,
+          consent_version: String(body.consent_version),
+          reason: c.reason,
+        });
+      }
+      const code = String(body.code ?? '')
+        .replace(/^ncc1:/i, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+      const hit = [...this.clinicConsents.entries()].find(([, c]) => c.code === code);
+      if (!hit) return res(409, { detail: { code: 'consent_unknown' } });
+      const [rid, c] = hit;
+      if (rid !== r.id) return res(409, { detail: { code: 'wrong_patient' } });
+      if (c.status === 'withdrawn') return res(409, { detail: { code: 'consent_withdrawn' } });
+      if (c.status === 'used') return res(409, { detail: { code: 'consent_used' } });
+      c.status = 'used';
+      return res(200, {
+        consent_id: c.id,
+        source: c.source,
+        agreed_at: c.agreedAt,
+        consent_version: 'home-consent@1',
+      });
     }
     const nd = /^\/clinic\/requests\/([^/]+)\/not-done$/.exec(path);
     if (nd && init.method === 'POST') {

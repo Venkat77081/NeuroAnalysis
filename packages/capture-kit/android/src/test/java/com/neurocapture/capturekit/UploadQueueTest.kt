@@ -287,6 +287,10 @@ class UploadQueueTest {
             "/patient/free-times?date=2026-11-24&doctor_id=abc123",
             "/patient/offers/abc123/choose",
             "/patient/offers/abc123/decline",
+            "/patient/requests/abc123/clinic-consent",
+            "/patient/requests/abc123/clinic-consent/withdraw",
+            "/clinic/requests/abc123/consent-scan",
+            "/clinic/requests/abc123/consent-on-phone",
             "/patient/pin/clear",
         )
         val no = listOf(
@@ -299,6 +303,7 @@ class UploadQueueTest {
             "/patient/appointments/abc/../x/change-request",
             "/patient/change-requests/abc123/withdraw/x",
             "/patient/offers/abc123/delete",
+            "/clinic/requests/abc123/consent-scan/x",
             "/patient/free-times?date=<x>",
         )
         ok.forEach { assertTrue(it, UploadQueue.API_PATHS.matches(it)) }

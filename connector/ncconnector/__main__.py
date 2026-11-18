@@ -45,11 +45,11 @@ def main(argv: list[str] | None = None) -> None:
             print(k["key_id"], k["status"], k["fingerprint"], here)  # noqa: T201
     elif a.cmd == "send-reminders":
         from ncconnector.db import factory, init_db
-        from ncconnector.reminders import send_due
+        from ncconnector.reminders import send_due, send_notices
 
         init_db()
         with factory()() as db:
-            print(send_due(db))  # noqa: T201
+            print(send_due(db), send_notices(db))  # noqa: T201
     elif a.cmd == "flush-log":
         from ncconnector import activity
         from ncconnector.db import factory, init_db

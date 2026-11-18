@@ -69,7 +69,19 @@
     "sms_not_sent": "The test SMS could not be sent. Check the provider settings.",
     "dlt_templates_invalid": "The DLT template IDs are not valid.",
     "storage_not_connected": "Connect your hospital's video storage first.",
-    "dev_storage_off": "Development storage is only available on test servers."
+    "dev_storage_off": "Development storage is only available on test servers.",
+    "time_in_past": "Choose a time in the future.",
+    "request_not_open": "This request was already answered or withdrawn. Reload the page.",
+    "reason_unknown": "Choose why the appointment is changing.",
+    "answer_unknown": "Choose an answer.",
+    "fps_not_offered": "Choose one of the offered pass levels.",
+    "cutoff_not_offered": "Choose one of the offered times.",
+    "time_zone_unknown": "Choose a time zone from the list.",
+    "hours_invalid": "Write hours as 09:00-13:00 (start before end).",
+    "hours_overlap": "Two periods on the same day overlap.",
+    "slot_not_offered": "Choose one of the offered appointment lengths.",
+    "leave_invalid": "Leave must end on or after the day it starts.",
+    "appointment_cancelled": "This appointment was cancelled."
   },
   "nav": {
     "hospitals": "Hospitals",
@@ -84,7 +96,8 @@
     "appointments": "Appointments",
     "chooseTests": "Choose tests",
     "invite": "Invite patients",
-    "platformSettings": "Platform settings"
+    "platformSettings": "Platform settings",
+    "settings": "Settings"
   },
   "platform": {
     "hospitalsTitle": "Hospitals and clinics",
@@ -541,7 +554,14 @@
       "invite_not_delivered": "Invite could not be delivered",
       "appointment_added_doctor": "Appointment added {{source}} with {{doctor_name}} ({{when}})",
       "appointment_doctor_changed": "Doctor changed for the {{when}} appointment: {{previous_name}} → {{doctor_name}}",
-      "staff_sign_in_reset": "Reset the sign-in of a {{role}} ({{reason}})"
+      "staff_sign_in_reset": "Reset the sign-in of a {{role}} ({{reason}})",
+      "appointment_moved": "Appointment moved {{from}} → {{when}} ({{reason}})",
+      "change_requested": "Patient asked to change the date: {{days}}, {{part}} ({{reason}})",
+      "change_withdrawn": "Patient withdrew their change request",
+      "change_declined": "Change request answered: {{answer}}",
+      "appointment_notice_sent": "Patient told about the appointment",
+      "settings_changed": "Hospital settings changed",
+      "doctor_hours_changed": "Clinic hours changed"
     },
     "place": {
       "home": "home link",
@@ -849,5 +869,128 @@
       "dlt_invite": "DLT template · invite",
       "dlt_reminder": "DLT template · reminder"
     }
+  },
+  "moves": {
+    "tab": {
+      "list": "Appointments",
+      "changes": "Change requests"
+    },
+    "countLabel": "{{count}} change requests waiting",
+    "open": "Change date or doctor",
+    "close": "Close",
+    "changeAsked": "Change asked",
+    "movedWas": "Moved · was {{when}}",
+    "title": "Change {{name}}’s appointment",
+    "booked": "Booked {{when}} · {{doctor}}",
+    "zone": "times in {{tz}}",
+    "fhir": "Booked in the hospital system. NeuroCapture cannot write to it (read-only): after you save here, also move it there. NeuroCapture keeps your change until the hospital system’s time changes again.",
+    "wants": "The patient would like: {{days}} · {{part}} · reason: {{reason}}. The appointment stays as booked until you answer.",
+    "step1": "1. New date",
+    "step2": "2. Doctor and time on {{day}}",
+    "wd": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "legendWanted": "patient’s choices",
+    "legendBooked": "booked now",
+    "freeHint": "Free times come from each doctor’s clinic hours (Team page) minus their booked appointments. Check the doctor’s other commitments too.",
+    "bookedDoctor": "booked doctor",
+    "onLeave": "On leave",
+    "noHours": "No clinic hours set",
+    "free_one": "{{count}} free",
+    "free_other": "{{count}} free",
+    "notFree": "Not free",
+    "otherTime": "Or type a time:",
+    "doctorChange": "Doctor changes to {{to}} (from {{from}}). {{to}} gets access to this appointment; the tests chosen so far stay and can be changed.",
+    "why": "Why is it changing?",
+    "chooseWhy": "Choose…",
+    "reason": {
+      "doctor_unavailable": "Doctor not available",
+      "patient_called": "Patient phoned",
+      "clinic_change": "Clinic change",
+      "patient_request": "Patient asked in the app",
+      "other": "Other"
+    },
+    "notify": "Tell the patient by SMS or e-mail too (from the hospital’s own accounts)",
+    "save": "Move to {{when}} · {{doctor}}",
+    "saveIncomplete": "Choose a date, a time and a reason",
+    "noneWork": "None of these dates work…",
+    "declineTitle": "Answer without moving",
+    "declineHint": "The patient sees your answer in the app. You can also pick any other date above: the patient’s choices are a guide, not a limit.",
+    "answer": {
+      "call_us": "Please call us",
+      "keep": "Keep the booked date"
+    },
+    "done": "{{name}}’s appointment is now {{when}} with {{doctor}}.",
+    "declined": "Answer sent to {{name}}. The appointment stays as booked.",
+    "inboxHint_one": "{{count}} patient asked to change their appointment. It stays as booked until you answer. Oldest first.",
+    "inboxHint_other": "{{count}} patients asked to change their appointment. Each stays as booked until you answer. Oldest first.",
+    "inboxEmpty": "No change requests from patients.",
+    "bookedCol": "Booked",
+    "wantsCol": "Patient would like",
+    "askedCol": "Asked",
+    "reasonLine": "Reason: {{reason}}",
+    "choose": "Choose new date",
+    "part": {
+      "morning": "morning",
+      "afternoon": "afternoon",
+      "any": "any time"
+    },
+    "patientReason": {
+      "cant_make_it": "Can’t make it",
+      "unwell": "Unwell",
+      "travel": "Travel",
+      "other": "Other"
+    },
+    "noReason": "no reason given"
+  },
+  "settings": {
+    "title": "Settings",
+    "saved": "Settings saved.",
+    "save": "Save settings",
+    "phonesTitle": "Phones: camera check",
+    "phonesHint": "A phone records a short test before it is added (clinic phones and patients’ phones). Choose how many frames a second it must reach. You can be stricter than NeuroCapture’s minimum, not looser.",
+    "minFps": "Pass level",
+    "fpsOption": "{{fps}} frames a second or more",
+    "fpsNote": "Every recording still needs 59 frames a second; phones that pass below {{warn}} are shown as borderline. Phones already added are not checked again.",
+    "changesTitle": "Appointment changes",
+    "patientChanges": "Patients may ask to change an appointment in the app",
+    "cutoff": "Until how long before the appointment",
+    "hours_one": "{{count}} hour before",
+    "hours_other": "{{count}} hours before",
+    "timeZone": "Hospital time zone",
+    "timeZoneHint": "Clinic hours, free times and the days patients choose are in this time zone."
+  },
+  "hours": {
+    "title": "Doctors’ clinic hours",
+    "hint": "Used only to suggest free times when the front desk moves an appointment. Enter each doctor’s weekly hours in the hospital’s time zone, for example 09:00-13:00, 14:00-17:00. Leave a day empty when they do not see patients.",
+    "noDoctors": "No doctors yet. Invite them above.",
+    "notSet": "Not set",
+    "department": "Department",
+    "slot": "Appointment length",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes",
+    "day": {
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday",
+      "sun": "Sunday"
+    },
+    "leave": "Leave (not available)",
+    "from": "From",
+    "to": "To",
+    "addLeave": "Add leave",
+    "removeLeave": "Remove",
+    "badFormat": "Write hours as 09:00-13:00, with commas between them.",
+    "saved": "Clinic hours saved.",
+    "save": "Save hours"
   }
 }

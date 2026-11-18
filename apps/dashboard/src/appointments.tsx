@@ -12,6 +12,8 @@ import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDat
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
+import { ChangeRequests, MovePanel } from './changes.tsx';
+import { appointmentChanges } from './config.ts';
 
 export type Stage =
   'needs_doctor' | 'needs_tests' | 'sent' | 'recorded' | 'missed' | 'not_recorded' | 'cancelled';
@@ -40,6 +42,12 @@ export interface Appointment {
   /** Who added it by hand (null: from the hospital system). */
   booked_by_name: string | null;
   last_event: HistoryEvent | null;
+  /** v13: the last move and an open patient change request. */
+  moved_at?: string | null;
+  moved_from?: string | null;
+  moved_from_doctor_name?: string | null;
+  moved_reason?: string | null;
+  change_request_id?: string | null;
 }
 export interface HistoryEvent {
   at: string;
@@ -152,7 +160,23 @@ function savedRange(): Range {
   }
 }
 
-export function Appointments() {
+/** v13: "Change asked" and "Moved · was …" (for a few days) next to the time. */
+function MoveBadges({ a, now }: { a: Appointment; now: number }) {
+  const { t } = useTranslation();
+  const recent =
+    a.moved_at &&
+    a.moved_from &&
+    now - Date.parse(a.moved_at) < appointmentChanges.movedShownDays * 86_400_000;
+  if (!a.change_request_id && !recent) return null;
+  return (
+    <span className="mt-1 flex flex-col items-start gap-1" data-testid="appt-move-badges">
+      {a.change_request_id && <Badge tone="warn">{t('moves.changeAsked')}</Badge>}
+      {recent && <Badge tone="neutral">{t('moves.movedWas', { when: fmt(a.moved_from) })}</Badge>}
+    </span>
+  );
+}
+
+export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) => void } = {}) {
   const { t } = useTranslation();
   // Decision 033: what this person may do here (set per hospital).
   const perms = usePerms();
@@ -169,6 +193,13 @@ export function Appointments() {
   const [notice, setNotice] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
+  // v13: the appointments list, or patients' change requests; the appointment being moved.
+  const [tab, setTab] = useState<'list' | 'changes'>('list');
+  const [changes, setChanges] = useState<number | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
+  const canMove = canAdd;
+  // The time the list was loaded (what "upcoming" and "recently moved" are measured from).
+  const [now, setNow] = useState(() => Date.now());
   // Decision 038: the date range (remembered on this computer).
   const [range, setRange] = useState<Range>(savedRange);
   const pickRange = (r: Range) => {
@@ -184,11 +215,15 @@ export function Appointments() {
     let off = false;
     void (async () => {
       try {
-        const [list, doctors, patients] = await Promise.all([
+        const [list, doctors, patients, open] = await Promise.all([
           call<Appointment[]>('GET', `/hospital/appointments?${RANGE_QUERY[range]}`),
           call<Doctor[]>('GET', '/hospital/doctors'),
           call<PatientRow[]>('GET', '/hospital/patients'),
+          call<unknown[]>('GET', '/hospital/change-requests').catch(() => []),
         ]);
+        setNow(Date.now());
+        setChanges(open.length);
+        onChangeCount?.(open.length);
         const ncids = [...new Set(list.map((a) => a.ncid))];
         const ids = ncids.length
           ? await hospital<Ident[]>('POST', '/v1/patients/lookup', { ncids })
@@ -212,7 +247,7 @@ export function Appointments() {
     return () => {
       off = true;
     };
-  }, [version, range]);
+  }, [version, range, onChangeCount]);
 
   const assign = async (a: Appointment) => {
     setError(null);
@@ -235,8 +270,49 @@ export function Appointments() {
   const docName = (d: Doctor) => d.display_name ?? d.email;
   const joined = (ncid: string) => app[ncid] === 'active';
 
+  const tabs = (
+    <div role="tablist" className="flex gap-6 border-b border-line">
+      {(['list', 'changes'] as const).map((k) => (
+        <button
+          key={k}
+          type="button"
+          role="tab"
+          aria-selected={tab === k}
+          onClick={() => {
+            setTab(k);
+            setNotice(null);
+          }}
+          className={`-mb-px flex min-h-11 items-center gap-2 border-b-[3px] px-1 text-[14px] font-semibold ${tab === k ? 'border-brand text-brand' : 'border-transparent text-[#3D4552]'}`}
+          data-testid={`tab-${k}`}
+        >
+          {t(`moves.tab.${k}`)}
+          {k === 'changes' && !!changes && (
+            <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white">
+              {changes}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+  if (tab === 'changes')
+    return (
+      <Page title={t('appts.title')}>
+        {tabs}
+        {notice && <Notice testId="notice">{notice}</Notice>}
+        <ChangeRequests
+          canAssign={canAssign}
+          onChanged={(m) => {
+            setNotice(m);
+            reload();
+          }}
+        />
+      </Page>
+    );
+
   return (
     <Page title={t('appts.title')}>
+      {tabs}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="text-[13px] text-muted" data-testid="appts-window">
           {t(`appts.range.${range}`)}
@@ -299,6 +375,7 @@ export function Appointments() {
                       ? t('appts.addedBy', { name: a.booked_by_name })
                       : t(`appts.source.${a.source}`)}
                   </span>
+                  <MoveBadges a={a} now={now} />
                 </td>
                 <td className="px-4 py-3">
                   {i?.name ?? <code className="text-[12px] text-muted">{a.ncid}</code>}
@@ -371,16 +448,48 @@ export function Appointments() {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <Button
-                    variant="secondary"
-                    aria-expanded={open === a.id}
-                    onClick={() => setOpen(open === a.id ? null : a.id)}
-                    data-testid="appt-history-btn"
-                  >
-                    {open === a.id ? t('appts.hideHistory') : t('appts.history')}
-                  </Button>
+                  <div className="flex flex-col items-stretch gap-1.5">
+                    {canMove && a.status === 'booked' && Date.parse(a.at) > now && (
+                      <Button
+                        variant="secondary"
+                        aria-expanded={moving === a.id}
+                        onClick={() => {
+                          setMoving(moving === a.id ? null : a.id);
+                          setNotice(null);
+                        }}
+                        data-testid="appt-move"
+                      >
+                        {t('moves.open')}
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      aria-expanded={open === a.id}
+                      onClick={() => setOpen(open === a.id ? null : a.id)}
+                      data-testid="appt-history-btn"
+                    >
+                      {open === a.id ? t('appts.hideHistory') : t('appts.history')}
+                    </Button>
+                  </div>
                 </td>
               </tr>
+              {moving === a.id && (
+                <tr>
+                  <td colSpan={8} className="bg-[#F9FBFD] px-4 pb-4">
+                    <MovePanel
+                      appt={a}
+                      patient={i?.name ?? a.ncid}
+                      canAssign={canAssign}
+                      onClose={() => setMoving(null)}
+                      onDone={(m) => {
+                        setMoving(null);
+                        setNotice(m);
+                        reload();
+                      }}
+                    />
+                  </td>
+                </tr>
+              )}
               {open === a.id && (
                 <tr>
                   <td colSpan={8} className="bg-[#F9FBFD] px-4 pb-4">

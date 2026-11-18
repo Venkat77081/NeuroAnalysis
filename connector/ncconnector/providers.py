@@ -116,3 +116,19 @@ def send_reminder(channel: str, to: str, due: str, appointment: str | None) -> N
         )
     else:
         _sms(to, text("reminderSms", "body", hospital=hospital, due=due, appointment=appt), "reminderSms")
+
+
+def send_appointment_notice(channel: str, to: str, kind: str, when: str, doctor: str | None) -> None:
+    """v13: "your appointment is now …" (moved) or "… stays as booked" (not_changed). Raises
+    DeliveryError."""
+    hospital = get_settings().hospital_name
+    key = "appointmentMoved" if kind == "moved" else "appointmentNotChanged"
+    doc = text("appointmentDoctor", "suffix", doctor=doctor) if doctor and kind == "moved" else ""
+    if channel == "email":
+        _email(
+            to,
+            text(f"{key}Email", "subject", hospital=hospital, when=when),
+            text(f"{key}Email", "body", hospital=hospital, when=when, doctor=doc),
+        )
+    else:
+        _sms(to, text(f"{key}Sms", "body", hospital=hospital, when=when, doctor=doc), f"{key}Sms")

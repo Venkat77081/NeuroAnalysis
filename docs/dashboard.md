@@ -66,6 +66,20 @@ Hospitals → Roles and permissions.
 - **Doctor → patient page → Appointments and record links** shows each appointment, the links sent
   for it and what was recorded.
 
+## Appointment changes and hospital settings (v13, decision 045)
+
+- **Front desk:**
+  - Every appointment has "Change date or doctor": a calendar, then each doctor's free times
+    (clinic hours minus their booked appointments, in the hospital's time zone), a reason and
+    "tell the patient".
+  - Patients' requests from the app are in Appointments → **Change requests**, with a count in
+    the menu. "Choose new date" opens the same panel, on the patient's first chosen day. "None of
+    these dates work" answers "Please call us" or "Keep the booked date".
+- **Hospital admin:**
+  - **Settings:** the phones' camera-check pass level (55–59 fps), whether patients may ask to
+    change appointments, until how many hours before, and the hospital's time zone.
+  - **Team → Doctors' clinic hours:** weekly hours, appointment length and leave for each doctor.
+
 ## Local run
 
 ```bash

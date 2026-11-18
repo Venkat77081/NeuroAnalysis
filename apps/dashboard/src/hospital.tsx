@@ -3,6 +3,7 @@
  * connector), invites, deletion requests and the activity log. Patient identity is fetched from the
  * hospital connector by this browser; the platform only ever sees NCIDs.
  */
+import { ClinicHours } from './changes.tsx';
 import { deviceCheck } from './config.ts';
 import { ResetSignIn } from './reset.tsx';
 import { useEffect, useState } from 'react';
@@ -602,6 +603,7 @@ export function Team() {
         </ul>
       </Card>
       <HospitalPermissions />
+      <ClinicHours />
     </Page>
   );
 }

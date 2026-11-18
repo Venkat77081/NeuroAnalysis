@@ -104,6 +104,11 @@
       "group": "setup",
       "default": ["hospital_admin"],
       "eligible": ["hospital_admin", "receptionist", "doctor"]
+    },
+    "setup.settings": {
+      "group": "setup",
+      "default": ["hospital_admin"],
+      "eligible": ["hospital_admin"]
     }
   },
   "deviceCheck": {
@@ -112,7 +117,8 @@
     "durationS": 20,
     "facing": "back",
     "resolution": "1080p",
-    "usageDays": 30
+    "usageDays": 30,
+    "minFpsOptions": [55, 56, 57, 58, 59]
   },
   "overview": {
     "periodsDays": {
@@ -132,5 +138,31 @@
     "codeMaxAttempts": 5,
     "pauseHours": 24,
     "recoveryCodeChars": 24
+  },
+  "appointmentChanges": {
+    "cutoffHours": 24,
+    "cutoffHourOptions": [2, 4, 12, 24, 48, 72],
+    "maxDays": 3,
+    "maxDaysAhead": 90,
+    "partsOfDay": ["morning", "afternoon", "any"],
+    "afternoonFrom": "13:00",
+    "patientReasons": ["cant_make_it", "unwell", "travel", "other"],
+    "declineAnswers": ["call_us", "keep"],
+    "deskReasons": [
+      "doctor_unavailable",
+      "patient_called",
+      "clinic_change",
+      "patient_request",
+      "other"
+    ],
+    "answerShownDays": 14,
+    "movedShownDays": 7,
+    "slotMinutes": 15,
+    "slotMinuteOptions": [10, 15, 20, 30, 45, 60],
+    "timeZones": {
+      "IN": "Asia/Kolkata",
+      "US": "America/New_York"
+    },
+    "defaultTimeZone": "UTC"
   }
 }

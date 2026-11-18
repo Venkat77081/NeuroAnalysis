@@ -24,6 +24,9 @@ export interface Stack {
   patient_ncid: string;
   patient_mrn: string;
   take_id: string;
+  patient_device_id: string;
+  patient_device_secret: string;
+  patient_pin: string;
 }
 
 export function stack(): Stack {

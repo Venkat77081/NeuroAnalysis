@@ -7,3 +7,12 @@ export const deviceCheck: { minFps: number; warnBelowFps: number; usageDays: num
 
 /** Staff sign-in reset (decision 039): link lifetime and the reasons an admin picks. */
 export const staffReset: { resetTtlHours: number; resetReasons: string[] } = platformJson.staff;
+
+/** v13 (decision 045): appointment changes, the choices offered and how long badges show. */
+export const appointmentChanges: {
+  deskReasons: string[];
+  declineAnswers: string[];
+  patientReasons: string[];
+  movedShownDays: number;
+  slotMinuteOptions: number[];
+} = platformJson.appointmentChanges;

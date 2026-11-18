@@ -18,7 +18,8 @@
     "operators",
     "requests",
     "permissions",
-    "deviceCheck"
+    "deviceCheck",
+    "appointmentChanges"
   ],
   "properties": {
     "schemaVersion": {
@@ -274,7 +275,15 @@
     "deviceCheck": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minFps", "warnBelowFps", "durationS", "facing", "resolution", "usageDays"],
+      "required": [
+        "minFps",
+        "warnBelowFps",
+        "durationS",
+        "facing",
+        "resolution",
+        "usageDays",
+        "minFpsOptions"
+      ],
       "description": "Camera check before a phone is added (user, 16 Nov 2026): clinic phones before their registration code is used, patients before their invite is accepted.",
       "properties": {
         "minFps": {
@@ -304,6 +313,16 @@
           "minimum": 1,
           "maximum": 365,
           "description": "Phones list: takes recorded on each phone over this many days, and how many were below warnBelowFps."
+        },
+        "minFpsOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 60
+          },
+          "description": "Pass levels a hospital admin may choose for its phones (v13); the lowest is minFps. A hospital can be stricter, never looser."
         }
       }
     },
@@ -409,6 +428,120 @@
         "recoveryCodeChars": {
           "type": "integer",
           "enum": [24]
+        }
+      }
+    },
+    "appointmentChanges": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v13: appointment changes. Patients ask for a new date (days + part of day) per appointment until cutoffHours before it; the front desk moves appointments and picks a doctor from free times (doctors' clinic hours minus booked appointments).",
+      "required": [
+        "cutoffHours",
+        "cutoffHourOptions",
+        "maxDays",
+        "maxDaysAhead",
+        "partsOfDay",
+        "afternoonFrom",
+        "patientReasons",
+        "declineAnswers",
+        "deskReasons",
+        "answerShownDays",
+        "movedShownDays",
+        "slotMinutes",
+        "slotMinuteOptions",
+        "timeZones",
+        "defaultTimeZone"
+      ],
+      "properties": {
+        "cutoffHours": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 336,
+          "description": "Default: patients may ask until this many hours before the appointment (a hospital admin can change it)."
+        },
+        "cutoffHourOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 336
+          }
+        },
+        "maxDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "maxDaysAhead": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "partsOfDay": {
+          "type": "array",
+          "items": {
+            "enum": ["morning", "afternoon", "any"]
+          }
+        },
+        "afternoonFrom": {
+          "type": "string",
+          "pattern": "^[0-2][0-9]:[0-5][0-9]$"
+        },
+        "patientReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
+        },
+        "declineAnswers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
+        },
+        "deskReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z_]+$"
+          }
+        },
+        "answerShownDays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 90
+        },
+        "movedShownDays": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 90
+        },
+        "slotMinutes": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 120
+        },
+        "slotMinuteOptions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 120
+          }
+        },
+        "timeZones": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Default time zone by hospital region; a hospital admin can change it."
+        },
+        "defaultTimeZone": {
+          "type": "string"
         }
       }
     }

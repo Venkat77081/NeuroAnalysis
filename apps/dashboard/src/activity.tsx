@@ -4,6 +4,7 @@
  * log and each appointment's history. Patient names, where shown, come live from the hospital
  * connector and are never stored by NeuroCapture.
  */
+import { fmtDay } from './changes.tsx';
 import { useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
@@ -56,6 +57,18 @@ export function describe(t: TFunction, action: string, d: Record<string, unknown
   if (Array.isArray(x.tests)) params.tests = x.tests.map((c) => t(`tests.${c}`)).join(', ');
   if (typeof x.due === 'string') params.due = fmtDate(x.due);
   if (typeof x.at === 'string') params.when = fmt(x.at);
+  // v13 (decision 045): moves and patients' change requests.
+  if (typeof x.from === 'string') params.from = fmt(x.from);
+  if (action === 'appointment_moved' && typeof x.reason === 'string')
+    params.reason = t(`moves.reason.${x.reason}`, { defaultValue: x.reason });
+  if (action === 'change_requested') {
+    if (Array.isArray(x.days)) params.days = x.days.map((d) => fmtDay(String(d))).join(', ');
+    if (typeof x.part_of_day === 'string') params.part = t(`moves.part.${x.part_of_day}`);
+    params.reason =
+      typeof x.reason === 'string' ? t(`moves.patientReason.${x.reason}`) : t('moves.noReason');
+  }
+  if (typeof x.answer === 'string')
+    params.answer = t(`moves.answer.${x.answer}`, { defaultValue: x.answer });
   if (typeof x.role === 'string') params.role = t(`roles.${x.role}`, { defaultValue: x.role });
   if (action === 'staff_sign_in_reset' && typeof x.reason === 'string')
     params.reason = t(`reset.reasons.${x.reason}`, { defaultValue: x.reason });

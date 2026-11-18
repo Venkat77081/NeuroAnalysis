@@ -162,7 +162,7 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
     if body.consent_version is not None and body.consent_version != policy()["consentVersion"]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "consent_version"})
     # Before the invite is used: a phone that fails leaves the invite for another phone.
-    fps = require_passing(body.camera_check)
+    fps = require_passing(body.camera_check, site)
     secret = new_secret()
     dev = Device(
         site_id=site.id,
@@ -338,7 +338,7 @@ def rotate_device(body: RotateIn, db: DbSession = Depends(get_db)) -> AcceptOut:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "phone not registered or removed")
     if site.status == "suspended":
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "hospital_suspended"})
-    fps = require_passing(body.camera_check)
+    fps = require_passing(body.camera_check, site)
     end_patient_phone(db, acc)  # old phone, its tokens and any per-hospital PIN
     secret = new_secret()
     dev = Device(

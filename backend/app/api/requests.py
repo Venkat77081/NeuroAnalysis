@@ -24,6 +24,7 @@ from app.audit import audit
 from app.db import get_db
 from app.models import (
     Appointment,
+    AppointmentChangeRequest,
     AuditEvent,
     Patient,
     PatientAccount,
@@ -159,6 +160,12 @@ class AppointmentOut(BaseModel):
     booked_by_name: str | None = None
     #: The latest step of its history (who did what, when).
     last_event: EventOut | None = None
+    #: v13: the last move (from when, from which doctor, why) and an open patient change request.
+    moved_at: datetime | None = None
+    moved_from: datetime | None = None
+    moved_from_doctor_name: str | None = None
+    moved_reason: str | None = None
+    change_request_id: str | None = None
 
 
 def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
@@ -183,6 +190,15 @@ def _appt_out(db: DbSession, a: Appointment, ncid: str) -> AppointmentOut:
         requests=reqs,
         booked_by_name=_staff_name(db, a.created_by) if a.source == "manual" else None,
         last_event=(appointment_events(db, a) or [None])[-1],
+        moved_at=a.moved_at,
+        moved_from=a.moved_from,
+        moved_from_doctor_name=_doctor_name(db, a.moved_from_doctor_id),
+        moved_reason=a.moved_reason,
+        change_request_id=db.scalar(
+            select(AppointmentChangeRequest.id).where(
+                AppointmentChangeRequest.appointment_id == a.id, AppointmentChangeRequest.status == "open"
+            )
+        ),
     )
 
 
@@ -215,6 +231,10 @@ SAFE_DETAILS = (
     "at",
     "place",
     "reason",
+    "from",
+    "days",
+    "part_of_day",
+    "answer",
 )
 
 
@@ -340,6 +360,25 @@ def create_appointment(body: AppointmentIn, p: Principal = Depends(can_add), db:
             select(Appointment).where(Appointment.site_id == p.site_id, Appointment.external_ref_hash == ext)
         )
         if existing:
+            # v13: a desk change is kept until the hospital system's own time changes again.
+            new_at = aware(body.at)
+            if existing.external_at is None or aware(existing.external_at) != new_at:
+                if aware(existing.at) != new_at:
+                    existing.at = new_at
+                    audit(
+                        db,
+                        p.actor_type,
+                        p.actor_id,
+                        "appointment_changed",
+                        "appointment",
+                        existing.id,
+                        site_id=p.site_id,
+                        status=existing.status,
+                        source="fhir",
+                        at=new_at.isoformat(),
+                    )
+                existing.external_at = new_at
+                db.commit()
             return _appt_out(db, existing, body.ncid)
     a = Appointment(
         site_id=p.site_id,
@@ -348,6 +387,7 @@ def create_appointment(body: AppointmentIn, p: Principal = Depends(can_add), db:
         doctor_id=body.doctor_id,
         source=body.source,
         external_ref_hash=ext,
+        external_at=body.at if ext else None,
         created_by=p.actor_id,
     )
     db.add(a)
@@ -392,6 +432,12 @@ def update_appointment(
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
     if (body.at is not None or body.status is not None) and not allows(db, p, "appointments.add"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_permitted"})
+    if body.at is not None and aware(body.at) != aware(a.at) and a.status != "cancelled":
+        # v13: a date change moves its record links too (and closes an open patient request).
+        from app.api.appointment_changes import apply_move
+
+        apply_move(db, p, a, body.at, body.doctor_id, "other")
+        body = body.model_copy(update={"at": None, "doctor_id": None})
     if body.doctor_id is not None and body.doctor_id != a.doctor_id:
         # Decision 038: only this appointment changes; the patient's other ones keep their doctors.
         _doctor_ok(db, p, body.doctor_id)
@@ -413,8 +459,11 @@ def update_appointment(
     if body.status is not None:
         a.status = body.status
         if body.status == "cancelled":
+            from app.api.appointment_changes import close_open_changes
+
             for r in db.scalars(select(RecordingRequest).where(RecordingRequest.appointment_id == a.id)):
                 r.status = "cancelled"
+            close_open_changes(db, a.id, p.actor_id)
     if body.at is not None or body.status is not None:  # a doctor change is logged on its own
         audit(
             db,

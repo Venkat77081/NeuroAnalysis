@@ -38,5 +38,22 @@
   "accountCode": {
     "subject": "Your NeuroCapture code: {code}",
     "body": "Your NeuroCapture code is {code}\n\nIt works for {minutes} minutes. If you did not ask for it, you can ignore this e-mail: nobody can open your account without your PIN.\n\nThis e-mail was sent to the address you typed in the app. NeuroCapture does not keep your e-mail address."
+  },
+  "appointmentMovedEmail": {
+    "subject": "{hospital}: your appointment is now {when}",
+    "body": "{hospital} has changed your appointment. It is now on {when}{doctor}.\n\nOpen the NeuroCapture app and choose {hospital} to see it. If this time does not suit you, please call {hospital}."
+  },
+  "appointmentMovedSms": {
+    "body": "{hospital}: your appointment is now {when}{doctor}. See the NeuroCapture app."
+  },
+  "appointmentNotChangedEmail": {
+    "subject": "{hospital}: your appointment date is unchanged",
+    "body": "{hospital} could not move your appointment on {when}. It stays as booked.\n\nPlease call {hospital} if you need another date."
+  },
+  "appointmentNotChangedSms": {
+    "body": "{hospital}: your appointment on {when} stays as booked. Please call us if you need another date."
+  },
+  "appointmentDoctor": {
+    "suffix": " with {doctor}"
   }
 }

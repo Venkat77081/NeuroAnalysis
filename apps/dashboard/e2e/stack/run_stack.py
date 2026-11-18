@@ -367,6 +367,10 @@ def main() -> None:
         "connector_url": f"http://{host}:{C_PORT}",
         "patient_ncid": inv["ncid"],
         "patient_mrn": PATIENT_MRN,
+        # v13: the patient's phone, so tests can ask for an appointment change as the app does.
+        "patient_device_id": acc["device_id"],
+        "patient_device_secret": acc["device_secret"],
+        "patient_pin": "2580",
         "take_id": plan["take_id"],
         "video_sha256": hashlib.sha256(video).hexdigest(),
         "platform_db": str(work / "platform.db"),

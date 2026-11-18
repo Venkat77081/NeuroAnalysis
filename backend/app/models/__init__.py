@@ -96,6 +96,9 @@ class Site(Base):
     messaging_status: Mapped[dict | None] = mapped_column(Json)
     onboarded_by: Mapped[str | None] = mapped_column(String(32))
     onboarded_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    #: v13: hospital settings a hospital admin changes in the dashboard, where they differ from
+    #: config/platform.json: {"device_min_fps", "change_cutoff_hours", "patient_changes", "time_zone"}.
+    settings: Mapped[dict | None] = mapped_column(Json)
 
 
 class Operator(Base):
@@ -400,7 +403,65 @@ class Appointment(Base):
     status: Mapped[str] = mapped_column(String(10), default="booked")  # booked | cancelled
     created_by: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    #: v13: the time the hospital system last gave (FHIR). A desk change is kept until this changes.
+    external_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    #: v13: the last move: when it was, from when, from which doctor, and why.
+    moved_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    moved_from: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    moved_from_doctor_id: Mapped[str | None] = mapped_column(String(32))
+    moved_reason: Mapped[str | None] = mapped_column(String(24))
     __table_args__ = (UniqueConstraint("site_id", "external_ref_hash"),)
+
+
+class AppointmentChangeRequest(Base):
+    """v13: a patient asks for another date for one appointment: up to 3 days and a part of the day,
+    with a reason from a fixed list (no free text reaches the platform)."""
+
+    __tablename__ = "appointment_change_requests"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"), index=True)
+    appointment_id: Mapped[str] = mapped_column(ForeignKey("appointments.id"), index=True)
+    days: Mapped[list] = mapped_column(Json)  # ["2026-11-24", ...] (the hospital's dates)
+    part_of_day: Mapped[str] = mapped_column(String(10))  # morning | afternoon | any
+    reason: Mapped[str | None] = mapped_column(String(20))
+    #: open → accepted (moved) | declined | withdrawn (by the patient) | closed (moved by the desk
+    #: without answering, or the appointment was cancelled).
+    status: Mapped[str] = mapped_column(String(10), default="open")
+    answer: Mapped[str | None] = mapped_column(String(20))  # declined: call_us | keep
+    answered_by: Mapped[str | None] = mapped_column(String(32))
+    answered_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+class AppointmentNotice(Base):
+    """v13: tell the patient by SMS or e-mail that an appointment moved (or could not be). The
+    platform has no contact details: the hospital connector collects these and sends them."""
+
+    __tablename__ = "appointment_notices"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id"))
+    appointment_id: Mapped[str] = mapped_column(ForeignKey("appointments.id"))
+    kind: Mapped[str] = mapped_column(String(12))  # moved | not_changed
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+
+class DoctorHours(Base):
+    """v13: a doctor's weekly clinic hours and leave, used only to suggest free times when moving
+    an appointment. week: {"mon": [["09:00", "13:00"], ...], ...} in the hospital's time zone;
+    leave: [{"from": "2026-11-24", "to": "2026-11-28"}]."""
+
+    __tablename__ = "doctor_hours"
+    doctor_id: Mapped[str] = mapped_column(ForeignKey("staff_users.id"), primary_key=True)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    department: Mapped[str | None] = mapped_column(String(80))
+    week: Mapped[dict] = mapped_column(Json, default=dict)
+    slot_minutes: Mapped[int] = mapped_column(Integer, default=15)
+    leave: Mapped[list] = mapped_column(Json, default=list)
+    updated_by: Mapped[str | None] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class RecordingRequest(Base):

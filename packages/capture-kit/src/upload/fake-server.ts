@@ -69,6 +69,28 @@ export class FakeServer {
     place: 'home' | 'clinic';
     notDone?: { reason: string; by: string };
   }[] = [];
+  /** v13: the patients' booked appointments and their change requests. */
+  readonly appointments: {
+    id: string;
+    ncid: string;
+    at: string;
+    doctor_name: string | null;
+    change: {
+      id: string;
+      days: string[];
+      part_of_day: string;
+      reason: string | null;
+      status: string;
+      answer: string | null;
+      created_at: string;
+      answered_at: string | null;
+    } | null;
+    moved_from: string | null;
+    moved_from_doctor_name: string | null;
+    moved_by_hospital: boolean;
+  }[] = [];
+  /** v13: hours before an appointment until which patients may ask to change it. */
+  changeCutoffHours = 24;
   /** The fake connector's records: NCID → name (for the clinic queue's live names). */
   readonly connectorNames = new Map<string, string>();
   /** Operators: ID → password (M13). OP-07 keeps the pre-M13 PIN; OP-NEW must change its temporary one. */
@@ -250,6 +272,51 @@ export class FakeServer {
       place: 'clinic',
     });
     return id;
+  }
+
+  /** v13 test hook: a booked appointment in `days` days for this patient; returns its ID. */
+  addAppointment(ncid: string, opts: { days?: number; doctor?: string } = {}): string {
+    const id = this.id('ap');
+    this.appointments.push({
+      id,
+      ncid,
+      at: new Date(Date.now() + (opts.days ?? 5) * 86_400_000).toISOString(),
+      doctor_name: opts.doctor ?? 'Dr. Rao',
+      change: null,
+      moved_from: null,
+      moved_from_doctor_name: null,
+      moved_by_hospital: false,
+    });
+    return id;
+  }
+
+  /**
+   * v13 test hook: the front desk answers. `move` moves it (to the patient's first chosen day at
+   * 9:45, or `days` from now) and accepts an open request; `decline` answers without moving.
+   */
+  answerChange(
+    appointmentId: string,
+    a: { move?: { doctor?: string; days?: number; byHospital?: boolean }; decline?: string },
+  ): void {
+    const ap = this.appointments.find((x) => x.id === appointmentId);
+    if (!ap) throw new Error('no such appointment');
+    const now = new Date().toISOString();
+    if (a.decline && ap.change?.status === 'open')
+      ap.change = { ...ap.change, status: 'declined', answer: a.decline, answered_at: now };
+    if (a.move) {
+      const first = ap.change?.status === 'open' ? ap.change.days[0] : null;
+      const at = first
+        ? new Date(`${first}T09:45:00+05:30`).toISOString()
+        : new Date(Date.now() + (a.move.days ?? 7) * 86_400_000).toISOString();
+      const doctor = a.move.doctor ?? ap.doctor_name;
+      ap.moved_from = ap.at;
+      ap.moved_from_doctor_name = doctor !== ap.doctor_name ? ap.doctor_name : null;
+      ap.moved_by_hospital = !!a.move.byHospital || !first;
+      ap.at = at;
+      ap.doctor_name = doctor;
+      if (ap.change?.status === 'open')
+        ap.change = { ...ap.change, status: 'accepted', answered_at: now };
+    }
   }
 
   /** Test hook: what the server knows of a request (state, not-done reason). */
@@ -827,6 +894,61 @@ export class FakeServer {
         hospital: patient!.hospital,
         status: patient!.status,
       });
+    if (path === '/patient/appointments' && init.method === 'GET') {
+      const now = Date.now();
+      return res(200, {
+        appointments: this.appointments
+          .filter((a) => a.ncid === patient!.ncid && Date.parse(a.at) >= now)
+          .sort((a, b) => a.at.localeCompare(b.at))
+          .map(({ ncid: _n, ...a }) => {
+            const until = Date.parse(a.at) - this.changeCutoffHours * 3_600_000;
+            return {
+              ...a,
+              ask_until: new Date(until).toISOString(),
+              can_ask: now < until && a.change?.status !== 'open',
+            };
+          }),
+        time_zone: 'Asia/Kolkata',
+        max_days: 3,
+        max_days_ahead: 90,
+        cutoff_hours: this.changeCutoffHours,
+      });
+    }
+    const ask = /^\/patient\/appointments\/([A-Za-z0-9]+)\/change-request$/.exec(path);
+    if (ask && init.method === 'POST') {
+      const ap = this.appointments.find((a) => a.id === ask[1] && a.ncid === patient!.ncid);
+      if (!ap) return res(404, { detail: 'appointment not found' });
+      if (Date.now() >= Date.parse(ap.at) - this.changeCutoffHours * 3_600_000)
+        return res(409, { detail: { code: 'too_late_to_change' } });
+      if (ap.change?.status === 'open')
+        return res(409, { detail: { code: 'change_already_asked' } });
+      const b = body as {
+        days: string[];
+        part_of_day: string;
+        reason?: string | null;
+      };
+      if (!b.days?.length || b.days.length > 3)
+        return res(422, { detail: { code: 'days_invalid' } });
+      ap.change = {
+        id: this.id('cr'),
+        days: [...b.days].sort(),
+        part_of_day: b.part_of_day,
+        reason: b.reason ?? null,
+        status: 'open',
+        answer: null,
+        created_at: new Date().toISOString(),
+        answered_at: null,
+      };
+      return res(201, ap.change);
+    }
+    const wd = /^\/patient\/change-requests\/([A-Za-z0-9]+)\/withdraw$/.exec(path);
+    if (wd && init.method === 'POST') {
+      const ap = this.appointments.find((a) => a.change?.id === wd[1] && a.ncid === patient!.ncid);
+      if (!ap?.change || ap.change.status !== 'open')
+        return res(409, { detail: { code: 'request_not_open' } });
+      ap.change = null; // withdrawn requests are not shown
+      return res(204);
+    }
     if (path === '/patient/requests' && init.method === 'GET') {
       return res(
         200,

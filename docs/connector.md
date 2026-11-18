@@ -128,6 +128,13 @@ user `SELECT` on these views only. The connector runs SELECTs with bound paramet
   record by …" through the hospital's provider. The texts are in `messages/en.json`
   (`reminderEmail`, `reminderSms`).
 
+- **v13 (decision 045): appointment notices.** When the front desk moves an appointment with "tell
+  the patient", or answers a patient's change request, the same loop (and `send-reminders`) also
+  asks the platform for due notices (`/connector/v1/appointment-notices/due`). It sends "your
+  appointment is now …" or "… stays as booked" with the hospital's own e-mail or SMS account, in
+  the hospital's time zone. With SMS in India, register DLT templates for `appointmentMovedSms` and
+  `appointmentNotChangedSms` (text in `config/messages/en.json`).
+
 ## Small clinics
 
 Every hospital and clinic runs its own connector and keeps its own take key (decision 031).

@@ -136,6 +136,24 @@ def test_desk_moves_with_free_times(api, two_hospitals):
     assert "09:00" not in first["free"] and first["free"][0] == "09:30" and "13:00" not in first["free"]
     assert len(first["free"]) == 13  # 8 morning + 6 afternoon slots, minus the booked 9:00
     assert second["doctor_id"] == menon and second["on_leave"] and second["free"] == []
+    assert first["slot_minutes"] == 30  # v31: the dashboard lists every slot, taken ones struck
+
+    # v31 (canvas v28): free times per day for the month calendar's green dots.
+    day5, day7 = _local(5, 0).date().isoformat(), _local(7, 0).date().isoformat()
+    fd = api.get(f"/hospital/free-days?from={day5}&to={day7}&doctor_id={rao}", headers=desk).json()
+    assert [d["date"] for d in fd["days"]] == [day5, day6, day7]
+    assert fd["days"][1]["free"] == 13 and fd["days"][2]["free"] == 14
+    # The appointment being moved does not take its own slot.
+    fd2 = api.get(
+        f"/hospital/free-days?from={day5}&to={day5}&doctor_id={rao}&appointment_id={appt['id']}", headers=desk
+    ).json()
+    assert fd2["days"][0]["free"] == fd["days"][0]["free"] + 1
+    # All doctors: Dr. Menon is on leave on day 6.
+    both = api.get(f"/hospital/free-days?from={day6}&to={day6}", headers=desk).json()
+    assert both["days"][0]["free"] == 13
+    far = (_local(70, 0)).date().isoformat()
+    assert api.get(f"/hospital/free-days?from={day5}&to={far}", headers=desk).status_code == 422
+    assert api.get(f"/hospital/free-days?from={day5}&to={day7}", headers=hdr(t["a_tok"])).status_code == 403
 
     # Move to day 7 at 11:30 with Dr. Menon: the link's due date moves by the same amount.
     new_at = _local(7, 11, 30)

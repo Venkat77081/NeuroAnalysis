@@ -302,6 +302,8 @@ class DoctorDay(BaseModel):
     held: list[str]
     #: Booked appointments that day (not counting the one being moved).
     booked: int
+    #: v31: the doctor's appointment length, so dashboards can list every slot (taken ones struck).
+    slot_minutes: int
 
 
 class AvailabilityOut(BaseModel):
@@ -389,6 +391,7 @@ def doctor_day(
         free=free,
         held=sorted(x.astimezone(tz).strftime("%H:%M") for x in held_here),
         booked=len(booked),
+        slot_minutes=int(slot.total_seconds() // 60),
     )
 
 
@@ -441,6 +444,43 @@ def availability(
     return AvailabilityOut(
         date=day, time_zone=site_settings(site)["time_zone"], doctors=sorted(rows, key=rank)
     )
+
+
+class StaffFreeDay(BaseModel):
+    date: date
+    #: Free start times that day (one doctor, or all of them added up).
+    free: int
+
+
+class StaffFreeDaysOut(BaseModel):
+    days: list[StaffFreeDay]
+
+
+@router.get("/hospital/free-days", response_model=StaffFreeDaysOut)
+def free_days(
+    start: date = Query(alias="from"),
+    end: date = Query(alias="to"),
+    doctor_id: str | None = Query(default=None, max_length=32),
+    appointment_id: str | None = Query(default=None, max_length=32),
+    p: Principal = Depends(can_change),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> StaffFreeDaysOut:
+    """v31 (canvas v28): free times per day for the desk's month calendar (the green dots). One
+    doctor, or every doctor; the appointment being moved does not count as taken."""
+    if end < start or (end - start).days + 1 > int(cfg()["freeDaysMaxSpan"]):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "range_too_long"})
+    site = site_of(db, p.site_id)
+    if appointment_id:
+        _appointment(db, p, appointment_id)
+    docs = [d for d in doctors_of(db, site.id) if not doctor_id or d.id == doctor_id]
+    now_ = datetime.now(UTC)
+    held = held_times(db, site.id, now_)
+    out, day = [], start
+    while day <= end:
+        n = sum(len(doctor_day(db, site, d, day, appointment_id, now_, held=held).free) for d in docs)
+        out.append(StaffFreeDay(date=day, free=n))
+        day += timedelta(days=1)
+    return StaffFreeDaysOut(days=out)
 
 
 # --- Notices (the connector tells the patient by SMS / e-mail) ---

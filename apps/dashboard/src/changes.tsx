@@ -14,7 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call } from './api.ts';
 import { appointmentChanges } from './config.ts';
-import { Badge, Button, Card, ErrorNote, Field, Notice, Page } from './ui.tsx';
+import { Badge, Button, Card, ErrorNote, Field, Notice, Page, SettingsLayout } from './ui.tsx';
 
 // --- Time in the hospital's zone ---
 
@@ -181,8 +181,21 @@ export function HospitalSettingsPage() {
       <ErrorNote error={error} />
       {saved && <Notice testId="settings-saved">{t('settings.saved')}</Notice>}
       {s && (
-        <>
-          <Card title={t('settings.phonesTitle')} testId="settings-phones">
+        <SettingsLayout
+          sections={[
+            { id: 'set-hours', label: t('hours.title') },
+            { id: 'set-phones', label: t('settings.phonesTitle') },
+            { id: 'set-changes', label: t('settings.changesTitle') },
+            { id: 'set-booking', label: t('settings.bookingTitle') },
+            { id: 'set-offers', label: t('settings.offersTitle') },
+            { id: 'set-recordings', label: t('settings.recordingsTitle') },
+            { id: 'set-consent', label: t('settings.consentTitle') },
+          ]}
+        >
+          <div id="set-hours">
+            <ClinicHours />
+          </div>
+          <Card title={t('settings.phonesTitle')} testId="settings-phones" id="set-phones">
             <span className="text-[14px] text-sub">{t('settings.phonesHint')}</span>
             <label className="flex max-w-md flex-col gap-1 text-[13px] font-semibold text-sub">
               {t('settings.minFps')}
@@ -205,7 +218,7 @@ export function HospitalSettingsPage() {
               {t('settings.fpsNote', { warn: s.warn_below_fps })}
             </span>
           </Card>
-          <Card title={t('settings.changesTitle')} testId="settings-changes">
+          <Card title={t('settings.changesTitle')} testId="settings-changes" id="set-changes">
             <label className="flex min-h-11 items-center gap-2 text-[14px]">
               <input
                 type="checkbox"
@@ -250,7 +263,7 @@ export function HospitalSettingsPage() {
             </label>
             <span className="text-[13px] text-muted">{t('settings.timeZoneHint')}</span>
           </Card>
-          <Card title={t('settings.bookingTitle')} testId="settings-booking">
+          <Card title={t('settings.bookingTitle')} testId="settings-booking" id="set-booking">
             <label className="flex min-h-11 items-center gap-2 text-[14px]">
               <input
                 type="checkbox"
@@ -274,19 +287,23 @@ export function HospitalSettingsPage() {
             </div>
             <span className="text-[13px] text-muted">{t('settings.bookingHint')}</span>
           </Card>
-          <Card title={t('settings.offersTitle')} testId="settings-offers">
+          <Card title={t('settings.offersTitle')} testId="settings-offers" id="set-offers">
             <div className="grid max-w-2xl grid-cols-[1fr_220px] items-center gap-x-4 gap-y-2.5">
               {(['offer_max', 'offer_reply_hours'] as NumKey[]).map((k) => num(k))}
             </div>
             <span className="text-[13px] text-muted">{t('settings.offersHint')}</span>
           </Card>
-          <Card title={t('settings.recordingsTitle')} testId="settings-recordings">
+          <Card
+            title={t('settings.recordingsTitle')}
+            testId="settings-recordings"
+            id="set-recordings"
+          >
             <div className="grid max-w-2xl grid-cols-[1fr_220px] items-center gap-x-4 gap-y-2.5">
               {(['recording_valid_days', 'record_due_days_before'] as NumKey[]).map((k) => num(k))}
             </div>
             <span className="text-[13px] text-muted">{t('settings.recordingsHint')}</span>
           </Card>
-          <Card title={t('settings.consentTitle')} testId="settings-consent">
+          <Card title={t('settings.consentTitle')} testId="settings-consent" id="set-consent">
             <label className="flex min-h-11 items-center gap-2 text-[14px]">
               <input
                 type="checkbox"
@@ -309,7 +326,7 @@ export function HospitalSettingsPage() {
           >
             {t('settings.save')}
           </Button>
-        </>
+        </SettingsLayout>
       )}
     </Page>
   );

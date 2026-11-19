@@ -5,7 +5,20 @@ import { ApiError, call } from './api.ts';
 import { ResetSignIn } from './reset.tsx';
 import { ActivityLog, type LogRow } from './activity.tsx';
 import { ConnectorStrip } from './health.tsx';
-import { Avatar, Badge, Button, Card, Dialog, ErrorNote, Field, Notice, Page } from './ui.tsx';
+import { platformPolicy } from './config.ts';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  ErrorNote,
+  Field,
+  Notice,
+  Page,
+  SettingRow,
+  SettingsLayout,
+} from './ui.tsx';
 
 interface Hospital {
   id: string;
@@ -562,6 +575,23 @@ function Onboard({ onDone }: { onDone: (name?: string, email?: string) => void }
   const sel = 'h-11 rounded-2xl border border-edge bg-card px-2 text-[14px]';
   return (
     <div className="flex flex-col gap-4" data-testid="onboard">
+      {/* v30 (canvas v28): the steps; the last three are done by the hospital's admin. */}
+      <div className="flex flex-wrap gap-2" aria-hidden>
+        {(['hospital', 'admin', 'connector', 'storage', 'messages'] as const).map((k, i) => (
+          <span
+            key={k}
+            className={`flex min-w-[120px] flex-1 items-center gap-2 rounded-2xl px-3 py-2 text-[12px] font-bold ${i < 2 ? 'nc-gradient text-white' : 'bg-soft text-muted'}`}
+          >
+            <span
+              className={`inline-flex size-[20px] items-center justify-center rounded-full text-[11px] ${i < 2 ? 'bg-white text-brand' : 'shadow-[inset_0_0_0_1.5px_currentColor]'}`}
+            >
+              {i + 1}
+            </span>
+            {t(`platform.step.${k}`)}
+          </span>
+        ))}
+      </div>
+      <span className="text-[13px] text-muted">{t('platform.stepNote')}</span>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field
           id="h-name"
@@ -678,8 +708,12 @@ export function PlatformSettingsPage() {
         ['azure', s.azure_app_registered, t('platform.kindAzure')],
       ]
     : [];
+  const pp = platformPolicy;
+  const fixed = (v: string) => (
+    <span className="rounded-xl bg-soft px-3 py-1.5 text-[13px] font-semibold">{v}</span>
+  );
   return (
-    <Page title={t('nav.platformSettings')}>
+    <Page title={t('nav.platformSettings')} sub={t('platform.settingsSub')}>
       {error instanceof ApiError && error.status === 404 ? (
         <Notice tone="warn" testId="server-outdated">
           {t('platform.serverOutdated')}
@@ -687,41 +721,85 @@ export function PlatformSettingsPage() {
       ) : (
         <ErrorNote error={error} />
       )}
-      <Card title={t('platform.storageTitle')} testId="platform-storage">
-        <p className="text-[14px] leading-5 text-sub">{t('platform.storageIntro')}</p>
-        <ul className="m-0 flex list-none flex-col p-0">
-          {kinds.map(([k, ok, label]) => (
-            <li
-              key={k}
-              className="flex items-center gap-3 border-t border-line py-2.5 text-[14px]"
-              data-testid={`kind-${k}`}
-            >
-              <span className="flex-1">{label}</span>
-              <Badge tone={ok ? 'ok' : 'warn'}>
-                {ok ? t('platform.available') : t('platform.azureMissing')}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-        {s && !s.azure_app_registered && (
-          <p className="rounded-xl bg-ground px-3 py-2.5 text-[13px] leading-[19px]">
-            {t('platform.azureHowTo')}
-          </p>
-        )}
-        {s?.azure_app_client_id && (
-          <p className="text-[13px] text-muted">
-            {t('platform.azureAppId')}: <code className="text-ink">{s.azure_app_client_id}</code>
-          </p>
-        )}
-        {s?.dev_storage && (
-          <p
-            className="rounded-xl bg-warn-soft px-3 py-2.5 text-[13px] text-warn"
-            data-testid="dev-storage-on"
+      <SettingsLayout
+        sections={[
+          { id: 'ps-recording', label: t('platform.set.recording') },
+          { id: 'ps-security', label: t('platform.set.security') },
+          { id: 'ps-storage', label: t('platform.storageTitle') },
+        ]}
+      >
+        <Card title={t('platform.set.recording')} id="ps-recording">
+          <SettingRow
+            title={t('platform.set.passLevel')}
+            hint={t('platform.set.passLevelHint', { warn: pp.warnBelowFps })}
           >
-            {t('platform.devStorageOn')}
-          </p>
-        )}
-      </Card>
+            {fixed(`${Math.min(...pp.fpsOptions)}–${Math.max(...pp.fpsOptions)} fps`)}
+          </SettingRow>
+          <SettingRow title={t('platform.set.speed')} hint={t('platform.set.speedHint')}>
+            {fixed('60 fps')}
+          </SettingRow>
+          <SettingRow title={t('platform.set.takeLength')} hint={t('platform.set.takeLengthHint')}>
+            {fixed(t('platform.set.fromConfig'))}
+          </SettingRow>
+          <SettingRow title={t('platform.set.consent')} hint={t('platform.set.consentHint')}>
+            {fixed(pp.consentVersion)}
+          </SettingRow>
+        </Card>
+        <Card title={t('platform.set.security')} id="ps-security">
+          <SettingRow title={t('platform.set.twoStep')} hint={t('platform.set.twoStepHint')}>
+            <Badge tone={pp.twoStepRequired ? 'ok' : 'warn'}>
+              {pp.twoStepRequired ? t('platform.set.required') : t('platform.set.optional')}
+            </Badge>
+          </SettingRow>
+          <SettingRow title={t('platform.set.invites')} hint={t('platform.set.invitesHint')}>
+            {fixed(
+              t('platform.set.days', { staff: pp.staffInviteDays, patients: pp.patientInviteDays }),
+            )}
+          </SettingRow>
+          <SettingRow title={t('platform.set.pin')} hint={t('platform.set.pinHint')}>
+            {fixed(t('platform.set.tries', { count: pp.pinTries }))}
+          </SettingRow>
+          <SettingRow title={t('platform.set.phoneCode')} hint={t('platform.set.phoneCodeHint')}>
+            {fixed(t('platform.set.hours', { count: pp.deviceCodeHours }))}
+          </SettingRow>
+          <span className="text-[12px] text-muted">{t('platform.set.where')}</span>
+        </Card>
+        <Card title={t('platform.storageTitle')} testId="platform-storage" id="ps-storage">
+          <p className="text-[14px] leading-5 text-sub">{t('platform.storageIntro')}</p>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {kinds.map(([k, ok, label]) => (
+              <li
+                key={k}
+                className="flex items-center gap-3 border-t border-line py-2.5 text-[14px]"
+                data-testid={`kind-${k}`}
+              >
+                <span className="flex-1">{label}</span>
+                <Badge tone={ok ? 'ok' : 'warn'}>
+                  {ok ? t('platform.available') : t('platform.azureMissing')}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+          {s && !s.azure_app_registered && (
+            <p className="rounded-xl bg-ground px-3 py-2.5 text-[13px] leading-[19px]">
+              {t('platform.azureHowTo')}
+            </p>
+          )}
+          {s?.azure_app_client_id && (
+            <p className="text-[13px] text-muted">
+              {t('platform.azureAppId')}: <code className="text-ink">{s.azure_app_client_id}</code>
+            </p>
+          )}
+          {s?.dev_storage && (
+            <p
+              className="rounded-xl bg-warn-soft px-3 py-2.5 text-[13px] text-warn"
+              data-testid="dev-storage-on"
+            >
+              {t('platform.devStorageOn')}
+            </p>
+          )}
+        </Card>
+      </SettingsLayout>
     </Page>
   );
 }

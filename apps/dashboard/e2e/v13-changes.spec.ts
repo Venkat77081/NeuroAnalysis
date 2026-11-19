@@ -89,7 +89,7 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await page.getByTestId('settings-phone-consent').check();
   await page.getByTestId('settings-save').click();
   await expect(page.getByTestId('settings-phone-consent')).toBeChecked();
-  await page.getByTestId('nav-team').click();
+  // v30 (canvas v28): clinic hours are on Settings.
   for (const [doc, hours] of [
     ['Dr. Rao', '09:00-13:00, 14:00-17:00'],
     ['Dr. Iyer', '09:00-13:00'],

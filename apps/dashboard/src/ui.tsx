@@ -9,13 +9,14 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { ApiError } from './api.ts';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-soft';
 const variants: Record<Variant, string> = {
   primary:
     'nc-gradient text-white shadow-[0_6px_16px_rgb(79_70_229/0.28)] disabled:bg-soft disabled:bg-none disabled:text-muted disabled:shadow-none',
   secondary: 'bg-card text-ink shadow-[inset_0_0_0_1px_var(--color-edge)] disabled:opacity-50',
   ghost: 'bg-transparent text-brand-ink disabled:opacity-50',
   danger: 'bg-alert text-white disabled:opacity-50',
+  'danger-soft': 'bg-bad-soft text-bad disabled:opacity-50',
 };
 
 /** v28: pill buttons; primary is the indigo-to-violet gradient. */
@@ -56,6 +57,7 @@ export function Card({
   className = '',
   testId,
   action,
+  id,
 }: {
   title?: string;
   children: ReactNode;
@@ -63,9 +65,12 @@ export function Card({
   testId?: string;
   /** v28: a small control at the right of the title. */
   action?: ReactNode;
+  /** v30: an anchor for settings menus. */
+  id?: string;
 }) {
   return (
     <section
+      id={id}
       className={`nc-fu flex flex-col gap-3 rounded-3xl bg-card p-5 shadow-card ${className}`}
       data-testid={testId}
     >
@@ -306,6 +311,65 @@ export function NowLine({ label }: { label: string }) {
   );
 }
 
+/** v30 (canvas v28): settings with a menu of sections on the left (scrolls to each). */
+export function SettingsLayout({
+  sections,
+  children,
+}: {
+  sections: { id: string; label: string }[];
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <nav
+        aria-label="Sections"
+        className="nc-fu flex shrink-0 flex-row flex-wrap gap-1 rounded-3xl bg-card p-3 shadow-card lg:sticky lg:top-24 lg:w-[230px] lg:flex-col"
+      >
+        {sections.map((s, i) => (
+          <a
+            key={s.id}
+            href={`#${s.id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById(s.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className={`rounded-2xl px-3.5 py-2.5 text-[14px] font-semibold ${i === 0 ? 'bg-brand-soft text-brand-ink' : 'text-sub hover:bg-soft'}`}
+          >
+            {s.label}
+          </a>
+        ))}
+      </nav>
+      <div className="flex min-w-0 flex-1 flex-col gap-4 [&>*]:scroll-mt-24">{children}</div>
+    </div>
+  );
+}
+
+/** v30: one row of a settings card (title, hint, the control on the right). */
+export function SettingRow({
+  title,
+  hint,
+  children,
+  testId,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+  testId?: string;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-3 border-t border-line py-3"
+      data-testid={testId}
+    >
+      <span className="flex min-w-[220px] flex-1 flex-col">
+        <b className="text-[14px]">{title}</b>
+        {hint && <span className="text-[12px] text-muted">{hint}</span>}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 export type DayPart = 'morning' | 'afternoon' | 'evening';
 /** Same parts of the day as the phone app (decision 050). */
 export const dayPart = (d = new Date()): DayPart =>
@@ -469,7 +533,7 @@ export function Dialog({
       data-testid={testId}
     >
       <div
-        className={`flex h-full max-h-full flex-col ${size === 'side' ? '' : 'sm:max-h-[90vh]'}`}
+        className={`flex h-full max-h-full flex-col ${size === 'side' ? '' : 'sm:h-auto sm:max-h-[90vh]'}`}
       >
         {!bare && (
           <div className="flex items-start gap-3 border-b border-line px-6 pt-5 pb-4">

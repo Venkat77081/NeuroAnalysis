@@ -106,3 +106,53 @@ describe('v30 patient journey', () => {
     expect(takeSeconds.SAW).toBe(45);
   });
 });
+
+describe('v30 activity, doctor Today and patients', () => {
+  it('groups log rows by day, newest first', async () => {
+    const { groupByDay, toneOf } = await import('../src/activity.tsx');
+    const who = { name: 'A', email: null, role: 'staff' };
+    const now = new Date(2026, 10, 19, 12);
+    const g = groupByDay(
+      [
+        { at: new Date(2026, 10, 18, 9).toISOString(), who, action: 'staff_login', details: null },
+        {
+          at: new Date(2026, 10, 19, 8).toISOString(),
+          who,
+          action: 'device_revoked',
+          details: null,
+        },
+        { at: new Date(2026, 10, 12, 8).toISOString(), who, action: 'plan_set', details: null },
+      ],
+      now,
+    );
+    expect(g.map((x) => x.label)).toEqual(['today', 'yesterday', 'date']);
+    expect([toneOf('device_revoked'), toneOf('staff_login'), toneOf('change_requested')]).toEqual([
+      'bad',
+      'ok',
+      'warn',
+    ]);
+  });
+  it("tells a doctor what each of today's appointments needs", async () => {
+    const { doctorRow } = await import('../src/today.tsx');
+    expect(doctorRow(appt({ stage: 'recorded' }), NOW).action).toBe('watch');
+    expect(doctorRow(appt({ stage: 'needs_tests' }), NOW).action).toBe('choose');
+    expect(doctorRow(appt({ stage: 'sent', at: '2026-11-19T05:00:00Z' }), NOW).key).toBe('notYet');
+  });
+  it('picks the most useful state for each patient', async () => {
+    const { patientState } = await import('../src/doctor.tsx');
+    const base = {
+      sessions: 2,
+      nextStage: null,
+      newRecording: false,
+      flagged: false,
+      nextToday: false,
+    };
+    expect(patientState({ ...base, nextStage: 'needs_tests', flagged: true }).key).toBe(
+      'needsTests',
+    );
+    expect(patientState({ ...base, flagged: true, newRecording: true }).key).toBe('flagged');
+    expect(patientState({ ...base, newRecording: true }).key).toBe('newRecording');
+    expect(patientState({ ...base, sessions: 0 }).key).toBe('newPatient');
+    expect(patientState(base).key).toBe('upToDate');
+  });
+});

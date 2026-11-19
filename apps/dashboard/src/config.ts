@@ -34,3 +34,15 @@ export const deviceQrPrefix: string = platformJson.invites.deviceQrPrefix;
 export const takeSeconds: Record<string, number> = Object.fromEntries(
   [FT, FTF, FR, SAW, FA].map((c) => [c.code, c.task.durationS]),
 );
+
+/** v30: platform rules shown (read only) on Platform settings. */
+export const platformPolicy = {
+  twoStepRequired: platformJson.staff.twoStepRequired as boolean,
+  staffInviteDays: platformJson.invites.staffTtlDays as number,
+  patientInviteDays: platformJson.invites.patientTtlDays as number,
+  pinTries: platformJson.patientPin.maxFailures as number,
+  consentVersion: platformJson.consentVersion as string,
+  fpsOptions: platformJson.deviceCheck.minFpsOptions as number[],
+  warnBelowFps: platformJson.deviceCheck.warnBelowFps as number,
+  deviceCodeHours: platformJson.invites.deviceCodeTtlHours as number,
+};

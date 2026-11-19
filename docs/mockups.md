@@ -49,3 +49,7 @@ Further pages on the same platform canvas:
 
   Agreed with a 55 fps cut-off for clinic and patient phones (decision 035). The mockups show
   59, the take minimum, which is unchanged.
+
+- **v31 · Phone app in the Horizon+ look** (canvas page v31): patient app, test page and camera,
+  clinic phone, and the evening (dark) look. Approved 19 Nov 2026 and built (decision 055). The
+  welcome screen keeps its earlier layout with the new colours.

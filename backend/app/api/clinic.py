@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.clinic_consent import consent_state
-from app.api.requests import _staff_name, aware, request_state
+from app.api.requests import _staff_name, aware, request_lengths, request_state
 from app.audit import audit
 from app.db import get_db
 from app.models import Appointment, Operator, Patient, RecordingRequest, Session
@@ -29,6 +29,8 @@ class QueueItem(BaseModel):
     at: datetime
     doctor_name: str | None
     tests: list[str]
+    #: v31 (decision 054): seconds per test for this patient's takes.
+    durations: dict[str, float] = {}
     med_state: str
     #: open | recorded | not_recorded | missed
     state: str
@@ -89,6 +91,7 @@ def _item(db: DbSession, r: RecordingRequest, ncid: str) -> QueueItem:
         at=_when(db, r),
         doctor_name=_staff_name(db, a.doctor_id if a else r.created_by),
         tests=list(r.tests),
+        durations=request_lengths(r),
         med_state=r.med_state,
         state=request_state(db, r),
         recorded_by=by,

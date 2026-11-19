@@ -110,6 +110,12 @@ export interface TestConfig {
      * Fixed take length; the native timer stops recording here (decision 002).
      */
     durationS: number;
+    /**
+     * v31 (decision 054): lengths a hospital (Settings) or a doctor (per request) may choose instead of durationS; never below the biomarker registry's minimum. The native timer still stops each take at the chosen length.
+     *
+     * @minItems 1
+     */
+    durationOptionsS?: [number, ...number[]];
     noMotionTimeoutS: number;
     /**
      * Detector parameters (DEV_PLAN §9.4, decision 018); keys depend on the detector and are checked by nc-validate. "TBD" until defined.

@@ -54,6 +54,7 @@ from app.permissions import allows, require
 from app.policy import policy
 from app.providers import doctor_no_show
 from app.security import Principal
+from app.test_lengths import length_options, offered
 
 router = APIRouter(tags=["appointment changes"])
 log = logging.getLogger("neurocapture.appointments")
@@ -105,6 +106,9 @@ class SettingsOut(BaseModel):
     recording_valid_days: int
     record_due_days_before: int
     clinic_phone_consent: bool
+    #: v31 (decision 054): each test's take length, and the lengths it may be set to.
+    test_durations: dict[str, float]
+    test_duration_options: dict[str, list[float]]
     #: The choices the dashboard offers (config/platform.json).
     device_min_fps_options: list[float]
     change_cutoff_hour_options: list[int]
@@ -129,6 +133,8 @@ class SettingsIn(BaseModel):
     recording_valid_days: int | None = None
     record_due_days_before: int | None = None
     clinic_phone_consent: bool | None = None
+    #: v31: {test code: seconds}; only the tests given change.
+    test_durations: dict[str, float] | None = None
 
 
 def _settings_out(site: Site) -> SettingsOut:
@@ -140,6 +146,7 @@ def _settings_out(site: Site) -> SettingsOut:
         change_cutoff_hour_options=list(cfg()["cutoffHourOptions"]),
         options={k: list(cfg()[v]) for k, v in OPTIONS.items()},
         warn_below_fps=float(pol["deviceCheck"]["warnBelowFps"]),
+        test_duration_options=length_options(),
     )
 
 
@@ -169,6 +176,13 @@ def put_settings(
     if "time_zone" in given and not valid_time_zone(given["time_zone"]):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "time_zone_unknown"})
     current = site_settings(site)
+    if "test_durations" in given:
+        bad = offered(given["test_durations"])
+        if bad:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "duration_not_offered", "test": bad}
+            )
+        given["test_durations"] = {**current["test_durations"], **given["test_durations"]}
     changed = {k: v for k, v in given.items() if current.get(k) != v}
     site.settings = {**(site.settings or {}), **changed}
     if changed:
@@ -539,6 +553,7 @@ def move_recordings(
                     appointment_id=a.id,
                     kind="appointment",
                     tests=list(r.tests),
+                    durations=dict(r.durations) if r.durations else None,
                     med_state=r.med_state,
                     due_at=new_at - due_before,
                     remind=True,

@@ -285,6 +285,13 @@
           "minimum": 5,
           "maximum": 120
         },
+        "durationOptionsS": {
+          "description": "v31 (decision 054): lengths a hospital (Settings) or a doctor (per request) may choose instead of durationS; never below the biomarker registry's minimum. The native timer still stops each take at the chosen length.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "number", "minimum": 5, "maximum": 120 }
+        },
         "noMotionTimeoutS": {
           "type": "number",
           "exclusiveMinimum": 0

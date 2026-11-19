@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.connector_link import signed_connector
 from app.audit import audit
 from app.db import get_db
+from app.hospital_settings import site_settings
 from app.models import (
     Appointment,
     AppointmentChangeRequest,
@@ -39,6 +40,7 @@ from app.models import (
 from app.permissions import allows, require
 from app.policy import policy
 from app.security import Principal, current_principal, sha256_hex
+from app.test_lengths import default_lengths, offered
 
 router = APIRouter(tags=["appointments"])
 # Decision 033: what each role may do is set per hospital (config/platform.json `permissions`).
@@ -110,11 +112,20 @@ class RequestOut(BaseModel):
     place: str = "home"
     not_done_reason: str | None = None
     tests: list[str]
+    #: v31 (decision 054): seconds per test the phone records each take for.
+    durations: dict[str, float] = Field(default_factory=dict)
     med_state: str
     due_at: datetime
     remind: bool
     state: str
     created_at: datetime
+
+
+def request_lengths(r: RecordingRequest) -> dict[str, float]:
+    """Each of the request's tests and how long its take records (older requests: the config's)."""
+    base = default_lengths()
+    given = r.durations or {}
+    return {t: float(given.get(t, base.get(t, 0))) for t in r.tests}
 
 
 def _req_out(db: DbSession, r: RecordingRequest) -> RequestOut:
@@ -124,6 +135,7 @@ def _req_out(db: DbSession, r: RecordingRequest) -> RequestOut:
         place=r.place,
         not_done_reason=r.not_done_reason,
         tests=list(r.tests),
+        durations=request_lengths(r),
         med_state=r.med_state,
         due_at=r.due_at,
         remind=r.remind,
@@ -549,6 +561,9 @@ class RequestIn(BaseModel):
     places: list[Literal["home", "clinic"]] = Field(
         default_factory=lambda: ["home"], min_length=1, max_length=2
     )
+    #: v31 (decision 054): the doctor's lengths for this request, {test: seconds}; tests not
+    #: given use the hospital's lengths (Settings).
+    durations: dict[TestCode, float] | None = None
 
 
 def _new_request(
@@ -569,12 +584,19 @@ def _new_request(
     tests, med = _plan_defaults(db, pt.id)
     if body.tests:
         tests = [t for t in ORDER if t in body.tests]
+    if body.durations and (bad := offered(body.durations)):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "duration_not_offered", "test": bad}
+        )
+    hospital = site_settings(db.get(Site, pt.site_id))["test_durations"]
+    lengths = {t: float((body.durations or {}).get(t, hospital.get(t, 0))) for t in tests}
     r = RecordingRequest(
         site_id=pt.site_id,
         patient_id=pt.id,
         appointment_id=appointment.id if appointment else None,
         kind=kind,
         tests=tests,
+        durations=lengths,
         med_state=body.med_state or med,
         due_at=body.due_at or default_due if place == "home" else default_due,
         remind=body.remind and place == "home",  # the connector reminds for home links only
@@ -594,6 +616,7 @@ def _new_request(
         kind=kind,
         place=place,
         tests=tests,
+        durations=lengths,
         med_state=r.med_state,
         due=aware(r.due_at).date().isoformat(),
         appointment=appointment.id if appointment else None,
@@ -779,6 +802,8 @@ class PatientRequest(BaseModel):
     appointment_at: datetime | None
     doctor_name: str | None
     tests: list[str]
+    #: v31: seconds per test (the phone's native timer stops each take there).
+    durations: dict[str, float] = Field(default_factory=dict)
     med_state: str
     due_at: datetime
     state: str
@@ -811,6 +836,7 @@ def patient_requests(
                 appointment_at=a.at if a else None,
                 doctor_name=_doctor_name(db, doctor),
                 tests=list(r.tests),
+                durations=request_lengths(r),
                 med_state=r.med_state,
                 due_at=r.due_at,
                 state=request_state(db, r),

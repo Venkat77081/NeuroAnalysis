@@ -71,6 +71,7 @@
   "task": {
     "detector": "saw_phases",
     "durationS": 45,
+    "durationOptionsS": [45, 60, 90],
     "noMotionTimeoutS": 5,
     "detectorParams": {
       "minCutoff": 2,

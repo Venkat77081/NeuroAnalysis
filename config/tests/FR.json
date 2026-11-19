@@ -60,6 +60,7 @@
   "task": {
     "detector": "rotation_counter",
     "durationS": 15,
+    "durationOptionsS": [15, 20, 30],
     "noMotionTimeoutS": 3,
     "detectorParams": {
       "minCutoff": 3,

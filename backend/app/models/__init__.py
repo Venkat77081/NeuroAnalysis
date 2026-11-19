@@ -527,6 +527,9 @@ class RecordingRequest(Base):
     appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id"))
     kind: Mapped[str] = mapped_column(String(10), default="appointment")  # appointment | rerecord
     tests: Mapped[list] = mapped_column(Json)
+    #: v31 (decision 054): {test code: seconds} the phone records each take for; null on older
+    #: requests (the config's lengths).
+    durations: Mapped[dict | None] = mapped_column(Json, nullable=True)
     med_state: Mapped[str] = mapped_column(String(3))  # OFF | ON | ANY
     due_at: Mapped[datetime] = mapped_column(UTCDateTime())
     remind: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.models import Site
 from app.policy import policy
+from app.test_lengths import default_lengths
 
 
 def defaults(site: Site | None) -> dict:
@@ -32,6 +33,8 @@ def defaults(site: Site | None) -> dict:
         "record_due_days_before": int(pol["requests"]["defaultDueDaysBefore"]),
         # v16 (decision 047): consent on the clinic phone when the patient has no app.
         "clinic_phone_consent": True,
+        # v31 (decision 054): each test's take length (config/tests), changed on Settings.
+        "test_durations": default_lengths(),
     }
 
 
@@ -54,7 +57,8 @@ def site_settings(site: Site | None) -> dict:
     out = defaults(site)
     for k, v in ((site.settings if site else None) or {}).items():
         if k in out and v is not None:
-            out[k] = v
+            # Lengths merge per test, so a test added to config later keeps its default.
+            out[k] = {**out[k], **v} if k == "test_durations" else v
     return out
 
 

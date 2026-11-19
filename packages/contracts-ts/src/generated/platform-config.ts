@@ -197,6 +197,14 @@ export interface PlatformConfig {
      */
     slotMinuteOptions: [number, ...number[]];
     /**
+     * v31: time blocks the clinic hours grid offers by default (rows), hospital time.
+     */
+    clinicBlocks?: [string, string][];
+    /**
+     * v31: free times from this hour are listed under Afternoon.
+     */
+    afternoonFrom?: string;
+    /**
      * Default time zone by hospital region; a hospital admin can change it.
      */
     timeZones: {

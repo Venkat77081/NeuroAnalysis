@@ -89,23 +89,33 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await page.getByTestId('settings-phone-consent').check();
   await page.getByTestId('settings-save').click();
   await expect(page.getByTestId('settings-phone-consent')).toBeChecked();
-  // v30 (canvas v28): clinic hours are on Settings.
-  for (const [doc, hours] of [
-    ['Dr. Rao', '09:00-13:00, 14:00-17:00'],
-    ['Dr. Iyer', '09:00-13:00'],
+  // v30 (canvas v28): clinic hours are on Settings. v31: a grid, one doctor at a time; clicking
+  // a block's times opens it on every day.
+  for (const [doc, blocks] of [
+    ['Dr. Rao', ['09:00-13:00', '14:00-17:00']],
+    ['Dr. Iyer', ['09:00-13:00']],
   ] as const) {
+    await page.getByTestId('hours-doctor').selectOption({ label: `${doc} · Not set` });
     const row = page.getByTestId(`hours-${doc}`);
     await expect(row).toContainText('Not set');
-    for (const d of ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])
-      await row.getByTestId(`hours-${d}`).fill(hours);
+    for (const b of blocks) await row.getByTestId(`hours-row-${b}`).click();
+    await expect(row.getByTestId(`hours-sun-${blocks[0]}`)).toHaveAttribute('aria-pressed', 'true');
     await row.getByTestId('hours-dept').fill('Neurology');
     await row.getByTestId('hours-slot').selectOption('30');
     await row.getByTestId('hours-save').click();
     await expect(row.getByTestId('hours-saved')).toBeVisible();
   }
+  await page.getByTestId('hours-doctor').selectOption({ label: 'Dr. Rao' });
   const rao = page.getByTestId('hours-Dr. Rao');
-  await rao.getByTestId('hours-mon').fill('9:00-13:00, 14:00-1700');
-  await expect(rao.getByTestId('hours-save')).toBeDisabled();
+  await rao.getByTestId('hours-new-from').fill('14:00');
+  await rao.getByTestId('hours-new-to').fill('13:00');
+  await expect(rao.getByTestId('hours-add-row')).toBeDisabled();
+  // Team: doctors' cards show their week (canvas v28).
+  await page.getByTestId('nav-team').click();
+  await expect(page.getByTestId('staff-Dr. Rao').getByTestId('doctor-hours-line')).toHaveText(
+    '9–1, 2–5 · bookable in the app',
+  );
+  await expect(page.getByTestId('staff-Dr. New')).toContainText('Clinic hours not set');
   await page.getByTestId('sign-out').click();
 
   // The patient asks to change an appointment: exact times (preferred and alternative).

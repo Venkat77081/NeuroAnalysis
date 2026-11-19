@@ -565,6 +565,21 @@
             "maximum": 120
           }
         },
+        "clinicBlocks": {
+          "type": "array",
+          "description": "v31: time blocks the clinic hours grid offers by default (rows), hospital time.",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "string", "pattern": "^\\d\\d:\\d\\d$" }
+          }
+        },
+        "afternoonFrom": {
+          "type": "string",
+          "pattern": "^\\d\\d:\\d\\d$",
+          "description": "v31: free times from this hour are listed under Afternoon."
+        },
         "timeZones": {
           "type": "object",
           "additionalProperties": {

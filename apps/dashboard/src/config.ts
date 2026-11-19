@@ -25,6 +25,9 @@ export const appointmentChanges: {
   movedShownDays: number;
   slotMinuteOptions: number[];
   undoSeconds: number;
+  /** v31: rows the clinic hours grid starts with, and where Afternoon starts in time lists. */
+  clinicBlocks: string[][];
+  afternoonFrom: string;
 } = platformJson.appointmentChanges;
 
 /** v29 (decision 052): the clinic-phone registration QR holds this prefix + the code. */

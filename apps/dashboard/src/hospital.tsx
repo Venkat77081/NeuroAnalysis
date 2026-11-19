@@ -14,6 +14,7 @@ import { fromAudit, type AuditRow } from './platform.tsx';
 import { ActivityLog, type LogRow, type Who } from './activity.tsx';
 import { HospitalPermissions } from './permissions.tsx';
 import { MessagingCard } from './messaging.tsx';
+import { WeekChips, hoursSummary, leaveOn, type Hours } from './hours.tsx';
 import {
   Badge,
   Button,
@@ -593,6 +594,10 @@ export function Team() {
   const { t } = useTranslation();
   const [ops, , reloadOps] = useLoad(() => call<Operator[]>('GET', '/hospital/operators'));
   const [staff, , reloadStaff] = useLoad(() => call<StaffRow[]>('GET', '/hospital/staff'));
+  // v31 (canvas v28): doctors' cards show their week and hours.
+  const [hours] = useLoad(() => call<Hours[]>('GET', '/hospital/doctor-hours'));
+  const hoursBy = Object.fromEntries((hours ?? []).map((h) => [h.doctor_id, h]));
+  const [today] = useState(() => new Date().toLocaleDateString('en-CA'));
   const [code, setCode] = useState('');
   const [opName, setOpName] = useState('');
   const [temp, setTemp] = useState<{ code: string; pw: string } | null>(null);
@@ -610,7 +615,11 @@ export function Team() {
   const count = (r: string) =>
     r === 'operator' ? (ops ?? []).length : (staff ?? []).filter((u) => u.role === r).length;
   const card = 'nc-fu flex flex-col gap-3 rounded-3xl bg-card p-4 shadow-card';
-  const state = (active: boolean, locked: boolean, extra?: [string, 'warn' | 'info'] | null) =>
+  const state = (
+    active: boolean,
+    locked: boolean,
+    extra?: [string, 'warn' | 'info' | 'neutral'] | null,
+  ) =>
     locked ? (
       <Badge tone="bad">{t('hospital.locked')}</Badge>
     ) : !active ? (
@@ -666,49 +675,79 @@ export function Team() {
         >
           {(staff ?? [])
             .filter((u) => show === 'all' || u.role === show)
-            .map((u) => (
-              <li key={u.id} className={card}>
-                <div className="flex items-center gap-3">
-                  <Avatar name={u.display_name ?? u.email} size={40} />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <b className="truncate text-[14px]">{u.display_name ?? u.email}</b>
-                    <span className="truncate text-[12px] text-muted">
-                      {t(`roles.${u.role}`)} · {u.email}
+            .map((u) => {
+              const h = u.role === 'doctor' ? hoursBy[u.id] : undefined;
+              const away = h ? leaveOn(h.leave, today) : null;
+              const extra: [string, 'warn' | 'info' | 'neutral'] | null = u.invited
+                ? [t('team.invited'), 'info']
+                : h && !h.has_hours
+                  ? [t('team.hoursChip'), 'warn']
+                  : away
+                    ? [t('team.leaveChip'), 'neutral']
+                    : null;
+              return (
+                <li key={u.id} className={card} data-testid={`staff-${u.display_name ?? u.email}`}>
+                  <div className="flex items-center gap-3">
+                    <Avatar name={u.display_name ?? u.email} size={40} />
+                    <span className="flex min-w-0 flex-1 flex-col" title={u.email}>
+                      <b className="truncate text-[14px]">{u.display_name ?? u.email}</b>
+                      <span className="truncate text-[12px] text-muted">
+                        {h?.department || t(`roles.${u.role}`)}
+                        {u.role === 'doctor' ? '' : ` · ${u.email}`}
+                      </span>
                     </span>
-                  </span>
-                  {state(u.active, u.locked, u.invited ? [t('team.invited'), 'info'] : null)}
-                </div>
-                <span className="text-[12px] text-muted">
-                  {u.last_login_at
-                    ? t('hospital.lastActive', { at: fmt(u.last_login_at) })
-                    : t('hospital.neverSignedIn')}
-                </span>
-                <div className="mt-auto flex flex-wrap items-center gap-1">
-                  {!u.invited && (
-                    <ResetSignIn
-                      url={`/hospital/staff/${u.id}/reset-sign-in`}
-                      name={u.display_name ?? u.email}
-                      email={u.email}
-                      testId="st-reset"
-                    />
+                    {state(u.active, u.locked, extra)}
+                  </div>
+                  {h && <WeekChips week={h.week} />}
+                  {h ? (
+                    <span
+                      className={`text-[12px] ${h.has_hours ? 'text-muted' : 'font-semibold text-warn'}`}
+                      data-testid="doctor-hours-line"
+                    >
+                      {!h.has_hours
+                        ? t('team.hoursMissing')
+                        : away
+                          ? away.to === today
+                            ? t('team.onLeaveToday')
+                            : t('team.onLeaveUntil', { date: fmtDate(away.to) })
+                          : t(h.bookable ? 'team.hoursLine' : 'team.hoursLineNoApp', {
+                              hours: hoursSummary(h.week),
+                            })}
+                    </span>
+                  ) : (
+                    <span className="text-[12px] text-muted">
+                      {u.last_login_at
+                        ? t('hospital.lastActive', { at: fmt(u.last_login_at) })
+                        : t('hospital.neverSignedIn')}
+                    </span>
                   )}
-                  <Button
-                    variant="ghost"
-                    className="min-h-9 text-[13px]"
-                    onClick={() =>
-                      void attempt(setError, async () => {
-                        await call('POST', `/hospital/staff/${u.id}/active`, {
-                          active: !u.active || u.locked,
-                        });
-                        reloadStaff();
-                      })
-                    }
-                  >
-                    {u.active && !u.locked ? t('hospital.disable') : t('hospital.enable')}
-                  </Button>
-                </div>
-              </li>
-            ))}
+                  <div className="mt-auto flex flex-wrap items-center gap-1">
+                    {!u.invited && (
+                      <ResetSignIn
+                        url={`/hospital/staff/${u.id}/reset-sign-in`}
+                        name={u.display_name ?? u.email}
+                        email={u.email}
+                        testId="st-reset"
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      className="min-h-9 text-[13px]"
+                      onClick={() =>
+                        void attempt(setError, async () => {
+                          await call('POST', `/hospital/staff/${u.id}/active`, {
+                            active: !u.active || u.locked,
+                          });
+                          reloadStaff();
+                        })
+                      }
+                    >
+                      {u.active && !u.locked ? t('hospital.disable') : t('hospital.enable')}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
         </ul>
       )}
       {(show === 'all' || show === 'operator') && (

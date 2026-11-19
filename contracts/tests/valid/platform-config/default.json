@@ -160,6 +160,11 @@
     "undoSeconds": 8,
     "slotMinutes": 15,
     "slotMinuteOptions": [10, 15, 20, 30, 45, 60],
+    "clinicBlocks": [
+      ["09:00", "13:00"],
+      ["14:00", "17:00"]
+    ],
+    "afternoonFrom": "12:00",
     "timeZones": {
       "IN": "Asia/Kolkata",
       "US": "America/New_York"

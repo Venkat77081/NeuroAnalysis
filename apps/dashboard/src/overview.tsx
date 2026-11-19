@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, hospital } from './api.ts';
-import { Badge, Button, Card, ErrorNote, Page, Table, fmt } from './ui.tsx';
+import { Badge, Button, Card, ErrorNote, Hero, Page, Segmented, Table, fmt } from './ui.tsx';
 
 type Period = '4w' | '12w' | '1y';
 const PERIODS: Period[] = ['4w', '12w', '1y'];
@@ -91,13 +91,31 @@ const TONE: Record<string, 'ok' | 'warn' | 'bad' | 'neutral'> = {
   suspended: 'neutral',
 };
 
+/** v28: "312 patients in the app" in the greeting (value, then the tile's title in lower case). */
+export function heroChip(title: string, tile: Pick<Tile, 'key' | 'value'>): string {
+  const v = tile.key === 'onTime' ? `${tile.value}%` : (tile.value ?? 0).toLocaleString('en-IN');
+  return `${v} ${title.charAt(0).toLowerCase()}${title.slice(1)}`;
+}
+
+/** v28: the next appointment still to come (for the greeting's "Next" card). */
+export function nextAppointment(items: Item[], now = Date.now()): Item | null {
+  return (
+    items
+      .filter((i) => i.key === 'appointment' && i.at && Date.parse(i.at) >= now)
+      .sort((a, b) => Date.parse(a.at!) - Date.parse(b.at!))[0] ?? null
+  );
+}
+
 function StatTile({ tile, onOpen }: { tile: Tile; onOpen: (page: string) => void }) {
   const { t } = useTranslation();
   const k = `overview.tiles.${tile.key}`;
   const body = (
     <>
       <span className="text-[13px] font-semibold text-muted">{t(`${k}.title`, tile.detail)}</span>
-      <span className="text-[30px] leading-9 font-bold" data-testid={`tile-${tile.key}-value`}>
+      <span
+        className="text-[38px] leading-[42px] font-extrabold tracking-[-0.5px]"
+        data-testid={`tile-${tile.key}-value`}
+      >
         {tile.value === null
           ? '–'
           : tile.key === 'onTime'
@@ -110,11 +128,11 @@ function StatTile({ tile, onOpen }: { tile: Tile; onOpen: (page: string) => void
     </>
   );
   const cls =
-    'flex min-h-[132px] flex-col items-start gap-1 rounded-2xl border border-line bg-white p-4 text-left';
+    'nc-fu flex min-h-[132px] flex-col items-start gap-1 rounded-3xl bg-card p-[18px] text-left shadow-card';
   return tile.link ? (
     <button
       type="button"
-      className={`${cls} hover:border-brand focus-visible:outline-2 focus-visible:outline-brand`}
+      className={`${cls} transition-shadow hover:shadow-[0_0_0_2px_var(--color-brand)] focus-visible:outline-2 focus-visible:outline-brand`}
       onClick={() => onOpen(tile.link!)}
       data-testid={`tile-${tile.key}`}
     >
@@ -168,8 +186,21 @@ export function BarChart({
       >
         {ticks.map((v) => (
           <g key={v}>
-            <line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} stroke="#E4E8EE" strokeWidth={1} />
-            <text x={pad.l - 6} y={y(v) + 4} textAnchor="end" fontSize={11} fill="#5B6472">
+            <line
+              x1={pad.l}
+              x2={W - pad.r}
+              y1={y(v)}
+              y2={y(v)}
+              stroke="var(--color-line)"
+              strokeWidth={1}
+            />
+            <text
+              x={pad.l - 6}
+              y={y(v) + 4}
+              textAnchor="end"
+              fontSize={11}
+              fill="var(--color-muted)"
+            >
               {v}
             </text>
           </g>
@@ -183,7 +214,7 @@ export function BarChart({
               {p.count > 0 && (
                 <path
                   d={`M${x},${y(0)} V${y(p.count) + r} q0,-${r} ${r},-${r} H${x + bw - r} q${r},0 ${r},${r} V${y(0)} Z`}
-                  fill={hover === i ? '#084A85' : '#0B5FAA'}
+                  fill={hover === i ? 'var(--color-brand-2)' : 'var(--color-brand)'}
                 />
               )}
               {/* Hit target: the whole column, bigger than the bar. */}
@@ -200,18 +231,31 @@ export function BarChart({
                 data-testid="chart-bar"
               />
               {i % every === 0 && (
-                <text x={x + bw / 2} y={H - 8} textAnchor="middle" fontSize={11} fill="#5B6472">
+                <text
+                  x={x + bw / 2}
+                  y={H - 8}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fill="var(--color-muted)"
+                >
                   {day(p.start)}
                 </text>
               )}
             </g>
           );
         })}
-        <line x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)} stroke="#C9CFD8" strokeWidth={1} />
+        <line
+          x1={pad.l}
+          x2={W - pad.r}
+          y1={y(0)}
+          y2={y(0)}
+          stroke="var(--color-edge)"
+          strokeWidth={1}
+        />
       </svg>
       {hover !== null && series[hover] && (
         <div
-          className="pointer-events-none absolute top-1 rounded-lg bg-ink px-2.5 py-1.5 text-[12px] text-white shadow"
+          className="pointer-events-none absolute top-1 rounded-lg bg-ink px-2.5 py-1.5 text-[12px] text-ground shadow"
           style={{ left: `${Math.min(80, ((pad.l + (hover + 0.5) * slot) / W) * 100)}%` }}
           data-testid="chart-tooltip"
         >
@@ -238,19 +282,15 @@ function ChartCard({
     <Card className="min-w-0 flex-[2_1_480px]" testId="overview-chart-card">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="flex-1 text-[17px] font-bold">{title}</h2>
-        {data.unit === 'week' &&
-          PERIODS.map((p) => (
-            <Button
-              key={p}
-              variant={p === period ? 'primary' : 'secondary'}
-              aria-pressed={p === period}
-              onClick={() => setPeriod(p)}
-              className="min-h-9 px-3 text-[13px]"
-              data-testid={`overview-period-${p}`}
-            >
-              {t(`overview.periods.${p}`)}
-            </Button>
-          ))}
+        {data.unit === 'week' && (
+          <Segmented
+            options={PERIODS.map((p) => ({ value: p, label: t(`overview.periods.${p}`) }))}
+            value={period}
+            onChange={setPeriod}
+            label={t('overview.periodLabel')}
+            testId={(p) => `overview-period-${p}`}
+          />
+        )}
         <Button
           variant="ghost"
           aria-pressed={table}
@@ -332,11 +372,14 @@ function ItemRow({
 
 export function OverviewPage({
   title,
+  name,
   onOpen,
   onPatient,
   children,
 }: {
   title: string;
+  /** v28: the signed-in person's name for the greeting. */
+  name?: string | null;
   onOpen: (page: string) => void;
   onPatient: (ncid: string) => void;
   children?: React.ReactNode;
@@ -378,8 +421,35 @@ export function OverviewPage({
     };
   }, [period]);
   const listTitle = useMemo(() => (data ? t(`overview.list.${data.role}`) : ''), [data, t]);
+  const next = data ? nextAppointment(data.items) : null;
+  const hero = (
+    <Hero
+      name={name ?? null}
+      line={data ? t(`hero.line.${data.role}`) : t('app.loading')}
+      chips={(data?.tiles ?? [])
+        .slice(0, 3)
+        .flatMap((tile) =>
+          tile.value === null
+            ? []
+            : [heroChip(t(`overview.tiles.${tile.key}.title`, tile.detail), tile)],
+        )}
+      right={
+        next ? (
+          <span className="flex flex-col gap-1" data-testid="hero-next">
+            <span className="text-[12px] font-bold text-sub uppercase">
+              {t('hero.next', { time: fmt(next.at) })}
+            </span>
+            <b className="text-[16px]">
+              {next.ncid ? (names[next.ncid] ?? next.ncid) : t('overview.patient')}
+            </b>
+            <span className="text-sub">{next.doctor ?? t('overview.noDoctor')}</span>
+          </span>
+        ) : undefined
+      }
+    />
+  );
   return (
-    <Page title={title}>
+    <Page title={title} hero={hero}>
       {data?.role === 'platform_admin' && (
         <p className="-mt-3 text-[13px] text-muted" data-testid="counts-only">
           {t('overview.countsOnly')}

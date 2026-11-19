@@ -73,6 +73,7 @@ export function ClinicQueue({
     await repo.savePatient(patient);
     await startClinicRequest({
       tests: q.tests,
+      durations: q.durations,
       requestId: q.request_id,
       patient,
       medState: q.med_state === 'ANY' ? null : q.med_state,

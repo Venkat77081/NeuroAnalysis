@@ -41,7 +41,14 @@ export interface AppServices {
   startHomeSession(
     tests: string[],
     medState: 'ON' | 'OFF',
-    opts?: { profile: string; requestId: string | null; consentVersion: string; consentAt: string },
+    opts?: {
+      profile: string;
+      requestId: string | null;
+      consentVersion: string;
+      consentAt: string;
+      /** v31: seconds per test from the request. */
+      durations?: Record<string, number>;
+    },
   ): Promise<void>;
   /**
    * Clinic phones (user, 16 Nov 2026): a session for a clinic queue request: the doctor's tests,
@@ -49,6 +56,8 @@ export interface AppServices {
    */
   startClinicRequest(r: {
     tests: string[];
+    /** v31: seconds per test from the request. */
+    durations?: Record<string, number>;
     requestId: string;
     patient: Patient;
     medState: 'ON' | 'OFF' | null;
@@ -81,14 +90,23 @@ function makeStore() {
   }
 }
 
-function inputFor(config: LoadedConfig, operatorId: string, tests?: string[]): SessionInput {
+function inputFor(
+  config: LoadedConfig,
+  operatorId: string,
+  tests?: string[],
+  durations?: Record<string, number>,
+): SessionInput {
   const order = tests
     ? config.session.order.filter(([code]) => tests.includes(code))
     : config.session.order;
   return {
     sessionId: newId('s'),
     operatorId,
-    plan: order.map(([code, side]) => ({ code, side }) as PlanStep),
+    // v31 (decision 054): each take records for the request's length (else the config's).
+    plan: order.map(
+      ([code, side]) =>
+        ({ code, side, ...(durations?.[code] ? { durationS: durations[code] } : {}) }) as PlanStep,
+    ),
     maxRetakes: config.session.maxRetakes,
     skipReasons: config.session.skipReasons,
     overrideReasons: config.session.overrideReasons,
@@ -195,7 +213,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         actor.stop();
         await r.clearSession();
         const input = {
-          ...inputFor(config, 'patient', tests),
+          ...inputFor(config, 'patient', tests, opts?.durations),
           consentVersion:
             opts?.consentVersion ||
             settings.patient?.consentVersion ||
@@ -216,13 +234,13 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         a.send({ type: 'START', at: new Date().toISOString() });
         setActor(a);
       },
-      async startClinicRequest({ tests, requestId, patient, medState, consent }) {
+      async startClinicRequest({ tests, durations, requestId, patient, medState, consent }) {
         await saving.current;
         actor.stop();
         await r.clearSession();
         const a = watch(
           startSession({
-            ...inputFor(config, settings.operatorId, tests),
+            ...inputFor(config, settings.operatorId, tests, durations),
             requestId,
             ...(consent
               ? {

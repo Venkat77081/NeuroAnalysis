@@ -13,6 +13,8 @@ export interface QueueItem {
   at: string;
   doctor_name: string | null;
   tests: string[];
+  /** v31 (decision 054): seconds per test for this patient's takes. */
+  durations?: Record<string, number>;
   med_state: 'OFF' | 'ON' | 'ANY';
   state: 'open' | 'recorded' | 'not_recorded' | 'missed';
   recorded_by: string | null;

@@ -286,7 +286,7 @@ function HospitalList({
         title: t('todo.recordTitle', { count: r.tests.length }),
         sub: t('todo.recordSub', {
           date: fmtDate(r.due_at, lang),
-          minutes: testsMinutes(config, r.tests).minutes,
+          minutes: testsMinutes(config, r.tests, r.durations).minutes,
         }),
         action: t('todo.start'),
         disabled: blocked,
@@ -539,9 +539,16 @@ function HospitalCard({
   );
 }
 
-function testsMinutes(config: ReturnType<typeof useApp>['config'], tests: string[]) {
+function testsMinutes(
+  config: ReturnType<typeof useApp>['config'],
+  tests: string[],
+  durations?: Record<string, number>,
+) {
   const steps = config.session.order.filter(([code]) => tests.includes(code));
-  const totalS = steps.reduce((s, [code]) => s + (config.tests.get(code)?.task.durationS ?? 0), 0);
+  const totalS = steps.reduce(
+    (s, [code]) => s + (durations?.[code] ?? config.tests.get(code)?.task.durationS ?? 0),
+    0,
+  );
   return { steps, minutes: Math.max(1, Math.round(totalS / 60 + steps.length * 1.5)) };
 }
 
@@ -851,7 +858,7 @@ function RecordingsSection({
       )}
       {live &&
         open.map((r) => {
-          const { steps, minutes } = testsMinutes(config, r.tests);
+          const { steps, minutes } = testsMinutes(config, r.tests, r.durations);
           return (
             <Card key={r.id} className="flex flex-col gap-2" data-testid="request-card">
               <span className="text-[12px] font-bold text-[#8A4B00]">
@@ -1189,7 +1196,7 @@ function ConsentView({
   }, [h.profile, repo, request]);
   const tests = request?.tests ?? plan?.tests ?? [];
   const med = request?.med_state ?? plan?.med_state ?? 'ANY';
-  const { steps, minutes } = testsMinutes(config, tests);
+  const { steps, minutes } = testsMinutes(config, tests, request?.durations);
   const doctor = request?.doctor_name ?? t('modes.hospitals.yourDoctor');
   const start = (m: 'ON' | 'OFF') => {
     if (!consent || steps.length === 0) return;
@@ -1198,6 +1205,7 @@ function ConsentView({
       requestId: request?.id ?? null,
       consentVersion: config.platform.consentVersion,
       consentAt: new Date().toISOString(),
+      durations: request?.durations,
     });
   };
   return (

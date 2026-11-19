@@ -15,7 +15,16 @@ export type MedState = 'ON' | 'OFF' | 'NA';
 export interface PlanStep {
   code: TestCode;
   side: Side;
+  /**
+   * v31 (decision 054): how long this take records, from the request (the hospital's length or
+   * the doctor's for this patient). Absent: the test config's `task.durationS`.
+   */
+  durationS?: number;
 }
+
+/** The take length for a plan step: the request's, else the test config's. */
+export const stepLength = (step: PlanStep, cfg: { task: { durationS: number } }): number =>
+  step.durationS ?? cfg.task.durationS;
 
 /** Local only (encrypted on the device). Never sent to the server as-is (§14). */
 export interface Patient {

@@ -17,7 +17,7 @@ import { TakeCollector, evaluateOnDevice } from '../../lib/take-analysis.ts';
 import { loadQualification } from '../../lib/device-tier.ts';
 import { logger } from '../../lib/logger.ts';
 import { newId } from '../../data/repo.ts';
-import { stepTakes } from '../../session/machine.ts';
+import { stepLength, stepTakes } from '../../session/machine.ts';
 import { useSession } from '../../session/useSession.ts';
 import { Outline, type OverlayKind } from '../../overlays/Outline.tsx';
 import { LandmarkOverlay } from '../../overlays/LandmarkOverlay.tsx';
@@ -53,6 +53,8 @@ export function CameraStage() {
   const { ctx, send, snapshot } = useSession();
   const step = ctx.plan[ctx.index]!;
   const cfg = config.tests.get(step.code)!;
+  // v31 (decision 054): the request's length for this test; native still stops the take there.
+  const durS = stepLength(step, cfg);
   const phase = snapshot.matches({ test: 'recording' })
     ? 'recording'
     : snapshot.matches({ test: 'countdown' })
@@ -281,7 +283,7 @@ export function CameraStage() {
     capture.kit
       .startRecording({
         takeId: id,
-        durationS: cfg.task.durationS,
+        durationS: durS,
         ...storageLimits(config.session.storage),
       })
       .catch((e: unknown) => {
@@ -290,7 +292,7 @@ export function CameraStage() {
         setInterruptReason(code === 'STORAGE_LOW' ? 'storage_low' : null);
         send({ type: 'TAKE_FAILED' });
       });
-  }, [phase, ctx.currentTakeId, cfg, send, config.quality.ruleVersion, config.session.storage]);
+  }, [phase, ctx.currentTakeId, durS, send, config.quality.ruleVersion, config.session.storage]);
 
   // §15 StorageLow: no new take below the configured free space (checked while framing).
   const [freeGb, setFreeGb] = useState<number | null>(null);
@@ -386,7 +388,7 @@ export function CameraStage() {
             {t('session.framing.mode', {
               res: cfg.camera.resolution,
               fps,
-              dur: cfg.task.durationS,
+              dur: durS,
             })}
           </span>
         </div>
@@ -474,7 +476,7 @@ export function CameraStage() {
         <RecordingPanel
           key={ctx.currentTakeId}
           takeId={ctx.currentTakeId}
-          durationS={cfg.task.durationS}
+          durationS={durS}
           landscape={landscape}
           landmarks={<LandmarksToggle on={showLm} onChange={toggleLm} />}
         />

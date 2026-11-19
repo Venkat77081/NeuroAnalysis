@@ -8,7 +8,7 @@ import { ErrorText } from '../modes/Common.tsx';
 import { capture } from '../../lib/capture.ts';
 import { maskRef, newId } from '../../data/repo.ts';
 import { useSession } from '../../session/useSession.ts';
-import type { MedState, Patient } from '../../session/machine.ts';
+import { stepLength, type MedState, type Patient } from '../../session/machine.ts';
 import { Button, Card, Sheet } from '../../ui/kit.tsx';
 import { UploadSetup } from '../UploadSetup.tsx';
 
@@ -41,7 +41,10 @@ export function SessionHome({
     repo.listPatients().then(setPatients, () => undefined);
   }, [repo]);
 
-  const totalS = ctx.plan.reduce((s, p) => s + (config.tests.get(p.code)?.task.durationS ?? 0), 0);
+  const totalS = ctx.plan.reduce((s, p) => {
+    const c = config.tests.get(p.code);
+    return s + (c ? stepLength(p, c) : 0);
+  }, 0);
   const minutes = Math.round(totalS / 60 + ctx.plan.length * 1.5);
   const training = ctx.training;
   /** Queue-only phone with no queue patient started: only the queue (and practice) show. */
@@ -331,7 +334,7 @@ export function SessionHome({
                       {p.side ? t(`session.sides.${p.side}`) : '—'}
                     </span>
                     <span className="w-10 text-right text-[13px] text-muted tabular-nums">
-                      {config.tests.get(p.code)?.task.durationS} s
+                      {p.durationS ?? config.tests.get(p.code)?.task.durationS} s
                     </span>
                   </li>
                 ))}

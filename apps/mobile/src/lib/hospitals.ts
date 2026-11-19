@@ -30,6 +30,8 @@ export interface PatientRequest {
   appointment_at: string | null;
   doctor_name: string | null;
   tests: string[];
+  /** v31 (decision 054): seconds per test (the hospital's or the doctor's); older servers: absent. */
+  durations?: Record<string, number>;
   med_state: 'OFF' | 'ON' | 'ANY';
   due_at: string;
   state: 'open' | 'recorded' | 'missed' | 'cancelled';

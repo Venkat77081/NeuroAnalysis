@@ -5,7 +5,7 @@ import type {
 } from '@neurocapture/capture-kit';
 import type { QualityReport, TakeMeta, TestConfig } from '@neurocapture/contracts-ts';
 import { QUALITY_CORE_VERSION, evaluationFields } from '@neurocapture/quality-core';
-import type { SessionContext } from '../session/machine.ts';
+import { stepLength, type SessionContext } from '../session/machine.ts';
 import type { FinishedTake } from './take-analysis.ts';
 
 export const APP_VERSION = '0.3.0';
@@ -96,7 +96,7 @@ export function buildQuality(args: {
     side: step.side,
     take: args.takeNo,
     tier: args.implementation === 'native' ? (args.tier ?? 'C') : 'W',
-    durationTargetS: cfg.task.durationS,
+    durationTargetS: stepLength(step, cfg),
     durationS: r3(result.durationS),
     stoppedEarly: result.stoppedEarly,
     fpsTarget: cfg.camera.targetFps as 60 | 30,

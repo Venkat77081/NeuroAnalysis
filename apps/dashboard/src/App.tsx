@@ -1,5 +1,5 @@
 /** NeuroCapture web dashboards (M14): one app, three roles. */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, resume, signOut, type Tokens } from './api.ts';
 import { InviteAccept, SignIn } from './auth.tsx';
@@ -13,6 +13,7 @@ import { HospitalSettingsPage } from './changes.tsx';
 import { ChooseTests, waitingForTests } from './choose.tsx';
 import { PermsContext, menuFor } from './perms.ts';
 import { PermissionsPage } from './permissions.tsx';
+import { Backdrop, CommandPalette, OfflineBanner, TopBar, useSearchKey } from './shell.tsx';
 
 interface Me {
   id: string;
@@ -41,6 +42,11 @@ export function App() {
   const [waiting, setWaiting] = useState<number | null>(null);
   /** v13: patients' open change requests (count in the menu). */
   const [changes, setChanges] = useState<number | null>(null);
+  /** v28: the ⌘K search, and an MRN handed from it to the invite page. */
+  const [searching, setSearching] = useState(false);
+  const [inviteQuery, setInviteQuery] = useState<string | undefined>();
+  const openSearch = useCallback(() => setSearching(true), []);
+  useSearchKey(openSearch);
 
   const loadMe = async () => {
     const m = await call<Me>('GET', '/staff/me');
@@ -93,6 +99,7 @@ export function App() {
     body = (
       <OverviewPage
         title={t('nav.overview')}
+        name={me.display_name}
         onOpen={(p) => {
           if (nav.includes(p)) setPage(p);
         }}
@@ -107,7 +114,8 @@ export function App() {
   else if (page === 'connections') body = <Connections />;
   else if (page === 'team') body = <Team />;
   else if (page === 'phones') body = <Phones />;
-  else if (page === 'invite') body = <InvitePatients />;
+  else if (page === 'invite')
+    body = <InvitePatients key={inviteQuery} initialQuery={inviteQuery} />;
   else if (page === 'activity') body = <Activity />;
   else if (page === 'appointments') body = <Appointments onChangeCount={setChanges} />;
   else if (page === 'settings') body = <HospitalSettingsPage />;
@@ -115,62 +123,73 @@ export function App() {
   else if (patient) body = <PatientView ncid={patient} onBack={() => setPatient(null)} />;
   else body = <MyPatients onOpen={setPatient} />;
 
+  const go = (p: string) => {
+    setPage(p);
+    setPatient(null);
+    setPermsFor(null);
+    setInviteQuery(undefined);
+  };
+  const actions = [
+    ...(nav.includes('appointments') && perms.has('appointments.add')
+      ? [{ id: 'add', label: t('shell.actions.add'), run: () => go('appointments') }]
+      : []),
+    ...(nav.includes('invite')
+      ? [{ id: 'invite', label: t('shell.actions.invite'), run: () => go('invite') }]
+      : []),
+    ...(nav.includes('chooseTests')
+      ? [{ id: 'choose', label: t('shell.actions.choose'), run: () => go('chooseTests') }]
+      : []),
+    ...(nav.includes('hospitals')
+      ? [{ id: 'onboard', label: t('shell.actions.onboard'), run: () => go('hospitals') }]
+      : []),
+  ];
   return (
-    <div className="flex min-h-screen flex-wrap items-stretch">
-      <nav
-        aria-label="Main"
-        className="flex w-60 shrink-0 flex-col gap-1 border-r border-line bg-white px-4 py-6"
-      >
-        <span className="px-3 text-[16px] font-bold">{me.site_name ?? t('app.name')}</span>
-        <span className="px-3 pb-4 text-[12px] text-muted" data-testid="who">
-          {t(`roles.${me.role}`)} · {me.display_name ?? me.email}
-        </span>
-        {nav.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => {
-              setPage(p);
-              setPatient(null);
-              setPermsFor(null);
-            }}
-            className={`flex min-h-11 items-center rounded-xl px-3 text-left text-[14px] ${page === p ? 'bg-brand-soft font-semibold text-brand' : ''}`}
-            data-testid={`nav-${p}`}
-          >
-            <span className="flex-1">{t(`nav.${p}`)}</span>
-            {p === 'appointments' && !!changes && (
-              <span
-                className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white"
-                data-testid="change-count"
-                aria-label={t('moves.countLabel', { count: changes })}
-              >
-                {changes}
-              </span>
-            )}
-            {p === 'chooseTests' && !!waiting && (
-              <span
-                className="rounded-[10px] bg-brand px-2 text-[12px] text-white"
-                data-testid="choose-count"
-              >
-                {waiting}
-              </span>
-            )}
-          </button>
-        ))}
-        <span className="flex-1" />
-        <button
-          type="button"
-          onClick={() => {
-            signOut();
-            setMe(null);
-          }}
-          className="min-h-11 rounded-xl px-3 text-left text-[14px] text-muted"
-          data-testid="sign-out"
-        >
-          {t('app.signOut')}
-        </button>
-      </nav>
+    <Backdrop>
+      <TopBar
+        tabs={nav.map((p) => ({
+          page: p,
+          label: t(`nav.${p}`),
+          ...(p === 'appointments'
+            ? {
+                count: changes,
+                countTestId: 'change-count',
+                countLabel: t('moves.countLabel', { count: changes ?? 0 }),
+              }
+            : p === 'chooseTests'
+              ? { count: waiting, countTestId: 'choose-count' }
+              : {}),
+        }))}
+        active={page}
+        onTab={go}
+        org={me.site_name ?? t('shell.platform')}
+        name={me.display_name ?? me.email}
+        role={t(`roles.${me.role}`)}
+        onSearch={openSearch}
+        onSignOut={() => {
+          signOut();
+          setMe(null);
+        }}
+      />
+      <OfflineBanner />
       <PermsContext.Provider value={perms}>{body}</PermsContext.Provider>
-    </div>
+      {searching && (
+        <CommandPalette
+          pages={nav.map((p) => ({ page: p, label: t(`nav.${p}`) }))}
+          actions={actions}
+          canSearchPatients={perms.has('patients.search')}
+          onPage={go}
+          onPatient={(p) => {
+            if (me.role === 'doctor' && p.ncid) {
+              go('myPatients');
+              setPatient(p.ncid);
+            } else if (nav.includes('invite')) {
+              go('invite');
+              setInviteQuery(p.mrn);
+            } else go(nav.includes('appointments') ? 'appointments' : nav[0]!);
+          }}
+          onClose={() => setSearching(false)}
+        />
+      )}
+    </Backdrop>
   );
 }

@@ -66,6 +66,7 @@ export function setTokens(t: Tokens): void {
 export function signOut(): void {
   access = null;
   connector = null;
+  setReachable(true);
   storage()?.removeItem(REFRESH);
 }
 
@@ -142,15 +143,37 @@ async function connectorToken(): Promise<{ token: string; url: string }> {
   return connector;
 }
 
+/**
+ * v28: whether this browser can reach the hospital connector right now. When it cannot, pages show
+ * patient codes (NCIDs) instead of names and the shell says why.
+ */
+let reachable = true;
+const reachListeners = new Set<(ok: boolean) => void>();
+function setReachable(ok: boolean): void {
+  if (ok === reachable) return;
+  reachable = ok;
+  for (const l of reachListeners) l(ok);
+}
+export function connectorReachable(): boolean {
+  return reachable;
+}
+export function onConnectorReach(listener: (ok: boolean) => void): () => void {
+  reachListeners.add(listener);
+  return () => reachListeners.delete(listener);
+}
+
 async function connectorRaw(method: string, path: string, body?: unknown): Promise<Response> {
   const c = await connectorToken();
   try {
-    return await fetch(`${c.url}${path}`, {
+    const r = await fetch(`${c.url}${path}`, {
       method,
       headers: { Authorization: `Bearer ${c.token}`, 'Content-Type': 'application/json' },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
+    setReachable(true);
+    return r;
   } catch {
+    setReachable(false);
     throw new ApiError(0, 'connector_unreachable');
   }
 }

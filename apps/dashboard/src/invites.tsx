@@ -4,7 +4,7 @@
  * over at the visit. The contact details are read and used at the connector only; the platform
  * never receives them. Used on "Invite patients" and on the Appointments page.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { hospital } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Notice, Page, Table } from './ui.tsx';
@@ -106,9 +106,10 @@ export function InviteBox({
 }
 
 /** Front desk: find patients in the hospital's records and send them a join invite. */
-export function InvitePatients() {
+export function InvitePatients({ initialQuery }: { initialQuery?: string } = {}) {
   const { t } = useTranslation();
-  const [q, setQ] = useState('');
+  // v28: opened from the ⌘K search with a patient's MRN.
+  const [q, setQ] = useState(initialQuery ?? '');
   const [rows, setRows] = useState<RecordRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<unknown>(null);
@@ -120,6 +121,18 @@ export function InvitePatients() {
       setError(e);
     }
   };
+  useEffect(() => {
+    // Only when opened from the ⌘K search.
+    if (!initialQuery || initialQuery.trim().length < 2) return;
+    let off = false;
+    hospital<RecordRow[]>('GET', `/v1/patients?q=${encodeURIComponent(initialQuery.trim())}`).then(
+      (r) => !off && setRows(r),
+      (e: unknown) => !off && setError(e),
+    );
+    return () => {
+      off = true;
+    };
+  }, [initialQuery]);
   const toggle = (mrn: string) =>
     setSelected((s) => {
       const n = new Set(s);
@@ -138,7 +151,7 @@ export function InvitePatients() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && q.trim().length >= 2 && void search()}
-          className="h-11 w-full max-w-md rounded-xl border border-[#C9CFD8] bg-white px-3 text-[14px]"
+          className="h-11 w-full max-w-md rounded-2xl border border-edge bg-card px-3 text-[14px]"
           data-testid="p-search"
         />
         <Button
@@ -161,7 +174,7 @@ export function InvitePatients() {
         testId="p-results"
       >
         {rows.map((r) => (
-          <tr key={r.mrn} className="border-t border-[#EDF0F3]">
+          <tr key={r.mrn} className="border-t border-line">
             <td className="px-4 py-3">
               <input
                 type="checkbox"

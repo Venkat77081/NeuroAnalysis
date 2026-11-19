@@ -3,14 +3,53 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
 import { call, publicCall, setTokens, type Tokens } from './api.ts';
-import { Button, Card, ErrorNote, Field, Notice } from './ui.tsx';
+import { Button, ErrorNote, Field, Notice, dayPart } from './ui.tsx';
+import { Logo } from './shell.tsx';
 
+/** v28: the sunrise on the left (wide screens), the form on the right. */
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
   const { t } = useTranslation();
+  const part = dayPart();
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-5 py-10">
-      <span className="text-[15px] font-bold text-brand">{t('app.name')}</span>
-      <Card title={title}>{children}</Card>
+    <div className="flex min-h-screen bg-ground">
+      <aside
+        className="nc-hero relative hidden w-[min(600px,46vw)] shrink-0 flex-col overflow-hidden p-10 lg:flex"
+        data-part={part}
+      >
+        <span
+          aria-hidden
+          className={`nc-rise absolute top-[40%] left-[36%] size-[180px] rounded-full ${part === 'evening' ? 'nc-moon' : 'nc-sun'}`}
+        />
+        <span
+          aria-hidden
+          className="absolute -right-[20%] -bottom-[120px] -left-[20%] h-[330px] rounded-[50%] bg-hill"
+        />
+        <span
+          aria-hidden
+          className="absolute -right-[30%] -bottom-[170px] left-[30%] h-[330px] rounded-[50%] bg-hill"
+        />
+        <span className="relative flex items-center gap-2.5">
+          <Logo />
+          <b className="text-[17px]">{t('app.name')}</b>
+        </span>
+        <div className="relative mt-16 flex flex-col gap-3">
+          <b className="text-[44px] leading-[50px] tracking-[-0.8px]">{t(`hero.${part}`)}.</b>
+          <span className="max-w-[420px] text-[17px] leading-[26px] text-sub">
+            {t('auth.tagline')}
+          </span>
+        </div>
+        <span className="relative mt-auto text-[13px] text-sub">{t('auth.staffOnly')}</span>
+      </aside>
+      <main className="flex flex-1 items-center justify-center px-5 py-10">
+        <div className="nc-fu flex w-full max-w-[400px] flex-col gap-4">
+          <span className="flex items-center gap-2.5 lg:hidden">
+            <Logo />
+            <b className="text-[17px]">{t('app.name')}</b>
+          </span>
+          <h1 className="text-[30px] leading-9 font-extrabold tracking-[-0.4px]">{title}</h1>
+          {children}
+        </div>
+      </main>
     </div>
   );
 }
@@ -36,7 +75,7 @@ export function InviteAccept({ token, onDone }: { token: string; onDone: () => v
   };
   return (
     <Shell title={t('auth.inviteTitle')}>
-      <p className="text-[14px] text-[#3D4552]">{t('auth.inviteHint')}</p>
+      <p className="text-[14px] text-sub">{t('auth.inviteHint')}</p>
       <Field
         id="inv-pw"
         label={t('auth.password')}
@@ -198,7 +237,7 @@ function TwoStepSetup({ onDone }: { onDone: (t: Tokens) => void }) {
   };
   return (
     <Shell title={t('auth.setupTitle')}>
-      <p className="text-[14px] text-[#3D4552]">{t('auth.setupHint')}</p>
+      <p className="text-[14px] text-sub">{t('auth.setupHint')}</p>
       {qr && <img src={qr} alt="" width={220} height={220} className="self-center" />}
       {secret && (
         <p className="text-[13px] text-muted">

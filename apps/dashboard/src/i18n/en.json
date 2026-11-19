@@ -40,7 +40,9 @@
     "setPassword": "Set password",
     "inviteDone": "Password set. Sign in to continue.",
     "mismatch": "The passwords do not match.",
-    "codeNotKey": "That looks like the set-up key. Enter the 6-digit code your authenticator app shows (it changes every 30 seconds)."
+    "codeNotKey": "That looks like the set-up key. Enter the 6-digit code your authenticator app shows (it changes every 30 seconds).",
+    "tagline": "Movement recordings for your clinic. Names, records and videos stay in your hospital.",
+    "staffOnly": "Staff sign-in · only people your hospital invited"
   },
   "errors": {
     "network": "Cannot reach the server.",
@@ -157,7 +159,22 @@
     "azureHowTo": "To offer Azure: register one multi-tenant app in NeuroCapture's Microsoft Entra ID, put its ID and secret in the key vault as NC_AZURE_CLIENT_ID and NC_AZURE_CLIENT_SECRET, and restart the API. Steps: docs/deploy/azure.md, step 5b.",
     "azureAppId": "NeuroCapture's Azure app (client ID)",
     "devStorageOn": "This is a test server: development storage is on (NC_DEV_STORAGE). Never use it with real patients.",
-    "serverOutdated": "This platform server is older than the dashboard and has no settings page yet. Update and restart the platform (the API), then reload this page."
+    "serverOutdated": "This platform server is older than the dashboard and has no settings page yet. Update and restart the platform (the API), then reload this page.",
+    "hospitalsSub": "{{count}} hospitals on NeuroCapture · counts only, never patient names",
+    "filter": {
+      "label": "Show",
+      "all": "All {{count}}",
+      "attention": "Needs you {{count}}",
+      "suspended": "Suspended {{count}}"
+    },
+    "canRecordYes": "Can record",
+    "smsOn": "SMS on",
+    "counts": "{{devices}} clinic phones · {{operators}} operators · {{patients}} patients in the app",
+    "statusName": {
+      "active": "Live",
+      "onboarding": "Onboarding",
+      "suspended": "Suspended"
+    }
   },
   "hospital": {
     "overviewTitle": "Overview",
@@ -302,7 +319,8 @@
     "noPatients": "No patients are assigned to you yet. The reception desk assigns patients to doctors.",
     "periodic": "Also record at home every N days until the next appointment (only if you want it)",
     "periodicUntil": "Repeats stop at the next appointment, {{date}}.",
-    "periodicNoAppt": "No appointment booked yet: repeats stop at the next one reception books."
+    "periodicNoAppt": "No appointment booked yet: repeats stop at the next one reception books.",
+    "patient": "Patient"
   },
   "tests": {
     "FT": "Finger Tapping",
@@ -841,7 +859,8 @@
         "title": "Recorded on time",
         "detail": "{{links}} home links, last {{days}} days"
       }
-    }
+    },
+    "periodLabel": "Period"
   },
   "messaging": {
     "title": "Messages to patients: e-mail and SMS",
@@ -1240,5 +1259,96 @@
     "confirm": "Mark as did not come",
     "keep": "Keep it",
     "done": "{{name}}'s appointment on {{when}} is marked as did not come and cancelled."
+  },
+  "hero": {
+    "morning": "Good morning",
+    "morningName": "Good morning, {{name}}",
+    "afternoon": "Good afternoon",
+    "afternoonName": "Good afternoon, {{name}}",
+    "evening": "Good evening",
+    "eveningName": "Good evening, {{name}}",
+    "line": {
+      "platform_admin": "Here is how the hospitals on NeuroCapture are doing.",
+      "hospital_admin": "Here is your hospital today.",
+      "receptionist": "Here is the front desk today.",
+      "doctor": "Here is your clinic today."
+    },
+    "next": "Next · {{time}}"
+  },
+  "shell": {
+    "platform": "Platform",
+    "search": "Search pages, actions and patients",
+    "searchShort": "Search",
+    "placeholder": "Type a page or an action…",
+    "placeholderPatients": "Type a name, an MRN, a page or an action…",
+    "noHits": "Nothing found.",
+    "group": {
+      "patients": "Patients · live from your records",
+      "actions": "Actions",
+      "pages": "Pages"
+    },
+    "actions": {
+      "add": "Add an appointment",
+      "invite": "Invite a patient",
+      "choose": "Choose tests for a visit",
+      "onboard": "Onboard a hospital"
+    },
+    "theme": "Colours: {{theme}} (click to change)",
+    "themes": {
+      "system": "same as this computer",
+      "light": "light",
+      "dark": "dark"
+    },
+    "offlineTitle": "Can't reach your hospital records.",
+    "offlineText": "Names are hidden until the connector answers again; times and patient codes still work.",
+    "now": "Now · {{time}}",
+    "liveRecords": "Live from your records"
+  },
+  "cal": {
+    "view": {
+      "list": "List",
+      "day": "Day",
+      "week": "Week"
+    },
+    "viewLabel": "Show as",
+    "today": "Today",
+    "prev": "Earlier",
+    "next": "Later",
+    "weekOf": "Week of {{day}}",
+    "now": "Now",
+    "noDoctor": "No doctor yet",
+    "emptyDay": "No appointments on {{day}}.",
+    "legend": "Doctors",
+    "striped": "Striped: cancelled or did not come"
+  },
+  "flow": {
+    "title": "How your data flows",
+    "sub": "Names and videos stay inside your hospital. NeuroCapture only passes sealed packages and counts.",
+    "inside": "Inside your hospital",
+    "records": "Your records",
+    "recordsText": "Names, MRNs and history, read live through the connector",
+    "connector": "Your connector",
+    "connectorText": "Runs in your network and pins the platform key",
+    "platform": "Platform",
+    "platformText": "Patient codes (NCIDs), schedules and counts",
+    "noNames": "No names, no videos",
+    "phones": "Phones",
+    "phonesText": "Clinic phones and patients' apps encrypt every take",
+    "storage": "Video storage",
+    "storageText": "Your own storage; only your key opens the videos",
+    "storageKind": {
+      "s3": "Your Amazon S3 bucket · only your key opens the videos",
+      "azure": "Your Azure Blob container · only your key opens the videos",
+      "dev": "Test storage on this computer (not for patients)"
+    },
+    "readLive": "read live",
+    "sealed": "sealed",
+    "encrypted": "encrypted video",
+    "working": "Working",
+    "failing": "Check failed",
+    "notTested": "Not tested yet",
+    "notSetUp": "Not set up",
+    "keyReady": "Take key ready",
+    "noKey": "No take key yet"
   }
 }

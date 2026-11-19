@@ -1446,6 +1446,7 @@
     },
     "theme": "Colours: {{theme}} (click to change)",
     "themes": {
+      "auto": "automatic, dark in the evening",
       "system": "same as this computer",
       "light": "light",
       "dark": "dark"

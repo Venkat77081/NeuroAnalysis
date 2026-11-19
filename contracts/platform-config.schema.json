@@ -759,6 +759,16 @@
         "keepDays": { "type": "integer", "minimum": 1, "maximum": 365 }
       }
     },
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v31: with the Automatic appearance, dashboards (and later the app) use their dark colours from darkFromHour until lightFromHour, local time.",
+      "required": ["darkFromHour", "lightFromHour"],
+      "properties": {
+        "darkFromHour": { "type": "integer", "minimum": 0, "maximum": 23 },
+        "lightFromHour": { "type": "integer", "minimum": 0, "maximum": 23 }
+      }
+    },
     "clinicConsent": {
       "type": "object",
       "additionalProperties": false,

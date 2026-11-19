@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, connectorReachable, hospital, onConnectorReach } from './api.ts';
 import { Avatar, fmt } from './ui.tsx';
+import { appearance } from './config.ts';
 
 export function Logo({ size = 36 }: { size?: number }) {
   return (
@@ -55,26 +56,41 @@ const ICONS = {
     'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   dark: 'M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z',
   system: 'M3 5h18v11H3zM8 20h8M12 16v4',
+  auto: 'M12 3a9 9 0 1 0 0 18zM12 3a9 9 0 0 1 0 18',
 };
 
-export type Theme = 'system' | 'light' | 'dark';
-const THEME_KEY = 'nc.dash.theme';
-const THEMES: Theme[] = ['system', 'light', 'dark'];
+/** v31: 'auto' (the default) is dark in the evening (config/platform.json `appearance`). */
+export type Theme = 'auto' | 'system' | 'light' | 'dark';
+// v31: a new key, so every computer starts on Automatic (the old key always held 'system').
+const THEME_KEY = 'nc.dash.appearance';
+const THEMES: Theme[] = ['auto', 'system', 'light', 'dark'];
 
 export function savedTheme(): Theme {
   try {
     const v = globalThis.localStorage?.getItem(THEME_KEY) as Theme | null;
-    return v && THEMES.includes(v) ? v : 'system';
+    return v && THEMES.includes(v) ? v : 'auto';
   } catch {
-    return 'system';
+    return 'auto';
   }
 }
 
+/** True from darkFromHour until lightFromHour (local time); works across midnight. */
+export function isEvening(
+  d: Date,
+  a: { darkFromHour: number; lightFromHour: number } = appearance,
+) {
+  const h = d.getHours();
+  return a.darkFromHour > a.lightFromHour
+    ? h >= a.darkFromHour || h < a.lightFromHour
+    : h >= a.darkFromHour && h < a.lightFromHour;
+}
+
 /** Puts the choice on <html> (CSS swaps the colour tokens) and remembers it on this computer. */
-export function applyTheme(theme: Theme): void {
+export function applyTheme(theme: Theme, now: Date = new Date()): void {
   const root = globalThis.document?.documentElement;
   if (root) {
     if (theme === 'system') root.removeAttribute('data-theme');
+    else if (theme === 'auto') root.setAttribute('data-theme', isEvening(now) ? 'dark' : 'light');
     else root.setAttribute('data-theme', theme);
   }
   try {
@@ -89,7 +105,13 @@ export const nextTheme = (t: Theme): Theme => THEMES[(THEMES.indexOf(t) + 1) % T
 function ThemeButton() {
   const { t } = useTranslation();
   const [theme, setTheme] = useState<Theme>(savedTheme);
-  useEffect(() => applyTheme(theme), [theme]);
+  useEffect(() => {
+    applyTheme(theme);
+    if (theme !== 'auto') return;
+    // Automatic: look at the clock every minute, so the page turns dark at the evening hour.
+    const id = setInterval(() => applyTheme(theme), 60_000);
+    return () => clearInterval(id);
+  }, [theme]);
 
   return (
     <button

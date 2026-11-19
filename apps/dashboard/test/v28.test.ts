@@ -41,7 +41,8 @@ describe('v28 greeting and shell', () => {
   it('cycles the theme system → light → dark', () => {
     expect(nextTheme('system')).toBe('light');
     expect(nextTheme('light')).toBe('dark');
-    expect(nextTheme('dark')).toBe('system');
+    expect(nextTheme('dark')).toBe('auto'); // v31: Automatic comes first
+    expect(nextTheme('auto')).toBe('system');
   });
   it('writes greeting chips as "value title"', () => {
     expect(heroChip('Appointments today', { key: 'today', value: 18 })).toBe(

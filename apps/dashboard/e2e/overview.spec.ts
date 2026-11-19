@@ -18,7 +18,10 @@ test('v10: overviews for platform, hospital admin, front desk and doctor', async
   await page.getByTestId('tile-hospitals').click();
   await expect(page.getByTestId('hospitals')).toBeVisible();
   // Decision 044: each hospital records only into its own storage (the test stack: development storage).
-  await expect(page.getByTestId('can-record-Sunrise Neuro Clinic')).toHaveText('Can record');
+  await expect(page.getByTestId('can-record-Sunrise Neuro Clinic')).toHaveAttribute(
+    'data-state',
+    'ok',
+  );
   await page.getByTestId('nav-platformSettings').click();
   await expect(page.getByTestId('kind-s3')).toContainText('available');
   await expect(page.getByTestId('kind-azure')).toContainText('Azure app not registered');
@@ -58,17 +61,22 @@ test('v10: overviews for platform, hospital admin, front desk and doctor', async
   await expect(page.getByTestId('messaging-note')).toContainText('Saved');
   await page.getByTestId('sign-out').click();
 
-  // Front desk: the next 14 days, per day.
+  // Front desk (v30): "Today" — the greeting, today's appointments, requests, quick actions.
   await signIn(page, s.desk_email, s.desk_totp);
-  await expect(page.getByTestId('tile-today')).toBeVisible();
-  await expect(page.getByTestId('chart-bar')).toHaveCount(14);
-  await expect(page.getByTestId('overview-period-4w')).toHaveCount(0);
+  await expect(page.getByTestId('nav-overview')).toHaveText('Today');
+  await expect(page.getByTestId('hero')).toBeVisible();
+  await expect(page.getByTestId('desk-today')).toBeVisible();
+  await expect(page.getByTestId('today-requests')).toBeVisible();
+  await expect(page.getByTestId('nav-book')).toBeVisible();
+  await expect(page.getByTestId('nav-requests')).toBeVisible();
   await page.getByTestId('sign-out').click();
 
   // Doctor.
   await signIn(page, s.doctor_email, s.doctor_totp);
-  await expect(page.getByTestId('tile-myPatients')).toBeVisible();
-  await expect(page.getByTestId('tile-onTime')).toBeVisible();
+  // v30: "Today" — the doctor's clinic today and new recordings (canvas v28).
+  await expect(page.getByTestId('nav-overview')).toHaveText('Today');
+  await expect(page.getByTestId('doctor-today')).toBeVisible();
+  await expect(page.getByTestId('new-recordings')).toBeVisible();
 
   // The SMS gateway token never reached NeuroCapture.
   expect(scanPlatform(['gw-secret-123', 'sms-gateway.invalid']).found).toEqual([]);

@@ -15,7 +15,19 @@ import { fromAudit, type AuditRow } from './platform.tsx';
 import { ActivityLog, type LogRow, type Who } from './activity.tsx';
 import { HospitalPermissions } from './permissions.tsx';
 import { MessagingCard } from './messaging.tsx';
-import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
+import {
+  Badge,
+  Button,
+  Card,
+  ErrorNote,
+  Field,
+  Notice,
+  Page,
+  fmt,
+  fmtDate,
+  Avatar,
+  Dialog,
+} from './ui.tsx';
 
 function useLoad<T>(fn: () => Promise<T>): [T | null, unknown, () => void] {
   const [data, setData] = useState<T | null>(null);
@@ -589,19 +601,188 @@ export function Team() {
   const [name, setName] = useState('');
   const [role, setRole] = useState('doctor');
   const [error, setError] = useState<unknown>(null);
+  // v30 (canvas v28): people as cards with role chips; adding happens in a pop-up.
+  const [adding, setAdding] = useState<'staff' | 'operator' | null>(null);
+  const [show, setShow] = useState<
+    'all' | 'doctor' | 'receptionist' | 'operator' | 'hospital_admin'
+  >('all');
   const showTemp = (o: Operator) =>
     o.temporary_password && setTemp({ code: o.code, pw: o.temporary_password });
+  const count = (r: string) =>
+    r === 'operator' ? (ops ?? []).length : (staff ?? []).filter((u) => u.role === r).length;
+  const card = 'nc-fu flex flex-col gap-3 rounded-3xl bg-card p-4 shadow-card';
+  const state = (active: boolean, locked: boolean, extra?: [string, 'warn' | 'info'] | null) =>
+    locked ? (
+      <Badge tone="bad">{t('hospital.locked')}</Badge>
+    ) : !active ? (
+      <Badge tone="neutral">{t('team.off')}</Badge>
+    ) : extra ? (
+      <Badge tone={extra[1]}>{extra[0]}</Badge>
+    ) : (
+      <Badge tone="ok">{t('team.active')}</Badge>
+    );
   return (
-    <Page title={t('hospital.teamTitle')}>
-      <p className="max-w-3xl text-[14px] leading-[21px] text-sub">{t('hospital.teamHint')}</p>
+    <Page
+      title={t('hospital.teamTitle')}
+      actions={
+        <>
+          <Button
+            variant="secondary"
+            onClick={() => setAdding('operator')}
+            data-testid="team-add-operator"
+          >
+            ＋ {t('team.addOperator')}
+          </Button>
+          <Button onClick={() => setAdding('staff')} data-testid="team-invite">
+            ＋ {t('team.invite')}
+          </Button>
+        </>
+      }
+    >
+      <div className="-mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t('team.show')}>
+        {(['all', 'doctor', 'receptionist', 'operator', 'hospital_admin'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={show === k}
+            onClick={() => setShow(k)}
+            className={`min-h-9 rounded-full px-3.5 text-[13px] font-semibold ${show === k ? 'bg-ink text-ground' : 'bg-card text-sub shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
+          >
+            {t(`team.chip.${k}`, {
+              count: k === 'all' ? (ops ?? []).length + (staff ?? []).length : count(k),
+            })}
+          </button>
+        ))}
+      </div>
       <ErrorNote error={error} />
-      <Card title={t('hospital.operatorsTitle')}>
-        {temp && (
-          <Notice testId="temp-password">
-            {t('hospital.tempPassword', { code: temp.code, pw: temp.pw })}
-          </Notice>
-        )}
-        <div className="flex items-end gap-2">
+      {temp && (
+        <Notice testId="temp-password">
+          {t('hospital.tempPassword', { code: temp.code, pw: temp.pw })}
+        </Notice>
+      )}
+      {show !== 'operator' && (
+        <ul
+          className="m-0 grid list-none grid-cols-1 gap-3.5 p-0 sm:grid-cols-2 xl:grid-cols-4"
+          data-testid="staff"
+        >
+          {(staff ?? [])
+            .filter((u) => show === 'all' || u.role === show)
+            .map((u) => (
+              <li key={u.id} className={card}>
+                <div className="flex items-center gap-3">
+                  <Avatar name={u.display_name ?? u.email} size={40} />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <b className="truncate text-[14px]">{u.display_name ?? u.email}</b>
+                    <span className="truncate text-[12px] text-muted">
+                      {t(`roles.${u.role}`)} · {u.email}
+                    </span>
+                  </span>
+                  {state(u.active, u.locked, u.invited ? [t('team.invited'), 'info'] : null)}
+                </div>
+                <span className="text-[12px] text-muted">
+                  {u.last_login_at
+                    ? t('hospital.lastActive', { at: fmt(u.last_login_at) })
+                    : t('hospital.neverSignedIn')}
+                </span>
+                <div className="mt-auto flex flex-wrap items-center gap-1">
+                  {!u.invited && (
+                    <ResetSignIn
+                      url={`/hospital/staff/${u.id}/reset-sign-in`}
+                      name={u.display_name ?? u.email}
+                      email={u.email}
+                      testId="st-reset"
+                    />
+                  )}
+                  <Button
+                    variant="ghost"
+                    className="min-h-9 text-[13px]"
+                    onClick={() =>
+                      void attempt(setError, async () => {
+                        await call('POST', `/hospital/staff/${u.id}/active`, {
+                          active: !u.active || u.locked,
+                        });
+                        reloadStaff();
+                      })
+                    }
+                  >
+                    {u.active && !u.locked ? t('hospital.disable') : t('hospital.enable')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+        </ul>
+      )}
+      {(show === 'all' || show === 'operator') && (
+        <>
+          <h2 className="mt-1 text-[17px] font-bold">{t('hospital.operatorsTitle')}</h2>
+          <ul
+            className="m-0 grid list-none grid-cols-1 gap-3.5 p-0 sm:grid-cols-2 xl:grid-cols-4"
+            data-testid="operators"
+          >
+            {(ops ?? []).map((o) => (
+              <li key={o.id} className={card}>
+                <div className="flex items-center gap-3">
+                  <Avatar name={o.name ?? o.code} size={40} />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <b className="truncate text-[14px]">{o.name ?? o.code}</b>
+                    <span className="truncate text-[12px] text-muted">
+                      {t('team.operator', { code: o.code })}
+                    </span>
+                  </span>
+                  {state(
+                    o.active,
+                    o.locked,
+                    o.must_change_password ? [t('hospital.mustChange'), 'warn'] : null,
+                  )}
+                </div>
+                <div className="mt-auto flex flex-wrap gap-1">
+                  <Button
+                    variant="secondary"
+                    className="min-h-9 text-[13px]"
+                    onClick={() =>
+                      void attempt(setError, async () => {
+                        showTemp(
+                          await call<Operator>(
+                            'POST',
+                            `/hospital/operators/${o.id}/reset-password`,
+                          ),
+                        );
+                        reloadOps();
+                      })
+                    }
+                  >
+                    {t('hospital.reset')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="min-h-9 text-[13px]"
+                    onClick={() =>
+                      void attempt(setError, async () => {
+                        await call('POST', `/hospital/operators/${o.id}/active`, {
+                          active: !o.active || o.locked,
+                        });
+                        reloadOps();
+                      })
+                    }
+                  >
+                    {o.active && !o.locked ? t('hospital.disable') : t('hospital.enable')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <HospitalPermissions />
+      <ClinicHours />
+      {adding === 'operator' && (
+        <Dialog
+          title={t('team.addOperatorTitle')}
+          sub={t('hospital.teamHint')}
+          size="sm"
+          onClose={() => setAdding(null)}
+          testId="operator-dialog"
+        >
           <Field
             id="op-code"
             label={t('hospital.newOperator')}
@@ -616,7 +797,9 @@ export function Team() {
             onChange={(e) => setOpName(e.target.value)}
             data-testid="op-name"
           />
+          <ErrorNote error={error} />
           <Button
+            className="self-start"
             disabled={code.length < 2 || opName.trim().length < 2}
             onClick={() =>
               void attempt(setError, async () => {
@@ -628,6 +811,7 @@ export function Team() {
                 );
                 setCode('');
                 setOpName('');
+                setAdding(null);
                 reloadOps();
               })
             }
@@ -635,48 +819,16 @@ export function Team() {
           >
             {t('hospital.addOperator')}
           </Button>
-        </div>
-        <ul className="flex flex-col divide-y divide-line" data-testid="operators">
-          {(ops ?? []).map((o) => (
-            <li key={o.id} className="flex flex-wrap items-center gap-2 py-2 text-[14px]">
-              <span className="w-28 font-semibold">{o.code}</span>
-              <span>{o.name ?? ''}</span>
-              {!o.active && <Badge tone="bad">{t('hospital.disable')}d</Badge>}
-              {o.locked && <Badge tone="bad">{t('hospital.locked')}</Badge>}
-              {o.must_change_password && <Badge tone="warn">{t('hospital.mustChange')}</Badge>}
-              <span className="flex-1" />
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  void attempt(setError, async () => {
-                    showTemp(
-                      await call<Operator>('POST', `/hospital/operators/${o.id}/reset-password`),
-                    );
-                    reloadOps();
-                  })
-                }
-              >
-                {t('hospital.reset')}
-              </Button>
-              <Button
-                variant={o.active ? 'ghost' : 'secondary'}
-                onClick={() =>
-                  void attempt(setError, async () => {
-                    await call('POST', `/hospital/operators/${o.id}/active`, {
-                      active: !o.active || o.locked,
-                    });
-                    reloadOps();
-                  })
-                }
-              >
-                {o.active && !o.locked ? t('hospital.disable') : t('hospital.enable')}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <Card title={t('hospital.staffTitle')}>
-        <div className="flex flex-wrap items-end gap-2">
+        </Dialog>
+      )}
+      {adding === 'staff' && (
+        <Dialog
+          title={t('team.inviteTitle')}
+          sub={t('hospital.teamHint')}
+          size="sm"
+          onClose={() => setAdding(null)}
+          testId="staff-dialog"
+        >
           <Field
             id="st-email"
             label={t('hospital.staffEmail')}
@@ -704,7 +856,9 @@ export function Team() {
               <option value="hospital_admin">{t('roles.hospital_admin')}</option>
             </select>
           </label>
+          <ErrorNote error={error} />
           <Button
+            className="self-start"
             disabled={!email.includes('@') || name.trim().length < 2}
             onClick={() =>
               void attempt(setError, async () => {
@@ -712,6 +866,7 @@ export function Team() {
                   await call('POST', '/hospital/staff', { email, display_name: name.trim(), role });
                   setEmail('');
                   setName('');
+                  setAdding(null);
                 } finally {
                   // Also when only the e-mail failed (502 email_not_sent): the person was added.
                   reloadStaff();
@@ -722,48 +877,8 @@ export function Team() {
           >
             {t('hospital.inviteStaff')}
           </Button>
-        </div>
-        <ul className="flex flex-col divide-y divide-line" data-testid="staff">
-          {(staff ?? []).map((u) => (
-            <li key={u.id} className="flex flex-wrap items-center gap-2 py-2 text-[14px]">
-              <span className="font-semibold">{u.display_name ?? u.email}</span>
-              <span className="text-muted">{u.email}</span>
-              <Badge>{t(`roles.${u.role}`)}</Badge>
-              {u.invited && <Badge tone="warn">invited</Badge>}
-              {u.locked && <Badge tone="bad">{t('hospital.locked')}</Badge>}
-              <span className="text-[13px] text-muted">
-                {u.last_login_at
-                  ? t('hospital.lastActive', { at: fmt(u.last_login_at) })
-                  : t('hospital.neverSignedIn')}
-              </span>
-              <span className="flex-1" />
-              {!u.invited && (
-                <ResetSignIn
-                  url={`/hospital/staff/${u.id}/reset-sign-in`}
-                  name={u.display_name ?? u.email}
-                  email={u.email}
-                  testId="st-reset"
-                />
-              )}
-              <Button
-                variant="ghost"
-                onClick={() =>
-                  void attempt(setError, async () => {
-                    await call('POST', `/hospital/staff/${u.id}/active`, {
-                      active: !u.active || u.locked,
-                    });
-                    reloadStaff();
-                  })
-                }
-              >
-                {u.active && !u.locked ? t('hospital.disable') : t('hospital.enable')}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <HospitalPermissions />
-      <ClinicHours />
+        </Dialog>
+      )}
     </Page>
   );
 }
@@ -815,10 +930,106 @@ export function Phones() {
       setLabel('');
     });
   return (
-    <Page title={t('hospital.phonesTitle')}>
+    <Page
+      title={t('hospital.phonesTitle')}
+      sub={t('hospital.checkNote', { min: deviceCheck.minFps, take: deviceCheck.warnBelowFps })}
+    >
       <ErrorNote error={error} />
-      <Card>
-        <div className="flex items-end gap-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <ul
+          className="m-0 grid list-none grid-cols-1 content-start gap-3.5 p-0 sm:grid-cols-2 2xl:grid-cols-3"
+          data-testid="devices"
+        >
+          {(devices ?? []).length === 0 && (
+            <li className="text-[14px] text-muted">{t('hospital.noPhones')}</li>
+          )}
+          {(devices ?? []).map((d) => {
+            const fail = d.check_fps !== null && d.check_fps < deviceCheck.minFps;
+            const tone = d.revoked_at
+              ? 'neutral'
+              : d.check_fps === null
+                ? 'warn'
+                : fail
+                  ? 'bad'
+                  : d.check_fps < deviceCheck.warnBelowFps
+                    ? 'warn'
+                    : 'ok';
+            return (
+              <li
+                key={d.id}
+                className="nc-fu flex flex-col gap-3 rounded-3xl bg-card p-4 shadow-card"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="flex h-[54px] w-10 shrink-0 items-end justify-center rounded-[9px] border-[3px] border-ink pb-1"
+                  >
+                    <span className="h-0.5 w-3 rounded-full bg-ink" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <b className="truncate text-[15px]">{d.label ?? d.model}</b>
+                    <span className="truncate text-[12px] text-muted">
+                      {d.model} · Android {d.os_version}
+                    </span>
+                  </span>
+                  {d.revoked_at ? (
+                    <Badge tone="neutral">{t('hospital.removed')}</Badge>
+                  ) : (
+                    <span data-testid="device-check">
+                      <CheckBadge fps={d.check_fps} />
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[12px] text-muted">{t('hospital.checkCol')}</span>
+                  <b
+                    className={`text-[22px] tabular-nums ${tone === 'ok' ? 'text-ok' : tone === 'bad' ? 'text-bad' : tone === 'warn' ? 'text-warn' : 'text-muted'}`}
+                  >
+                    {d.check_fps === null ? '—' : `${d.check_fps.toFixed(1)} fps`}
+                  </b>
+                </div>
+                <span className="text-[12px] text-sub">
+                  {t('hospital.usageCol', { days: deviceCheck.usageDays })}:{' '}
+                  <span data-testid="device-usage">
+                    {d.takes_recent === 0 ? (
+                      t('hospital.usageNone')
+                    ) : (
+                      <>
+                        {t('hospital.usageTakes', { count: d.takes_recent })}
+                        {' · '}
+                        <span className={d.takes_below_min > 0 ? 'font-semibold text-warn' : ''}>
+                          {t('hospital.usageBelow', {
+                            count: d.takes_below_min,
+                            fps: deviceCheck.warnBelowFps,
+                          })}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </span>
+                <div className="mt-auto flex items-center justify-between gap-2 text-[12px] text-muted">
+                  <span>{t('hospital.addedOn', { date: fmtDate(d.registered_at) })}</span>
+                  {!d.revoked_at && (
+                    <Button
+                      variant="ghost"
+                      className="min-h-8 px-2 text-[13px]"
+                      onClick={() =>
+                        void attempt(setError, async () => {
+                          await call('POST', `/hospital/devices/${d.id}/revoke`);
+                          reload();
+                        })
+                      }
+                    >
+                      {t('hospital.revoke')}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <Card title={t('hospital.registerCard')} testId="register-card">
+          <span className="text-[13px] leading-[19px] text-sub">{t('hospital.registerIntro')}</span>
           <Field
             id="d-label"
             label={t('hospital.codeLabel')}
@@ -828,102 +1039,34 @@ export function Phones() {
           <Button onClick={() => void newCode()} data-testid="d-new">
             {t('hospital.newCode')}
           </Button>
-        </div>
-        {code && (
-          <div
-            className="flex flex-wrap items-center gap-5 rounded-3xl bg-soft p-4"
-            data-testid="d-code"
-          >
-            <img
-              src={code.qr}
-              alt={t('hospital.qrAlt')}
-              width={200}
-              height={200}
-              className="rounded-2xl bg-white p-2"
-            />
-            <div className="flex min-w-[240px] flex-1 flex-col gap-2">
-              <b className="text-[16px]">{t('hospital.registerTitle')}</b>
-              <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-[14px] text-sub">
+          {code && (
+            <div className="flex flex-col items-start gap-2" data-testid="d-code">
+              <img
+                src={code.qr}
+                alt={t('hospital.qrAlt')}
+                width={200}
+                height={200}
+                className="self-center rounded-2xl bg-white p-2"
+              />
+              <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-[13px] text-sub">
                 <li>{t('hospital.registerStep1')}</li>
                 <li>{t('hospital.registerStep2')}</li>
                 <li>{t('hospital.registerStep3')}</li>
               </ol>
-              <span className="text-[13px] text-muted">{t('hospital.orType')}</span>
+              <span className="text-[12px] text-muted">{t('hospital.orType')}</span>
               <p
-                className="m-0 font-mono text-[24px] font-bold tracking-widest"
+                className="m-0 font-mono text-[22px] font-bold tracking-widest"
                 data-testid="d-code-text"
               >
                 {code.code}
               </p>
-              <span className="text-[13px] text-muted">
+              <span className="text-[12px] text-muted">
                 {t('hospital.codeShown', { until: fmt(code.expires_at) })}
               </span>
             </div>
-          </div>
-        )}
-      </Card>
-      <Notice>
-        {t('hospital.checkNote', { min: deviceCheck.minFps, take: deviceCheck.warnBelowFps })}
-      </Notice>
-      <Table
-        head={[
-          t('hospital.phoneCol'),
-          '',
-          t('hospital.checkCol'),
-          t('hospital.usageCol', { days: deviceCheck.usageDays }),
-          t('hospital.addedCol'),
-          '',
-        ]}
-        testId="devices"
-      >
-        {(devices ?? []).map((d) => (
-          <tr key={d.id} className="border-t border-line">
-            <td className="px-4 py-3 font-semibold">{d.label ?? d.model}</td>
-            <td className="px-4 py-3 text-[13px] text-muted">
-              {d.model} · Android {d.os_version}
-            </td>
-            <td className="px-4 py-3" data-testid="device-check">
-              <CheckBadge fps={d.check_fps} />
-            </td>
-            <td className="px-4 py-3 text-[13px]" data-testid="device-usage">
-              {d.takes_recent === 0 ? (
-                <span className="text-muted">{t('hospital.usageNone')}</span>
-              ) : (
-                <>
-                  {t('hospital.usageTakes', { count: d.takes_recent })}
-                  {' · '}
-                  <span
-                    className={d.takes_below_min > 0 ? 'font-semibold text-warn' : 'text-muted'}
-                  >
-                    {t('hospital.usageBelow', {
-                      count: d.takes_below_min,
-                      fps: deviceCheck.warnBelowFps,
-                    })}
-                  </span>
-                </>
-              )}
-            </td>
-            <td className="px-4 py-3 text-[13px]">{fmtDate(d.registered_at)}</td>
-            <td className="px-4 py-3">
-              {d.revoked_at ? (
-                <Badge tone="bad">removed</Badge>
-              ) : (
-                <Button
-                  variant="ghost"
-                  onClick={() =>
-                    void attempt(setError, async () => {
-                      await call('POST', `/hospital/devices/${d.id}/revoke`);
-                      reload();
-                    })
-                  }
-                >
-                  {t('hospital.revoke')}
-                </Button>
-              )}
-            </td>
-          </tr>
-        ))}
-      </Table>
+          )}
+        </Card>
+      </div>
     </Page>
   );
 }

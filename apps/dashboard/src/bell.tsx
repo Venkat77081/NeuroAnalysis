@@ -135,7 +135,7 @@ export function Bell({
             text: t('bell.requests', { count: changes }),
             tone: 'warn' as const,
             label: t('overview.open'),
-            page: 'appointments',
+            page: 'requests',
           },
         ]
       : []),

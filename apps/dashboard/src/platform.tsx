@@ -5,19 +5,7 @@ import { ApiError, call } from './api.ts';
 import { ResetSignIn } from './reset.tsx';
 import { ActivityLog, type LogRow } from './activity.tsx';
 import { ConnectorStrip } from './health.tsx';
-import {
-  Avatar,
-  Badge,
-  Button,
-  Card,
-  Dialog,
-  DialogFooter,
-  ErrorNote,
-  Field,
-  Notice,
-  Page,
-  Segmented,
-} from './ui.tsx';
+import { Avatar, Badge, Button, Card, Dialog, ErrorNote, Field, Notice, Page } from './ui.tsx';
 
 interface Hospital {
   id: string;
@@ -37,6 +25,13 @@ interface Hospital {
   /** v29 (decision 052): null when no connector is registered. */
   connector_online?: boolean | null;
   connector_last_seen_at?: string | null;
+  /** v30 (decision 053): for the card and panel. */
+  connector_registered?: boolean;
+  setup_done?: number;
+  setup_total?: number;
+  storage_kind?: string | null;
+  messaging?: { email?: string; sms?: string } | null;
+  admin_email?: string | null;
 }
 interface Setup {
   admin_accepted: boolean;
@@ -81,11 +76,69 @@ export function fromAudit(r: AuditRow): LogRow {
   };
 }
 
-export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) => void }) {
+/** v30: what a hospital card and panel need to say (canvas v28). */
+export function hospitalView(h: Hospital): {
+  score: number;
+  live: boolean;
+  onboarding: boolean;
+  attention: boolean;
+  connector: 'ok' | 'offline' | 'none';
+  messages: 'ok' | 'failing' | 'none';
+} {
+  const score = Math.round((100 * (h.setup_done ?? 0)) / Math.max(1, h.setup_total ?? 6));
+  const connector = !h.connector_registered
+    ? 'none'
+    : h.connector_online === false
+      ? 'offline'
+      : 'ok';
+  const m = Object.values(h.messaging ?? {});
+  const messages = m.includes('failing') ? 'failing' : m.includes('working') ? 'ok' : 'none';
+  const live = h.status === 'active' && h.can_record && connector === 'ok' && score === 100;
+  const onboarding = h.status !== 'suspended' && score < 100;
+  const attention = h.status === 'suspended' || connector === 'offline' || messages === 'failing';
+  return { score, live, onboarding, attention, connector, messages };
+}
+
+function Ring({ pct }: { pct: number }) {
+  const c = pct === 100 ? 'var(--color-ok)' : pct >= 50 ? 'var(--color-warn)' : 'var(--color-bad)';
+  return (
+    <span
+      className="relative inline-flex size-[52px] shrink-0 items-center justify-center rounded-full"
+      style={{ background: `conic-gradient(${c} 0 ${pct}%, var(--color-line) 0)` }}
+      role="img"
+      aria-label={`${pct}%`}
+    >
+      <span className="flex size-[40px] items-center justify-center rounded-full bg-card text-[13px] font-extrabold">
+        {pct}
+      </span>
+    </span>
+  );
+}
+
+const hm = (iso: string | null | undefined) =>
+  iso
+    ? new Date(iso).toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+    : '';
+
+export function Hospitals({
+  onPermissions,
+  onActivity,
+}: {
+  onPermissions: (siteId: string) => void;
+  /** v30: "Open their activity" in the side panel. */
+  onActivity?: () => void;
+}) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<Hospital[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [onboarding, setOnboarding] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'attention' | 'onboarding' | 'live'>('all');
   const load = useCallback(
     () => call<Hospital[]>('GET', '/platform/hospitals').then(setRows, setError),
     [],
@@ -99,133 +152,296 @@ export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) =
       setError(e);
     }
   };
-  const [filter, setFilter] = useState<'all' | 'attention' | 'suspended'>('all');
-  const attention = (h: Hospital) =>
-    h.status !== 'active' || !h.can_record || h.connector_online === false;
-  const shown = rows.filter((h) =>
-    filter === 'all' ? true : filter === 'suspended' ? h.status === 'suspended' : attention(h),
-  );
+  const views = Object.fromEntries(rows.map((h) => [h.id, hospitalView(h)]));
+  const count = (k: 'attention' | 'onboarding' | 'live') =>
+    rows.filter((h) => views[h.id]![k]).length;
+  const shown = rows.filter((h) => filter === 'all' || views[h.id]![filter]);
   const openRow = rows.find((h) => h.id === open);
-  return (
-    <Page
-      title={t('platform.hospitalsTitle')}
-      sub={t('platform.hospitalsSub', { count: rows.length })}
+  const chip = (k: typeof filter, label: string) => (
+    <button
+      key={k}
+      type="button"
+      aria-pressed={filter === k}
+      onClick={() => setFilter(k)}
+      className={`min-h-9 rounded-full px-3.5 text-[13px] font-semibold ${filter === k ? 'bg-ink text-ground' : 'bg-card text-sub shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
+      data-testid={`hosp-filter-${k}`}
     >
-      <ErrorNote error={error} />
-      <Onboard onDone={() => void load()} />
-      <div className="flex flex-wrap items-center gap-2">
-        <Segmented
-          options={[
-            { value: 'all' as const, label: t('platform.filter.all', { count: rows.length }) },
-            {
-              value: 'attention' as const,
-              label: t('platform.filter.attention', { count: rows.filter(attention).length }),
-            },
-            {
-              value: 'suspended' as const,
-              label: t('platform.filter.suspended', {
-                count: rows.filter((h) => h.status === 'suspended').length,
-              }),
-            },
-          ]}
-          value={filter}
-          onChange={setFilter}
-          label={t('platform.filter.label')}
-          testId={(v) => `hosp-filter-${v}`}
-        />
+      {label}
+    </button>
+  );
+  const where = (h: Hospital) =>
+    [t(`platform.${h.kind}`), h.city, h.region].filter(Boolean).join(' · ');
+  return (
+    <Page title={t('platform.hospitalsTitle')}>
+      <div className="-mt-2 flex flex-wrap items-center gap-2">
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label={t('platform.filter.label')}
+        >
+          {chip('all', t('platform.filter.all', { count: rows.length }))}
+          {chip('attention', t('platform.filter.attention', { count: count('attention') }))}
+          {chip('onboarding', t('platform.filter.onboarding', { count: count('onboarding') }))}
+          {chip('live', t('platform.filter.live', { count: count('live') }))}
+        </div>
+        <span className="flex-1" />
+        <Button onClick={() => setOnboarding(true)} data-testid="onboard-open">
+          ＋ {t('platform.onboard')}
+        </Button>
       </div>
+      <ErrorNote error={error} />
+      {notice && <Notice testId="notice">{notice}</Notice>}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="hospitals">
-        {shown.map((h) => (
-          <section
-            key={h.id}
-            className={`nc-fu flex flex-col gap-3 rounded-3xl bg-card p-4 shadow-card ${open === h.id ? 'shadow-[0_0_0_2px_var(--color-brand)]' : ''}`}
-            data-testid={`hospital-${h.name}`}
-          >
-            <div className="flex items-center gap-3">
-              <Avatar name={h.name} size={44} />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <b className="truncate text-[15px]">{h.name}</b>
-                <span className="truncate text-[12px] text-muted">
-                  {[t(`platform.${h.kind}`), h.city, h.region].filter(Boolean).join(' · ')}
+        {shown.map((h) => {
+          const v = views[h.id]!;
+          return (
+            <button
+              key={h.id}
+              type="button"
+              onClick={() => setOpen(h.id)}
+              className={`nc-fu flex flex-col gap-3 rounded-3xl bg-card p-4 text-left shadow-card transition-shadow hover:shadow-[0_0_0_2px_var(--color-edge)] ${open === h.id ? 'shadow-[0_0_0_2px_var(--color-brand)]' : ''}`}
+              data-testid={`setup-${h.name}`}
+            >
+              <span className="flex items-center gap-3" data-testid={`hospital-${h.name}`}>
+                <Avatar name={h.name} size={44} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <b className="truncate text-[15px]">{h.name}</b>
+                  <span className="truncate text-[12px] text-muted">{where(h)}</span>
                 </span>
+                <Ring pct={v.score} />
               </span>
-              <Badge
-                tone={h.status === 'active' ? 'ok' : h.status === 'suspended' ? 'bad' : 'warn'}
-              >
-                {t(`platform.statusName.${h.status}`, { defaultValue: h.status })}
-              </Badge>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <span data-testid={`can-record-${h.name}`}>
-                <Badge tone={h.can_record ? 'ok' : 'bad'}>
-                  {h.can_record ? t('platform.canRecordYes') : t('platform.noStorage')}
-                </Badge>
-              </span>
-              {h.connector_online != null && (
+              <span className="flex flex-wrap gap-1.5">
                 <span data-testid={`connector-${h.name}`}>
-                  <Badge tone={h.connector_online ? 'ok' : 'bad'}>
-                    {t(h.connector_online ? 'health.badgeOnline' : 'health.badgeOffline')}
+                  <Badge
+                    tone={v.connector === 'ok' ? 'ok' : v.connector === 'offline' ? 'bad' : 'warn'}
+                  >
+                    {t(`platform.chip.connector.${v.connector}`)}
                   </Badge>
                 </span>
-              )}
-              {h.sms_enabled && <Badge tone="info">{t('platform.smsOn')}</Badge>}
-            </div>
-            <span className="text-[13px] text-sub">
-              {t('platform.counts', {
-                devices: h.devices,
-                operators: h.operators,
-                patients: h.patients,
-              })}
-            </span>
-            <div className="mt-auto flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                className="min-h-9 text-[13px]"
-                onClick={() => setOpen(open === h.id ? null : h.id)}
-                data-testid={`setup-${h.name}`}
-              >
-                {t('platform.setup')}
-              </Button>
-              <Button
-                variant="secondary"
-                className="min-h-9 text-[13px]"
-                onClick={() => onPermissions(h.id)}
-                data-testid={`perms-${h.name}`}
-              >
-                {t('perm.button')}
-              </Button>
-            </div>
-          </section>
-        ))}
+                <span data-testid={`can-record-${h.name}`} data-state={h.can_record ? 'ok' : 'no'}>
+                  <Badge tone={h.can_record ? 'ok' : 'warn'}>
+                    {t(h.can_record ? 'platform.chip.storage' : 'platform.noStorage')}
+                  </Badge>
+                </span>
+                <Badge
+                  tone={v.messages === 'ok' ? 'ok' : v.messages === 'failing' ? 'bad' : 'neutral'}
+                >
+                  {t(`platform.chip.messages.${v.messages}`)}
+                </Badge>
+                {h.status === 'suspended' && (
+                  <Badge tone="bad">{t('platform.statusName.suspended')}</Badge>
+                )}
+              </span>
+              <span className="text-[13px] text-sub">
+                {v.connector === 'offline'
+                  ? t('platform.footOffline', {
+                      devices: h.devices,
+                      at: hm(h.connector_last_seen_at),
+                    })
+                  : v.score < 100
+                    ? t('platform.footOnboarding', {
+                        done: h.setup_done ?? 0,
+                        total: h.setup_total ?? 6,
+                      })
+                    : t('platform.footLive', { devices: h.devices, patients: h.patients })}
+              </span>
+            </button>
+          );
+        })}
       </div>
-      {openRow && (
+      {onboarding && (
         <Dialog
-          title={openRow.name}
-          sub={[t(`platform.${openRow.kind}`), openRow.city, openRow.region]
-            .filter(Boolean)
-            .join(' · ')}
-          size="side"
-          onClose={() => setOpen(null)}
-          testId="hospital-panel"
+          title={t('platform.onboard')}
+          sub={t('platform.onboardSub')}
+          onClose={() => setOnboarding(false)}
+          testId="onboard-dialog"
         >
-          <ConnectorStrip url={`/platform/hospitals/${openRow.id}/connector-history`} />
-          <SetupSteps id={openRow.id} />
-          <DialogFooter>
-            {openRow.status === 'suspended' ? (
-              <Button variant="secondary" onClick={() => void setStatus(openRow, 'active')}>
-                {t('platform.resume')}
-              </Button>
-            ) : (
-              <Button variant="danger" onClick={() => void setStatus(openRow, 'suspended')}>
-                {t('platform.suspend')}
-              </Button>
-            )}
-            <span className="flex-1" />
-            <Button onClick={() => onPermissions(openRow.id)}>{t('perm.button')}</Button>
-          </DialogFooter>
+          <Onboard
+            onDone={(name, email) => {
+              void load();
+              if (name) {
+                setOnboarding(false);
+                setNotice(t('platform.onboarded', { name, email }));
+              }
+            }}
+          />
         </Dialog>
       )}
+      {openRow && (
+        <HospitalPanel
+          h={openRow}
+          onClose={() => setOpen(null)}
+          onPermissions={() => onPermissions(openRow.id)}
+          onActivity={onActivity}
+          onStatus={(st) => void setStatus(openRow, st)}
+        />
+      )}
     </Page>
+  );
+}
+
+function PanelRow({
+  title,
+  sub,
+  tone,
+  chip,
+  testId,
+}: {
+  title: string;
+  sub: string;
+  tone: 'ok' | 'warn' | 'bad' | 'neutral';
+  chip: string;
+  testId?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-t border-line py-3" data-testid={testId}>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <b className="text-[14px]">{title}</b>
+        <span className="truncate text-[12px] text-muted">{sub}</span>
+      </span>
+      <Badge tone={tone}>{chip}</Badge>
+    </div>
+  );
+}
+
+/** v30 (canvas v28): one hospital, along the right edge. */
+function HospitalPanel({
+  h,
+  onClose,
+  onPermissions,
+  onActivity,
+  onStatus,
+}: {
+  h: Hospital;
+  onClose: () => void;
+  onPermissions: () => void;
+  onActivity?: () => void;
+  onStatus: (s: 'active' | 'suspended') => void;
+}) {
+  const { t } = useTranslation();
+  const v = hospitalView(h);
+  const since = h.onboarded_at
+    ? new Date(h.onboarded_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : null;
+  const [now] = useState(() => Date.now());
+  const offFor =
+    v.connector === 'offline' && h.connector_last_seen_at
+      ? Math.max(0, Math.round((now - Date.parse(h.connector_last_seen_at)) / 60_000))
+      : null;
+  const msg = h.messaging ?? {};
+  return (
+    <Dialog title={h.name} size="side" bare onClose={onClose} testId="hospital-panel">
+      <div className="flex items-start gap-3">
+        <Avatar name={h.name} size={48} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <b className="text-[18px]">{h.name}</b>
+          <span className="text-[13px] text-muted">
+            {[t(`platform.${h.kind}`), h.city, h.region].filter(Boolean).join(' · ')}
+            {since ? ` · ${t('platform.liveSince', { since })}` : ''}
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('app.close')}
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-soft text-muted"
+          data-testid="dialog-close"
+        >
+          ✕
+        </button>
+      </div>
+      {offFor !== null && (
+        <span className="self-start" data-testid="panel-offline">
+          <Badge tone="bad">
+            {t('platform.offlineFor', { h: Math.floor(offFor / 60), m: offFor % 60 })}
+          </Badge>
+        </span>
+      )}
+      {h.connector_registered && (
+        <ConnectorStrip url={`/platform/hospitals/${h.id}/connector-history`} />
+      )}
+      <div className="flex flex-col">
+        <PanelRow
+          title={t('flow.connector')}
+          sub={
+            h.connector_last_seen_at
+              ? t('platform.lastSeen', { at: hm(h.connector_last_seen_at) })
+              : t('health.notSeen')
+          }
+          tone={v.connector === 'ok' ? 'ok' : v.connector === 'offline' ? 'bad' : 'warn'}
+          chip={t(`platform.state.connector.${v.connector}`)}
+          testId="panel-connector"
+        />
+        <PanelRow
+          title={t('flow.storage')}
+          sub={t(`platform.storageKind.${h.storage_kind ?? 'none'}`, {
+            defaultValue: h.storage_kind ?? '',
+          })}
+          tone={h.can_record ? 'ok' : 'warn'}
+          chip={t(h.can_record ? 'flow.working' : 'flow.notSetUp')}
+          testId="panel-storage"
+        />
+        <PanelRow
+          title={t('platform.messages')}
+          sub={t('platform.messagesSub', {
+            email: t(`platform.msgState.${msg.email ?? 'off'}`),
+            sms: t(`platform.msgState.${msg.sms ?? 'off'}`),
+          })}
+          tone={v.messages === 'ok' ? 'ok' : v.messages === 'failing' ? 'bad' : 'neutral'}
+          chip={t(`platform.state.messages.${v.messages}`)}
+          testId="panel-messages"
+        />
+        <PanelRow
+          title={t('platform.phones')}
+          sub={t('platform.phonesSub', { devices: h.devices, operators: h.operators })}
+          tone={h.devices ? 'ok' : 'neutral'}
+          chip={t(h.devices ? 'platform.phonesReady' : 'platform.phonesNone')}
+          testId="panel-phones"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        {h.admin_email && (
+          <a
+            href={`mailto:${h.admin_email}`}
+            className="nc-gradient inline-flex min-h-11 items-center justify-center rounded-full px-4 text-[14px] font-semibold text-white"
+            data-testid="panel-email"
+          >
+            {t('platform.emailAdmin')}
+          </a>
+        )}
+        {onActivity && (
+          <Button variant="secondary" onClick={onActivity} data-testid="panel-activity">
+            {t('platform.openActivity')}
+          </Button>
+        )}
+        {v.connector === 'offline' && (
+          <span className="text-center text-[12px] text-muted">{t('platform.waitSafely')}</span>
+        )}
+      </div>
+      <details className="rounded-3xl bg-soft p-4" open>
+        <summary className="cursor-pointer text-[14px] font-bold">
+          {t('platform.setupSteps')}
+        </summary>
+        <div className="mt-3">
+          <SetupSteps id={h.id} />
+        </div>
+      </details>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={onPermissions} data-testid={`perms-${h.name}`}>
+          {t('perm.button')}
+        </Button>
+        <span className="flex-1" />
+        {h.status === 'suspended' ? (
+          <Button variant="secondary" onClick={() => onStatus('active')}>
+            {t('platform.resume')}
+          </Button>
+        ) : (
+          <Button variant="danger" onClick={() => onStatus('suspended')}>
+            {t('platform.suspend')}
+          </Button>
+        )}
+      </div>
+    </Dialog>
   );
 }
 
@@ -305,7 +521,7 @@ function HospitalAdmins({ id }: { id: string }) {
   );
 }
 
-function Onboard({ onDone }: { onDone: () => void }) {
+function Onboard({ onDone }: { onDone: (name?: string, email?: string) => void }) {
   const { t } = useTranslation();
   const [f, setF] = useState({
     name: '',
@@ -334,7 +550,7 @@ function Onboard({ onDone }: { onDone: () => void }) {
         admin_name: f.adminName || null,
       });
       setF({ ...f, name: '', city: '', email: '', adminName: '' });
-      onDone();
+      onDone(f.name, f.email);
     } catch (e) {
       setError(e);
       // The hospital was added; only the admin's invite e-mail failed ("Resend invite" later).
@@ -345,8 +561,8 @@ function Onboard({ onDone }: { onDone: () => void }) {
   };
   const sel = 'h-11 rounded-2xl border border-edge bg-card px-2 text-[14px]';
   return (
-    <Card title={t('platform.onboard')} testId="onboard">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div className="flex flex-col gap-4" data-testid="onboard">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <Field
           id="h-name"
           label={t('platform.name')}
@@ -415,7 +631,7 @@ function Onboard({ onDone }: { onDone: () => void }) {
       >
         {t('platform.create')}
       </Button>
-    </Card>
+    </div>
   );
 }
 

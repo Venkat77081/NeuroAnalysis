@@ -407,6 +407,7 @@ export function Dialog({
   title,
   sub,
   size = 'md',
+  bare = false,
   dirty = false,
   onClose,
   children,
@@ -415,6 +416,8 @@ export function Dialog({
   title: string;
   sub?: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'side';
+  /** v30: no header bar (the content carries its own title, as in the mocks). */
+  bare?: boolean;
   dirty?: boolean;
   onClose: () => void;
   children: ReactNode;
@@ -468,22 +471,26 @@ export function Dialog({
       <div
         className={`flex h-full max-h-full flex-col ${size === 'side' ? '' : 'sm:max-h-[90vh]'}`}
       >
-        <div className="flex items-start gap-3 border-b border-line px-6 pt-5 pb-4">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[21px] font-extrabold tracking-[-0.2px]">{title}</h2>
-            {sub && <span className="text-[13px] text-muted">{sub}</span>}
+        {!bare && (
+          <div className="flex items-start gap-3 border-b border-line px-6 pt-5 pb-4">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[21px] font-extrabold tracking-[-0.2px]">{title}</h2>
+              {sub && <span className="text-[13px] text-muted">{sub}</span>}
+            </div>
+            <button
+              type="button"
+              onClick={close}
+              aria-label={t('app.close')}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-soft text-[16px] text-muted"
+              data-testid="dialog-close"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={close}
-            aria-label={t('app.close')}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-soft text-[16px] text-muted"
-            data-testid="dialog-close"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+        )}
+        <div
+          className={`flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto ${bare ? 'px-7 py-7' : 'px-6 py-5'}`}
+        >
           {children}
         </div>
       </div>

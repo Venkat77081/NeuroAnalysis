@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { call, hospital } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Hero, Page, Segmented, Table, fmt } from './ui.tsx';
+import { describe, toneOf, type LogRow } from './activity.tsx';
+import { fromAudit, type AuditRow } from './platform.tsx';
 
 type Period = '4w' | '12w' | '1y';
 const PERIODS: Period[] = ['4w', '12w', '1y'];
@@ -395,6 +397,178 @@ function ItemRow({
   );
 }
 
+function ItemsCard({
+  data,
+  names,
+  onOpen,
+  onPatient,
+  title,
+  className = 'min-w-0 flex-[1_1_320px]',
+}: {
+  data: OverviewData;
+  names: Record<string, string>;
+  onOpen: (page: string) => void;
+  onPatient: (ncid: string) => void;
+  title: string;
+  className?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Card title={title} className={className} testId="overview-list">
+      {data.items.length === 0 ? (
+        <p className="text-[14px] text-muted">{t('overview.empty')}</p>
+      ) : (
+        <ul className="m-0 list-none p-0">
+          {data.items.map((i, n) => (
+            <ItemRow
+              key={`${i.key}-${i.id ?? n}`}
+              item={i}
+              names={names}
+              onOpen={onOpen}
+              onPatient={onPatient}
+            />
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+/** v30 (canvas v28): the last few things that happened (staff and set-up, never patient names). */
+function Feed({ url, title }: { url: string; title: string }) {
+  const { t } = useTranslation();
+  const [rows, setRows] = useState<LogRow[] | null>(null);
+  useEffect(() => {
+    call<AuditRow[]>('GET', url).then(
+      (l) => setRows(l.map(fromAudit)),
+      () => setRows([]),
+    );
+  }, [url]);
+  return (
+    <Card title={title} testId="overview-feed">
+      {rows && rows.length === 0 && <p className="text-[14px] text-muted">{t('overview.empty')}</p>}
+      {(rows ?? []).map((r, i) => (
+        <div key={i} className="flex gap-3 border-t border-line py-2.5">
+          <span
+            aria-hidden
+            className="mt-1.5 size-2.5 shrink-0 rounded-full"
+            style={{ background: FEED_DOT[toneOf(r.action)] }}
+          />
+          <span className="text-[13px] leading-[19px]">
+            <b>{r.hospital && !r.who.email ? r.hospital : r.who.name}</b> ·{' '}
+            {describe(t, r.action, r.details)}
+            <span className="block text-[12px] text-muted">{fmt(r.at)}</span>
+          </span>
+        </div>
+      ))}
+    </Card>
+  );
+}
+const FEED_DOT: Record<string, string> = {
+  ok: 'var(--color-ok)',
+  warn: 'var(--color-warn)',
+  bad: 'var(--color-alert)',
+  info: 'var(--color-brand)',
+};
+
+/** v30 (canvas v28): platform and hospital-admin overviews. */
+function RoleLayout({
+  data,
+  period,
+  setPeriod,
+  names,
+  onOpen,
+  onPatient,
+  listTitle,
+}: {
+  data: OverviewData;
+  period: Period;
+  setPeriod: (p: Period) => void;
+  names: Record<string, string>;
+  onOpen: (page: string) => void;
+  onPatient: (ncid: string) => void;
+  listTitle: string;
+}) {
+  const { t } = useTranslation();
+  const tiles = (
+    <div
+      className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:[grid-template-columns:repeat(auto-fit,minmax(170px,1fr))]"
+      data-testid="overview-tiles"
+    >
+      {data.tiles.map((tile) => (
+        <StatTile key={tile.key} tile={tile} onOpen={onOpen} />
+      ))}
+    </div>
+  );
+  if (data.role === 'platform_admin')
+    return (
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <ChartCard data={data} period={period} setPeriod={setPeriod} />
+          {tiles}
+        </div>
+        <div className="flex min-w-0 flex-col gap-4">
+          <ItemsCard
+            data={data}
+            names={names}
+            onOpen={onOpen}
+            onPatient={onPatient}
+            title={t('overview.needsYou')}
+            className="min-w-0"
+          />
+          <Feed url="/platform/audit?limit=5" title={t('overview.happening')} />
+        </div>
+      </div>
+    );
+  const ok = data.items.filter((i) => TONE[i.status] === 'ok').length;
+  const pct = data.items.length ? Math.round((100 * ok) / data.items.length) : 0;
+  return (
+    <>
+      {tiles}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card
+            title={listTitle}
+            testId="overview-list"
+            action={
+              <Badge tone={pct === 100 ? 'ok' : 'warn'}>
+                {t('overview.setupDone', { ok, total: data.items.length })}
+              </Badge>
+            }
+          >
+            <div className="flex items-center gap-4">
+              <span
+                className="relative inline-flex size-[96px] shrink-0 items-center justify-center rounded-full"
+                style={{
+                  background: `conic-gradient(var(--color-brand) 0 ${pct}%, var(--color-line) 0)`,
+                }}
+                role="img"
+                aria-label={`${pct}%`}
+              >
+                <span className="flex size-[80px] items-center justify-center rounded-full bg-card text-[16px] font-extrabold">
+                  {pct}%
+                </span>
+              </span>
+              <ul className="m-0 min-w-0 flex-1 list-none p-0">
+                {data.items.map((i, n) => (
+                  <ItemRow
+                    key={`${i.key}-${i.id ?? n}`}
+                    item={i}
+                    names={names}
+                    onOpen={onOpen}
+                    onPatient={onPatient}
+                  />
+                ))}
+              </ul>
+            </div>
+          </Card>
+        </div>
+        <Feed url="/hospital/audit?limit=6" title={t('overview.todayAtHospital')} />
+      </div>
+    </>
+  );
+}
+
 export function OverviewPage({
   title,
   name,
@@ -482,7 +656,18 @@ export function OverviewPage({
       )}
       <ErrorNote error={error} />
       {!data && !error && <p className="text-muted">{t('app.loading')}</p>}
-      {data && (
+      {data && (data.role === 'platform_admin' || data.role === 'hospital_admin') && (
+        <RoleLayout
+          data={data}
+          period={period}
+          setPeriod={setPeriod}
+          names={names}
+          onOpen={onOpen}
+          onPatient={onPatient}
+          listTitle={listTitle}
+        />
+      )}
+      {data && data.role !== 'platform_admin' && data.role !== 'hospital_admin' && (
         <>
           <div
             className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5"
@@ -494,23 +679,13 @@ export function OverviewPage({
           </div>
           <div className="flex flex-wrap gap-4">
             <ChartCard data={data} period={period} setPeriod={setPeriod} />
-            <Card title={listTitle} className="min-w-0 flex-[1_1_320px]" testId="overview-list">
-              {data.items.length === 0 ? (
-                <p className="text-[14px] text-muted">{t('overview.empty')}</p>
-              ) : (
-                <ul className="m-0 list-none p-0">
-                  {data.items.map((i, n) => (
-                    <ItemRow
-                      key={`${i.key}-${i.id ?? n}`}
-                      item={i}
-                      names={names}
-                      onOpen={onOpen}
-                      onPatient={onPatient}
-                    />
-                  ))}
-                </ul>
-              )}
-            </Card>
+            <ItemsCard
+              data={data}
+              names={names}
+              onOpen={onOpen}
+              onPatient={onPatient}
+              title={listTitle}
+            />
           </div>
         </>
       )}

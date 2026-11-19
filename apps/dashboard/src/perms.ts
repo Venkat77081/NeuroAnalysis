@@ -21,6 +21,9 @@ export const MENU: { page: string; perms: string[]; roles?: string[] }[] = [
   { page: 'chooseTests', perms: ['requests.send'] },
   { page: 'myPatients', perms: [], roles: ['doctor'] },
   { page: 'appointments', perms: ['appointments.view', 'appointments.add', 'appointments.assign'] },
+  // v30: booking and patients' requests are pages of their own (user, 19 Nov 2026).
+  { page: 'book', perms: ['appointments.add'] },
+  { page: 'requests', perms: ['appointments.add', 'appointments.assign'] },
   { page: 'invite', perms: ['invites.send', 'patients.search'] },
   { page: 'connections', perms: ['setup.connections'] },
   { page: 'team', perms: ['setup.team'] },

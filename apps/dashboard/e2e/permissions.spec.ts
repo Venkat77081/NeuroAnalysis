@@ -14,12 +14,13 @@ test('platform admin lets doctors book appointments at one hospital, then resets
 
   // Defaults: a doctor cannot add appointments (no form, no hospital-system list).
   await signIn(page, s.doctor_email, s.doctor_totp);
-  await page.getByTestId('nav-appointments').click();
-  await expect(page.getByTestId('manual')).toHaveCount(0);
+  // v30: booking is its own page, shown only with appointments.add.
+  await expect(page.getByTestId('nav-book')).toHaveCount(0);
   await page.getByTestId('sign-out').click();
 
   await signIn(page, s.root_email, s.root_totp);
   await page.getByTestId('nav-hospitals').click();
+  await page.getByTestId('setup-Sunrise Neuro Clinic').click(); // v30: the side panel
   await page.getByTestId('perms-Sunrise Neuro Clinic').click();
   const table = page.getByTestId('perm-table');
   await expect(table).toContainText('Assign and reassign the doctor');
@@ -41,7 +42,7 @@ test('platform admin lets doctors book appointments at one hospital, then resets
 
   // The doctor now has the booking form.
   await signIn(page, s.doctor_email, s.doctor_totp);
-  await page.getByTestId('nav-appointments').click();
+  await page.getByTestId('nav-book').click();
   await expect(page.getByTestId('manual')).toBeVisible();
   await expect(page.getByTestId('manual-doctor')).toBeVisible();
   await page.getByTestId('sign-out').click();
@@ -56,6 +57,7 @@ test('platform admin lets doctors book appointments at one hospital, then resets
   // Reset to defaults.
   await signIn(page, s.root_email, s.root_totp);
   await page.getByTestId('nav-hospitals').click();
+  await page.getByTestId('setup-Sunrise Neuro Clinic').click(); // v30: the side panel
   await page.getByTestId('perms-Sunrise Neuro Clinic').click();
   await page.getByTestId('perm-reason').fill('Back to the standard set');
   await page.getByTestId('perm-reset').click();

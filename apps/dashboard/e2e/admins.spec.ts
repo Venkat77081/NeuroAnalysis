@@ -21,6 +21,7 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
     await expect(page.getByTestId(`nav-${p}`)).toHaveCount(0);
 
   await page.getByTestId('nav-team').click();
+  await page.getByTestId('team-add-operator').click(); // v30: adding happens in a pop-up
   await page.getByTestId('op-code').fill('OP-E2E');
   await expect(page.getByTestId('op-add')).toBeDisabled(); // a name is required
   await page.getByTestId('op-name').fill('Kavya R');
@@ -84,10 +85,14 @@ test('M14: platform admin — hospitals, set-up status, onboarding, platform log
   );
   // v28: set-up opens in a side panel; close it to onboard the next hospital.
   await page.getByTestId('dialog-close').click();
+  // v30: "Onboard a hospital" opens a pop-up.
+  await page.getByTestId('onboard-open').click();
   await page.getByTestId('h-name').fill('Lakeview Hospital');
   await page.getByTestId('h-email').fill('admin@lakeview.example');
   await page.getByTestId('h-create').click();
   await expect(page.getByTestId('hospitals')).toContainText('Lakeview Hospital');
+  if (await page.getByTestId('onboard-dialog').isVisible())
+    await page.getByTestId('dialog-close').click(); // the invite e-mail could not be sent
   await page.getByTestId('nav-platformLog').click();
   await expect(page.getByTestId('platform-log')).toContainText('Onboarded the hospital');
   await expect(page.getByTestId('platform-log')).toContainText('Platform admin');

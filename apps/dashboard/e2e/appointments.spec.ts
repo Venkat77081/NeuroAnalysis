@@ -45,8 +45,12 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
     await page.getByTestId('manual-add').click();
     await expect(page.getByTestId('notice')).toContainText('Appointment added');
   };
+  // v30: booking is its own page; the list is on Appointments.
+  await page.getByTestId('nav-book').click();
   await add('asha', s.patient_mrn, at(3, '10:30'), 'Dr. Rao');
   await add('ravi', '00012401', at(2, '11:15'));
+  await page.getByTestId('nav-appointments').click();
+  await page.getByTestId('view-list').click();
   const asha = page.getByTestId(`appt-${s.patient_mrn}`).first();
   await expect(asha).toContainText('Added by hand · Front desk');
   await expect(asha.getByTestId('appt-stage')).toHaveText("Waiting for doctor's tests");

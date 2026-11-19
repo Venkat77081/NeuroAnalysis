@@ -25,7 +25,7 @@ import {
   fmtDate,
 } from './ui.tsx';
 import { CalendarView, weekOf } from './calendar.tsx';
-import { addDays, fmtDay, useSettings, zonedDay, zonedTime } from './changes.tsx';
+import { addDays, fmtDay, fmtTime, useSettings, weekday, zonedDay, zonedTime } from './changes.tsx';
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
@@ -90,7 +90,7 @@ interface PatientRow {
   /** Decision 035: the patient said their phone failed the camera check (fps measured). */
   phone_unsuitable_fps: number | null;
 }
-interface Doctor {
+export interface Doctor {
   id: string;
   display_name: string | null;
   email: string;
@@ -101,10 +101,12 @@ interface Ident {
   mrn: string;
   name: string | null;
 }
-interface Found {
+export interface Found {
   mrn: string;
   name: string;
   ncid: string | null;
+  /** invited | active | locked | closed | no_app; null if not linked yet (connector search). */
+  app_status?: string | null;
 }
 
 const STAGE_TONE: Record<Stage, 'ok' | 'warn' | 'bad' | 'neutral'> = {
@@ -256,7 +258,17 @@ function MoveBadges({ a, now }: { a: Appointment; now: number }) {
   );
 }
 
-export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) => void } = {}) {
+export function Appointments({
+  onChangeCount,
+  initialTab = 'list',
+  onBook,
+}: {
+  onChangeCount?: (n: number) => void;
+  /** v30: "+ Add" opens the Book appointment page. */
+  onBook?: () => void;
+  /** v30: the Requests page opens this view on its Requests tab. */
+  initialTab?: 'list' | 'requests';
+} = {}) {
   const { t } = useTranslation();
   // Decision 033: what this person may do here (set per hospital).
   const perms = usePerms();
@@ -274,10 +286,9 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   const [version, setVersion] = useState(0);
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   // v13: the appointments list, or patients' change requests; the appointment being moved.
-  const [tab, setTab] = useState<'list' | 'requests'>('list');
+  const tab = initialTab;
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [noShow, setNoShow] = useState<string | null>(null);
-  const [changes, setChanges] = useState<number | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const canMove = canAdd;
   // The time the list was loaded (what "upcoming" and "recently moved" are measured from).
@@ -285,6 +296,7 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   // Decision 038: the date range (remembered on this computer).
   const [range, setRange] = useState<Range>(savedRange);
   const [view, setView] = useState<View>(savedView);
+  const [calDoctor, setCalDoctor] = useState('');
   const calendar = view !== 'list';
   const settings = useSettings();
   const tz = settings?.time_zone ?? browserZone();
@@ -329,7 +341,7 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
           call<Inbox>('GET', '/hospital/inbox').catch(() => null),
         ]);
         setNow(Date.now());
-        setChanges(open?.count ?? 0);
+
         onChangeCount?.(open?.count ?? 0);
         const ncids = [...new Set(list.map((a) => a.ncid))];
         const ids = ncids.length
@@ -381,35 +393,9 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   );
   const joined = (ncid: string) => app[ncid] === 'active';
 
-  const tabs = (
-    <div role="tablist" className="flex flex-wrap gap-1.5">
-      {(['list', 'requests'] as const).map((k) => (
-        <button
-          key={k}
-          type="button"
-          role="tab"
-          aria-selected={tab === k}
-          onClick={() => {
-            setTab(k);
-            setNotice(null);
-          }}
-          className={`flex min-h-10 items-center gap-2 rounded-full px-4 text-[14px] font-semibold ${tab === k ? 'bg-ink text-ground' : 'bg-card text-sub shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
-          data-testid={`tab-${k}`}
-        >
-          {t(`moves.tab.${k}`)}
-          {k === 'requests' && !!changes && (
-            <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-alert px-1.5 text-[12px] font-bold text-white">
-              {changes}
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
-  );
   if (tab === 'requests')
     return (
-      <Page title={t('appts.title')}>
-        {tabs}
+      <Page title={t('nav.requests')} sub={t('requests.pageSub')}>
         {notice && <Notice testId="notice">{notice}</Notice>}
         <RequestsTab
           canAssign={canAssign}
@@ -422,9 +408,27 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
       </Page>
     );
 
+  const week = weekOf(day);
+  const pageTitle =
+    view === 'week'
+      ? `${fmtDay(week[0]!, false)} – ${fmtDay(week[6]!, false)}`
+      : view === 'day'
+        ? fmtDay(day)
+        : t('appts.title');
+  const shownAppts = (appts ?? []).filter(
+    (a) => !calendar || !calDoctor || (a.doctor_id ?? '') === calDoctor,
+  );
   return (
-    <Page title={t('appts.title')}>
-      {tabs}
+    <Page
+      title={pageTitle}
+      actions={
+        onBook ? (
+          <Button onClick={onBook} data-testid="appts-add">
+            ＋ {t('cal.add')}
+          </Button>
+        ) : undefined
+      }
+    >
       <div className="flex flex-wrap items-center gap-3">
         {calendar ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -454,11 +458,20 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
             >
               ›
             </Button>
-            <b className="text-[17px]" data-testid="cal-title">
-              {view === 'week'
-                ? t('cal.weekOf', { day: fmtDay(weekOf(day)[0]!, false) })
-                : fmtDay(day)}
-            </b>
+            <select
+              value={calDoctor}
+              onChange={(e) => setCalDoctor(e.target.value)}
+              aria-label={t('appts.doctor')}
+              className="h-9 rounded-full border-0 bg-card px-3 text-[13px] font-semibold shadow-[inset_0_0_0_1px_var(--color-edge)]"
+              data-testid="cal-doctor"
+            >
+              <option value="">{t('today.allDoctors')}</option>
+              {docs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {docName(d)}
+                </option>
+              ))}
+            </select>
           </div>
         ) : (
           <span className="text-[13px] text-muted" data-testid="appts-window">
@@ -488,19 +501,36 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
       <ErrorNote error={error} />
       {notice && <Notice testId="notice">{notice}</Notice>}
       {calendar && (
-        <Card testId="calendar">
-          <CalendarView
-            mode={view === 'week' ? 'week' : 'day'}
-            appts={appts ?? []}
-            names={Object.fromEntries(
-              Object.values(ident).flatMap((i) => (i.name ? [[i.ncid, i.name]] : [])),
-            )}
-            tz={tz}
-            day={day}
-            now={now}
-            onOpen={setOpen}
-          />
-        </Card>
+        <div
+          className={`grid grid-cols-1 gap-4 ${view === 'day' ? 'xl:grid-cols-[minmax(0,1fr)_300px]' : ''}`}
+        >
+          <Card testId="calendar">
+            <CalendarView
+              mode={view === 'week' ? 'week' : 'day'}
+              appts={shownAppts}
+              names={Object.fromEntries(
+                Object.values(ident).flatMap((i) => (i.name ? [[i.ncid, i.name]] : [])),
+              )}
+              tz={tz}
+              day={day}
+              now={now}
+              onOpen={setOpen}
+            />
+          </Card>
+          {view === 'day' && (
+            <div className="flex flex-col gap-4">
+              <Card title={fmtMonth(day)} testId="cal-month">
+                <MiniMonth
+                  day={day}
+                  today={zonedDay(now, tz)}
+                  marked={new Set((appts ?? []).map((a) => zonedDay(a.at, tz)))}
+                  onPick={setDay}
+                />
+              </Card>
+              <FreeToday day={day} onBook={onBook} />
+            </div>
+          )}
+        </div>
       )}
       {!calendar && (
         <Table
@@ -672,16 +702,6 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
           })}
         </Table>
       )}
-      {canAdd && (
-        <ManualAppointment
-          docs={docs}
-          canAssign={canAssign}
-          onAdded={() => {
-            setNotice(t('appts.added'));
-            reload();
-          }}
-        />
-      )}
       {(appts ?? [])
         .filter((a) => a.id === moving || a.id === cancelling || a.id === noShow || a.id === open)
         .map((a) => {
@@ -773,19 +793,49 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   );
 }
 
+/** v30: "Book appointment" is its own page for the desk (and anyone allowed to add). */
+export function BookAppointment({ initial }: { initial?: Found }) {
+  const { t } = useTranslation();
+  const perms = usePerms();
+  const [docs, setDocs] = useState<Doctor[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => {
+    call<Doctor[]>('GET', '/hospital/doctors').then(
+      (d) => setDocs(d.filter((x) => x.active)),
+      setError,
+    );
+  }, []);
+  return (
+    <Page title={t('book.title')} sub={t('book.sub')}>
+      <ErrorNote error={error} />
+      {notice && <Notice testId="notice">{notice}</Notice>}
+      <ManualAppointment
+        docs={docs}
+        canAssign={perms.has('appointments.assign')}
+        initial={initial}
+        onAdded={() => setNotice(t('appts.added'))}
+      />
+    </Page>
+  );
+}
+
 function ManualAppointment({
   docs,
   canAssign,
   onAdded,
+  initial,
 }: {
   docs: Doctor[];
   canAssign: boolean;
   onAdded: () => void;
+  /** v30: the patient chosen in the ⌘K search. */
+  initial?: Found;
 }) {
   const { t } = useTranslation();
-  const [q, setQ] = useState('');
-  const [found, setFound] = useState<Found[]>([]);
-  const [who, setWho] = useState<Found | null>(null);
+  const [q, setQ] = useState(initial?.name ?? '');
+  const [found, setFound] = useState<Found[]>(initial ? [initial] : []);
+  const [who, setWho] = useState<Found | null>(initial ?? null);
   const [at, setAt] = useState('');
   const [doctor, setDoctor] = useState('');
   const [busy, setBusy] = useState(false);
@@ -927,5 +977,109 @@ export function AppointmentHistory({ id }: { id: string }) {
         ))}
       </ol>
     </div>
+  );
+}
+
+function fmtMonth(day: string): string {
+  const [y, m] = day.split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, 1, 12)).toLocaleDateString('en-IN', {
+    timeZone: 'UTC',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/** v30 (canvas v28): the month next to the Day view; days with appointments have a dot. */
+export function MiniMonth({
+  day,
+  today,
+  marked,
+  onPick,
+}: {
+  day: string;
+  today: string;
+  marked: ReadonlySet<string>;
+  onPick: (d: string) => void;
+}) {
+  const first = `${day.slice(0, 8)}01`;
+  const start = addDays(first, -weekday(first));
+  const cells = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+  return (
+    <div className="grid grid-cols-7 gap-1 text-center" role="grid">
+      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+        <span key={i} className="text-[11px] font-bold text-muted">
+          {d}
+        </span>
+      ))}
+      {cells.map((c) => {
+        const inMonth = c.slice(0, 7) === day.slice(0, 7);
+        const sel = c === day;
+        return (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onPick(c)}
+            className={`relative flex h-8 items-center justify-center rounded-full text-[13px] ${sel ? 'nc-gradient font-extrabold text-white' : c === today ? 'font-bold text-brand-ink shadow-[inset_0_0_0_1.5px_var(--color-brand)]' : inMonth ? '' : 'text-muted opacity-50'}`}
+            aria-pressed={sel}
+            data-testid={`mini-${c}`}
+          >
+            {Number(c.slice(8))}
+            {marked.has(c) && (
+              <span
+                className={`absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full ${sel ? 'bg-white' : 'bg-[#10b981]'}`}
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** v30 (canvas v28): free times on the chosen day (doctors' clinic hours minus bookings). */
+function FreeToday({ day, onBook }: { day: string; onBook?: () => void }) {
+  const { t } = useTranslation();
+  const [free, setFree] = useState<{ time: string; doctor: string }[] | null>(null);
+  useEffect(() => {
+    let off = false;
+    call<{ doctors: { doctor_name: string; free: string[] }[] }>(
+      'GET',
+      `/hospital/availability?date=${day}`,
+    ).then(
+      (r) =>
+        !off &&
+        setFree(
+          r.doctors
+            .flatMap((d) => d.free.map((time) => ({ time, doctor: d.doctor_name })))
+            .sort((a, b) => a.time.localeCompare(b.time)),
+        ),
+      () => !off && setFree([]),
+    );
+    return () => {
+      off = true;
+    };
+  }, [day]);
+  return (
+    <Card title={t('cal.freeTitle')} testId="cal-free">
+      {free && free.length === 0 && <p className="text-[14px] text-muted">{t('cal.noFree')}</p>}
+      {(free ?? []).slice(0, 8).map((f) => (
+        <div
+          key={`${f.time}-${f.doctor}`}
+          className="flex items-center gap-3 border-t border-line py-2"
+        >
+          <b className="text-[14px] tabular-nums">{fmtTime(f.time)}</b>
+          <span className="flex-1 text-[12px] text-muted">{f.doctor}</span>
+          {onBook && (
+            <Button
+              variant="secondary"
+              className="min-h-8 bg-brand-soft text-[13px] text-brand-ink shadow-none"
+              onClick={onBook}
+            >
+              {t('cal.book')}
+            </Button>
+          )}
+        </div>
+      ))}
+    </Card>
   );
 }

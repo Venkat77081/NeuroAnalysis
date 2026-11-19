@@ -8,7 +8,7 @@ import { fmtDay } from './changes.tsx';
 import { useMemo, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { Button, Table, fmt, fmtDate } from './ui.tsx';
+import { Button, fmt, fmtDate } from './ui.tsx';
 
 export interface Who {
   name: string;
@@ -34,6 +34,48 @@ const KINDS: Record<string, RegExp> = {
     /take_|session|clinic_consent|recording_viewed|history_viewed|reviewed|readiness|checksum/,
   setup: /staff_|operator_|device_|connector_|two_step|hospital_|login|key|storage|plan/,
 };
+
+type Tone = 'ok' | 'warn' | 'bad' | 'info';
+const TONE_CLASS: Record<Tone, string> = {
+  ok: 'bg-ok-soft text-ok',
+  warn: 'bg-warn-soft text-warn',
+  bad: 'bg-bad-soft text-bad',
+  info: 'bg-brand-soft text-brand-ink',
+};
+const TONE_ICON: Record<Tone, string> = { ok: '✓', warn: '◷', bad: '!', info: '•' };
+
+/** v30: a colour and icon for a log row (never the only signal: the words say it). */
+export function toneOf(action: string): Tone {
+  if (/fail|not_delivered|withdrawn|cancelled|no_show|revoked|closed|locked/.test(action))
+    return 'bad';
+  if (/requested|change_|reset|offer|call_/.test(action)) return 'warn';
+  if (/login|registered|accepted|enabled|uploaded|chosen|added|created|onboarded/.test(action))
+    return 'ok';
+  return 'info';
+}
+
+/** v30: rows grouped by day, newest day first ("today", "yesterday" or the date). */
+export function groupByDay(
+  rows: LogRow[],
+  now: Date,
+): { day: string; label: 'today' | 'yesterday' | 'date'; rows: LogRow[] }[] {
+  const key = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = key(now);
+  const y = new Date(now);
+  y.setDate(y.getDate() - 1);
+  const yesterday = key(y);
+  const out = new Map<string, LogRow[]>();
+  for (const r of [...rows].sort((a, b) => Date.parse(b.at) - Date.parse(a.at))) {
+    const k = key(new Date(r.at));
+    out.set(k, [...(out.get(k) ?? []), r]);
+  }
+  return [...out.entries()].map(([day, rs]) => ({
+    day,
+    label: day === today ? 'today' : day === yesterday ? 'yesterday' : 'date',
+    rows: rs,
+  }));
+}
 
 /** The role in words; staff roles come from `roles.*`. */
 export function roleText(t: TFunction, role: string): string {
@@ -153,82 +195,105 @@ export function ActivityLog({
     a.click();
     URL.revokeObjectURL(url);
   };
-  const sel = 'h-11 rounded-2xl border border-edge bg-card px-2 text-[14px] font-normal';
+  const sel =
+    'h-9 rounded-full border-0 bg-card px-3 text-[13px] font-semibold shadow-[inset_0_0_0_1px_var(--color-edge)]';
+  // v30 (canvas v28): kind chips and Export CSV in one row; the rows grouped by day in cards.
+  const groups = groupByDay(shown, new Date());
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
-          {t('log.person')}
-          <select
-            className={`${sel} min-w-64`}
-            value={person}
-            onChange={(e) => setPerson(e.target.value)}
-            data-testid="log-person"
-          >
-            <option value="">{t('log.everyone')}</option>
-            {people.map(([k, w]) => (
-              <option key={k} value={k}>
-                {w.email ? `${w.name} · ${w.email}` : w.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
-          {t('log.what')}
-          <select className={sel} value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="">{t('log.kind.all')}</option>
-            {Object.keys(KINDS).map((k) => (
-              <option key={k} value={k}>
-                {t(`log.kind.${k}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
-          {t('log.from')}
-          <input
-            type="date"
-            className={sel}
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-        </label>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('log.what')}>
+          {['', ...Object.keys(KINDS)].map((k) => (
+            <button
+              key={k || 'all'}
+              type="button"
+              aria-pressed={kind === k}
+              onClick={() => setKind(k)}
+              className={`min-h-9 rounded-full px-3.5 text-[13px] font-semibold ${kind === k ? 'bg-ink text-ground' : 'bg-card text-sub shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
+              data-testid={`log-kind-${k || 'all'}`}
+            >
+              {t(`log.kind.${k || 'all'}`)}
+            </button>
+          ))}
+        </div>
+        <span className="flex-1" />
+        <select
+          className={`${sel} max-w-64`}
+          value={person}
+          onChange={(e) => setPerson(e.target.value)}
+          aria-label={t('log.person')}
+          data-testid="log-person"
+        >
+          <option value="">{t('log.everyone')}</option>
+          {people.map(([k, w]) => (
+            <option key={k} value={k}>
+              {w.email ? `${w.name} · ${w.email}` : w.name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          className={sel}
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          aria-label={t('log.from')}
+        />
         <Button variant="secondary" onClick={download} data-testid="log-csv">
           {t('log.csv')}
         </Button>
       </div>
-      {shown.length === 0 ? (
-        <p className="text-[14px] text-muted">{t('app.none')}</p>
-      ) : (
-        <Table
-          head={[
-            t('log.when'),
-            t('log.who'),
-            ...(showHospital ? [t('log.hospital')] : []),
-            t('log.what'),
-            ...(showPatient ? [t('log.patient')] : []),
-          ]}
-          testId={testId}
-        >
-          {shown.map((r, i) => (
-            <tr key={i} className="border-t border-line align-top">
-              <td className="px-4 py-3 whitespace-nowrap text-muted">{fmt(r.at)}</td>
-              <td className="px-4 py-3" data-testid="log-who">
-                <span className="font-semibold">{r.who.name}</span>
-                <span className="block text-[12px] text-muted">
-                  {[r.who.email, roleText(t, r.who.role)]
-                    // Staff always show their role; "Patient (app)" etc. are not repeated.
-                    .filter((v) => v && (STAFF.has(r.who.role) || v !== r.who.name))
-                    .join(' · ')}
-                </span>
-              </td>
-              {showHospital && <td className="px-4 py-3">{r.hospital ?? '—'}</td>}
-              <td className="px-4 py-3">{describe(t, r.action, r.details)}</td>
-              {showPatient && <td className="px-4 py-3">{r.patient ?? '—'}</td>}
-            </tr>
-          ))}
-        </Table>
-      )}
+      <div className="flex flex-col gap-4" data-testid={testId}>
+        {shown.length === 0 && <p className="text-[14px] text-muted">{t('app.none')}</p>}
+        {groups.map((g) => (
+          <section
+            key={g.day}
+            className="nc-fu flex flex-col rounded-3xl bg-card px-5 py-4 shadow-card"
+          >
+            <h2 className="pb-1 text-[16px] font-bold">
+              {g.label === 'today'
+                ? t('log.today')
+                : g.label === 'yesterday'
+                  ? t('log.yesterday')
+                  : fmtDate(g.day)}
+            </h2>
+            {g.rows.map((r, i) => {
+              const tone = toneOf(r.action);
+              return (
+                <div key={i} className="flex items-center gap-3 border-t border-line py-3">
+                  <span
+                    aria-hidden
+                    className={`inline-flex size-9 shrink-0 items-center justify-center rounded-xl text-[13px] font-extrabold ${TONE_CLASS[tone]}`}
+                  >
+                    {TONE_ICON[tone]}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-[14px]">
+                      <b>{r.who.name}</b> · {describe(t, r.action, r.details)}
+                    </span>
+                    <span className="text-[12px] text-muted" data-testid="log-who">
+                      {[
+                        ...[r.who.email, roleText(t, r.who.role)].filter(
+                          // Staff always show their role; "Patient (app)" etc. are not repeated.
+                          (v) => v && (STAFF.has(r.who.role) || v !== r.who.name),
+                        ),
+                        ...(showHospital && r.hospital ? [r.hospital] : []),
+                        ...(showPatient && r.patient ? [r.patient] : []),
+                      ].join(' · ')}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[13px] text-muted tabular-nums">
+                    {new Date(r.at).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    })}
+                  </span>
+                </div>
+              );
+            })}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

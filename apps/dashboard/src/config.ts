@@ -1,5 +1,10 @@
 /** Values the dashboards share with the app and server (config/platform.json). */
 import platformJson from '../../../config/platform.json' with { type: 'json' };
+import FT from '../../../config/tests/FT.json' with { type: 'json' };
+import FTF from '../../../config/tests/FTF.json' with { type: 'json' };
+import FR from '../../../config/tests/FR.json' with { type: 'json' };
+import SAW from '../../../config/tests/SAW.json' with { type: 'json' };
+import FA from '../../../config/tests/FA.json' with { type: 'json' };
 
 /** Camera check (decision 035): phones pass at minFps; below warnBelowFps they are borderline. */
 export const deviceCheck: { minFps: number; warnBelowFps: number; usageDays: number } =
@@ -24,3 +29,8 @@ export const appointmentChanges: {
 
 /** v29 (decision 052): the clinic-phone registration QR holds this prefix + the code. */
 export const deviceQrPrefix: string = platformJson.invites.deviceQrPrefix;
+
+/** v30: each test's fixed take length in seconds (config/tests), shown on recording tiles. */
+export const takeSeconds: Record<string, number> = Object.fromEntries(
+  [FT, FTF, FR, SAW, FA].map((c) => [c.code, c.task.durationS]),
+);

@@ -127,7 +127,7 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await signIn(page, s.desk_email, s.desk_totp);
   await expect(page.getByTestId('change-count')).toHaveText('1');
   await page.getByTestId('nav-appointments').click();
-  await page.getByTestId('tab-requests').click();
+  await page.getByTestId('nav-requests').click();
   await expect(page.getByTestId('inbox-filter-change')).toContainText('1');
   const row = page.getByTestId(`inbox-${s.patient_mrn}`);
   await expect(row).toContainText('Change asked');
@@ -145,7 +145,7 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   expect(localDay(after.at)).toBe(dayIn(5));
 
   // The desk offers choices instead of moving; the patient picks the second one.
-  await page.getByTestId('tab-list').click();
+  await page.getByTestId('nav-appointments').click();
   await page.getByTestId('range-30').click();
   const moved = page.getByTestId(`appt-${s.patient_mrn}`).filter({ hasText: 'Moved · was' });
   await expect(moved).toHaveCount(1);
@@ -184,7 +184,7 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   expect(booked.status()).toBe(201);
   await page.reload();
   await page.getByTestId('nav-appointments').click();
-  await page.getByTestId('tab-requests').click();
+  await page.getByTestId('nav-requests').click();
   const b = page.getByTestId(`inbox-${s.patient_mrn}`);
   await expect(b).toContainText('New booking');
   await expect(b).toContainText('Any doctor');
@@ -195,7 +195,7 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   expect((await pt.mine()).bookings).toEqual([]);
 
   // The desk cancels the new appointment with a reason.
-  await page.getByTestId('tab-list').click();
+  await page.getByTestId('nav-appointments').click();
   await page.getByTestId('range-30').click();
   const fresh = page.getByTestId(`appt-${s.patient_mrn}`).filter({ hasText: 'Booked in the app' });
   await fresh.getByTestId('appt-cancel').click();
@@ -216,7 +216,7 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
       await pt.post(`/patient/appointments/${appt.id}/cancel`, { reason: 'feeling_better' })
     ).status(),
   ).toBe(204);
-  await page.getByTestId('tab-requests').click();
+  await page.getByTestId('nav-requests').click();
   await page.getByTestId('inbox-filter-cancelled').click();
   const c = page.getByTestId(`inbox-${s.patient_mrn}`);
   await expect(c).toContainText('Cancelled by patient');
@@ -226,7 +226,7 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await expect(page.getByTestId('inbox-empty')).toBeVisible();
 
   // History names every step.
-  await page.getByTestId('tab-list').click();
+  await page.getByTestId('nav-appointments').click();
   await page.getByTestId('range-30').click();
   const hist = page
     .getByTestId(`appt-${s.patient_mrn}`)

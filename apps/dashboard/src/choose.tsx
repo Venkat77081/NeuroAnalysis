@@ -6,12 +6,14 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { takeSeconds } from './config.ts';
 import { call, hospital } from './api.ts';
 import type { Appointment } from './appointments.tsx';
 import { Button, Card, ErrorNote, Notice, Page, fmt, fmtDate } from './ui.tsx';
 
 const TESTS = ['FT', 'FTF', 'FR', 'SAW', 'FA'];
 const HANDS = ['FT', 'FTF', 'FR'];
+const TEST_ICON: Record<string, string> = { FT: '👆', FTF: '🤏', FR: '🔄', SAW: '🚶', FA: '🙂' };
 
 interface Ident {
   ncid: string;
@@ -116,6 +118,7 @@ export function ChooseTests({ meId, onCount }: { meId: string; onCount: (n: numb
         <TestsForm
           key={current.id}
           a={current}
+          name={ident[current.ncid]?.name ?? null}
           onSent={() => {
             setNotice(t('choose.sent'));
             reload();
@@ -126,7 +129,15 @@ export function ChooseTests({ meId, onCount }: { meId: string; onCount: (n: numb
   );
 }
 
-function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
+function TestsForm({
+  a,
+  name,
+  onSent,
+}: {
+  a: Appointment;
+  name: string | null;
+  onSent: () => void;
+}) {
   const { t } = useTranslation();
   const [view, setView] = useState<LiveView | null>(null);
   const [last, setLast] = useState<{ tests: string[]; med: string; at: string } | null>(null);
@@ -229,10 +240,28 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
         </span>
       </Card>
       <Card
-        title={t('choose.testsFor', { date: fmtDate(a.at) })}
+        title={t('choose.testsForName', { name: name ?? a.ncid, date: fmtDate(a.at) })}
         className="min-w-96 flex-[2]"
         testId="choose-form"
       >
+        <div className="flex flex-wrap gap-2" aria-hidden>
+          {(['patient', 'tests', 'where', 'send'] as const).map((k, i) => {
+            const at = tests.length === 0 ? 1 : !home && !clinic ? 2 : 3;
+            return (
+              <span
+                key={k}
+                className={`flex min-w-[130px] flex-1 items-center gap-2 rounded-2xl px-3.5 py-2.5 text-[13px] font-bold ${i === at ? 'nc-gradient text-white' : i < at ? 'bg-brand-soft text-brand-ink' : 'bg-soft text-muted'}`}
+              >
+                <span
+                  className={`inline-flex size-[22px] items-center justify-center rounded-full text-[12px] ${i === at ? 'bg-white text-brand' : 'shadow-[inset_0_0_0_1.5px_currentColor]'}`}
+                >
+                  {i < at ? '✓' : i + 1}
+                </span>
+                {t(`choose.step.${k}`)}
+              </span>
+            );
+          })}
+        </div>
         {sug && (
           <Notice tone="warn" testId="choose-moved">
             {t('choose.movedFrom', { doctor: sug.from_doctor_name ?? '—' })}
@@ -258,19 +287,40 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
             {t('choose.all')}
           </Button>
         </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-1">
-          {TESTS.map((c) => (
-            <label key={c} className="flex min-h-11 items-center gap-2 text-[14px]">
-              <input
-                type="checkbox"
-                checked={tests.includes(c)}
-                onChange={(e) => toggle(c, e.target.checked)}
-                className="size-5 accent-brand"
-                data-testid={`choose-test-${c}`}
-              />
-              {t(`tests.${c}`)}
-            </label>
-          ))}
+        {/* v30 (canvas v28): one card per test; the checkbox stays for keyboards and tests. */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          {TESTS.map((c) => {
+            const on = tests.includes(c);
+            return (
+              <label
+                key={c}
+                className={`relative flex min-h-[176px] cursor-pointer flex-col gap-2 rounded-[22px] p-4 ${on ? 'nc-gradient text-white shadow-[0_10px_26px_rgb(79_70_229/0.3)]' : 'bg-card shadow-card'}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={(e) => toggle(c, e.target.checked)}
+                  className="absolute top-3.5 right-3.5 size-5 accent-white"
+                  data-testid={`choose-test-${c}`}
+                />
+                <span
+                  aria-hidden
+                  className={`inline-flex size-[50px] items-center justify-center rounded-2xl text-[26px] ${on ? 'bg-white/20' : 'bg-soft'}`}
+                >
+                  {TEST_ICON[c]}
+                </span>
+                <b className="text-[15px]">{t(`tests.${c}`)}</b>
+                <span className="text-[12px] leading-[17px] opacity-85">
+                  {t(`choose.card.${HANDS.includes(c) ? 'hands' : c === 'SAW' ? 'walk' : 'face'}`, {
+                    s: takeSeconds[c] ?? 15,
+                  })}
+                </span>
+                <span className="mt-auto text-[13px] font-extrabold">
+                  {on ? `✓ ${t('choose.chosen')}` : `＋ ${t('choose.add')}`}
+                </span>
+              </label>
+            );
+          })}
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
@@ -374,23 +424,36 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
           </div>
         </fieldset>
         <ErrorNote error={error} />
-        <Button
-          className="self-start"
-          disabled={
-            busy ||
-            tests.length === 0 ||
-            (!home && !clinic) ||
-            (home && (!due || (repeat && (days < 1 || days > 90))))
-          }
-          onClick={() => void send()}
-          data-testid="choose-send"
-        >
-          {home && clinic
-            ? t('choose.sendBoth')
-            : clinic
-              ? t('choose.sendClinic')
-              : t('choose.send')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3 rounded-[20px] bg-soft px-4 py-3">
+          <span className="flex flex-1 flex-col">
+            <b className="text-[17px]" data-testid="choose-summary">
+              {t('choose.summary', {
+                count: tests.length,
+                min: Math.max(
+                  1,
+                  Math.round(tests.reduce((n, c) => n + (takeSeconds[c] ?? 15) * 3, 60) / 60),
+                ),
+              })}
+            </b>
+            <span className="text-[13px] text-sub">{t('choose.fps')}</span>
+          </span>
+          <Button
+            disabled={
+              busy ||
+              tests.length === 0 ||
+              (!home && !clinic) ||
+              (home && (!due || (repeat && (days < 1 || days > 90))))
+            }
+            onClick={() => void send()}
+            data-testid="choose-send"
+          >
+            {home && clinic
+              ? t('choose.sendBoth')
+              : clinic
+                ? t('choose.sendClinic')
+                : t('choose.send')}
+          </Button>
+        </div>
       </Card>
     </div>
   );

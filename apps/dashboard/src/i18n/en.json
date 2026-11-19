@@ -109,10 +109,13 @@
     "chooseTests": "Choose tests",
     "invite": "Invite patients",
     "platformSettings": "Platform settings",
-    "settings": "Settings"
+    "settings": "Settings",
+    "today": "Today",
+    "book": "Book appointment",
+    "requests": "Requests"
   },
   "platform": {
-    "hospitalsTitle": "Hospitals and clinics",
+    "hospitalsTitle": "Hospitals",
     "onboard": "Onboard a hospital",
     "name": "Name",
     "kind": "Type",
@@ -143,7 +146,7 @@
     "notSignedUp": "Not signed up yet",
     "canRecord": "Can record",
     "yes": "Yes",
-    "noStorage": "No: storage",
+    "noStorage": "No storage yet",
     "storageKind": {
       "none": "not connected",
       "s3": "own S3 bucket",
@@ -165,7 +168,8 @@
       "label": "Show",
       "all": "All {{count}}",
       "attention": "Needs you {{count}}",
-      "suspended": "Suspended {{count}}"
+      "onboarding": "Onboarding {{count}}",
+      "live": "Live {{count}}"
     },
     "canRecordYes": "Can record",
     "smsOn": "SMS on",
@@ -174,7 +178,55 @@
       "active": "Live",
       "onboarding": "Onboarding",
       "suspended": "Suspended"
-    }
+    },
+    "chip": {
+      "connector": {
+        "ok": "Connector",
+        "offline": "Connector offline",
+        "none": "No connector yet"
+      },
+      "storage": "Storage",
+      "messages": {
+        "ok": "Messages",
+        "failing": "Messages failing",
+        "none": "No messages yet"
+      }
+    },
+    "footOffline": "{{devices}} phones · last seen {{at}}",
+    "footOnboarding": "Onboarding · step {{done}} of {{total}}",
+    "footLive": "{{devices}} phones · {{patients}} patient apps",
+    "onboardSub": "The hospital's first admin gets an invite by e-mail.",
+    "onboarded": "{{name}} is onboarded. An invite went to {{email}}.",
+    "liveSince": "live since {{since}}",
+    "offlineFor": "Connector offline · {{h}} h {{m}} min",
+    "lastSeen": "Last seen {{at}} · key pinned",
+    "messages": "Messages",
+    "messagesSub": "E-mail {{email}} · SMS {{sms}}",
+    "msgState": {
+      "working": "working",
+      "failing": "failing",
+      "off": "off"
+    },
+    "state": {
+      "connector": {
+        "ok": "Online",
+        "offline": "Offline",
+        "none": "Not set up"
+      },
+      "messages": {
+        "ok": "Working",
+        "failing": "Failing",
+        "none": "Not set up"
+      }
+    },
+    "phones": "Clinic phones",
+    "phonesSub": "{{devices}} registered · {{operators}} operators",
+    "phonesReady": "Ready",
+    "phonesNone": "None yet",
+    "emailAdmin": "E-mail the hospital admin",
+    "openActivity": "Open their activity",
+    "waitSafely": "Recordings wait safely on the phones until the connector is back.",
+    "setupSteps": "Set-up steps"
   },
   "hospital": {
     "overviewTitle": "Overview",
@@ -289,10 +341,15 @@
     "registerStep2": "Let it run the camera check.",
     "registerStep3": "Tap Scan the QR code and point the camera here.",
     "orType": "Or type this code:",
-    "qrAlt": "Registration QR code for a clinic phone"
+    "qrAlt": "Registration QR code for a clinic phone",
+    "noPhones": "No clinic phones yet. Register one with a QR code.",
+    "removed": "Removed",
+    "addedOn": "Added {{date}}",
+    "registerCard": "Register a phone",
+    "registerIntro": "Open NeuroCapture on the new phone, choose Clinic phone and scan the code. A code works once."
   },
   "doctor": {
-    "patientsTitle": "My patients",
+    "patientsTitle": "Your patients",
     "lastSession": "Last session {{date}}",
     "sessions_one": "{{count}} session",
     "sessions_other": "{{count}} sessions",
@@ -484,7 +541,24 @@
     "sendClinic": "Add to the clinic queue",
     "sendBoth": "Send the link and add to the clinic queue",
     "phoneUnsuitable": "The patient's phone failed the camera check ({{fps}} fps). Record in the clinic, or invite them again to join from another phone.",
-    "movedFrom": "Moved from {{doctor}} before the patient recorded: their tests are filled in. Confirm or change them, then send."
+    "movedFrom": "Moved from {{doctor}} before the patient recorded: their tests are filled in. Confirm or change them, then send.",
+    "testsForName": "Choose tests · {{name}} · visit {{date}}",
+    "card": {
+      "hands": "Both hands · {{s}} s",
+      "walk": "Back and forth 15 ft · {{s}} s · needs a helper",
+      "face": "{{s}} s"
+    },
+    "chosen": "Chosen",
+    "add": "Add",
+    "step": {
+      "patient": "Patient",
+      "tests": "Tests",
+      "where": "Where and when",
+      "send": "Send"
+    },
+    "summary_one": "{{count}} test · about {{min}} min",
+    "summary_other": "{{count}} tests · about {{min}} min",
+    "fps": "Every test records at 60 fps"
   },
   "timeline": {
     "title": "Appointments and record links",
@@ -510,16 +584,28 @@
     }
   },
   "invite": {
-    "title": "Invite patients to the app",
+    "title": "Invite a patient",
     "yes": "Yes",
-    "qrAlt": "Join invite QR code for MRN {{mrn}}"
+    "qrAlt": "Join invite QR code for MRN {{mrn}}",
+    "sub": "The invite goes out through your hospital's SMS or e-mail. NeuroCapture never sees the number or address.",
+    "who": "Who",
+    "find": "Find in your records",
+    "email": "E-mail",
+    "mobile": "Mobile",
+    "searchHint": "Search by name or MRN, then tick who to invite.",
+    "sendBy": "Send by",
+    "gets": "What {{name}} gets",
+    "patient": "the patient",
+    "phoneTop": "YOUR HOSPITAL · now",
+    "preview": "Your hospital invites you to NeuroCapture to record movement tests at home. Tap the link to join, then set your PIN. The invite is valid for 7 days.",
+    "previewNote": "Example. The exact words come from your hospital's message settings."
   },
   "log": {
     "person": "Person",
     "everyone": "Everyone",
     "what": "What",
     "from": "From",
-    "csv": "Download CSV",
+    "csv": "Export CSV",
     "when": "When",
     "who": "Who",
     "hospital": "Hospital",
@@ -621,7 +707,9 @@
     "place": {
       "home": "home link",
       "clinic": "clinic queue"
-    }
+    },
+    "today": "Today",
+    "yesterday": "Yesterday"
   },
   "perm": {
     "button": "Roles and permissions",
@@ -866,7 +954,11 @@
         "detail": "{{links}} home links, last {{days}} days"
       }
     },
-    "periodLabel": "Period"
+    "periodLabel": "Period",
+    "needsYou": "Needs you",
+    "happening": "What's happening",
+    "todayAtHospital": "Today at your hospital",
+    "setupDone": "{{ok}} of {{total}}"
   },
   "messaging": {
     "title": "Messages to patients: e-mail and SMS",
@@ -1216,7 +1308,10 @@
     "detailsCol": "Details",
     "whenCol": "When",
     "check": "Check times",
-    "countHint": "The menu count is what needs the desk: new bookings, change requests, offers with no answer and patients asking to be called."
+    "countHint": "The menu count is what needs the desk: new bookings, change requests, offers with no answer and patients asking to be called.",
+    "pageSub": "Patients' change requests, bookings from the app, offers and cancellations",
+    "pickTitle": "Choose a request",
+    "pickHint": "Its times, checked against your calendar now, show here."
   },
   "cancel": {
     "open": "Cancel…",
@@ -1258,13 +1353,20 @@
   "noShow": {
     "open": "Did not come…",
     "badge": "Did not come",
-    "title": "Did {{name}} not come?",
+    "title": "{{name}} did not come?",
     "notify": "Tell {{name}} (app, plus SMS/e-mail from the hospital's accounts)",
     "what": "The appointment is cancelled and open record links are closed. {{doctor}} is told by e-mail. Recordings already made stay with the hospital.",
     "whatNoDoctor": "The appointment is cancelled and open record links are closed. Recordings already made stay with the hospital.",
-    "confirm": "Mark as did not come",
-    "keep": "Keep it",
-    "done": "{{name}}'s appointment on {{when}} is marked as did not come and cancelled."
+    "confirm": "Yes, did not come",
+    "keep": "Not yet",
+    "done": "{{name}}'s appointment on {{when}} is marked as did not come and cancelled.",
+    "when_one": "{{time}} with {{doctor}} · now {{count}} minute late",
+    "when_other": "{{time}} with {{doctor}} · now {{count}} minutes late",
+    "willTitle": "This will",
+    "willCancel": "cancel the {{time}} appointment and close its record links",
+    "willTell": "tell {{doctor}} (told by e-mail)",
+    "willTellNone": "keep recordings already made with the hospital",
+    "willMessage": "send {{name}} a message from your hospital (app, SMS or e-mail); they can book again in the app"
   },
   "hero": {
     "morning": "Good morning",
@@ -1294,7 +1396,7 @@
       "pages": "Pages"
     },
     "actions": {
-      "add": "Add an appointment",
+      "add": "Book an appointment",
       "invite": "Invite a patient",
       "choose": "Choose tests for a visit",
       "onboard": "Onboard a hospital"
@@ -1308,7 +1410,14 @@
     "offlineTitle": "Can't reach your hospital records.",
     "offlineText": "Names are hidden until the connector answers again; times and patient codes still work.",
     "now": "Now · {{time}}",
-    "liveRecords": "Live from your records"
+    "liveRecords": "Live from your records",
+    "nextVisit": "MRN {{mrn}} · next {{when}} · {{doctor}}",
+    "noVisit": "MRN {{mrn}} · no upcoming visit",
+    "bookFor": "Book an appointment for {{name}}",
+    "bookDetail": "Opens the booking form",
+    "inviteFor": "Invite {{name}} to the app",
+    "inviteDetail": "By SMS or e-mail from your hospital",
+    "open": "open"
   },
   "cal": {
     "view": {
@@ -1325,7 +1434,11 @@
     "noDoctor": "No doctor yet",
     "emptyDay": "No appointments on {{day}}.",
     "legend": "Doctors",
-    "striped": "Striped: cancelled or did not come"
+    "striped": "Striped: cancelled or did not come",
+    "add": "Add",
+    "freeTitle": "Free on this day",
+    "noFree": "No free times (or no clinic hours set).",
+    "book": "Book"
   },
   "flow": {
     "title": "How your data flows",
@@ -1397,5 +1510,166 @@
     "requests_other": "{{count}} patient requests waiting at the desk",
     "tests_one": "{{count}} visit needs your tests",
     "tests_other": "{{count}} visits need your tests"
+  },
+  "book": {
+    "title": "Book an appointment",
+    "sub": "Find the patient in your records, choose the time and the doctor."
+  },
+  "today": {
+    "title": "Today",
+    "line_one": "{{count}} appointment today · {{requests}} requests waiting",
+    "line_other": "{{count}} appointments today · {{requests}} requests waiting",
+    "chipToday": "{{count}} today",
+    "chipRequests_one": "{{count}} request",
+    "chipRequests_other": "{{count}} requests",
+    "chipLate": "{{count}} not here yet",
+    "next": "Next · {{time}} with {{doctor}}",
+    "filter": "Doctor",
+    "allDoctors": "All doctors",
+    "empty": "No appointments today.",
+    "unlocks": "\"Did not come\" unlocks at the appointment time.",
+    "noShowAt": "Did not come · {{time}}",
+    "new": "{{count}} new",
+    "noRequests": "No requests waiting.",
+    "check": "Check",
+    "seen": "Seen",
+    "reqChange_one": "Change · {{count}} free time",
+    "reqChange_other": "Change · {{count}} free times",
+    "reqBooking": "New booking",
+    "reqCancelled": "Cancelled · {{reason}}",
+    "offerNoAnswer": "Offer · no answer",
+    "offerCall": "Asked to be called",
+    "status": {
+      "noShow": "Did not come",
+      "cancelled": "Cancelled",
+      "recorded": "Recorded",
+      "late": "Not recorded · {{minutes}} min since start",
+      "needsDoctor": "Needs a doctor",
+      "needsTests": "Tests not chosen yet",
+      "clinic": "In the clinic queue",
+      "noApp": "No app · consent on the clinic phone",
+      "linkSent": "Record link sent",
+      "booked": "Booked"
+    }
+  },
+  "patient": {
+    "journey": "Journey",
+    "noJourney": "Nothing yet.",
+    "point": {
+      "noShow": "Did not come",
+      "cancelled": "Cancelled",
+      "visit": "Visit",
+      "next": "Next visit",
+      "home_one": "Home · {{count}} test",
+      "home_other": "Home · {{count}} tests",
+      "clinic_one": "Clinic · {{count}} test",
+      "clinic_other": "Clinic · {{count}} tests"
+    },
+    "flagged_one": "{{count}} flagged",
+    "flagged_other": "{{count}} flagged",
+    "remarkAdded": "remark added",
+    "latestTitle": "{{date}} · {{where}} · {{med}}",
+    "latestNone": "No recordings yet",
+    "playing": "Playing {{test}} · {{date}}",
+    "passed": "Passed",
+    "lastRemark": "Last remark",
+    "noRemark": "No remark yet.",
+    "nextVisit": "Next visit",
+    "nextTests": "Tests: {{tests}}",
+    "askedToChange": "{{name}} asked to change",
+    "noNext": "No visit booked.",
+    "chooseTests": "Choose tests",
+    "addRemark": "Add remark",
+    "watch": "Watch {{date}}",
+    "details": "History, recordings and plan"
+  },
+  "doctorToday": {
+    "title": "Your clinic today",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "empty": "No patients on this day.",
+    "line_one": "{{count}} patient today · {{tests}} need tests · {{recs}} new recordings",
+    "line_other": "{{count}} patients today · {{tests}} need tests · {{recs}} new recordings",
+    "chipTests_one": "{{count}} needs tests",
+    "chipTests_other": "{{count}} need tests",
+    "chipRecs_one": "{{count}} new recording",
+    "chipRecs_other": "{{count}} new recordings",
+    "next": "Next · {{time}}",
+    "hint": {
+      "choose": "Choose tests before they arrive",
+      "ready": "Recording ready to watch",
+      "clinic": "Recording at the clinic",
+      "notYet": "Not recorded yet",
+      "linkSent": "Record link sent",
+      "booked": "Booked",
+      "noShow": "Did not come",
+      "cancelled": "Cancelled"
+    },
+    "status": {
+      "choose": "Choose tests",
+      "ready": "Ready to watch",
+      "clinic": "In queue",
+      "notYet": "Not recorded yet",
+      "linkSent": "Link sent",
+      "booked": "Booked",
+      "noShow": "Did not come",
+      "cancelled": "Cancelled"
+    },
+    "action": {
+      "watch": "Watch",
+      "choose": "Choose",
+      "open": "Open"
+    },
+    "newRecs": "New recordings",
+    "allRecs": "All my patients"
+  },
+  "patients": {
+    "sub": "Names come live from your hospital records · {{count}} patients",
+    "filter": "Show",
+    "next": "Next visit",
+    "last": "Last recording",
+    "status": "Status",
+    "chip": {
+      "all": "All {{count}}",
+      "today": "Today {{count}}",
+      "newRecording": "New recordings {{count}}",
+      "needsTests": "Needs tests {{count}}",
+      "flagged": "Flagged {{count}}"
+    },
+    "state": {
+      "needsTests": "Needs tests",
+      "newRecording": "New recording",
+      "flagged": "Kept · flagged",
+      "today": "Visit today",
+      "newPatient": "New patient",
+      "upToDate": "Up to date"
+    }
+  },
+  "theatre": {
+    "title": "{{test}} recording",
+    "bothHands": "both hands",
+    "frame": "frame",
+    "takes": "Takes from {{date}}",
+    "flagged": "Kept · flagged for review",
+    "review": "Your review of this take",
+    "noScores": "No scores here. The video stays in your hospital's storage."
+  },
+  "team": {
+    "show": "Show",
+    "chip": {
+      "all": "Everyone {{count}}",
+      "doctor": "Doctors {{count}}",
+      "receptionist": "Front desk {{count}}",
+      "operator": "Operators {{count}}",
+      "hospital_admin": "Admins {{count}}"
+    },
+    "active": "Active",
+    "off": "Off",
+    "invited": "Invited",
+    "operator": "Operator · {{code}}",
+    "addOperator": "Operator",
+    "invite": "Invite",
+    "addOperatorTitle": "Add a clinic phone operator",
+    "inviteTitle": "Invite a team member"
   }
 }

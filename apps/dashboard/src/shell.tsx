@@ -5,8 +5,8 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { connectorReachable, hospital, onConnectorReach } from './api.ts';
-import { Avatar } from './ui.tsx';
+import { call, connectorReachable, hospital, onConnectorReach } from './api.ts';
+import { Avatar, fmt } from './ui.tsx';
 
 export function Logo({ size = 36 }: { size?: number }) {
   return (
@@ -237,13 +237,36 @@ interface Hit {
   label: string;
   detail?: string;
   avatar?: string | null;
+  kbd?: string;
   run: () => void;
 }
-interface Found {
+export interface Found {
   mrn: string;
   name: string;
   ncid: string | null;
+  app_status?: string | null;
 }
+interface Upcoming {
+  ncid: string;
+  at: string;
+  status: string;
+  doctor_name: string | null;
+}
+
+/** v30: the next booked visit per patient (for "next Sat 21 Nov 09:00 · Dr. Rao"). */
+export function nextVisits(list: Upcoming[], now = Date.now()): Record<string, Upcoming> {
+  const out: Record<string, Upcoming> = {};
+  for (const a of list) {
+    if (a.status !== 'booked' || Date.parse(a.at) < now) continue;
+    const cur = out[a.ncid];
+    if (!cur || Date.parse(a.at) < Date.parse(cur.at)) out[a.ncid] = a;
+  }
+  return out;
+}
+
+/** Not using the app yet (an invite helps). */
+export const notInApp = (p: Pick<Found, 'app_status'>) =>
+  !p.app_status || ['no_app', 'invited', 'closed'].includes(p.app_status);
 
 /**
  * ⌘K: pages and actions from the menu this person has, plus patients found live in the hospital's
@@ -253,15 +276,25 @@ export function CommandPalette({
   pages,
   actions,
   canSearchPatients,
+  canSeeAppointments = false,
   onPage,
-  onPatient,
+  onOpenPatient,
+  onBook,
+  onInvite,
   onClose,
 }: {
   pages: { page: string; label: string }[];
   actions: { id: string; label: string; detail?: string; run: () => void }[];
   canSearchPatients: boolean;
+  /** v30: show each patient's next visit. */
+  canSeeAppointments?: boolean;
   onPage: (page: string) => void;
-  onPatient: (p: Found) => void;
+  /** Doctors: open the patient's page. */
+  onOpenPatient?: (p: Found) => void;
+  /** Desk: the booking form with this patient chosen. */
+  onBook?: (p: Found) => void;
+  /** Desk: the invite page for this patient. */
+  onInvite?: (p: Found) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -278,6 +311,18 @@ export function CommandPalette({
     return () => d?.close();
   }, []);
   const searchable = canSearchPatients && q.trim().length >= 2;
+  const [next, setNext] = useState<Record<string, Upcoming>>({});
+  useEffect(() => {
+    if (!canSeeAppointments) return;
+    let off = false;
+    call<Upcoming[]>('GET', '/hospital/appointments?days=60').then(
+      (l) => !off && setNext(nextVisits(l)),
+      () => undefined,
+    );
+    return () => {
+      off = true;
+    };
+  }, [canSeeAppointments]);
   useEffect(() => {
     const text = q.trim();
     if (!canSearchPatients || text.length < 2) return;
@@ -296,18 +341,56 @@ export function CommandPalette({
       clearTimeout(timer);
     };
   }, [q, canSearchPatients]);
+  // v30: what can be done for the patients found (book the first; invite the first not in the app).
+  const patientActions = useMemo<Hit[]>(() => {
+    if (!searchable || !found.length) return [];
+    const first = found[0]!;
+    const invitee = found.find(notInApp);
+    return [
+      ...(onBook
+        ? [
+            {
+              id: 'pa-book',
+              group: 'actions' as const,
+              label: t('shell.bookFor', { name: first.name }),
+              detail: t('shell.bookDetail'),
+              kbd: '⌘B',
+              run: () => onBook(first),
+            },
+          ]
+        : []),
+      ...(onInvite && invitee
+        ? [
+            {
+              id: 'pa-invite',
+              group: 'actions' as const,
+              label: t('shell.inviteFor', { name: invitee.name }),
+              detail: t('shell.inviteDetail'),
+              kbd: '⌘I',
+              run: () => onInvite(invitee),
+            },
+          ]
+        : []),
+    ];
+  }, [searchable, found, onBook, onInvite, t]);
   const hits = useMemo<Hit[]>(() => {
     const text = q.trim().toLowerCase();
     const match = (s: string) => !text || s.toLowerCase().includes(text);
     return [
-      ...(searchable ? found : []).map<Hit>((p) => ({
-        id: `p-${p.mrn}`,
-        group: 'patients',
-        label: p.name,
-        detail: `MRN ${p.mrn}`,
-        avatar: p.name,
-        run: () => onPatient(p),
-      })),
+      ...(searchable ? found : []).map<Hit>((p) => {
+        const v = p.ncid ? next[p.ncid] : undefined;
+        return {
+          id: `p-${p.mrn}`,
+          group: 'patients',
+          label: p.name,
+          detail: v
+            ? t('shell.nextVisit', { mrn: p.mrn, when: fmt(v.at), doctor: v.doctor_name ?? '—' })
+            : t('shell.noVisit', { mrn: p.mrn }),
+          avatar: p.name,
+          run: () => (onOpenPatient ?? onBook ?? onInvite)?.(p),
+        };
+      }),
+      ...patientActions,
       ...actions
         .filter((a) => match(a.label))
         .map<Hit>((a) => ({ ...a, id: `a-${a.id}`, group: 'actions' })),
@@ -320,7 +403,20 @@ export function CommandPalette({
           run: () => onPage(p.page),
         })),
     ];
-  }, [found, searchable, actions, pages, q, onPage, onPatient]);
+  }, [
+    found,
+    searchable,
+    actions,
+    pages,
+    q,
+    onPage,
+    onOpenPatient,
+    onBook,
+    onInvite,
+    next,
+    t,
+    patientActions,
+  ]);
   const go = (h: Hit | undefined) => {
     if (!h) return;
     onClose();
@@ -358,6 +454,13 @@ export function CommandPalette({
               e.preventDefault();
               setSel((s) => Math.max(0, s - 1));
             } else if (e.key === 'Enter') go(hits[Math.min(sel, hits.length - 1)]);
+            else if ((e.metaKey || e.ctrlKey) && ['b', 'i'].includes(e.key.toLowerCase())) {
+              const hit = patientActions.find((h) => h.kbd?.endsWith(e.key.toUpperCase()));
+              if (hit) {
+                e.preventDefault();
+                go(hit);
+              }
+            }
           }}
           placeholder={t(canSearchPatients ? 'shell.placeholderPatients' : 'shell.placeholder')}
           aria-label={t('shell.search')}
@@ -412,10 +515,14 @@ export function CommandPalette({
                   <b className="truncate text-[14px]">{h.label}</b>
                   {h.detail && <span className="text-[12px] text-muted">{h.detail}</span>}
                 </span>
-                {i === sel && (
-                  <span aria-hidden className="text-[12px] text-muted">
-                    ↵
-                  </span>
+                {h.kbd ? (
+                  <kbd className="font-sans text-[12px] text-muted">{h.kbd}</kbd>
+                ) : (
+                  i === sel && (
+                    <span aria-hidden className="text-[12px] text-muted">
+                      ↵ {h.group === 'patients' ? t('shell.open') : ''}
+                    </span>
+                  )
                 )}
               </button>
             </li>

@@ -32,8 +32,7 @@ test('v8: doctors see patients through their own appointments; one appointment, 
   // Front desk: no "Assign patients" page; book Asha with Dr. Iyer in 20 days.
   await signIn(page, s.desk_email, s.desk_totp);
   await expect(page.getByTestId('nav-assign')).toHaveCount(0);
-  await page.getByTestId('nav-appointments').click();
-  await page.getByTestId('range-7').click();
+  await page.getByTestId('nav-book').click(); // v30: its own page
   await page.getByTestId('manual-q').fill('asha');
   await page.getByTestId('manual-search').click();
   await page.getByTestId(`manual-pick-${s.patient_mrn}`).click();
@@ -41,6 +40,9 @@ test('v8: doctors see patients through their own appointments; one appointment, 
   await page.getByTestId('manual-doctor').selectOption({ label: 'Dr. Iyer' });
   await page.getByTestId('manual-add').click();
   await expect(page.getByTestId('notice')).toContainText('Appointment added');
+  await page.getByTestId('nav-appointments').click();
+  await page.getByTestId('view-list').click();
+  await page.getByTestId('range-7').click();
   const rows = page.getByTestId(`appt-${s.patient_mrn}`);
   await expect(rows).toHaveCount(1); // 7 days: only the one with Dr. Rao
   await page.getByTestId('range-30').click();

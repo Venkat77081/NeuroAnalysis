@@ -8,7 +8,8 @@ import { Activity, Connections, DeletionRequests, Phones, Team } from './hospita
 import { OverviewPage } from './overview.tsx';
 import { InvitePatients } from './invites.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
-import { Appointments } from './appointments.tsx';
+import { Appointments, BookAppointment, type Found } from './appointments.tsx';
+import { DeskToday, DoctorToday } from './today.tsx';
 import { HospitalSettingsPage } from './changes.tsx';
 import { ChooseTests, waitingForTests } from './choose.tsx';
 import { PermsContext, menuFor } from './perms.ts';
@@ -47,6 +48,8 @@ export function App() {
   /** v28: the ⌘K search, and an MRN handed from it to the invite page. */
   const [searching, setSearching] = useState(false);
   const [inviteQuery, setInviteQuery] = useState<string | undefined>();
+  /** v30: a patient handed from the search to the booking page. */
+  const [bookFor, setBookFor] = useState<Found | undefined>();
   const openSearch = useCallback(() => setSearching(true), []);
   // v29: changes still waiting for Undo are sent before signing out.
   const { flush } = useUndo();
@@ -96,9 +99,23 @@ export function App() {
   const nav = menuFor(me.role, perms);
   let body;
   if (permsFor) body = <PermissionsPage siteId={permsFor} onBack={() => setPermsFor(null)} />;
-  else if (page === 'hospitals') body = <Hospitals onPermissions={setPermsFor} />;
+  else if (page === 'hospitals')
+    body = <Hospitals onPermissions={setPermsFor} onActivity={() => setPage('platformLog')} />;
   else if (page === 'platformLog') body = <PlatformLog />;
   else if (page === 'platformSettings') body = <PlatformSettingsPage />;
+  else if (page === 'overview' && me.role === 'receptionist')
+    body = <DeskToday name={me.display_name} onOpen={(p) => nav.includes(p) && setPage(p)} />;
+  else if (page === 'overview' && me.role === 'doctor')
+    body = (
+      <DoctorToday
+        name={me.display_name}
+        onOpen={(p) => nav.includes(p) && setPage(p)}
+        onPatient={(ncid) => {
+          setPage('myPatients');
+          setPatient(ncid);
+        }}
+      />
+    );
   else if (page === 'overview')
     body = (
       <OverviewPage
@@ -121,21 +138,50 @@ export function App() {
   else if (page === 'invite')
     body = <InvitePatients key={inviteQuery} initialQuery={inviteQuery} />;
   else if (page === 'activity') body = <Activity />;
-  else if (page === 'appointments') body = <Appointments onChangeCount={setChanges} />;
+  else if (page === 'appointments')
+    body = (
+      <Appointments
+        onChangeCount={setChanges}
+        onBook={nav.includes('book') ? () => setPage('book') : undefined}
+      />
+    );
+  else if (page === 'requests')
+    body = <Appointments key="requests" initialTab="requests" onChangeCount={setChanges} />;
+  else if (page === 'book') body = <BookAppointment key={bookFor?.mrn} initial={bookFor} />;
   else if (page === 'settings') body = <HospitalSettingsPage />;
   else if (page === 'chooseTests') body = <ChooseTests meId={me.id} onCount={setWaiting} />;
-  else if (patient) body = <PatientView ncid={patient} onBack={() => setPatient(null)} />;
+  else if (patient)
+    body = (
+      <PatientView
+        ncid={patient}
+        onBack={() => setPatient(null)}
+        onChooseTests={
+          nav.includes('chooseTests')
+            ? () => {
+                setPatient(null);
+                setPage('chooseTests');
+              }
+            : undefined
+        }
+      />
+    );
   else body = <MyPatients onOpen={setPatient} />;
 
+  // v30: the front desk's first page is "Today".
+  const navLabel = (p: string) =>
+    p === 'overview' && (me.role === 'receptionist' || me.role === 'doctor')
+      ? t('nav.today')
+      : t(`nav.${p}`);
   const go = (p: string) => {
     setPage(p);
     setPatient(null);
     setPermsFor(null);
     setInviteQuery(undefined);
+    setBookFor(undefined);
   };
   const actions = [
-    ...(nav.includes('appointments') && perms.has('appointments.add')
-      ? [{ id: 'add', label: t('shell.actions.add'), run: () => go('appointments') }]
+    ...(nav.includes('book')
+      ? [{ id: 'add', label: t('shell.actions.add'), run: () => go('book') }]
       : []),
     ...(nav.includes('invite')
       ? [{ id: 'invite', label: t('shell.actions.invite'), run: () => go('invite') }]
@@ -152,8 +198,8 @@ export function App() {
       <TopBar
         tabs={nav.map((p) => ({
           page: p,
-          label: t(`nav.${p}`),
-          ...(p === 'appointments'
+          label: navLabel(p),
+          ...(p === (nav.includes('requests') ? 'requests' : 'appointments')
             ? {
                 count: changes,
                 countTestId: 'change-count',
@@ -174,7 +220,9 @@ export function App() {
             who={me.id}
             changes={changes}
             waiting={waiting}
-            onPage={(p) => nav.includes(p) && go(p)}
+            onPage={(p) =>
+              go(nav.includes(p) ? p : nav.includes('appointments') ? 'appointments' : nav[0]!)
+            }
             onPatient={(ncid) => {
               go('myPatients');
               setPatient(ncid);
@@ -192,19 +240,36 @@ export function App() {
       <PermsContext.Provider value={perms}>{body}</PermsContext.Provider>
       {searching && (
         <CommandPalette
-          pages={nav.map((p) => ({ page: p, label: t(`nav.${p}`) }))}
+          pages={nav.map((p) => ({ page: p, label: navLabel(p) }))}
           actions={actions}
           canSearchPatients={perms.has('patients.search')}
+          canSeeAppointments={nav.includes('appointments')}
           onPage={go}
-          onPatient={(p) => {
-            if (me.role === 'doctor' && p.ncid) {
-              go('myPatients');
-              setPatient(p.ncid);
-            } else if (nav.includes('invite')) {
-              go('invite');
-              setInviteQuery(p.mrn);
-            } else go(nav.includes('appointments') ? 'appointments' : nav[0]!);
-          }}
+          onOpenPatient={
+            me.role === 'doctor'
+              ? (p) => {
+                  if (!p.ncid) return;
+                  go('myPatients');
+                  setPatient(p.ncid);
+                }
+              : undefined
+          }
+          onBook={
+            nav.includes('book')
+              ? (p) => {
+                  go('book');
+                  setBookFor(p);
+                }
+              : undefined
+          }
+          onInvite={
+            nav.includes('invite')
+              ? (p) => {
+                  go('invite');
+                  setInviteQuery(p.mrn);
+                }
+              : undefined
+          }
           onClose={() => setSearching(false)}
         />
       )}

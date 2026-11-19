@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { hospital } from './api.ts';
-import { Badge, Button, Card, ErrorNote, Notice, Page, Table } from './ui.tsx';
+import { Avatar, Badge, Button, Card, ErrorNote, Page } from './ui.tsx';
 
 interface RecordRow {
   mrn: string;
@@ -58,19 +58,25 @@ export function InviteBox({
   };
   return (
     <Card title={title} testId="p-invite">
-      {(['email', 'sms', 'print'] as const).map((v) => (
-        <label key={v} className="flex min-h-11 items-center gap-2 text-[14px]">
-          <input
-            type="radio"
-            name="via"
-            checked={via === v}
-            onChange={() => setVia(v)}
-            className="size-5 accent-brand"
-            data-testid={`via-${v}`}
-          />
-          {t(`hospital.via${v[0]!.toUpperCase()}${v.slice(1)}`)}
-        </label>
-      ))}
+      <span className="text-[13px] font-semibold text-sub">{t('invite.sendBy')}</span>
+      <div className="flex flex-wrap gap-2">
+        {(['email', 'sms', 'print'] as const).map((v) => (
+          <label
+            key={v}
+            className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-full px-3.5 text-[14px] font-semibold ${via === v ? 'bg-brand-soft text-brand-ink' : 'bg-card shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
+          >
+            <input
+              type="radio"
+              name="via"
+              checked={via === v}
+              onChange={() => setVia(v)}
+              className="size-4 accent-brand"
+              data-testid={`via-${v}`}
+            />
+            {t(`hospital.via${v[0]!.toUpperCase()}${v.slice(1)}`)}
+          </label>
+        ))}
+      </div>
       <ErrorNote error={error} />
       <Button
         className="self-start"
@@ -140,84 +146,93 @@ export function InvitePatients({ initialQuery }: { initialQuery?: string } = {})
       else n.add(mrn);
       return n;
     });
+  const first = rows.find((r) => selected.has(r.mrn));
   return (
-    <Page title={t('invite.title')}>
-      <Notice>{t('app.notStored')}</Notice>
+    <Page title={t('invite.title')} sub={t('invite.sub')}>
       <ErrorNote error={error} />
-      <div className="flex gap-2">
-        <input
-          aria-label={t('hospital.search')}
-          placeholder={t('hospital.search')}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && q.trim().length >= 2 && void search()}
-          className="h-11 w-full max-w-md rounded-2xl border border-edge bg-card px-3 text-[14px]"
-          data-testid="p-search"
-        />
-        <Button
-          disabled={q.trim().length < 2}
-          onClick={() => void search()}
-          data-testid="p-search-btn"
-        >
-          {t('hospital.searchBtn')}
-        </Button>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card title={t('invite.who')}>
+            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-sub">
+              {t('invite.find')}
+              <span className="flex gap-2">
+                <input
+                  aria-label={t('hospital.search')}
+                  placeholder={t('hospital.search')}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && q.trim().length >= 2 && void search()}
+                  className="h-11 w-full rounded-2xl border border-transparent bg-soft px-3.5 text-[14px] font-normal text-ink outline-none focus:border-brand"
+                  data-testid="p-search"
+                />
+                <Button
+                  disabled={q.trim().length < 2}
+                  onClick={() => void search()}
+                  data-testid="p-search-btn"
+                >
+                  {t('hospital.searchBtn')}
+                </Button>
+              </span>
+            </label>
+            <div className="flex flex-col gap-2" data-testid="p-results">
+              {rows.map((r) => {
+                const on = selected.has(r.mrn);
+                return (
+                  <label
+                    key={r.mrn}
+                    className={`flex cursor-pointer flex-wrap items-center gap-3 rounded-[18px] p-3 ${on ? 'shadow-[inset_0_0_0_2px_var(--color-brand)]' : 'shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${r.mrn}`}
+                      checked={on}
+                      onChange={() => toggle(r.mrn)}
+                      className="size-5 accent-brand"
+                      data-testid={`p-sel-${r.mrn}`}
+                    />
+                    <Avatar name={r.name} size={40} />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <b className="text-[14px]">{r.name}</b>
+                      <span className="text-[12px] text-muted">
+                        MRN {r.mrn} · {t('invite.email')}{' '}
+                        {r.has_email ? t('invite.yes') : t('hospital.missing')} ·{' '}
+                        {t('invite.mobile')} {r.has_phone ? t('invite.yes') : t('hospital.missing')}
+                      </span>
+                    </span>
+                    {r.app_status ? (
+                      <Badge tone={r.app_status === 'active' ? 'ok' : 'neutral'}>
+                        {r.app_status}
+                      </Badge>
+                    ) : (
+                      <Badge tone="neutral">{t('hospital.notInvited')}</Badge>
+                    )}
+                  </label>
+                );
+              })}
+              {rows.length === 0 && (
+                <span className="text-[13px] text-muted">{t('invite.searchHint')}</span>
+              )}
+            </div>
+            <span className="text-[12px] text-muted">{t('app.notStored')}</span>
+          </Card>
+          {selected.size > 0 && (
+            <InviteBox
+              mrns={[...selected]}
+              title={t('hospital.via', { n: selected.size })}
+              onSent={() => void search()}
+            />
+          )}
+        </div>
+        <Card title={t('invite.gets', { name: first?.name ?? t('invite.patient') })}>
+          <div className="mx-auto flex h-[420px] w-[280px] flex-col gap-2.5 rounded-[36px] border-8 border-ink bg-soft px-3.5 py-4">
+            <span className="text-center text-[12px] text-muted">{t('invite.phoneTop')}</span>
+            <span className="max-w-[220px] self-start rounded-[18px_18px_18px_4px] bg-card px-3.5 py-3 text-[13px] leading-[19px]">
+              {t('invite.preview')}
+            </span>
+          </div>
+          <span className="text-center text-[12px] text-muted">{t('invite.previewNote')}</span>
+        </Card>
       </div>
-      <Table
-        head={[
-          '',
-          t('hospital.patient'),
-          t('hospital.mrn'),
-          t('hospital.email'),
-          t('hospital.mobile'),
-          t('hospital.appStatus'),
-        ]}
-        testId="p-results"
-      >
-        {rows.map((r) => (
-          <tr key={r.mrn} className="border-t border-line">
-            <td className="px-4 py-3">
-              <input
-                type="checkbox"
-                aria-label={`Select ${r.mrn}`}
-                checked={selected.has(r.mrn)}
-                onChange={() => toggle(r.mrn)}
-                className="size-5 accent-brand"
-                data-testid={`p-sel-${r.mrn}`}
-              />
-            </td>
-            <td className="px-4 py-3 font-semibold">{r.name}</td>
-            <td className="px-4 py-3">{r.mrn}</td>
-            <td className="px-4 py-3">
-              {r.has_email ? (
-                t('invite.yes')
-              ) : (
-                <span className="font-semibold text-bad">{t('hospital.missing')}</span>
-              )}
-            </td>
-            <td className="px-4 py-3">
-              {r.has_phone ? (
-                t('invite.yes')
-              ) : (
-                <span className="font-semibold text-bad">{t('hospital.missing')}</span>
-              )}
-            </td>
-            <td className="px-4 py-3">
-              {r.app_status ? (
-                <Badge tone={r.app_status === 'active' ? 'ok' : 'neutral'}>{r.app_status}</Badge>
-              ) : (
-                t('hospital.notInvited')
-              )}
-            </td>
-          </tr>
-        ))}
-      </Table>
-      {selected.size > 0 && (
-        <InviteBox
-          mrns={[...selected]}
-          title={t('hospital.via', { n: selected.size })}
-          onSent={() => void search()}
-        />
-      )}
     </Page>
   );
 }

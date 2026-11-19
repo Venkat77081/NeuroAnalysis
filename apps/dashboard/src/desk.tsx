@@ -26,7 +26,17 @@ import {
   zonedIso,
   zonedTime,
 } from './changes.tsx';
-import { Badge, Button, Card, Dialog, DialogFooter, ErrorNote, Notice, Table, fmt } from './ui.tsx';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  DialogFooter,
+  ErrorNote,
+  Notice,
+  fmt,
+} from './ui.tsx';
 import type { RequestOut as LinkOut } from './appointments.tsx';
 
 // --- Types ---
@@ -617,6 +627,7 @@ export function RequestPanel({
   canAssign,
   onDone,
   onClose,
+  inline = false,
 }: {
   req: PatientRequest;
   patient: string;
@@ -624,6 +635,8 @@ export function RequestPanel({
   canAssign: boolean;
   onDone: (message: string) => void;
   onClose: () => void;
+  /** v30 (canvas v28): shown next to the inbox instead of as a dialog. */
+  inline?: boolean;
 }) {
   const { t } = useTranslation();
   const { defer } = useUndo();
@@ -670,20 +683,16 @@ export function RequestPanel({
         onClose={() => setView('choices')}
       />
     );
-  return (
-    <Dialog
-      title={t(`requests.title.${req.kind}`, { name: patient })}
-      sub={`${
-        req.kind === 'change'
-          ? t('moves.booked', { when: fmt(req.appointment_at), doctor: req.doctor_name ?? '—' })
-          : t('requests.wantsDoctor', { doctor: req.doctor_name ?? t('requests.anyDoctor') })
-      }${req.purpose ? ` · ${t(`requests.purpose.${req.purpose}`)}` : ''}${
-        req.reason ? ` · ${t(`moves.patientReason.${req.reason}`)}` : ''
-      }`}
-      size="md"
-      onClose={onClose}
-      testId="request-panel"
-    >
+  const title = t(`requests.title.${req.kind}`, { name: patient });
+  const sub = `${
+    req.kind === 'change'
+      ? t('moves.booked', { when: fmt(req.appointment_at), doctor: req.doctor_name ?? '—' })
+      : t('requests.wantsDoctor', { doctor: req.doctor_name ?? t('requests.anyDoctor') })
+  }${req.purpose ? ` · ${t(`requests.purpose.${req.purpose}`)}` : ''}${
+    req.reason ? ` · ${t(`moves.patientReason.${req.reason}`)}` : ''
+  }`;
+  const content = (
+    <>
       <Notice>{t('requests.checkedNow')}</Notice>
       {req.days && (
         <span className="text-[14px]">
@@ -760,6 +769,28 @@ export function RequestPanel({
           </div>
         </Card>
       )}
+    </>
+  );
+  if (inline)
+    return (
+      <section
+        className="nc-fu flex min-w-0 flex-1 flex-col gap-3 rounded-3xl bg-card p-5 shadow-card"
+        data-testid="request-panel"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <Avatar name={patient} size={52} />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <b className="text-[18px]">{title}</b>
+            <span className="text-[13px] text-muted">{sub}</span>
+          </span>
+          <Badge tone="neutral">{t('shell.liveRecords')}</Badge>
+        </div>
+        {content}
+      </section>
+    );
+  return (
+    <Dialog title={title} sub={sub} size="md" onClose={onClose} testId="request-panel">
+      {content}
     </Dialog>
   );
 }
@@ -782,6 +813,7 @@ export function RequestsTab({
   const [box, setBox] = useState<Inbox | null>(null);
   const [ident, setIdent] = useState<Record<string, Ident>>({});
   const [open, setOpen] = useState<string | null>(null);
+  const [pick, setPick] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [error, setError] = useState<unknown>(null);
   const [version, setVersion] = useState(0);
@@ -860,7 +892,12 @@ export function RequestsTab({
           }),
       when: t('requests.asked', { when: fmt(r.created_at) }),
       action: (
-        <Button onClick={() => setOpen(open === r.id ? null : r.id)} data-testid="inbox-check">
+        <Button
+          variant="secondary"
+          className="min-h-8 text-[13px]"
+          onClick={() => setOpen(r.id)}
+          data-testid="inbox-check"
+        >
           {t('requests.check')}
         </Button>
       ),
@@ -933,7 +970,8 @@ export function RequestsTab({
     cancelled: rows.filter((r) => r.kind === 'cancelled').length,
   };
   const shown = rows.filter((r) => filter === 'all' || r.kind === filter);
-  const openReq = box.requests.find((r) => r.id === open);
+  const selected = shown.find((r) => r.key === (open ?? pick)) ?? shown[0];
+  const openReq = box.requests.find((r) => r.id === (open ?? selected?.key));
   const apptOf = (id: string | null): Movable | null =>
     id ? (appointments.find((a) => a.id === id) ?? null) : null;
 
@@ -956,62 +994,69 @@ export function RequestsTab({
       </div>
       {shown.length === 0 && <Notice testId="inbox-empty">{t('requests.empty')}</Notice>}
       {shown.length > 0 && (
-        <Table
-          head={[
-            t('requests.what'),
-            t('appts.patient'),
-            t('requests.apptCol'),
-            t('requests.detailsCol'),
-            t('requests.whenCol'),
-            '',
-          ]}
-          testId="inbox-table"
-        >
-          {shown.map((r) => (
-            <tr
-              key={r.key}
-              className="border-t border-line"
-              data-testid={`inbox-${ident[r.ncid]?.mrn ?? r.ncid}`}
-            >
-              <td className="px-4 py-3">
-                <Badge tone={r.pill[1]}>{r.pill[0]}</Badge>
-              </td>
-              <td className="px-4 py-3">
-                <b>{name(r.ncid)}</b>
-                {ident[r.ncid] && (
-                  <span className="block text-[12px] text-muted">MRN {ident[r.ncid]!.mrn}</span>
-                )}
-              </td>
-              <td className="px-4 py-3 text-[13px]">{r.what}</td>
-              <td className="px-4 py-3 text-[13px]">{r.details}</td>
-              <td className="px-4 py-3 text-[13px] text-muted">{r.when}</td>
-              <td className="px-4 py-3 text-right">{r.action}</td>
-            </tr>
-          ))}
-        </Table>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          <section
+            className="nc-fu flex w-full shrink-0 flex-col gap-1 rounded-3xl bg-card p-2.5 shadow-card lg:w-[380px]"
+            data-testid="inbox-table"
+          >
+            {shown.map((r) => {
+              const sel = r.key === (selected?.key ?? '');
+              return (
+                <div
+                  key={r.key}
+                  className={`flex flex-col gap-1.5 rounded-[18px] p-3 ${sel ? 'bg-brand-soft' : ''}`}
+                  data-testid={`inbox-${ident[r.ncid]?.mrn ?? r.ncid}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPick(r.key)}
+                    className="flex items-center gap-3 text-left"
+                  >
+                    <Avatar name={ident[r.ncid]?.name ?? null} size={40} />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <b className="truncate text-[14px]">{name(r.ncid)}</b>
+                      <span className="truncate text-[12px] text-muted">
+                        {r.what} · {r.when}
+                      </span>
+                    </span>
+                    <Badge tone={r.pill[1]}>{r.pill[0]}</Badge>
+                  </button>
+                  <span className="pl-[52px] text-[12px] text-sub">{r.details}</span>
+                  <span className="flex justify-end">{r.action}</span>
+                </div>
+              );
+            })}
+          </section>
+          {openReq ? (
+            <RequestPanel
+              key={openReq.id}
+              inline
+              req={openReq}
+              patient={name(openReq.ncid)}
+              appt={
+                openReq.appointment_id
+                  ? (apptOf(openReq.appointment_id) ?? {
+                      id: openReq.appointment_id,
+                      at: openReq.appointment_at!,
+                      source: openReq.source,
+                      doctor_id: openReq.doctor_id,
+                      doctor_name: openReq.doctor_name,
+                    })
+                  : null
+              }
+              canAssign={canAssign}
+              onClose={() => setOpen(null)}
+              onDone={done}
+            />
+          ) : (
+            <section className="nc-fu flex min-w-0 flex-1 flex-col items-center justify-center gap-2 rounded-3xl bg-card p-10 text-center shadow-card">
+              <b className="text-[16px]">{t('requests.pickTitle')}</b>
+              <span className="text-[14px] text-muted">{t('requests.pickHint')}</span>
+            </section>
+          )}
+        </div>
       )}
       <span className="text-[13px] text-muted">{t('requests.countHint')}</span>
-      {openReq && (
-        <RequestPanel
-          key={openReq.id}
-          req={openReq}
-          patient={name(openReq.ncid)}
-          appt={
-            openReq.appointment_id
-              ? (apptOf(openReq.appointment_id) ?? {
-                  id: openReq.appointment_id,
-                  at: openReq.appointment_at!,
-                  source: openReq.source,
-                  doctor_id: openReq.doctor_id,
-                  doctor_name: openReq.doctor_name,
-                })
-              : null
-          }
-          canAssign={canAssign}
-          onClose={() => setOpen(null)}
-          onDone={done}
-        />
-      )}
     </div>
   );
 }
@@ -1020,22 +1065,33 @@ export function RequestsTab({
 
 /** v18 (decision 049): from the appointment's time on, the desk marks that the patient did not
  * come. The appointment is cancelled; the patient (optional) and the doctor are told. */
+/**
+ * v18 (decision 049), v30 look (canvas v28): "X did not come?" with what will happen. Offered from
+ * the appointment time; the change waits for Undo (decision 052) before it is sent.
+ */
 export function NoShowDialog({
   appt,
   patient,
+  time,
+  now: nowGiven,
   onDone,
   onClose,
 }: {
   appt: Movable;
   patient: string;
+  /** The appointment time as shown on the page (hospital time). */
+  time?: string;
+  now?: number;
   onDone: (message: string) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const { defer } = useUndo();
   const [notify, setNotify] = useState(true);
-  const [busy] = useState(false); // v29: sent after the undo window
-  const [error] = useState<unknown>(null);
+  const [opened] = useState(() => Date.now());
+  const now = nowGiven ?? opened;
+  const when = time ?? fmt(appt.at);
+  const late = Math.max(0, Math.floor((now - Date.parse(appt.at)) / 60_000));
   const mark = () => {
     const msg = t('noShow.done', { name: patient, when: fmt(appt.at) });
     const id = appt.id;
@@ -1049,40 +1105,63 @@ export function NoShowDialog({
   return (
     <Dialog
       title={t('noShow.title', { name: patient })}
-      sub={`${fmt(appt.at)} · ${appt.doctor_name ?? '—'}`}
       size="sm"
+      bare
       onClose={onClose}
       testId="no-show-dialog"
     >
-      <label className="flex min-h-11 items-center gap-2 text-[14px]">
-        <input
-          type="checkbox"
-          checked={notify}
-          onChange={(e) => setNotify(e.target.checked)}
-          className="h-4 w-4"
-          data-testid="no-show-notify"
-        />
-        {t('noShow.notify', { name: patient })}
-      </label>
-      <Notice tone="warn">
-        {appt.doctor_name
-          ? t('noShow.what', { doctor: appt.doctor_name })
-          : t('noShow.whatNoDoctor')}
-      </Notice>
-      <ErrorNote error={error} />
-      <div className="flex flex-wrap gap-2.5">
+      <span
+        aria-hidden
+        className="inline-flex size-[52px] items-center justify-center rounded-[18px] bg-bad-soft text-[24px] font-extrabold text-bad"
+      >
+        !
+      </span>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-[22px] leading-7 font-extrabold">
+          {t('noShow.title', { name: patient })}
+        </h2>
+        <span className="text-[15px] text-sub">
+          {t('noShow.when', {
+            time: when,
+            doctor: appt.doctor_name ?? t('cal.noDoctor'),
+            count: late,
+          })}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5 rounded-[18px] bg-soft px-4 py-3.5 text-[14px] leading-6">
+        <b>{t('noShow.willTitle')}</b>
+        <span>✓ {t('noShow.willCancel', { time: when })}</span>
+        <span>
+          ✓{' '}
+          {appt.doctor_name
+            ? t('noShow.willTell', { doctor: appt.doctor_name })
+            : t('noShow.willTellNone')}
+        </span>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={notify}
+            onChange={(e) => setNotify(e.target.checked)}
+            className="mt-1 size-4 accent-brand"
+            data-testid="no-show-notify"
+          />
+          <span>{t('noShow.willMessage', { name: patient })}</span>
+        </label>
+      </div>
+      <div className="flex gap-2.5">
         <Button
           variant="danger"
-          disabled={busy}
+          className="flex-1"
           onClick={() => void mark()}
           data-testid="no-show-confirm"
         >
           {t('noShow.confirm')}
         </Button>
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="secondary" className="flex-1" onClick={onClose}>
           {t('noShow.keep')}
         </Button>
       </div>
+      <span className="text-center text-[12px] text-muted">{t('today.unlocks')}</span>
     </Dialog>
   );
 }

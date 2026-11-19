@@ -527,7 +527,7 @@ export function Appointments({
                   onPick={setDay}
                 />
               </Card>
-              <FreeToday day={day} onBook={onBook} />
+              <FreeToday day={day} onBook={onBook && (() => onBook())} />
             </div>
           )}
         </div>
@@ -800,6 +800,13 @@ export function BookAppointment({ initial }: { initial?: Found }) {
   const [docs, setDocs] = useState<Doctor[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const settings = useSettings();
+  const tz = settings?.time_zone ?? browserZone();
+  const [now] = useState(() => Date.now());
+  const [day, setDay] = useState(() => zonedDay(now, tz));
+  const [at, setAt] = useState('');
+  const [doctor, setDoctor] = useState('');
+  const canAssign = perms.has('appointments.assign');
   useEffect(() => {
     call<Doctor[]>('GET', '/hospital/doctors').then(
       (d) => setDocs(d.filter((x) => x.active)),
@@ -810,12 +817,31 @@ export function BookAppointment({ initial }: { initial?: Found }) {
     <Page title={t('book.title')} sub={t('book.sub')}>
       <ErrorNote error={error} />
       {notice && <Notice testId="notice">{notice}</Notice>}
-      <ManualAppointment
-        docs={docs}
-        canAssign={perms.has('appointments.assign')}
-        initial={initial}
-        onAdded={() => setNotice(t('appts.added'))}
-      />
+      {/* v30: the month and that day's free times beside the form; a free time fills it in. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <ManualAppointment
+          docs={docs}
+          canAssign={canAssign}
+          initial={initial}
+          at={at}
+          setAt={setAt}
+          doctor={doctor}
+          setDoctor={setDoctor}
+          onAdded={() => setNotice(t('appts.added'))}
+        />
+        <div className="flex flex-col gap-4">
+          <Card title={fmtMonth(day)} testId="book-month">
+            <MiniMonth day={day} today={zonedDay(now, tz)} marked={new Set()} onPick={setDay} />
+          </Card>
+          <FreeToday
+            day={day}
+            onBook={(slot) => {
+              setAt(`${day}T${slot.time}`);
+              if (canAssign) setDoctor(slot.doctorId);
+            }}
+          />
+        </div>
+      </div>
     </Page>
   );
 }
@@ -825,19 +851,26 @@ function ManualAppointment({
   canAssign,
   onAdded,
   initial,
+  at,
+  setAt,
+  doctor,
+  setDoctor,
 }: {
   docs: Doctor[];
   canAssign: boolean;
   onAdded: () => void;
   /** v30: the patient chosen in the ⌘K search. */
   initial?: Found;
+  /** Held by the page, so a free time beside the form can fill them in. */
+  at: string;
+  setAt: (v: string) => void;
+  doctor: string;
+  setDoctor: (v: string) => void;
 }) {
   const { t } = useTranslation();
   const [q, setQ] = useState(initial?.name ?? '');
   const [found, setFound] = useState<Found[]>(initial ? [initial] : []);
   const [who, setWho] = useState<Found | null>(initial ?? null);
-  const [at, setAt] = useState('');
-  const [doctor, setDoctor] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -872,7 +905,7 @@ function ManualAppointment({
     setBusy(false);
   };
   return (
-    <Card title={t('appts.manualTitle')} testId="manual" className="max-w-3xl">
+    <Card title={t('appts.manualTitle')} testId="manual">
       <span className="text-[14px] text-sub">{t('appts.manualHint')}</span>
       <div className="flex flex-wrap items-end gap-3">
         <Field
@@ -1037,12 +1070,20 @@ export function MiniMonth({
 }
 
 /** v30 (canvas v28): free times on the chosen day (doctors' clinic hours minus bookings). */
-function FreeToday({ day, onBook }: { day: string; onBook?: () => void }) {
+function FreeToday({
+  day,
+  onBook,
+}: {
+  day: string;
+  onBook?: (slot: { time: string; doctorId: string }) => void;
+}) {
   const { t } = useTranslation();
-  const [free, setFree] = useState<{ time: string; doctor: string }[] | null>(null);
+  const [free, setFree] = useState<{ time: string; doctor: string; doctorId: string }[] | null>(
+    null,
+  );
   useEffect(() => {
     let off = false;
-    call<{ doctors: { doctor_name: string; free: string[] }[] }>(
+    call<{ doctors: { doctor_id: string; doctor_name: string; free: string[] }[] }>(
       'GET',
       `/hospital/availability?date=${day}`,
     ).then(
@@ -1050,7 +1091,9 @@ function FreeToday({ day, onBook }: { day: string; onBook?: () => void }) {
         !off &&
         setFree(
           r.doctors
-            .flatMap((d) => d.free.map((time) => ({ time, doctor: d.doctor_name })))
+            .flatMap((d) =>
+              d.free.map((time) => ({ time, doctor: d.doctor_name, doctorId: d.doctor_id })),
+            )
             .sort((a, b) => a.time.localeCompare(b.time)),
         ),
       () => !off && setFree([]),
@@ -1073,7 +1116,8 @@ function FreeToday({ day, onBook }: { day: string; onBook?: () => void }) {
             <Button
               variant="secondary"
               className="min-h-8 bg-brand-soft text-[13px] text-brand-ink shadow-none"
-              onClick={onBook}
+              onClick={() => onBook({ time: f.time, doctorId: f.doctorId })}
+              data-testid={`free-${f.time}`}
             >
               {t('cal.book')}
             </Button>

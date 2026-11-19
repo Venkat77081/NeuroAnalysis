@@ -66,7 +66,7 @@
     connections;
   - all of it stops with "reduce motion".
 
-## Not built from the v28 mock
+## Not built from the v28 mock (built later: decision 052)
 
 These need data the platform does not have:
 

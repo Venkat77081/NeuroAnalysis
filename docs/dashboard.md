@@ -138,6 +138,12 @@ over the appointment list instead of expanding a row:
 - **Connector offline:** when the connector cannot be reached, a note says that names are hidden
   and patient codes are shown instead.
 - **Motion:** all of it stops with "reduce motion".
+- **Connector history (v29, decision 052):** the platform's hospital side panel and Data
+  connections show the connector's last 24 hours, one bar per hour, and "Online" or "Offline since".
+- **Undo (v29):** booking, moving, offering, declining, cancelling and "Did not come" wait a few
+  seconds with an Undo toast before anything is sent (`appointmentChanges.undoSeconds`).
+- **Bell (v29):** what needs you now, with a dot for anything new since you last opened it.
+- **Phones (v29):** the registration QR is scanned on the new clinic phone ("Scan the QR code").
 
 ## Local run
 

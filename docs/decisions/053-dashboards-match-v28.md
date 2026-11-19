@@ -14,10 +14,12 @@
 - **Pages:** Today, Appointments, Book appointment, Requests, Invite patients. Book appointment
   and Requests are now pages of their own. The red count is on Requests.
 - **Today:**
-  - the sunrise greeting with the next patient;
+  - the sunrise greeting with the next patient, in the hospital's time zone like the list below
+    it;
   - today's appointments in time order, with a doctor filter and the coral Now line;
   - each row has a status and one action:
-    - "Did not come" from the appointment time;
+    - "Did not come" from the appointment time, with the status "Not recorded · 1 h 49 min late"
+      (minutes alone under an hour);
     - a locked "Did not come · 11:15" on the next one;
     - Choose doctor;
     - Open, for the history;
@@ -28,6 +30,8 @@
   - an "All doctors" filter;
   - the Day view has the month and the free times on that day next to it, from the doctors'
     clinic hours.
+- **Book appointment:** the form, with the month and that day's free times beside it. Choosing a
+  free time fills in the date, time and doctor.
 - **Requests:** an inbox on the left. The chosen request is shown on the right with its times
   checked now, Book, "Offer other times" and "Can't change".
 - **Invite:** search the records on the left, choose who to send to and how, and see an example
@@ -85,7 +89,7 @@
   admin's e-mail.
 
 - **Team:** people as cards with role chips. Inviting staff and adding an operator happen in
-  pop-ups.
+  pop-ups; the operator pop-up says they sign in on the clinic phones with a temporary password.
 - **Phones:** device cards (camera check fps, use in the last 30 days, Remove) next to the
   "Register a phone" QR card.
 - **Settings:**
@@ -99,6 +103,9 @@
   - the page says "Use the e-mail your hospital invited." and the button reads "Continue";
   - "Forgot password?" explains who resets a sign-in;
   - the code step is "Enter your code" with large digits and a link back to the e-mail.
+
+- **Pop-ups** fit their content instead of filling the screen height; the hospital side panel
+  stays full height.
 
 ## Kept on purpose
 

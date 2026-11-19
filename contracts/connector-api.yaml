@@ -565,6 +565,37 @@ paths:
     servers: &id001
     - url: https://api.neurocapture.example
       description: NeuroCapture platform
+  /platform/hospitals/{site_id}/connector-history:
+    get:
+      tags:
+      - platform
+      summary: Hospital Connector History
+      description: 'v29 (decision 052): one hospital''s connector check-ins (counts
+        per hour only).'
+      operationId: hospital_connector_history_platform_hospitals__site_id__connector_history_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: site_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Site Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorHistoryOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
   /.well-known/neurocapture-platform-key:
     get:
       tags:
@@ -666,6 +697,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConnectorTokenOut'
+      security:
+      - HTTPBearer: []
+    servers: *id001
+  /connector/v1/heartbeat:
+    post:
+      tags:
+      - connector
+      summary: Connector Heartbeat
+      description: 'v29 (decision 052): the connector checks in every connectorHealth.heartbeatSeconds.'
+      operationId: connector_heartbeat_connector_v1_heartbeat_post
+      responses:
+        '204':
+          description: Successful Response
+    servers: *id001
+  /hospital/connector/history:
+    get:
+      tags:
+      - connector
+      summary: Connector History
+      description: 'v29: the last connectorHealth.historyHours, one count per hour,
+        and "offline since".'
+      operationId: connector_history_hospital_connector_history_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorHistoryOut'
       security:
       - HTTPBearer: []
     servers: *id001
@@ -1238,6 +1298,47 @@ components:
       - activity_log
       - decrypt_key
       title: CheckOut
+    ConnectorHistoryOut:
+      properties:
+        registered:
+          type: boolean
+          title: Registered
+        last_seen_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Seen At
+        online:
+          type: boolean
+          title: Online
+        offline_since:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Offline Since
+        heartbeat_seconds:
+          type: integer
+          title: Heartbeat Seconds
+        offline_after_minutes:
+          type: integer
+          title: Offline After Minutes
+        hours:
+          items:
+            $ref: '#/components/schemas/HourOut'
+          type: array
+          title: Hours
+      type: object
+      required:
+      - registered
+      - last_seen_at
+      - online
+      - offline_since
+      - heartbeat_seconds
+      - offline_after_minutes
+      - hours
+      title: ConnectorHistoryOut
     ConnectorIn:
       properties:
         url:
@@ -1397,6 +1498,20 @@ components:
       required:
       - text
       title: HistoryItemOut
+    HourOut:
+      properties:
+        start:
+          type: string
+          format: date-time
+          title: Start
+        pings:
+          type: integer
+          title: Pings
+      type: object
+      required:
+      - start
+      - pings
+      title: HourOut
     InviteIn:
       properties:
         mrns:

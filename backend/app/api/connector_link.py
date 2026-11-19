@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.audit import audit
 from app.config import get_settings
+from app.connector_health import ConnectorHistoryOut, history, record_ping
 from app.db import get_db
 from app.models import Patient, PatientAccount, Session, Site, Take, TakeFile
 from app.permissions import require
@@ -218,7 +219,21 @@ async def signed_connector(request: Request, db: DbSession = Depends(get_db)) ->
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "bad connector signature")
     if site.status == "suspended":
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "hospital_suspended"})
+    record_ping(db, site.id)  # v29: the connector is alive (hourly counts for the dashboards)
     return site
+
+
+@router.post("/connector/v1/heartbeat", status_code=204)
+def connector_heartbeat(_: Site = Depends(signed_connector)) -> None:  # noqa: B008
+    """v29 (decision 052): the connector checks in every connectorHealth.heartbeatSeconds."""
+
+
+@router.get("/hospital/connector/history", response_model=ConnectorHistoryOut)
+def connector_history(
+    p: Principal = Depends(perm_setup_connections), db: DbSession = Depends(get_db)
+) -> ConnectorHistoryOut:  # noqa: B008
+    """v29: the last connectorHealth.historyHours, one count per hour, and "offline since"."""
+    return history(db, _my_site(db, p))
 
 
 class NewPatientIn(BaseModel):

@@ -47,14 +47,26 @@ async def _reminder_loop(every_s: int) -> None:
         await asyncio.sleep(every_s)
 
 
+async def _heartbeat_loop(every_s: int) -> None:
+    from ncconnector.health import heartbeat
+
+    while True:  # the first check-in is right away
+        try:
+            await asyncio.to_thread(heartbeat)
+        except Exception as exc:  # noqa: BLE001 - next round
+            log.warning("heartbeat failed: %s", type(exc).__name__)
+        await asyncio.sleep(every_s)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     check_config(get_settings())
     init_db()
-    every = get_settings().reminder_interval_s
-    task = asyncio.create_task(_reminder_loop(every)) if every else None
+    s = get_settings()
+    loops = ((_reminder_loop, s.reminder_interval_s), (_heartbeat_loop, s.heartbeat_interval_s))
+    tasks = [asyncio.create_task(loop(every)) for loop, every in loops if every]
     yield
-    if task:
+    for task in tasks:
         task.cancel()
 
 

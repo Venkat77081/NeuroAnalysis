@@ -127,6 +127,10 @@ user `SELECT` on these views only. The connector runs SELECTs with bound paramet
   due soon. It reads the patient's e-mail or mobile from the hospital records and sends "please
   record by …" through the hospital's provider. The texts are in `messages/en.json`
   (`reminderEmail`, `reminderSms`).
+- **Heartbeat (v29, decision 052):** at start and every `NCC_HEARTBEAT_INTERVAL_S` seconds
+  (default 300; 0 = off) the connector sends a signed, empty check-in to the platform. The
+  dashboards use these check-ins to show "Online" or "Offline since …" and the last 24 hours. Keep
+  the interval at or below `connectorHealth.heartbeatSeconds` in `config/platform.json`.
 
 - **v13 (decision 045): appointment notices.** When the front desk moves an appointment with "tell
   the patient", or answers a patient's change request, the same loop (and `send-reminders`) also

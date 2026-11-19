@@ -642,3 +642,16 @@ class ClinicConsent(Base):
     used_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     used_by: Mapped[str | None] = mapped_column(String(32))
     session_id: Mapped[str | None] = mapped_column(String(32))
+
+
+class ConnectorPing(Base):
+    """v29 (decision 052): the hospital's connector checked in with the platform during this hour
+    (UTC). Counts only, kept for config connectorHealth.keepDays; nothing about patients."""
+
+    __tablename__ = "connector_pings"
+    __table_args__ = (UniqueConstraint("site_id", "hour"),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"), index=True)
+    hour: Mapped[datetime] = mapped_column(UTCDateTime())
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    last_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.staff import ResetOut, deliver_staff_invite, new_staff_invite, reset_sign_in
 from app.audit import audit
 from app.config import get_settings
+from app.connector_health import ConnectorHistoryOut, history, is_online, last_seen
 from app.db import get_db
 from app.models import AuditEvent, Device, Operator, PatientAccount, Site, StaffUser
 from app.policy import policy
@@ -62,6 +63,10 @@ class HospitalOut(BaseModel):
     patients: int = 0
     #: Decision 044: storage connected and passing.
     can_record: bool = False
+    #: v29 (decision 052): the connector's last check-in and whether it counts as online
+    #: (null: no connector registered).
+    connector_last_seen_at: datetime | None = None
+    connector_online: bool | None = None
 
 
 def _out(db: DbSession, site: Site) -> HospitalOut:
@@ -85,6 +90,8 @@ def _out(db: DbSession, site: Site) -> HospitalOut:
         staff=count(StaffUser, StaffUser.active.is_(True)),
         patients=count(PatientAccount, PatientAccount.status == "active"),
         can_record=can_record(site),
+        connector_last_seen_at=(seen := last_seen(db, site.id)),
+        connector_online=is_online(seen) if site.connector_public_key else None,
     )
 
 
@@ -356,6 +363,16 @@ class SetupOut(BaseModel):
     devices: int
     operators: int
     doctors: int
+
+
+@router.get("/hospitals/{site_id}/connector-history", response_model=ConnectorHistoryOut)
+def hospital_connector_history(
+    site_id: str,
+    _: Principal = Depends(admin_only),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> ConnectorHistoryOut:
+    """v29 (decision 052): one hospital's connector check-ins (counts per hour only)."""
+    return history(db, _site(db, site_id))
 
 
 @router.get("/hospitals/{site_id}/setup", response_model=SetupOut)

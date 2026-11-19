@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     signature_window_s: int = 300
     #: v3: how often due recording reminders are sent (0 = off; then use the CLI).
     reminder_interval_s: int = 900
+    #: v29 (decision 052): how often the connector checks in with the platform (0 = off). Keep
+    #: it at or below the platform's connectorHealth.heartbeatSeconds (config/platform.json).
+    heartbeat_interval_s: int = 300
     message_lang: str = "en"
 
 

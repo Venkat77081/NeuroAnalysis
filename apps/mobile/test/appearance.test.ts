@@ -21,3 +21,15 @@ describe('appearance', () => {
     expect(themeFor('dark', hours, at(9))).toBe('dark');
   });
 });
+
+describe('time of day for the greeting', () => {
+  it('shows the moon at night, never the sun', async () => {
+    const { dayPart } = await import('../src/ui/Greeting.tsx');
+    const at = (h: number) => new Date(2026, 10, 19, h, 6);
+    expect(dayPart(at(23))).toBe('evening');
+    expect(dayPart(at(2))).toBe('evening');
+    expect(dayPart(at(5))).toBe('morning');
+    expect(dayPart(at(13))).toBe('afternoon');
+    expect(dayPart(at(17))).toBe('evening');
+  });
+});

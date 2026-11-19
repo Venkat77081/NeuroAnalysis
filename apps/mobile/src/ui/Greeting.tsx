@@ -8,8 +8,11 @@ import { useTranslation } from 'react-i18next';
 import { Logo } from './Logo.tsx';
 
 export type DayPart = 'morning' | 'afternoon' | 'evening';
-export const dayPart = (d = new Date()): DayPart =>
-  d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
+/** Night (from 17:00 until 05:00) counts as evening: moon and stars, never the sun. */
+export const dayPart = (d = new Date()): DayPart => {
+  const h = d.getHours();
+  return h < 5 || h >= 17 ? 'evening' : h < 12 ? 'morning' : 'afternoon';
+};
 
 /** The sun by day (morning warmer, afternoon brighter); v31: the sky comes from the theme. */
 const SUN: Record<Exclude<DayPart, 'evening'>, string> = {

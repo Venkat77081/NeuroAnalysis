@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { EngineeringMenu } from '../EngineeringMenu.tsx';
 import { Logo } from '../session/SessionHome.tsx';
+import { dayPart } from '../../ui/Greeting.tsx';
 
 /**
  * First run (M13): patient app or clinic phone. The choice is locked natively once set up.
@@ -11,6 +12,8 @@ import { Logo } from '../session/SessionHome.tsx';
 export function RoleChooser({ onPick }: { onPick: (mode: 'patient' | 'clinic') => void }) {
   const { t } = useTranslation();
   const [menu, setMenu] = useState(false);
+  // v31: at night the welcome sky shows a moon and stars instead of the sun.
+  const [night] = useState(() => dayPart() === 'evening');
   // New UI (decision 050): a welcome page with a sunrise, then the two choices.
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col bg-ground px-5 pb-6">
@@ -24,10 +27,34 @@ export function RoleChooser({ onPick }: { onPick: (mode: 'patient' | 'clinic') =
         }}
         aria-hidden="true"
       >
-        <span
-          className="nc-rise absolute top-[96px] left-1/2 size-24 -translate-x-1/2 rounded-full shadow-[0_0_60px_16px_rgb(251_146_60/0.3)]"
-          style={{ background: 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c 72%)' }}
-        />
+        {night ? (
+          <>
+            <span
+              className="nc-moon absolute top-[96px] left-1/2 size-24 -translate-x-1/2 rounded-full shadow-[0_0_60px_16px_rgb(165_180_252/0.35)]"
+              style={{ background: 'radial-gradient(circle at 38% 38%, #eef2ff, #a5b4fc 70%)' }}
+              data-testid="welcome-moon"
+            />
+            {[
+              [18, 60],
+              [30, 130],
+              [72, 80],
+              [84, 150],
+              [60, 40],
+            ].map(([left, top], i) => (
+              <span
+                key={i}
+                className="nc-twinkle absolute size-1 rounded-full bg-brand-ink"
+                style={{ left: `${left}%`, top: `${top}px`, animationDelay: `${i * 0.4}s` }}
+              />
+            ))}
+          </>
+        ) : (
+          <span
+            className="nc-rise absolute top-[96px] left-1/2 size-24 -translate-x-1/2 rounded-full shadow-[0_0_60px_16px_rgb(251_146_60/0.3)]"
+            style={{ background: 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c 72%)' }}
+            data-testid="welcome-sun"
+          />
+        )}
         <span className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-ground" />
       </div>
       <div className="relative z-10 -mt-6 flex items-center gap-2 text-[14px] font-bold text-sub">

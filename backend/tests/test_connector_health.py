@@ -96,3 +96,23 @@ def test_old_counts_are_dropped(api, hosp):
         rows = db.scalars(select(ConnectorPing).where(ConnectorPing.site_id == site_id))
         hours = sorted(r.hour for r in rows)
     assert hours == [hour_of(now - timedelta(days=1)), hour_of(now)]
+
+
+def test_hospital_list_carries_card_details(api, hosp):
+    """v30 (decision 053): set-up steps done, storage kind and the admin's e-mail for the card."""
+    site, _, _, ptok = hosp
+    row = next(x for x in api.get("/platform/hospitals", headers=hdr(ptok)).json() if x["id"] == site)
+    assert row["setup_total"] == 6
+    # The same count as the set-up panel's steps.
+    st = api.get(f"/platform/hospitals/{site}/setup", headers=hdr(ptok)).json()
+    check = st["connector_check"] or {}
+    steps = [
+        st["admin_accepted"],
+        st["connector_registered"],
+        bool(check) and all(v == "pass" for v in check.values()),
+        st["take_key"],
+        st["can_record"],
+        st["doctors"] > 0,
+    ]
+    assert row["setup_done"] == sum(steps) and row["connector_registered"] is True
+    assert row["admin_email"] == "admin@sunrise.example" and row["messaging"] is None

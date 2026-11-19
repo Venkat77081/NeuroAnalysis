@@ -67,11 +67,44 @@ class HospitalOut(BaseModel):
     #: (null: no connector registered).
     connector_last_seen_at: datetime | None = None
     connector_online: bool | None = None
+    #: v30 (decision 053): what the hospital card shows (canvas v28): set-up steps done (the same
+    #: six as the set-up panel), the storage kind, e-mail/SMS state and the first admin's e-mail.
+    connector_registered: bool = False
+    setup_done: int = 0
+    setup_total: int = 6
+    storage_kind: str | None = None
+    messaging: dict | None = None
+    admin_email: str | None = None
+
+
+def setup_steps(db: DbSession, site: Site) -> list[bool]:
+    """The six set-up steps, in order: admin signed up, connector registered, connector test
+    passed, take key registered, storage working, doctors added."""
+    from app.models import SiteKey
+
+    staff = list(db.scalars(select(StaffUser).where(StaffUser.site_id == site.id)))
+    check = site.connector_check or {}
+    return [
+        any(u.role == "hospital_admin" and u.password_hash for u in staff),
+        bool(site.connector_public_key),
+        bool(check) and all(v == "pass" for v in check.values()),
+        db.scalar(select(SiteKey).where(SiteKey.site_id == site.id, SiteKey.status == "active")) is not None,
+        can_record(site),
+        any(u.role == "doctor" and u.active for u in staff),
+    ]
 
 
 def _out(db: DbSession, site: Site) -> HospitalOut:
     def count(model, *where) -> int:
         return db.scalar(select(func.count()).select_from(model).where(model.site_id == site.id, *where)) or 0
+
+    steps = setup_steps(db, site)
+    admin = db.scalar(
+        select(StaffUser.email)
+        .where(StaffUser.site_id == site.id, StaffUser.role == "hospital_admin")
+        .order_by(StaffUser.created_at)
+        .limit(1)
+    )
 
     return HospitalOut(
         id=site.id,
@@ -92,6 +125,12 @@ def _out(db: DbSession, site: Site) -> HospitalOut:
         can_record=can_record(site),
         connector_last_seen_at=(seen := last_seen(db, site.id)),
         connector_online=is_online(seen) if site.connector_public_key else None,
+        connector_registered=bool(site.connector_public_key),
+        setup_done=sum(steps),
+        setup_total=len(steps),
+        storage_kind=site.storage_kind,
+        messaging={k: v for k, v in (site.messaging_status or {}).items() if k in ("email", "sms")} or None,
+        admin_email=admin,
     )
 
 

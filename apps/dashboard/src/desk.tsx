@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, hospital } from './api.ts';
 import { appointmentChanges } from './config.ts';
+import { useUndo } from './undo.tsx';
 import {
   addDays,
   fmtDay,
@@ -153,6 +154,7 @@ export function MovePanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { defer } = useUndo();
   const settings = useSettings();
   const tz = settings?.time_zone ?? 'UTC';
   const [now] = useState(() => Date.now());
@@ -171,7 +173,7 @@ export function MovePanel({
   const [reason, setReason] = useState(request ? 'patient_request' : '');
   const [notify, setNotify] = useState(true);
   const [doctors, setDoctors] = useState<DoctorDay[] | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy] = useState(false); // v29: sent after the undo window
   const [error, setError] = useState<unknown>(null);
   const offering = mode === 'offer';
   const max = settings?.offer_max ?? 3;
@@ -229,52 +231,39 @@ export function MovePanel({
   const readyNow = !!appt && !!shownDay && /^\d\d:\d\d$/.test(time) && !!reason;
   const readyOffer = picks.length > 0 && !!reason;
 
-  const move = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      if (request && appt) {
-        await call('POST', `/hospital/change-requests/${request.id}/book`, {
-          at: zonedIso(shownDay!, time, tz),
-          doctor_id: chosen,
-          notify,
-        });
-      } else {
-        await call('POST', `/hospital/appointments/${appt!.id}/move`, {
-          at: zonedIso(shownDay!, time, tz),
-          doctor_id: chosen,
-          reason,
-          notify,
-        });
-      }
-      onDone(
-        t('moves.done', {
-          name: patient,
-          when: `${fmtDay(shownDay!)}, ${fmtTime(time)}`,
-          doctor: chosenName,
-        }),
-      );
-    } catch (e) {
-      setError(e);
-    }
-    setBusy(false);
+  // v29 (decision 052): the change waits a few seconds with an Undo toast, then is sent.
+  const move = () => {
+    const at = zonedIso(shownDay!, time, tz);
+    const when = `${fmtDay(shownDay!)}, ${fmtTime(time)}`;
+    const msg = t('moves.done', { name: patient, when, doctor: chosenName });
+    const req = request && appt ? request.id : null;
+    const id = appt!.id;
+    const body = { at, doctor_id: chosen, notify };
+    defer({
+      label: t(req ? 'undo.book' : 'undo.move', { name: patient, when }),
+      run: () =>
+        req
+          ? call('POST', `/hospital/change-requests/${req}/book`, body)
+          : call('POST', `/hospital/appointments/${id}/move`, { ...body, reason }),
+      done: () => onDone(msg),
+    });
+    onClose();
   };
-  const offer = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await call('POST', '/hospital/offers', {
-        ...(request ? { request_id: request.id } : { appointment_id: appt!.id }),
-        options: picks.map((p) => ({ at: zonedIso(p.day, p.time, tz), doctor_id: p.doctor_id })),
-        current_possible: !!appt && currentPossible,
-        reason,
-        notify,
-      });
-      onDone(t('offers.sent', { name: patient, count: picks.length }));
-    } catch (e) {
-      setError(e);
-    }
-    setBusy(false);
+  const offer = () => {
+    const body = {
+      ...(request ? { request_id: request.id } : { appointment_id: appt!.id }),
+      options: picks.map((p) => ({ at: zonedIso(p.day, p.time, tz), doctor_id: p.doctor_id })),
+      current_possible: !!appt && currentPossible,
+      reason,
+      notify,
+    };
+    const msg = t('offers.sent', { name: patient, count: picks.length });
+    defer({
+      label: t('undo.offer', { name: patient, count: picks.length }),
+      run: () => call('POST', '/hospital/offers', body),
+      done: () => onDone(msg),
+    });
+    onClose();
   };
 
   const dialogTitle = appt
@@ -637,40 +626,35 @@ export function RequestPanel({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { defer } = useUndo();
   const [notify, setNotify] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
+  const [busy] = useState(false); // v29: sent after the undo window
+  const [error] = useState<unknown>(null);
   const [view, setView] = useState<'choices' | 'offer' | 'decline'>('choices');
   const answers =
     req.kind === 'change'
       ? appointmentChanges.declineAnswers
       : appointmentChanges.bookingDeclineAnswers;
 
-  const book = async (c: Choice) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await call('POST', `/hospital/change-requests/${req.id}/book`, {
-        at: c.at,
-        doctor_id: c.doctor_id,
-        notify,
-      });
-      onDone(t('moves.done', { name: patient, when: fmt(c.at), doctor: c.doctor_name ?? '' }));
-    } catch (e) {
-      setError(e);
-    }
-    setBusy(false);
+  // v29 (decision 052): held a few seconds with Undo before it is sent.
+  const book = (c: Choice) => {
+    const msg = t('moves.done', { name: patient, when: fmt(c.at), doctor: c.doctor_name ?? '' });
+    const body = { at: c.at, doctor_id: c.doctor_id, notify };
+    defer({
+      label: t('undo.book', { name: patient, when: fmt(c.at) }),
+      run: () => call('POST', `/hospital/change-requests/${req.id}/book`, body),
+      done: () => onDone(msg),
+    });
+    onClose();
   };
-  const decline = async (answer: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await call('POST', `/hospital/change-requests/${req.id}/decline`, { answer, notify });
-      onDone(t('moves.declined', { name: patient }));
-    } catch (e) {
-      setError(e);
-    }
-    setBusy(false);
+  const decline = (answer: string) => {
+    const msg = t('moves.declined', { name: patient });
+    defer({
+      label: t('undo.decline', { name: patient }),
+      run: () => call('POST', `/hospital/change-requests/${req.id}/decline`, { answer, notify }),
+      done: () => onDone(msg),
+    });
+    onClose();
   };
 
   if (view === 'offer')
@@ -1048,19 +1032,19 @@ export function NoShowDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { defer } = useUndo();
   const [notify, setNotify] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const mark = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await call('POST', `/hospital/appointments/${appt.id}/no-show`, { notify });
-      onDone(t('noShow.done', { name: patient, when: fmt(appt.at) }));
-    } catch (e) {
-      setError(e);
-    }
-    setBusy(false);
+  const [busy] = useState(false); // v29: sent after the undo window
+  const [error] = useState<unknown>(null);
+  const mark = () => {
+    const msg = t('noShow.done', { name: patient, when: fmt(appt.at) });
+    const id = appt.id;
+    defer({
+      label: t('undo.noShow', { name: patient }),
+      run: () => call('POST', `/hospital/appointments/${id}/no-show`, { notify }),
+      done: () => onDone(msg),
+    });
+    onClose();
   };
   return (
     <Dialog
@@ -1115,20 +1099,20 @@ export function CancelDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const { defer } = useUndo();
   const [reason, setReason] = useState('');
   const [notify, setNotify] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>(null);
-  const cancel = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await call('POST', `/hospital/appointments/${appt.id}/cancel`, { reason, notify });
-      onDone(t('cancel.done', { name: patient, when: fmt(appt.at) }));
-    } catch (e) {
-      setError(e);
-    }
-    setBusy(false);
+  const [busy] = useState(false); // v29: sent after the undo window
+  const [error] = useState<unknown>(null);
+  const cancel = () => {
+    const msg = t('cancel.done', { name: patient, when: fmt(appt.at) });
+    const id = appt.id;
+    defer({
+      label: t('undo.cancel', { name: patient }),
+      run: () => call('POST', `/hospital/appointments/${id}/cancel`, { reason, notify }),
+      done: () => onDone(msg),
+    });
+    onClose();
   };
   return (
     <Dialog

@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { ApiError } from './api.ts';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -141,14 +142,19 @@ export function Notice({
   );
 }
 
-export function ErrorNote({ error }: { error: unknown }) {
-  const { t } = useTranslation();
-  if (!error) return null;
+/** The words for an API error (errors.<code>), or the generic text. */
+export function errorText(t: TFunction, error: unknown): string {
   const code =
     error instanceof ApiError ? error.code : error instanceof Error ? error.message : 'generic';
   const key = `errors.${code}`;
   const text = t(key);
-  return <Notice tone="bad">{text === key ? t('errors.generic') : text}</Notice>;
+  return text === key ? t('errors.generic') : text;
+}
+
+export function ErrorNote({ error }: { error: unknown }) {
+  const { t } = useTranslation();
+  if (!error) return null;
+  return <Notice tone="bad">{errorText(t, error)}</Notice>;
 }
 
 /**

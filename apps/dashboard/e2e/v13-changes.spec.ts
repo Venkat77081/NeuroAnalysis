@@ -318,3 +318,65 @@ test('v18: the desk marks that the patient did not come', async ({ page, request
   ).json()) as { id: string; status: string }[];
   expect(past.find((a) => a.id === id)?.status).toBe('no_show');
 });
+
+test('v29: Undo keeps a desk change from being sent', async ({ page, request }) => {
+  const s = stack();
+  // An appointment in 6 days (through the API, as the desk).
+  const tok = await apiToken(s.desk_email, s.desk_totp);
+  const h = { Authorization: `Bearer ${tok}` };
+  const docs = (await (
+    await request.get(`${s.platform_url}/hospital/doctors`, { headers: h })
+  ).json()) as { id: string; email: string }[];
+  const at = new Date(Date.now() + 6 * 86_400_000);
+  at.setUTCMinutes(17, 0, 0);
+  const made = await request.post(`${s.platform_url}/hospital/appointments`, {
+    headers: h,
+    data: {
+      ncid: s.patient_ncid,
+      at: at.toISOString(),
+      doctor_id: docs.find((d) => d.email === s.doctor_email)!.id,
+    },
+  });
+  expect(made.status()).toBe(201);
+  const id = ((await made.json()) as { id: string }).id;
+  const status = async () =>
+    (
+      (await (
+        await request.get(`${s.platform_url}/hospital/appointments?days=7`, { headers: h })
+      ).json()) as { id: string; status: string }[]
+    ).find((a) => a.id === id)?.status;
+
+  await page.waitForTimeout(31_000 - (Date.now() % 30_000));
+  await signIn(page, s.desk_email, s.desk_totp);
+  await page.getByTestId('nav-appointments').click();
+  await page.getByTestId('view-list').click();
+  const when = await page.evaluate(
+    (iso) =>
+      new Date(iso).toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    at.toISOString(),
+  );
+  const row = page.getByTestId(`appt-${s.patient_mrn}`).filter({ hasText: when });
+  await row.getByTestId('appt-cancel').click();
+  const dialog = page.getByTestId('cancel-dialog');
+  await dialog.getByTestId('cancel-reason-doctor_unavailable').click();
+  await dialog.getByTestId('cancel-confirm').click();
+  // The dialog closes at once; the toast waits, and Undo drops the change.
+  const toast = page.getByTestId('undo-toast');
+  await expect(toast).toHaveAttribute('data-state', 'waiting');
+  await toast.getByTestId('undo').click();
+  await expect(toast).toHaveAttribute('data-state', 'undone');
+  await page.waitForTimeout(3_000); // past the window (2 s in the e2e config)
+  expect(await status()).toBe('booked');
+
+  // Without Undo it is sent after the window.
+  await row.getByTestId('appt-cancel').click();
+  await dialog.getByTestId('cancel-reason-doctor_unavailable').click();
+  await dialog.getByTestId('cancel-confirm').click();
+  await expect(page.getByTestId('notice')).toContainText('is cancelled');
+  expect(await status()).toBe('cancelled');
+});

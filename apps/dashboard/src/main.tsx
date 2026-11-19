@@ -5,13 +5,16 @@ import './i18n/index.ts';
 import { loadConfig } from './api.ts';
 import { App } from './App.tsx';
 import { applyTheme, savedTheme } from './shell.tsx';
+import { UndoProvider } from './undo.tsx';
 
 applyTheme(savedTheme());
 
 void loadConfig().then(() =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <UndoProvider>
+        <App />
+      </UndoProvider>
     </StrictMode>,
   ),
 );

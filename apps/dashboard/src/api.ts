@@ -18,6 +18,11 @@ export class ApiError extends Error {
 }
 
 let apiUrl = 'http://localhost:8000';
+/** v29: a deployment may shorten the undo window (config.json `undoSeconds`; tests use 2). */
+let undoOverride: number | null = null;
+export function undoSecondsOverride(): number | null {
+  return undoOverride;
+}
 let access: string | null = null;
 let connector: { token: string; url: string; until: number } | null = null;
 const REFRESH = 'nc.dash.refresh';
@@ -31,11 +36,11 @@ export async function loadConfig(): Promise<void> {
   }
   try {
     const r = await fetch('./config.json', { cache: 'no-store' });
-    if (r.ok)
-      apiUrl = String(((await r.json()) as { apiUrl?: string }).apiUrl ?? apiUrl).replace(
-        /\/+$/,
-        '',
-      );
+    if (r.ok) {
+      const c = (await r.json()) as { apiUrl?: string; undoSeconds?: number };
+      apiUrl = String(c.apiUrl ?? apiUrl).replace(/\/+$/, '');
+      if (typeof c.undoSeconds === 'number' && c.undoSeconds >= 0) undoOverride = c.undoSeconds;
+    }
   } catch {
     /* defaults */
   }

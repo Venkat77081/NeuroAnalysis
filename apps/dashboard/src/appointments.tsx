@@ -17,11 +17,15 @@ import {
   ErrorNote,
   Field,
   Notice,
+  NowLine,
   Page,
+  Segmented,
   Table,
   fmt,
   fmtDate,
 } from './ui.tsx';
+import { CalendarView, weekOf } from './calendar.tsx';
+import { addDays, fmtDay, useSettings, zonedDay, zonedTime } from './changes.tsx';
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
@@ -181,6 +185,30 @@ const RANGE_QUERY: Record<Range, string> = {
   past30: 'past_days=30',
 };
 const RANGE_KEY = 'nc.appointments.range';
+/** v28: list, day (doctors side by side) or week (remembered on this computer). */
+type View = 'list' | 'day' | 'week';
+const VIEWS: View[] = ['list', 'day', 'week'];
+const VIEW_KEY = 'nc.appointments.view';
+function savedView(): View {
+  try {
+    const v = localStorage.getItem(VIEW_KEY) as View | null;
+    return v && VIEWS.includes(v) ? v : 'list';
+  } catch {
+    return 'list';
+  }
+}
+function browserZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
+}
+/** v28: where the "Now" line goes in a list sorted by time (null: all past or all to come). */
+export function nowIndex(times: string[], now: number): number | null {
+  const i = times.findIndex((at) => Date.parse(at) > now);
+  return i > 0 ? i : null;
+}
 function savedRange(): Range {
   try {
     const v = localStorage.getItem(RANGE_KEY) as Range | null;
@@ -256,6 +284,21 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   const [now, setNow] = useState(() => Date.now());
   // Decision 038: the date range (remembered on this computer).
   const [range, setRange] = useState<Range>(savedRange);
+  const [view, setView] = useState<View>(savedView);
+  const calendar = view !== 'list';
+  const settings = useSettings();
+  const tz = settings?.time_zone ?? browserZone();
+  // null: today in the hospital's zone.
+  const [dayPick, setDay] = useState<string | null>(null);
+  const day = dayPick ?? zonedDay(now, tz);
+  const pickView = (v: View) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* not remembered */
+    }
+  };
   const pickRange = (r: Range) => {
     setRange(r);
     try {
@@ -270,7 +313,17 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
     void (async () => {
       try {
         const [list, doctors, patients, open] = await Promise.all([
-          call<Appointment[]>('GET', `/hospital/appointments?${RANGE_QUERY[range]}`),
+          // v28: the calendar shows the last 30 and the next 60 days.
+          calendar
+            ? Promise.all([
+                call<Appointment[]>('GET', '/hospital/appointments?past_days=30'),
+                call<Appointment[]>('GET', '/hospital/appointments?days=60'),
+              ]).then(([a, b]) =>
+                [...new Map([...a, ...b].map((x) => [x.id, x])).values()].sort(
+                  (x, y) => Date.parse(x.at) - Date.parse(y.at),
+                ),
+              )
+            : call<Appointment[]>('GET', `/hospital/appointments?${RANGE_QUERY[range]}`),
           call<Doctor[]>('GET', '/hospital/doctors'),
           call<PatientRow[]>('GET', '/hospital/patients'),
           call<Inbox>('GET', '/hospital/inbox').catch(() => null),
@@ -301,7 +354,7 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
     return () => {
       off = true;
     };
-  }, [version, range, onChangeCount]);
+  }, [version, range, calendar, onChangeCount]);
 
   const assign = async (a: Appointment) => {
     setError(null);
@@ -322,10 +375,14 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
     setInviting({ mrn, name: name ?? `MRN ${mrn}` });
   };
   const docName = (d: Doctor) => d.display_name ?? d.email;
+  const nowAt = nowIndex(
+    (appts ?? []).map((a) => a.at),
+    now,
+  );
   const joined = (ncid: string) => app[ncid] === 'active';
 
   const tabs = (
-    <div role="tablist" className="flex gap-6 border-b border-line">
+    <div role="tablist" className="flex flex-wrap gap-1.5">
       {(['list', 'requests'] as const).map((k) => (
         <button
           key={k}
@@ -336,12 +393,12 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
             setTab(k);
             setNotice(null);
           }}
-          className={`-mb-px flex min-h-11 items-center gap-2 border-b-[3px] px-1 text-[14px] font-semibold ${tab === k ? 'border-brand text-brand' : 'border-transparent text-[#3D4552]'}`}
+          className={`flex min-h-10 items-center gap-2 rounded-full px-4 text-[14px] font-semibold ${tab === k ? 'bg-ink text-ground' : 'bg-card text-sub shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
           data-testid={`tab-${k}`}
         >
           {t(`moves.tab.${k}`)}
           {k === 'requests' && !!changes && (
-            <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-bad px-1.5 text-[12px] font-bold text-white">
+            <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-alert px-1.5 text-[12px] font-bold text-white">
               {changes}
             </span>
           )}
@@ -368,33 +425,253 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
   return (
     <Page title={t('appts.title')}>
       {tabs}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[13px] text-muted" data-testid="appts-window">
-          {t(`appts.range.${range}`)}
-          {appts ? ` · ${t('appts.count', { count: appts.length })}` : ''}
-        </span>
-        <div
-          role="group"
-          aria-label={t('appts.rangeLabel')}
-          className="flex overflow-hidden rounded-xl border border-[#C9CFD8] bg-white"
-        >
-          {RANGES.map((r) => (
-            <button
-              key={r}
-              type="button"
-              aria-pressed={range === r}
-              onClick={() => pickRange(r)}
-              className={`min-h-11 px-3 text-[13px] font-semibold ${range === r ? 'bg-brand text-white' : 'text-ink'}`}
-              data-testid={`range-${r}`}
+      <div className="flex flex-wrap items-center gap-3">
+        {calendar ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              className="size-9 min-h-9 px-0"
+              aria-label={t('cal.prev')}
+              onClick={() => setDay(addDays(day, view === 'week' ? -7 : -1))}
+              data-testid="cal-prev"
             >
-              {t(`appts.rangeButton.${r}`)}
-            </button>
-          ))}
-        </div>
+              ‹
+            </Button>
+            <Button
+              variant="secondary"
+              className="min-h-9"
+              onClick={() => setDay(null)}
+              data-testid="cal-today"
+            >
+              {t('cal.today')}
+            </Button>
+            <Button
+              variant="secondary"
+              className="size-9 min-h-9 px-0"
+              aria-label={t('cal.next')}
+              onClick={() => setDay(addDays(day, view === 'week' ? 7 : 1))}
+              data-testid="cal-next"
+            >
+              ›
+            </Button>
+            <b className="text-[17px]" data-testid="cal-title">
+              {view === 'week'
+                ? t('cal.weekOf', { day: fmtDay(weekOf(day)[0]!, false) })
+                : fmtDay(day)}
+            </b>
+          </div>
+        ) : (
+          <span className="text-[13px] text-muted" data-testid="appts-window">
+            {t(`appts.range.${range}`)}
+            {appts ? ` · ${t('appts.count', { count: appts.length })}` : ''}
+          </span>
+        )}
+        <span className="flex-1" />
+        <Segmented
+          options={VIEWS.map((v) => ({ value: v, label: t(`cal.view.${v}`) }))}
+          value={view}
+          onChange={pickView}
+          label={t('cal.viewLabel')}
+          testId={(v) => `view-${v}`}
+        />
+        {!calendar && (
+          <Segmented
+            options={RANGES.map((r) => ({ value: r, label: t(`appts.rangeButton.${r}`) }))}
+            value={range}
+            onChange={pickRange}
+            label={t('appts.rangeLabel')}
+            testId={(r) => `range-${r}`}
+          />
+        )}
       </div>
       <Notice>{t('app.notStored')}</Notice>
       <ErrorNote error={error} />
       {notice && <Notice testId="notice">{notice}</Notice>}
+      {calendar && (
+        <Card testId="calendar">
+          <CalendarView
+            mode={view === 'week' ? 'week' : 'day'}
+            appts={appts ?? []}
+            names={Object.fromEntries(
+              Object.values(ident).flatMap((i) => (i.name ? [[i.ncid, i.name]] : [])),
+            )}
+            tz={tz}
+            day={day}
+            now={now}
+            onOpen={setOpen}
+          />
+        </Card>
+      )}
+      {!calendar && (
+        <Table
+          head={[
+            t('appts.when'),
+            t('appts.patient'),
+            t('appts.app'),
+            t('appts.doctor'),
+            t('appts.whereTitle'),
+            t('appts.status'),
+            t('appts.lastChange'),
+            '',
+          ]}
+          testId="appointments"
+        >
+          {(appts ?? []).map((a, n) => {
+            const i = ident[a.ncid];
+            return (
+              <Fragment key={a.id}>
+                {range !== 'past30' && n === nowAt && (
+                  <tr>
+                    <td colSpan={8} className="px-4">
+                      <NowLine
+                        label={t('shell.now', {
+                          time: zonedTime(new Date(now).toISOString(), tz),
+                        })}
+                      />
+                    </td>
+                  </tr>
+                )}
+                <tr className="border-t border-line" data-testid={`appt-${i?.mrn ?? a.ncid}`}>
+                  <td className="px-4 py-3 font-semibold">
+                    {fmt(a.at)}
+                    <span className="block text-[12px] font-normal text-muted">
+                      {a.source === 'manual' && a.booked_by_name
+                        ? t('appts.addedBy', { name: a.booked_by_name })
+                        : t(`appts.source.${a.source}`)}
+                    </span>
+                    <MoveBadges a={a} now={now} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {i?.name ?? <code className="text-[12px] text-muted">{a.ncid}</code>}
+                    {i && <span className="block text-[12px] text-muted">MRN {i.mrn}</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={joined(a.ncid) ? 'ok' : 'neutral'}>
+                      {t(joined(a.ncid) ? 'appts.joined' : 'appts.notJoined')}
+                    </Badge>
+                    {!joined(a.ncid) && unsuitable[a.ncid] !== undefined && (
+                      <span className="mt-1 block" data-testid="appt-phone-unsuitable">
+                        <Badge tone="warn">
+                          {t('appts.phoneUnsuitable', { fps: unsuitable[a.ncid]!.toFixed(0) })}
+                        </Badge>
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {canAssign && (a.stage === 'needs_doctor' || a.stage === 'needs_tests') ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          aria-label={t('appts.doctor')}
+                          value={choice[a.id] ?? a.doctor_id ?? ''}
+                          onChange={(e) => setChoice((c) => ({ ...c, [a.id]: e.target.value }))}
+                          className="h-11 rounded-2xl border border-edge bg-card px-2"
+                          data-testid="appt-doctor"
+                        >
+                          <option value="">{t('assign.choose')}</option>
+                          {docs.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {docName(d)}
+                            </option>
+                          ))}
+                        </select>
+                        {choice[a.id] && choice[a.id] !== a.doctor_id && (
+                          <Button onClick={() => void assign(a)} data-testid="appt-assign">
+                            {t(a.doctor_id ? 'appts.changeDoctor' : 'appts.assign')}
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      a.doctor_name
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <WhereBadges a={a} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col items-start gap-1.5">
+                      <StageBadge a={a} />
+                      {canInvite && !joined(a.ncid) && i && a.stage !== 'cancelled' && (
+                        <Button
+                          variant="secondary"
+                          onClick={() => invite(i.mrn, i.name)}
+                          data-testid="appt-invite"
+                        >
+                          {t('appts.sendInvite')}
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[13px]" data-testid="appt-last">
+                    {a.last_event && (
+                      <>
+                        {describe(t, a.last_event.action, a.last_event.details)}
+                        <span className="block text-muted">
+                          {a.last_event.actor_name} · {fmt(a.last_event.at)}
+                        </span>
+                      </>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col items-stretch gap-1.5">
+                      {canMove && a.status === 'booked' && Date.parse(a.at) > now && (
+                        <Button
+                          variant="secondary"
+                          className="min-h-9 text-[13px]"
+                          aria-expanded={moving === a.id}
+                          onClick={() => {
+                            setMoving(moving === a.id ? null : a.id);
+                            setNotice(null);
+                          }}
+                          data-testid="appt-move"
+                        >
+                          {t('moves.open')}
+                        </Button>
+                      )}
+                      {canMove && a.status === 'booked' && (
+                        <Button
+                          variant="secondary"
+                          className="min-h-9 text-[13px]"
+                          aria-expanded={cancelling === a.id}
+                          onClick={() => {
+                            setCancelling(cancelling === a.id ? null : a.id);
+                            setNotice(null);
+                          }}
+                          data-testid="appt-cancel"
+                        >
+                          {t('cancel.open')}
+                        </Button>
+                      )}
+                      {canMove && a.status === 'booked' && Date.parse(a.at) <= now && (
+                        <Button
+                          variant="secondary"
+                          className="min-h-9 text-[13px]"
+                          aria-expanded={noShow === a.id}
+                          onClick={() => {
+                            setNoShow(noShow === a.id ? null : a.id);
+                            setNotice(null);
+                          }}
+                          data-testid="appt-no-show"
+                        >
+                          {t('noShow.open')}
+                        </Button>
+                      )}
+                      <Button
+                        variant="secondary"
+                        className="min-h-9 text-[13px]"
+                        aria-expanded={open === a.id}
+                        onClick={() => setOpen(open === a.id ? null : a.id)}
+                        data-testid="appt-history-btn"
+                      >
+                        {t('appts.history')}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              </Fragment>
+            );
+          })}
+        </Table>
+      )}
       {canAdd && (
         <ManualAppointment
           docs={docs}
@@ -405,159 +682,6 @@ export function Appointments({ onChangeCount }: { onChangeCount?: (n: number) =>
           }}
         />
       )}
-      <Table
-        head={[
-          t('appts.when'),
-          t('appts.patient'),
-          t('appts.app'),
-          t('appts.doctor'),
-          t('appts.whereTitle'),
-          t('appts.status'),
-          t('appts.lastChange'),
-          '',
-        ]}
-        testId="appointments"
-      >
-        {(appts ?? []).map((a) => {
-          const i = ident[a.ncid];
-          return (
-            <Fragment key={a.id}>
-              <tr className="border-t border-[#EDF0F3]" data-testid={`appt-${i?.mrn ?? a.ncid}`}>
-                <td className="px-4 py-3 font-semibold">
-                  {fmt(a.at)}
-                  <span className="block text-[12px] font-normal text-muted">
-                    {a.source === 'manual' && a.booked_by_name
-                      ? t('appts.addedBy', { name: a.booked_by_name })
-                      : t(`appts.source.${a.source}`)}
-                  </span>
-                  <MoveBadges a={a} now={now} />
-                </td>
-                <td className="px-4 py-3">
-                  {i?.name ?? <code className="text-[12px] text-muted">{a.ncid}</code>}
-                  {i && <span className="block text-[12px] text-muted">MRN {i.mrn}</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <Badge tone={joined(a.ncid) ? 'ok' : 'neutral'}>
-                    {t(joined(a.ncid) ? 'appts.joined' : 'appts.notJoined')}
-                  </Badge>
-                  {!joined(a.ncid) && unsuitable[a.ncid] !== undefined && (
-                    <span className="mt-1 block" data-testid="appt-phone-unsuitable">
-                      <Badge tone="warn">
-                        {t('appts.phoneUnsuitable', { fps: unsuitable[a.ncid]!.toFixed(0) })}
-                      </Badge>
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  {canAssign && (a.stage === 'needs_doctor' || a.stage === 'needs_tests') ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        aria-label={t('appts.doctor')}
-                        value={choice[a.id] ?? a.doctor_id ?? ''}
-                        onChange={(e) => setChoice((c) => ({ ...c, [a.id]: e.target.value }))}
-                        className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2"
-                        data-testid="appt-doctor"
-                      >
-                        <option value="">{t('assign.choose')}</option>
-                        {docs.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {docName(d)}
-                          </option>
-                        ))}
-                      </select>
-                      {choice[a.id] && choice[a.id] !== a.doctor_id && (
-                        <Button onClick={() => void assign(a)} data-testid="appt-assign">
-                          {t(a.doctor_id ? 'appts.changeDoctor' : 'appts.assign')}
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    a.doctor_name
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <WhereBadges a={a} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col items-start gap-1.5">
-                    <StageBadge a={a} />
-                    {canInvite && !joined(a.ncid) && i && a.stage !== 'cancelled' && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => invite(i.mrn, i.name)}
-                        data-testid="appt-invite"
-                      >
-                        {t('appts.sendInvite')}
-                      </Button>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-[13px]" data-testid="appt-last">
-                  {a.last_event && (
-                    <>
-                      {describe(t, a.last_event.action, a.last_event.details)}
-                      <span className="block text-muted">
-                        {a.last_event.actor_name} · {fmt(a.last_event.at)}
-                      </span>
-                    </>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col items-stretch gap-1.5">
-                    {canMove && a.status === 'booked' && Date.parse(a.at) > now && (
-                      <Button
-                        variant="secondary"
-                        aria-expanded={moving === a.id}
-                        onClick={() => {
-                          setMoving(moving === a.id ? null : a.id);
-                          setNotice(null);
-                        }}
-                        data-testid="appt-move"
-                      >
-                        {t('moves.open')}
-                      </Button>
-                    )}
-                    {canMove && a.status === 'booked' && (
-                      <Button
-                        variant="secondary"
-                        aria-expanded={cancelling === a.id}
-                        onClick={() => {
-                          setCancelling(cancelling === a.id ? null : a.id);
-                          setNotice(null);
-                        }}
-                        data-testid="appt-cancel"
-                      >
-                        {t('cancel.open')}
-                      </Button>
-                    )}
-                    {canMove && a.status === 'booked' && Date.parse(a.at) <= now && (
-                      <Button
-                        variant="secondary"
-                        aria-expanded={noShow === a.id}
-                        onClick={() => {
-                          setNoShow(noShow === a.id ? null : a.id);
-                          setNotice(null);
-                        }}
-                        data-testid="appt-no-show"
-                      >
-                        {t('noShow.open')}
-                      </Button>
-                    )}
-                    <Button
-                      variant="secondary"
-                      aria-expanded={open === a.id}
-                      onClick={() => setOpen(open === a.id ? null : a.id)}
-                      data-testid="appt-history-btn"
-                    >
-                      {t('appts.history')}
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            </Fragment>
-          );
-        })}
-      </Table>
       {(appts ?? [])
         .filter((a) => a.id === moving || a.id === cancelling || a.id === noShow || a.id === open)
         .map((a) => {
@@ -699,7 +823,7 @@ function ManualAppointment({
   };
   return (
     <Card title={t('appts.manualTitle')} testId="manual" className="max-w-3xl">
-      <span className="text-[14px] text-[#3D4552]">{t('appts.manualHint')}</span>
+      <span className="text-[14px] text-sub">{t('appts.manualHint')}</span>
       <div className="flex flex-wrap items-end gap-3">
         <Field
           id="appt-q"
@@ -742,12 +866,12 @@ function ManualAppointment({
           data-testid="manual-at"
         />
         {canAssign && (
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
             {t('appts.doctor')}
             <select
               value={doctor}
               onChange={(e) => setDoctor(e.target.value)}
-              className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 font-normal"
+              className="h-11 rounded-2xl border border-edge bg-card px-2 font-normal"
               data-testid="manual-doctor"
             >
               <option value="">{t('assign.choose')}</option>
@@ -787,7 +911,7 @@ export function AppointmentHistory({ id }: { id: string }) {
       <ErrorNote error={error} />
       <ol
         aria-label={t('appts.historyLabel')}
-        className="flex flex-col gap-2.5 rounded-xl border border-line bg-white px-4 py-3.5 text-[13px]"
+        className="flex flex-col gap-2.5 rounded-xl border border-line bg-card px-4 py-3.5 text-[13px]"
         data-testid="appt-history"
       >
         {(events ?? []).map((e, n) => (

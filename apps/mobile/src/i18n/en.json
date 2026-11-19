@@ -646,7 +646,14 @@
       "confirm": "Withdraw consent and sign out?",
       "confirmYes": "Yes, withdraw",
       "cancel": "Cancel",
-      "done": "Your consent is withdrawn. This phone is signed out."
+      "done": "Your consent is withdrawn. This phone is signed out.",
+      "appearance": "Appearance",
+      "appearances": {
+        "auto": "Automatic: dark from {{from}}:00 to {{to}}:00",
+        "system": "Same as this phone",
+        "light": "Light",
+        "dark": "Dark"
+      }
     },
     "errors": {
       "network": "Cannot reach the server. Check the network.",

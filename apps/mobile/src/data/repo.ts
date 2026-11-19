@@ -3,6 +3,7 @@ import type { ServerLink, SignedIn } from '../lib/uploads.ts';
 import type { AppStore } from './store.ts';
 import type { PatientHospital } from '../lib/hospitals.ts';
 import type { AccountLocal } from '../lib/appaccount.ts';
+import type { Appearance } from '../lib/appearance.ts';
 
 const SESSION_KEY = 'session.current';
 
@@ -30,6 +31,8 @@ export interface Settings {
   account: AccountLocal | null;
   /** New UI (decision 050): the patient's first name for the greeting. Kept on this phone only. */
   firstName: string | null;
+  /** v31 (decision 055): Automatic (dark in the evening), same as the phone, light or dark. */
+  appearance: Appearance;
 }
 
 export const defaultSettings: Settings = {
@@ -46,6 +49,7 @@ export const defaultSettings: Settings = {
   hospitals: [],
   account: null,
   firstName: null,
+  appearance: 'auto',
 };
 
 /** Patients, session snapshot and settings on top of an AppStore. */

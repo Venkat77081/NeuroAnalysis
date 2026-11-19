@@ -24,6 +24,7 @@ import {
 import { persist, startSession, type SessionActor } from '../session/persist.ts';
 import { uploadConfig, uploadPrefs } from '../lib/uploads.ts';
 import { crashScreen } from '../lib/crash.ts';
+import { FALLBACK_HOURS, applyAppearance } from '../lib/appearance.ts';
 
 export interface AppServices {
   config: LoadedConfig;
@@ -173,6 +174,16 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   useEffect(() => {
     if (actor) crashScreen.get = () => JSON.stringify(actor.getSnapshot().value);
   }, [actor]);
+
+  // v31 (decision 055): the light or evening look; Automatic checks the clock every minute.
+  const mode = settings.appearance ?? 'auto';
+  useEffect(() => {
+    const hours = config.platform.appearance ?? FALLBACK_HOURS;
+    applyAppearance(mode, hours);
+    if (mode !== 'auto') return;
+    const id = setInterval(() => applyAppearance(mode, hours), 60_000);
+    return () => clearInterval(id);
+  }, [mode, config]);
 
   const services = useMemo<AppServices | null>(() => {
     if (!actor) return null;

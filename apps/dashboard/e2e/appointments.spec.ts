@@ -68,6 +68,9 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   await page.getByTestId('via-print').check();
   await page.getByTestId('p-send').click();
   await expect(page.getByTestId('invite-qr')).toBeVisible();
+  // v31: the invite is a pop-up over the list; close it.
+  await page.getByTestId('p-invite').getByTestId('dialog-close').click();
+  await expect(page.getByTestId('p-invite')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/reception-appointments.png', fullPage: true });
   await page.getByTestId('sign-out').click();
 

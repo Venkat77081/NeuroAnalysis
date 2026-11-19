@@ -221,11 +221,11 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
     return (
       <div className="fixed inset-0 text-white" data-testid="tracking-live">
         {capture.implementation === 'mock' && (
-          <div className="absolute inset-0 bg-[#20262F]" aria-hidden="true" />
+          <div className="absolute inset-0 bg-cam-panel" aria-hidden="true" />
         )}
         <LandmarkOverlay transform={transform} />
         <div className="absolute inset-x-4 top-[calc(1rem+var(--sat))] flex flex-wrap gap-2 text-sm font-semibold tabular-nums">
-          <span className="rounded-xl bg-[#0E1116] px-3 py-2" data-testid="tracking-hud">
+          <span className="rounded-xl bg-cam px-3 py-2" data-testid="tracking-hud">
             {live
               ? t('trackingTest.hud', {
                   fps: live.fps.toFixed(1),
@@ -235,15 +235,13 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
               : t('trackingTest.starting')}
           </span>
           {live && (
-            <span className="rounded-xl bg-[#0E1116] px-3 py-2">
-              {t('trackingTest.counts', live)}
-            </span>
+            <span className="rounded-xl bg-cam px-3 py-2">{t('trackingTest.counts', live)}</span>
           )}
         </div>
         {!record && (
           <button
             type="button"
-            className="absolute inset-x-4 bottom-[calc(1.5rem+var(--sab))] h-12 rounded-2xl bg-[#0E1116] font-semibold"
+            className="absolute inset-x-4 bottom-[calc(1.5rem+var(--sab))] h-12 rounded-2xl bg-cam font-semibold"
             disabled={stopReq}
             onClick={() => {
               setStopReq(true);
@@ -289,7 +287,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
           <select
             value={code}
             onChange={(e) => setCode(e.target.value as typeof code)}
-            className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px] font-normal"
+            className="h-12 rounded-xl border border-edge bg-white px-3 text-[15px] font-normal"
             data-testid="tracking-test-select"
           >
             {codes.map((c) => {
@@ -311,7 +309,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
               setDelegate(v);
               setTrackerDelegate(v); // also used by the session camera on this device
             }}
-            className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px] font-normal"
+            className="h-12 rounded-xl border border-edge bg-white px-3 text-[15px] font-normal"
             data-testid="delegate-select"
           >
             <option value="auto">{t('trackingTest.delegateAuto')}</option>
@@ -334,7 +332,7 @@ export function TrackingTest({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={() => void run()}
-          className="h-12 rounded-xl bg-ink text-[15px] font-semibold text-white"
+          className="h-12 rounded-xl bg-ink text-[15px] font-semibold text-ground"
           data-testid="tracking-run"
         >
           {t('trackingTest.run')}

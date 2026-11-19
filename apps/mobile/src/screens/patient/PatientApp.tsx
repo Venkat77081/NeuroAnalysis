@@ -21,7 +21,8 @@ import {
 } from '../../lib/hospitals.ts';
 import { logger } from '../../lib/logger.ts';
 import { stepTitle } from '../session/TestIntro.tsx';
-import { BackButton, Button, Card } from '../../ui/kit.tsx';
+import { BackButton, Button, Card, Radio } from '../../ui/kit.tsx';
+import { APPEARANCES } from '../../lib/appearance.ts';
 import { ErrorText } from '../modes/Common.tsx';
 import { InviteFlow } from './InviteFlow.tsx';
 import { canRecord } from '../../lib/clinic.ts';
@@ -370,13 +371,13 @@ function HospitalList({
             {todos.map((x, i) => (
               <article
                 key={x.key}
-                className="nc-fade-up flex w-[78%] max-w-[300px] flex-none snap-start flex-col gap-1.5 rounded-2xl border border-line bg-white p-4"
+                className={`nc-fade-up flex w-[78%] max-w-[300px] flex-none snap-start flex-col gap-1.5 rounded-3xl bg-card p-4 ${i === 0 ? 'shadow-[inset_0_0_0_2px_var(--color-brand),var(--shadow-card)]' : 'shadow-card'}`}
                 style={{ animationDelay: `${i * 0.08}s` }}
                 data-testid="todo-card"
                 data-kind={x.kind}
               >
                 <span
-                  className={`text-[11px] font-bold ${x.kind === 'consent' ? 'text-brand' : 'text-[#8A4B00]'}`}
+                  className={`text-[11px] font-bold ${x.kind === 'consent' ? 'text-brand' : 'text-warn'}`}
                 >
                   {x.tag.toUpperCase()}
                 </span>
@@ -400,7 +401,7 @@ function HospitalList({
       )}
       {anyActive && loaded && todos.length === 0 && (
         <Card
-          className="nc-fade-up flex items-center gap-3 !border-[#CDEBD8] !bg-[#F0FAF4]"
+          className="nc-fade-up flex items-center gap-3 !border-ok-soft !bg-ok-soft"
           data-testid="caught-up"
         >
           <span aria-hidden className="text-[26px]">
@@ -440,7 +441,7 @@ function HospitalList({
         type="button"
         onClick={onSettings}
         aria-label={t('modes.home.settings')}
-        className="fixed right-4 bottom-[calc(1rem+var(--sab))] z-30 flex size-14 items-center justify-center rounded-full border border-line bg-white text-ink shadow-[0_6px_18px_rgba(20,24,31,0.15)]"
+        className="fixed right-4 bottom-[calc(1rem+var(--sab))] z-30 flex size-14 items-center justify-center rounded-full border border-line bg-card text-ink shadow-[0_6px_18px_rgba(20,24,31,0.15)]"
         data-testid="home-settings"
       >
         <svg
@@ -506,12 +507,12 @@ function HospitalCard({
       <button
         type="button"
         onClick={onOpen}
-        className="flex min-h-[72px] w-full items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
+        className="flex min-h-[72px] w-full items-center gap-3 rounded-3xl bg-card shadow-card px-4 py-3 text-left"
         data-testid="hospital-card"
       >
         <span
           aria-hidden
-          className={`flex size-11 flex-none items-center justify-center rounded-xl text-[20px] ${h.withdrawnAt ? 'bg-[#EDF0F3]' : 'bg-brand-soft'}`}
+          className={`flex size-11 flex-none items-center justify-center rounded-xl text-[20px] ${h.withdrawnAt ? 'bg-soft' : 'bg-brand-soft'}`}
         >
           🏥
         </span>
@@ -522,10 +523,10 @@ function HospitalCard({
         <span
           className={`rounded-xl px-2.5 py-0.5 text-[12px] font-bold whitespace-nowrap ${
             h.withdrawnAt
-              ? 'bg-[#EDF0F3] text-[#3D4552]'
+              ? 'bg-soft text-sub'
               : open.length > 0
                 ? 'bg-bad text-white'
-                : 'bg-[#E3F4EA] text-[#145F38]'
+                : 'bg-ok-soft text-ok'
           }`}
           data-testid="hospital-badge"
         >
@@ -616,7 +617,7 @@ function HospitalView({
   const notes = (
     <>
       {data?.offline && (
-        <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[13px] text-[#8A4B00]">
+        <p className="rounded-xl bg-warn-soft px-3 py-2 text-[13px] text-warn">
           {t('modes.home.offline')}
         </p>
       )}
@@ -642,10 +643,10 @@ function HospitalView({
                 .map((r) => (
                   <div
                     key={r.id}
-                    className="flex flex-col gap-1 border-t border-[#EDF0F3] pt-2"
+                    className="flex flex-col gap-1 border-t border-line pt-2"
                     data-testid="request-clinic"
                   >
-                    <span className="text-[12px] font-bold text-[#0B5FAA]">
+                    <span className="text-[12px] font-bold text-brand">
                       {t('modes.hospitals.menu.clinicAtVisit').toUpperCase()}
                     </span>
                     <ClinicConsentCard h={h} request={r} />
@@ -697,13 +698,13 @@ function HospitalView({
       key={id}
       type="button"
       onClick={() => setSection(id)}
-      className="nc-fade-up flex min-h-16 w-full items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
+      className="nc-fade-up flex min-h-16 w-full items-center gap-3 rounded-3xl bg-card shadow-card px-4 py-3 text-left"
       style={{ animationDelay: `${ROW_ORDER.indexOf(id) * 0.08}s` }}
       data-testid={`menu-${id}`}
     >
       <span
         aria-hidden
-        className={`flex size-10 flex-none items-center justify-center rounded-xl text-[18px] ${muted ? 'bg-[#EDF0F3]' : 'bg-[#E6EFF8]'}`}
+        className={`flex size-10 flex-none items-center justify-center rounded-xl text-[18px] ${muted ? 'bg-soft' : 'bg-brand-soft'}`}
       >
         {icon}
       </span>
@@ -730,10 +731,10 @@ function HospitalView({
       {header(h.hospital, onBack, 'hospital-name')}
       {h.withdrawnAt && (
         <section
-          className="flex flex-col gap-2 rounded-2xl border border-[#C9CFD8] bg-[#EDF0F3] p-4"
+          className="flex flex-col gap-2 rounded-2xl border border-edge bg-soft p-4"
           data-testid="hospital-withdrawn"
         >
-          <span className="self-start rounded-xl bg-white px-2.5 py-0.5 text-[12px] font-bold text-[#3D4552]">
+          <span className="self-start rounded-xl bg-card px-2.5 py-0.5 text-[12px] font-bold text-sub">
             {t('modes.hospitals.withdrawnOn', {
               date: fmtDate(h.withdrawnAt, lang),
             }).toUpperCase()}
@@ -741,7 +742,7 @@ function HospitalView({
           <span className="text-[15px] leading-[22px]">
             {t('modes.hospitals.withdrawnBody', { hospital: h.hospital })}
           </span>
-          <span className="text-[14px] leading-5 text-[#3D4552]">
+          <span className="text-[14px] leading-5 text-sub">
             {t('modes.hospitals.withdrawnBack', { hospital: h.hospital })}
           </span>
         </section>
@@ -749,7 +750,7 @@ function HospitalView({
       {notes}
       {live && data?.canRecord === false && (
         <p
-          className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] text-[#8A4B00]"
+          className="rounded-xl bg-warn-soft px-3 py-2 text-[14px] text-warn"
           data-testid="hospital-not-ready"
         >
           {t('modes.hospitals.notReadyBody', { hospital: h.hospital })}
@@ -819,7 +820,7 @@ function ClinicVisit({ h, r }: { h: PatientHospital; r: PatientRequest }) {
   const { t, i18n } = useTranslation();
   return (
     <Card className="flex flex-col gap-1" data-testid="request-clinic">
-      <span className="text-[12px] font-bold text-[#0B5FAA]">
+      <span className="text-[12px] font-bold text-brand">
         {t('modes.hospitals.clinicTitle').toUpperCase()}
       </span>
       <span className="text-[15px] leading-[22px]">
@@ -861,7 +862,7 @@ function RecordingsSection({
           const { steps, minutes } = testsMinutes(config, r.tests, r.durations);
           return (
             <Card key={r.id} className="flex flex-col gap-2" data-testid="request-card">
-              <span className="text-[12px] font-bold text-[#8A4B00]">
+              <span className="text-[12px] font-bold text-warn">
                 {t('modes.hospitals.requestDue', {
                   date: fmtDate(r.due_at, i18n.language),
                 }).toUpperCase()}
@@ -873,7 +874,7 @@ function RecordingsSection({
                     })
                   : t('modes.hospitals.again')}
               </span>
-              <span className="text-[14px] text-[#3D4552]">
+              <span className="text-[14px] text-sub">
                 {t('modes.hospitals.asks', {
                   doctor: r.doctor_name ?? t('modes.hospitals.yourDoctor'),
                   count: steps.length,
@@ -882,7 +883,7 @@ function RecordingsSection({
               </span>
               <ul className="flex flex-wrap gap-1.5 text-[13px]">
                 {steps.map(([code, side]) => (
-                  <li key={`${code}${side ?? ''}`} className="rounded-lg bg-[#EDF0F3] px-2 py-0.5">
+                  <li key={`${code}${side ?? ''}`} className="rounded-lg bg-soft px-2 py-0.5">
                     {stepTitle(t, code, side)}
                   </li>
                 ))}
@@ -904,7 +905,7 @@ function RecordingsSection({
             <h2 className="text-[16px] font-bold">{t('modes.home.plan')}</h2>
             {plan.due_now ? (
               <span
-                className="rounded-xl bg-[#E3F4EA] px-2.5 py-0.5 text-[13px] font-semibold text-[#145F38]"
+                className="rounded-xl bg-ok-soft px-2.5 py-0.5 text-[13px] font-semibold text-ok"
                 data-testid="home-due"
               >
                 {t('modes.home.due')}
@@ -947,11 +948,11 @@ function RecordingsSection({
       {past.length === 0 && (data?.sessions.length ?? 0) === 0 && (
         <p className="text-[14px] text-muted">{t('modes.recordings.none')}</p>
       )}
-      <ol className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white empty:hidden">
+      <ol className="flex flex-col overflow-hidden rounded-3xl bg-card shadow-card empty:hidden">
         {(data?.sessions ?? []).map((s) => (
           <li
             key={s.id}
-            className="flex flex-col gap-0.5 border-b border-[#EDF0F3] px-4 py-3 last:border-b-0"
+            className="flex flex-col gap-0.5 border-b border-line px-4 py-3 last:border-b-0"
             data-testid="rec-session"
           >
             <span className="text-[15px] font-semibold">
@@ -971,16 +972,14 @@ function RecordingsSection({
         {past.map((r) => (
           <li
             key={r.id}
-            className="flex flex-col gap-0.5 border-b border-[#EDF0F3] px-4 py-3 last:border-b-0"
+            className="flex flex-col gap-0.5 border-b border-line px-4 py-3 last:border-b-0"
             data-testid="history-request"
           >
             <span className="text-[15px] font-semibold">
               {fmtDate(r.appointment_at ?? r.due_at, i18n.language)}
               {r.doctor_name ? ` · ${r.doctor_name}` : ''}
             </span>
-            <span
-              className={`text-[13px] ${r.state === 'recorded' ? 'text-[#145F38]' : 'text-muted'}`}
-            >
+            <span className={`text-[13px] ${r.state === 'recorded' ? 'text-ok' : 'text-muted'}`}>
               {t(`modes.hospitals.state.${r.state}`)}
             </span>
           </li>
@@ -1041,7 +1040,7 @@ function AppointmentHistory({ h }: { h: PatientHospital }) {
             type="button"
             aria-pressed={filter === f}
             onClick={() => setFilter(f)}
-            className={`min-h-11 rounded-full border px-4 text-[14px] font-semibold ${filter === f ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white text-ink'}`}
+            className={`min-h-11 rounded-full border px-4 text-[14px] font-semibold ${filter === f ? 'border-transparent nc-gradient text-white' : 'border-edge bg-card text-ink'}`}
             data-testid={`history-filter-${f}`}
           >
             {t(`modes.hospitals.menu.filter.${f}`)}
@@ -1068,7 +1067,7 @@ function AppointmentHistory({ h }: { h: PatientHospital }) {
             <div className="flex items-start justify-between gap-2">
               <b className="text-[15px]">{fmtDateTime(r.at, i18n.language)}</b>
               <span
-                className={`rounded-xl px-2.5 py-0.5 text-[12px] font-semibold whitespace-nowrap ${cancelled ? 'bg-[#EDF0F3] text-[#3D4552]' : 'bg-[#E3F4EA] text-[#145F38]'}`}
+                className={`rounded-xl px-2.5 py-0.5 text-[12px] font-semibold whitespace-nowrap ${cancelled ? 'bg-soft text-sub' : 'bg-ok-soft text-ok'}`}
                 data-testid="history-appt-state"
               >
                 {what}
@@ -1131,14 +1130,14 @@ function HospitalDetails({ h }: { h: PatientHospital }) {
     <>
       <Card className="flex flex-col gap-1">
         <b className="text-[16px]">{h.hospital}</b>
-        <span className="text-[14px] leading-5 text-[#3D4552]">
+        <span className="text-[14px] leading-5 text-sub">
           {t('modes.hospitals.menu.detailsBody', { hospital: h.hospital })}
         </span>
       </Card>
       {!h.withdrawnAt && (
         <Card className="flex flex-col gap-2">
           <h2 className="text-[15px] font-bold">{t('modes.settings.withdrawTitle')}</h2>
-          <p className="text-[13px] leading-[19px] text-[#3D4552]">
+          <p className="text-[13px] leading-[19px] text-sub">
             {t('modes.hospitals.withdrawBody', { hospital: h.hospital })}
           </p>
           <ErrorText code={error} />
@@ -1221,7 +1220,7 @@ function ConsentView({
       <h1 className="text-[26px] leading-8 font-bold">{t('modes.consent.title')}</h1>
       <Card className="flex flex-col gap-2">
         <h2 className="text-[15px] font-bold">{t('modes.consent.whatTitle')}</h2>
-        <p className="text-[14px] leading-[21px] text-[#3D4552]">
+        <p className="text-[14px] leading-[21px] text-sub">
           {t('modes.consent.what', {
             count: steps.length,
             minutes,
@@ -1230,7 +1229,7 @@ function ConsentView({
           })}
         </p>
       </Card>
-      <label className="flex min-h-12 items-center gap-3 rounded-2xl border-2 border-brand bg-white px-4 py-3 text-[15px]">
+      <label className="flex min-h-12 items-center gap-3 rounded-2xl border-2 border-brand bg-card px-4 py-3 text-[15px]">
         <input
           type="checkbox"
           checked={consent}
@@ -1279,7 +1278,7 @@ function ConsentView({
 
 function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccount: () => void }) {
   const { t } = useTranslation();
-  const { settings, saveSettings } = useApp();
+  const { settings, saveSettings, config } = useApp();
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-4 pb-6">
       <header className="flex items-center gap-1">
@@ -1302,6 +1301,22 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
           ))}
         </div>
       </Card>
+      {/* v31 (decision 055): Automatic is dark in the evening, like the hospital dashboards. */}
+      <Card className="flex flex-col gap-2" data-testid="appearance-card">
+        <h2 className="text-[15px] font-bold">{t('modes.settings.appearance')}</h2>
+        {APPEARANCES.map((a) => (
+          <Radio
+            key={a}
+            name="appearance"
+            checked={(settings.appearance ?? 'auto') === a}
+            onChange={() => void saveSettings({ ...settings, appearance: a })}
+            label={t(`modes.settings.appearances.${a}`, {
+              from: config.platform.appearance?.darkFromHour ?? 18,
+              to: config.platform.appearance?.lightFromHour ?? 6,
+            })}
+          />
+        ))}
+      </Card>
       <Card className="flex flex-col gap-2" data-testid="name-card">
         <label htmlFor="settings-first-name" className="text-[15px] font-bold">
           {t('greeting.nameSetting')}
@@ -1314,7 +1329,7 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
           onBlur={(e) =>
             void saveSettings({ ...settings, firstName: e.target.value.trim().slice(0, 40) })
           }
-          className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[16px]"
+          className="h-12 rounded-xl border border-edge bg-card px-3 text-[16px]"
           data-testid="settings-first-name"
         />
         <span className="text-[13px] text-muted">{t('greeting.nameHint')}</span>
@@ -1322,12 +1337,12 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
       <Card className="flex flex-col gap-2" data-testid="account-card">
         <h2 className="text-[15px] font-bold">{t('modes.account.settingsTitle')}</h2>
         {settings.account ? (
-          <p className="text-[14px] leading-5 text-[#3D4552]" data-testid="account-email">
+          <p className="text-[14px] leading-5 text-sub" data-testid="account-email">
             {t('modes.account.settingsOn', { email: settings.account.email })}
           </p>
         ) : (
           <>
-            <p className="text-[14px] leading-5 text-[#3D4552]">{t('modes.account.settingsOff')}</p>
+            <p className="text-[14px] leading-5 text-sub">{t('modes.account.settingsOff')}</p>
             <Button onClick={onAddAccount} data-testid="account-add">
               {t('modes.account.settingsAdd')}
             </Button>

@@ -95,7 +95,7 @@ export function ClinicConsentCard({ h, request }: { h: PatientHospital; request:
 
   if (status === 'used')
     return (
-      <span className="text-[14px] font-semibold text-[#145F38]" data-testid="clinic-consent-used">
+      <span className="text-[14px] font-semibold text-ok" data-testid="clinic-consent-used">
         {t('clinicConsent.patient.used')}
       </span>
     );
@@ -103,7 +103,7 @@ export function ClinicConsentCard({ h, request }: { h: PatientHospital; request:
     return (
       <div className="mt-2 flex flex-col gap-2.5" data-testid="clinic-consent-form">
         <b className="text-[16px]">{t('clinicConsent.patient.title')}</b>
-        <p className="text-[14px] leading-[21px] text-[#3D4552]">
+        <p className="text-[14px] leading-[21px] text-sub">
           {t('clinicConsent.patient.text', { hospital: h.hospital, count: request.tests.length })}
         </p>
         <span className="text-[12px] text-muted">
@@ -140,7 +140,7 @@ export function ClinicConsentCard({ h, request }: { h: PatientHospital; request:
           <img
             src={img}
             alt={t('clinicConsent.patient.qrAlt')}
-            className="w-64 max-w-full rounded-xl bg-white"
+            className="w-64 max-w-full rounded-xl bg-card"
           />
         )}
         <code className="text-[20px] font-bold tracking-widest" data-testid="clinic-consent-code">
@@ -149,7 +149,7 @@ export function ClinicConsentCard({ h, request }: { h: PatientHospital; request:
         <span className="text-center text-[13px] text-muted">
           {t('clinicConsent.patient.validUntil', { until })}
         </span>
-        <p className="rounded-xl bg-[#E6EFF8] px-3 py-2 text-[13px] text-[#0B4A85]">
+        <p className="rounded-xl bg-brand-soft px-3 py-2 text-[13px] text-brand-ink">
           {t('clinicConsent.patient.noIdentity')}
         </p>
         <ErrorText code={error} />
@@ -170,7 +170,7 @@ export function ClinicConsentCard({ h, request }: { h: PatientHospital; request:
     <div className="mt-2 flex flex-col gap-2">
       {status === 'active' && saved ? (
         <>
-          <span className="text-[14px] font-semibold text-[#145F38]">
+          <span className="text-[14px] font-semibold text-ok">
             {t('clinicConsent.patient.given', { until })}
           </span>
           <Button onClick={() => setView('qr')} data-testid="clinic-consent-show">
@@ -179,7 +179,7 @@ export function ClinicConsentCard({ h, request }: { h: PatientHospital; request:
         </>
       ) : (
         <>
-          <span className="text-[14px] text-[#3D4552]">{t('clinicConsent.patient.ask')}</span>
+          <span className="text-[14px] text-sub">{t('clinicConsent.patient.ask')}</span>
           <Button onClick={() => setView('consent')} data-testid="clinic-consent-open">
             {t('clinicConsent.patient.open')}
           </Button>

@@ -148,7 +148,7 @@ export function InviteFlow({
             onClose={() => setScanning(false)}
           />
         )}
-        <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('modes.invite.hint')}</p>
+        <p className="text-[15px] leading-[22px] text-sub">{t('modes.invite.hint')}</p>
         {testModeOn() && (
           <div className="flex flex-col gap-1.5 rounded-2xl border-2 border-[#6B2FB3] bg-[#F5EFFC] p-3">
             <Button
@@ -197,12 +197,10 @@ export function InviteFlow({
   return (
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-6 pb-6">
       <div
-        className="flex flex-col gap-1 rounded-2xl border border-[#9ED4B5] bg-[#E3F4EA] px-4 py-3.5"
+        className="flex flex-col gap-1 rounded-2xl border border-ok-soft bg-ok-soft px-4 py-3.5"
         data-testid="invite-hospital"
       >
-        <span className="text-[13px] font-semibold text-[#145F38]">
-          {t('modes.invite.invited')}
-        </span>
+        <span className="text-[13px] font-semibold text-ok">{t('modes.invite.invited')}</span>
         <span className="text-[16px] font-bold">{info.hospital}</span>
       </div>
       <DeviceCheck
@@ -240,7 +238,7 @@ export function InviteFlow({
       />
       {passed && account && (
         <>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]" data-testid="invite-no-pin">
+          <p className="text-[15px] leading-[22px] text-sub" data-testid="invite-no-pin">
             {t('modes.account.joinNoPin', { hospital: info.hospital })}
           </p>
           <ErrorText code={error} />
@@ -252,7 +250,7 @@ export function InviteFlow({
       {passed && !account && (
         <>
           <h1 className="text-[26px] leading-8 font-bold">{t('modes.invite.pinTitle')}</h1>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
+          <p className="text-[15px] leading-[22px] text-sub">
             {t(adding ? 'modes.hospitals.samePin' : 'modes.invite.pinHint')}
           </p>
           <Field
@@ -275,12 +273,12 @@ export function InviteFlow({
           />
           <Card className="flex flex-col gap-2" data-testid="invite-notice">
             <h2 className="text-[15px] font-bold">{t('modes.invite.noticeTitle')}</h2>
-            <p className="text-[13px] leading-[19px] text-[#3D4552]">
+            <p className="text-[13px] leading-[19px] text-sub">
               {t('modes.invite.noticeBody', { hospital: info.hospital })}
             </p>
           </Card>
           {error === 'pin_mismatch' ? (
-            <p role="alert" className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad">
+            <p role="alert" className="rounded-xl bg-bad-soft px-3 py-2 text-[14px] text-bad">
               {t('modes.invite.pinMismatch')}
             </p>
           ) : (

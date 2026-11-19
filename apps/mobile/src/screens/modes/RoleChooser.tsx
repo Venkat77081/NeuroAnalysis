@@ -18,17 +18,19 @@ export function RoleChooser({ onPick }: { onPick: (mode: 'patient' | 'clinic') =
         className="relative -mx-5 h-[260px] overflow-hidden"
         style={{
           marginTop: 'calc(-1 * var(--sat))',
-          background: 'linear-gradient(170deg, #fff1e0 0%, #fde3cf 45%, #e6eff8 100%)',
+          // v31: the theme's sky (sunrise by day, dusk in the evening look).
+          background:
+            'linear-gradient(170deg, var(--color-hero-a) 0%, var(--color-hero-b) 45%, var(--color-hero-c) 100%)',
         }}
         aria-hidden="true"
       >
         <span
-          className="nc-rise absolute top-[96px] left-1/2 size-24 -translate-x-1/2 rounded-full"
-          style={{ background: 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c)' }}
+          className="nc-rise absolute top-[96px] left-1/2 size-24 -translate-x-1/2 rounded-full shadow-[0_0_60px_16px_rgb(251_146_60/0.3)]"
+          style={{ background: 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c 72%)' }}
         />
-        <span className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-[#F6F7F9]" />
+        <span className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-ground" />
       </div>
-      <div className="relative z-10 -mt-6 flex items-center gap-2 text-[14px] font-semibold text-muted">
+      <div className="relative z-10 -mt-6 flex items-center gap-2 text-[14px] font-bold text-sub">
         <Logo onLongPress={() => setMenu(true)} />
         {t('app.name')}
       </div>
@@ -36,7 +38,7 @@ export function RoleChooser({ onPick }: { onPick: (mode: 'patient' | 'clinic') =
         {t('modes.role.welcome')}
       </h1>
       <p
-        className="nc-fade-up m-0 text-[15px] leading-[22px] text-[#3D4552]"
+        className="nc-fade-up m-0 text-[15px] leading-[22px] text-sub"
         style={{ animationDelay: '0.1s' }}
       >
         {t('modes.role.welcomeHint')}
@@ -46,13 +48,13 @@ export function RoleChooser({ onPick }: { onPick: (mode: 'patient' | 'clinic') =
         <button
           type="button"
           onClick={() => onPick('patient')}
-          className="nc-fade-up flex min-h-[72px] items-center gap-3 rounded-2xl bg-brand px-4 py-3 text-left text-white"
+          className="nc-fade-up nc-gradient flex min-h-[72px] items-center gap-3 rounded-3xl px-4 py-3 text-left text-white shadow-[0_10px_26px_rgb(79_70_229/0.32)]"
           style={{ animationDelay: '0.2s' }}
           data-testid="role-patient"
         >
           <span
             aria-hidden
-            className="flex size-11 flex-none items-center justify-center rounded-xl bg-white/15 text-[22px]"
+            className="flex size-11 flex-none items-center justify-center rounded-2xl bg-white/20 text-[22px]"
           >
             🙂
           </span>
@@ -69,13 +71,13 @@ export function RoleChooser({ onPick }: { onPick: (mode: 'patient' | 'clinic') =
         <button
           type="button"
           onClick={() => onPick('clinic')}
-          className="nc-fade-up flex min-h-[72px] items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-left"
+          className="nc-fade-up flex min-h-[72px] items-center gap-3 rounded-3xl bg-card px-4 py-3 text-left shadow-card"
           style={{ animationDelay: '0.3s' }}
           data-testid="role-clinic"
         >
           <span
             aria-hidden
-            className="flex size-11 flex-none items-center justify-center rounded-xl bg-brand-soft text-[22px]"
+            className="flex size-11 flex-none items-center justify-center rounded-2xl bg-[#ffe9e4] text-[22px]"
           >
             🏥
           </span>

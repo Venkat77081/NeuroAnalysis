@@ -13,7 +13,7 @@ export function Logo({ onLongPress }: { onLongPress: () => void }) {
   };
   return (
     <div
-      className="flex size-8 select-none items-center justify-center rounded-lg bg-brand text-white"
+      className="nc-gradient flex size-8 select-none items-center justify-center rounded-[10px] text-white"
       onPointerDown={start}
       onPointerUp={cancel}
       onPointerLeave={cancel}

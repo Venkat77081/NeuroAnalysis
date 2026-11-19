@@ -299,10 +299,10 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'signedOut':
       return (
         <Screen title={t('modes.account.signedOutTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]" data-testid="acct-signed-out">
+          <p className="text-[15px] leading-[22px] text-sub" data-testid="acct-signed-out">
             {t('modes.account.signedOutBody')}
           </p>
-          <Card className="text-[14px] leading-5 text-[#8A4B00]">
+          <Card className="text-[14px] leading-5 text-warn">
             {t('modes.account.signedOutUploads')}
           </Card>
           <Button
@@ -316,7 +316,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'paused':
       return (
         <Screen title={t('modes.account.pausedTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]" data-testid="acct-paused">
+          <p className="text-[15px] leading-[22px] text-sub" data-testid="acct-paused">
             {t('modes.account.pausedBody')}
           </p>
           <Button
@@ -345,7 +345,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
       } as const;
       return (
         <Screen title={t(titles[step.path])}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">{t(hints[step.path])}</p>
+          <p className="text-[15px] leading-[22px] text-sub">{t(hints[step.path])}</p>
           <Field
             id="acct-email"
             label={t('modes.account.email')}
@@ -398,7 +398,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'code':
       return (
         <Screen title={t('modes.account.codeTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
+          <p className="text-[15px] leading-[22px] text-sub">
             {t('modes.account.codeHint', { email: email.trim() })}
           </p>
           <Field
@@ -430,7 +430,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
                 data-testid="acct-pin"
               />
               {left !== null && (
-                <p className="text-[13px] text-[#8A4B00]">
+                <p className="text-[13px] text-warn">
                   {t('modes.account.triesLeft', { count: left })}
                 </p>
               )}
@@ -473,7 +473,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
         <Screen
           title={t(step.path === 'signup' ? 'modes.account.pinTitle' : 'modes.account.newPinTitle')}
         >
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('modes.account.pinHint')}</p>
+          <p className="text-[15px] leading-[22px] text-sub">{t('modes.account.pinHint')}</p>
           {pinFields}
           <ErrorText code={error} />
           <Button
@@ -491,9 +491,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'currentPin':
       return (
         <Screen title={t('modes.account.currentPinTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
-            {t('modes.account.currentPinHint')}
-          </p>
+          <p className="text-[15px] leading-[22px] text-sub">{t('modes.account.currentPinHint')}</p>
           <Field
             id="acct-current-pin"
             label={t('modes.account.appPin')}
@@ -522,11 +520,9 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'recovery':
       return (
         <Screen title={t('modes.account.recoveryTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
-            {t('modes.account.recoveryHint')}
-          </p>
+          <p className="text-[15px] leading-[22px] text-sub">{t('modes.account.recoveryHint')}</p>
           <div
-            className="rounded-2xl bg-ink px-4 py-4 text-center font-mono text-[19px] leading-8 font-semibold tracking-wide text-white"
+            className="rounded-2xl bg-ink px-4 py-4 text-center font-mono text-[19px] leading-8 font-semibold tracking-wide text-ground"
             data-testid="acct-recovery-code"
           >
             {step.code}
@@ -540,7 +536,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
           >
             {t('modes.account.copy')}
           </Button>
-          <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[13px] leading-[19px] text-[#8A4B00]">
+          <p className="rounded-xl bg-warn-soft px-3 py-2 text-[13px] leading-[19px] text-warn">
             {t('modes.account.recoveryWarn')}
           </p>
           <label className="flex min-h-12 items-center gap-3 text-[15px]">
@@ -570,7 +566,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'enterRecovery':
       return (
         <Screen title={t('modes.account.enterRecoveryTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
+          <p className="text-[15px] leading-[22px] text-sub">
             {t('modes.account.enterRecoveryHint')}
           </p>
           <Field
@@ -601,16 +597,14 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'noRecovery':
       return (
         <Screen title={t('modes.account.noRecoveryTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
-            {t('modes.account.noRecoveryBody')}
-          </p>
+          <p className="text-[15px] leading-[22px] text-sub">{t('modes.account.noRecoveryBody')}</p>
           <Card className="flex flex-col gap-1 text-[14px] leading-5">
             <b>{t('modes.account.noRecoveryWhat')}</b>
             <span>{t('modes.account.noRecoverySteps')}</span>
           </Card>
           {hospitalsOf(settings).length > 0 && (
             <p
-              className="rounded-xl bg-[#E3F4EA] px-3 py-2 text-[13px] text-[#145F38]"
+              className="rounded-xl bg-ok-soft px-3 py-2 text-[13px] text-ok"
               data-testid="acct-keeps-hospitals"
             >
               {t('modes.account.noRecoveryKeeps')}
@@ -631,9 +625,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'move':
       return (
         <Screen title={t('modes.account.moveTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
-            {t('modes.account.moveActive')}
-          </p>
+          <p className="text-[15px] leading-[22px] text-sub">{t('modes.account.moveActive')}</p>
           <Card className="flex flex-col gap-0.5" data-testid="acct-other-phone">
             <b className="text-[16px]">{step.label}</b>
             <span className="text-[13px] text-muted">
@@ -647,8 +639,8 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
               })}
             </span>
           </Card>
-          <p className="text-[14px] leading-5 text-[#3D4552]">{t('modes.account.moveBody')}</p>
-          <p className="rounded-xl bg-[#E3F4EA] px-3 py-2 text-[13px] text-[#145F38]">
+          <p className="text-[14px] leading-5 text-sub">{t('modes.account.moveBody')}</p>
+          <p className="rounded-xl bg-ok-soft px-3 py-2 text-[13px] text-ok">
             {t('modes.account.moveLost')}
           </p>
           <ErrorText code={error} />
@@ -663,9 +655,7 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
     case 'check':
       return (
         <Screen title={t('modes.account.checkTitle')}>
-          <p className="text-[15px] leading-[22px] text-[#3D4552]">
-            {t('modes.account.checkHint')}
-          </p>
+          <p className="text-[15px] leading-[22px] text-sub">{t('modes.account.checkHint')}</p>
           <DeviceCheck
             who="patient"
             onResult={(r) => {
@@ -683,17 +673,17 @@ export function AccountFlow({ mode, onDone }: { mode: AccountMode; onDone: () =>
             {step.names.map((n) => (
               <li
                 key={n}
-                className="flex items-center justify-between rounded-2xl border border-line bg-white px-4 py-3 text-[15px] font-semibold"
+                className="flex items-center justify-between rounded-3xl bg-card shadow-card px-4 py-3 text-[15px] font-semibold"
               >
                 {n}
-                <span className="rounded-xl bg-[#E3F4EA] px-2.5 py-0.5 text-[12px] text-[#145F38]">
+                <span className="rounded-xl bg-ok-soft px-2.5 py-0.5 text-[12px] text-ok">
                   {t('modes.account.ready')}
                 </span>
               </li>
             ))}
           </ul>
           {step.names.length === 0 && (
-            <p className="text-[15px] text-[#3D4552]">{t('modes.account.welcomeEmpty')}</p>
+            <p className="text-[15px] text-sub">{t('modes.account.welcomeEmpty')}</p>
           )}
           <p className="text-[14px] text-muted">{t('modes.account.welcomeOther')}</p>
           <Button
@@ -727,7 +717,7 @@ export function NameStep({
   const [name, setName] = useState(initial);
   return (
     <Screen title={t('greeting.nameTitle')}>
-      <p className="text-[15px] leading-[22px] text-[#3D4552]">{t('greeting.nameHint')}</p>
+      <p className="text-[15px] leading-[22px] text-sub">{t('greeting.nameHint')}</p>
       <Field
         id="acct-first-name"
         label={t('greeting.nameLabel')}

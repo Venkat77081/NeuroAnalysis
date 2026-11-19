@@ -19,7 +19,7 @@ import {
 import type { Settings } from '../data/repo.ts';
 import { Button, Sheet } from '../ui/kit.tsx';
 
-const field = 'h-12 rounded-xl border border-[#C9CFD8] px-3 text-[15px]';
+const field = 'h-12 rounded-xl border border-edge px-3 text-[15px]';
 
 export function UploadSetup({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();

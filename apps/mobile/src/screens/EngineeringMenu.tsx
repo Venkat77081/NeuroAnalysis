@@ -49,7 +49,7 @@ export function EngineeringMenu({
           <input
             value={operatorId}
             onChange={(e) => setOperatorId(e.target.value.toUpperCase())}
-            className="h-12 rounded-xl border border-[#C9CFD8] px-3 text-[15px]"
+            className="h-12 rounded-xl border border-edge px-3 text-[15px]"
             data-testid="operator-input"
           />
         </label>
@@ -59,7 +59,7 @@ export function EngineeringMenu({
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value as 'en' | 'hi')}
-          className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px]"
+          className="h-12 rounded-xl border border-edge bg-card px-3 text-[15px]"
           data-testid="language-select"
         >
           <option value="en">English</option>
@@ -72,7 +72,7 @@ export function EngineeringMenu({
           <select
             value={minFps ?? ''}
             onChange={(e) => setMinFps(e.target.value === '' ? null : Number(e.target.value))}
-            className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px]"
+            className="h-12 rounded-xl border border-edge bg-card px-3 text-[15px]"
             data-testid="min-fps-select"
           >
             <option value="">
@@ -141,7 +141,7 @@ export function EngineeringMenu({
         (capture.implementation === 'mock' ? (
           <p className="m-0 text-[13px] text-muted">{t('testMode.browser')}</p>
         ) : (
-          <label className="flex items-start gap-3 rounded-2xl border-2 border-[#6B2FB3] bg-white px-4 py-3 text-sm">
+          <label className="flex items-start gap-3 rounded-2xl border-2 border-[#6B2FB3] bg-card px-4 py-3 text-sm">
             <input
               type="checkbox"
               checked={testModeOn()}

@@ -15,10 +15,10 @@ import { stepTitle } from './TestIntro.tsx';
 import { testModeOn } from '../../lib/testmode.ts';
 
 const chip: Record<string, string> = {
-  accepted: 'bg-ok-soft text-[#145F38]',
+  accepted: 'bg-ok-soft text-ok',
   kept: 'bg-warn-soft text-warn',
-  skipped: 'bg-[#EDF0F3] text-[#3D4552]',
-  pending: 'bg-[#EDF0F3] text-muted',
+  skipped: 'bg-soft text-sub',
+  pending: 'bg-soft text-muted',
 };
 
 export function Summary() {
@@ -48,13 +48,27 @@ export function Summary() {
       <header className="flex flex-col gap-1 px-5 pt-5 pb-2">
         {/* New UI: a tick that draws itself when the session is done. */}
         {!ctx.aborted && (
-          <svg width="72" height="72" viewBox="0 0 96 96" aria-hidden data-testid="done-tick">
-            <circle cx="48" cy="48" r="40" fill="#E3F4EA" />
+          <svg
+            width="72"
+            height="72"
+            viewBox="0 0 96 96"
+            aria-hidden
+            className="drop-shadow-[0_10px_20px_rgb(79_70_229/0.35)]"
+            data-testid="done-tick"
+          >
+            {/* v31: the brand gradient, like the dashboards. */}
+            <defs>
+              <linearGradient id="nc-tick" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#4f46e5" />
+                <stop offset="1" stopColor="#7c3aed" />
+              </linearGradient>
+            </defs>
+            <circle cx="48" cy="48" r="40" fill="url(#nc-tick)" />
             <path
               className="nc-draw"
               d="M30 49 l12 12 l24 -26"
               fill="none"
-              stroke="#1B7F4B"
+              stroke="#ffffff"
               strokeWidth="8"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -97,7 +111,7 @@ export function Summary() {
           </Card>
         </div>
         <ol
-          className="m-0 list-none overflow-hidden rounded-2xl border border-line bg-white p-0"
+          className="m-0 list-none overflow-hidden rounded-3xl bg-card shadow-card p-0"
           data-testid="summary-rows"
         >
           {ctx.plan.map((p, i) => {
@@ -112,7 +126,7 @@ export function Summary() {
             return (
               <li
                 key={i}
-                className="flex items-center gap-3 border-b border-[#EDF0F3] px-3.5 py-2.5 last:border-b-0"
+                className="flex items-center gap-3 border-b border-line px-3.5 py-2.5 last:border-b-0"
               >
                 <span className="min-w-10 rounded-md bg-brand-soft px-1.5 py-0.5 text-center text-xs font-bold text-brand">
                   {p.code}

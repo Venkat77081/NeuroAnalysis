@@ -95,7 +95,7 @@ export function SessionHome({
             chip={
               !native && (
                 <span
-                  className="min-w-0 truncate rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-warn"
+                  className="min-w-0 truncate rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-warn"
                   data-testid="mode-badge"
                 >
                   {t(`home.mode.${capture.implementation}`)}
@@ -150,7 +150,7 @@ export function SessionHome({
             data-testid="open-upload-setup"
           >
             <span
-              className={`size-2 rounded-full ${settings.signedIn ? 'bg-ok' : 'bg-[#C9CFD8]'}`}
+              className={`size-2 rounded-full ${settings.signedIn ? 'bg-ok' : 'bg-edge'}`}
               aria-hidden="true"
             />
             {t('session.home.operator', { id: settings.operatorId })}
@@ -158,7 +158,7 @@ export function SessionHome({
         </div>
 
         {!queueOnly && (
-          <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+          <label className="flex min-h-12 items-center gap-3 rounded-3xl bg-card shadow-card px-4 py-3 text-sm">
             <input
               type="checkbox"
               checked={training}
@@ -180,7 +180,7 @@ export function SessionHome({
           !ctx.patient && <ClinicQueue onFocus={setQueueFocus} />}
 
         {queueOnly && !ctx.patient && !queueFocus && (
-          <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+          <label className="flex min-h-12 items-center gap-3 rounded-3xl bg-card shadow-card px-4 py-3 text-sm">
             <input
               type="checkbox"
               checked={training}
@@ -197,7 +197,7 @@ export function SessionHome({
 
         {!training && queueOnly && !ctx.patient && !queueFocus && (
           <p
-            className="m-0 rounded-2xl bg-[#EDF0F3] px-4 py-3 text-[14px] leading-[20px] text-[#3D4552]"
+            className="m-0 rounded-2xl bg-soft px-4 py-3 text-[14px] leading-[20px] text-sub"
             data-testid="queue-only-hint"
           >
             {t('session.home.queueOnly')}
@@ -261,7 +261,7 @@ export function SessionHome({
                     type="button"
                     aria-pressed={ctx.medState === m}
                     onClick={() => send({ type: 'SET_MED_STATE', medState: m })}
-                    className={`h-12 rounded-xl border text-[15px] font-semibold ${ctx.medState === m ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white'}`}
+                    className={`h-12 rounded-xl border text-[15px] font-semibold ${ctx.medState === m ? 'border-transparent nc-gradient text-white' : 'border-edge bg-card'}`}
                     data-testid={`med-${m}`}
                   >
                     {t(`session.home.med.${m}`)}
@@ -276,7 +276,7 @@ export function SessionHome({
           <>
             {ctx.consentId ? (
               <p
-                className="rounded-2xl border border-[#B7E1C8] bg-[#E3F4EA] px-4 py-3 text-sm text-[#145F38]"
+                className="rounded-2xl border border-ok-soft bg-ok-soft px-4 py-3 text-sm text-ok"
                 data-testid="consent-confirmed"
               >
                 {t(
@@ -286,7 +286,7 @@ export function SessionHome({
                 )}
               </p>
             ) : (
-              <label className="flex items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 text-sm">
+              <label className="flex items-center gap-3 rounded-3xl bg-card shadow-card px-4 py-3 text-sm">
                 <input
                   type="checkbox"
                   checked={!!ctx.consent}
@@ -317,13 +317,13 @@ export function SessionHome({
                 </span>
               </div>
               <ol
-                className="m-0 list-none overflow-hidden rounded-2xl border border-line bg-white p-0"
+                className="m-0 list-none overflow-hidden rounded-3xl bg-card shadow-card p-0"
                 data-testid="test-plan"
               >
                 {ctx.plan.map((p, i) => (
                   <li
                     key={`${p.code}-${p.side ?? 'na'}`}
-                    className="flex h-11 items-center gap-3 border-b border-[#EDF0F3] px-3.5 last:border-b-0"
+                    className="flex h-11 items-center gap-3 border-b border-line px-3.5 last:border-b-0"
                   >
                     <span className="w-5 text-xs text-muted tabular-nums">{i + 1}</span>
                     <span className="min-w-10 rounded-md bg-brand-soft px-1.5 py-0.5 text-center text-xs font-bold text-brand">
@@ -349,7 +349,7 @@ export function SessionHome({
         <button
           type="button"
           onClick={onLock}
-          className="fixed right-4 bottom-[calc(1rem+var(--sab))] z-30 flex h-14 items-center gap-2 rounded-full bg-ink px-5 text-[15px] font-bold text-white shadow-[0_6px_18px_rgba(20,24,31,0.2)]"
+          className="fixed right-4 bottom-[calc(1rem+var(--sab))] z-30 flex h-14 items-center gap-2 rounded-full bg-ink px-5 text-[15px] font-bold text-ground shadow-float"
           data-testid="lock-now"
         >
           <svg
@@ -403,7 +403,7 @@ export function SessionHome({
                       send({ type: 'SET_PATIENT', patient: p });
                       setPicker(false);
                     }}
-                    className={`flex min-h-12 w-full items-center justify-between rounded-xl border px-3.5 text-left text-[15px] ${ctx.patient?.localId === p.localId ? 'border-brand bg-brand-soft' : 'border-[#C9CFD8] bg-white'}`}
+                    className={`flex min-h-12 w-full items-center justify-between rounded-xl border px-3.5 text-left text-[15px] ${ctx.patient?.localId === p.localId ? 'border-brand bg-brand-soft' : 'border-edge bg-card'}`}
                   >
                     <span className="font-semibold">{maskRef(p.ref)}</span>
                     <span className="text-xs text-muted">{p.yearOfBirth ?? ''}</span>
@@ -419,7 +419,7 @@ export function SessionHome({
               value={draft.ref}
               onChange={(e) => setDraft({ ...draft, ref: e.target.value })}
               autoComplete="off"
-              className="h-12 rounded-xl border border-[#C9CFD8] px-3 text-[15px]"
+              className="h-12 rounded-xl border border-edge px-3 text-[15px]"
               data-testid="patient-ref-input"
             />
             <span className="text-xs text-muted">{t('session.home.refHint')}</span>
@@ -433,7 +433,7 @@ export function SessionHome({
                 onChange={(e) =>
                   setDraft({ ...draft, yob: e.target.value.replace(/\D/g, '').slice(0, 4) })
                 }
-                className="h-12 rounded-xl border border-[#C9CFD8] px-3 text-[15px]"
+                className="h-12 rounded-xl border border-edge px-3 text-[15px]"
                 data-testid="patient-yob-input"
               />
             </label>
@@ -442,7 +442,7 @@ export function SessionHome({
               <select
                 value={draft.sex}
                 onChange={(e) => setDraft({ ...draft, sex: e.target.value as typeof draft.sex })}
-                className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px]"
+                className="h-12 rounded-xl border border-edge bg-card px-3 text-[15px]"
               >
                 <option value="">—</option>
                 {(['M', 'F', 'O'] as const).map((s) => (

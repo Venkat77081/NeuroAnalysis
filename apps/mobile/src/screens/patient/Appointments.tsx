@@ -173,7 +173,7 @@ function Chip({
       aria-pressed={on}
       disabled={disabled}
       onClick={onClick}
-      className={`min-h-11 rounded-full border px-3.5 text-[14px] font-semibold disabled:opacity-40 ${on ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white text-ink'}`}
+      className={`min-h-11 rounded-full border px-3.5 text-[14px] font-semibold disabled:opacity-40 ${on ? 'border-transparent nc-gradient text-white' : 'border-edge bg-card text-ink'}`}
       data-testid={testId}
     >
       {children}
@@ -183,10 +183,10 @@ function Chip({
 
 function Badge({ tone, children }: { tone: 'ok' | 'warn' | 'bad' | 'grey'; children: ReactNode }) {
   const c = {
-    ok: 'bg-[#E3F4EA] text-[#145F38]',
-    warn: 'bg-[#FDF0DD] text-[#8A4B00]',
-    bad: 'bg-[#FDECEA] text-[#B42318]',
-    grey: 'bg-[#EDF0F3] text-[#3D4552]',
+    ok: 'bg-ok-soft text-ok',
+    warn: 'bg-warn-soft text-warn',
+    bad: 'bg-bad-soft text-bad',
+    grey: 'bg-soft text-sub',
   }[tone];
   return (
     <span
@@ -347,7 +347,7 @@ export function AppointmentsSection({
               {t(`appts.bookingState.${b.offer ? 'offer' : b.status}`)}
             </Badge>
           </div>
-          <span className="text-[14px] text-[#3D4552]">
+          <span className="text-[14px] text-sub">
             {t('appts.bookingLine', {
               doctor: b.doctor_name ?? t('appts.anyDoctor'),
               count: b.choices.length,
@@ -355,7 +355,7 @@ export function AppointmentsSection({
             })}
           </span>
           {b.status === 'declined' && (
-            <span className="text-[14px] text-[#3D4552]" data-testid="booking-declined">
+            <span className="text-[14px] text-sub" data-testid="booking-declined">
               {t(`appts.bookingAnswer.${b.answer ?? 'call_us'}`, { hospital: h.hospital })}
             </span>
           )}
@@ -400,10 +400,10 @@ export function AppointmentsSection({
               </span>
               <Badge tone={badge[1]}>{badge[0]}</Badge>
             </div>
-            {a.doctor_name && <span className="text-[14px] text-[#3D4552]">{a.doctor_name}</span>}
+            {a.doctor_name && <span className="text-[14px] text-sub">{a.doctor_name}</span>}
             {a.status === 'booked' && extra?.(a)}
             {a.status === 'cancelled' && (
-              <p className="text-[14px] text-[#3D4552]" data-testid="appointment-cancelled">
+              <p className="text-[14px] text-sub" data-testid="appointment-cancelled">
                 {a.cancelled_by === 'patient'
                   ? t('appts.youCancelled')
                   : t('appts.hospitalCancelled', {
@@ -414,7 +414,7 @@ export function AppointmentsSection({
             )}
             {a.offer && (
               <>
-                <p className="text-[14px] leading-5 text-[#8A4B00]" data-testid="appointment-offer">
+                <p className="text-[14px] leading-5 text-warn" data-testid="appointment-offer">
                   {t('appts.offerLine', {
                     hospital: h.hospital,
                     by: when(a.offer.reply_by, tz, lang),
@@ -429,12 +429,12 @@ export function AppointmentsSection({
               </>
             )}
             {c?.status === 'open' && (
-              <p className="text-[14px] leading-5 text-[#3D4552]" data-testid="appointment-asked">
+              <p className="text-[14px] leading-5 text-sub" data-testid="appointment-asked">
                 {t('appts.youAskedTimes', { count: c.choices.length, hospital: h.hospital })}
               </p>
             )}
             {a.moved_from && a.status === 'booked' && (
-              <p className="text-[14px] leading-5 text-[#3D4552]" data-testid="appointment-moved">
+              <p className="text-[14px] leading-5 text-sub" data-testid="appointment-moved">
                 {a.moved_by_hospital
                   ? t('appts.movedByHospital', { hospital: h.hospital })
                   : t('appts.movedAsAsked')}
@@ -452,10 +452,7 @@ export function AppointmentsSection({
               </p>
             )}
             {c?.status === 'declined' && (
-              <p
-                className="text-[14px] leading-5 text-[#3D4552]"
-                data-testid="appointment-declined"
-              >
+              <p className="text-[14px] leading-5 text-sub" data-testid="appointment-declined">
                 {t(`appts.answer.${c.answer ?? 'keep'}`, { hospital: h.hospital })}
               </p>
             )}
@@ -666,8 +663,8 @@ function TimesPicker({
       aria-pressed={!!fb?.times.includes(time)}
       className={`h-11 rounded-lg border text-[14px] font-semibold ${
         fb?.times.includes(time)
-          ? 'border-brand bg-brand text-white'
-          : 'border-[#C9CFD8] bg-white text-ink'
+          ? 'border-transparent nc-gradient text-white'
+          : 'border-edge bg-card text-ink'
       }`}
       data-testid={`picker-time-${fi}-${time}`}
     >
@@ -679,7 +676,7 @@ function TimesPicker({
     <div className="flex flex-col gap-3" data-testid="times-picker">
       {r.alternatives > 0 && (
         <div
-          className="grid grid-cols-2 overflow-hidden rounded-xl border border-[#C9CFD8]"
+          className="grid grid-cols-2 overflow-hidden rounded-xl border border-edge"
           role="group"
         >
           {(['preferred', 'alternative'] as const).map((k) => (
@@ -691,7 +688,7 @@ function TimesPicker({
                 setRank(k);
                 setFull(false);
               }}
-              className={`min-h-11 text-[14px] font-semibold ${rank === k ? 'bg-brand text-white' : 'bg-white text-ink'}`}
+              className={`min-h-11 text-[14px] font-semibold ${rank === k ? 'nc-gradient text-white' : 'bg-card text-ink'}`}
               data-testid={`picker-rank-${k}`}
             >
               {t(`appts.rank.${k}`, { n: ofRank(k).length, max: limit[k] })}
@@ -706,7 +703,7 @@ function TimesPicker({
             disabled={!canPrev}
             onClick={() => setMonth(shiftMonth(month, -1))}
             aria-label={t('appts.cal.prev')}
-            className="flex size-11 items-center justify-center rounded-lg text-[22px] text-brand disabled:text-[#C3C8D0]"
+            className="flex size-11 items-center justify-center rounded-lg text-[22px] text-brand disabled:text-cam-sub"
             data-testid="picker-prev-month"
           >
             ‹
@@ -719,7 +716,7 @@ function TimesPicker({
             disabled={!canNext}
             onClick={() => setMonth(shiftMonth(month, 1))}
             aria-label={t('appts.cal.next')}
-            className="flex size-11 items-center justify-center rounded-lg text-[22px] text-brand disabled:text-[#C3C8D0]"
+            className="flex size-11 items-center justify-center rounded-lg text-[22px] text-brand disabled:text-cam-sub"
             data-testid="picker-next-month"
           >
             ›
@@ -744,13 +741,13 @@ function TimesPicker({
               'relative flex h-10 flex-col items-center justify-center rounded-lg text-[14px]';
             if (!open)
               return (
-                <span key={d} className={`${base} text-[#B4BAC3]`} aria-disabled="true">
+                <span key={d} className={`${base} text-cam-sub`} aria-disabled="true">
                   {i + 1}
                 </span>
               );
             const cls = b
               ? b.rank === 'preferred'
-                ? 'bg-brand font-bold text-white'
+                ? 'nc-gradient font-bold text-white'
                 : 'border-2 border-brand font-bold text-brand'
               : 'font-semibold text-ink';
             return (
@@ -760,7 +757,7 @@ function TimesPicker({
                 onClick={() => tapDay(d)}
                 aria-pressed={!!b}
                 aria-label={dayLabel(d, lang)}
-                className={`${base} ${cls} ${focus === d ? 'ring-2 ring-[#0B5FAA]/40' : ''}`}
+                className={`${base} ${cls} ${focus === d ? 'ring-2 ring-brand/40' : ''}`}
                 data-testid={`change-day-${d}`}
               >
                 {i + 1}
@@ -769,7 +766,7 @@ function TimesPicker({
                     {t(`appts.cal.tag.${b.rank}`)}
                   </span>
                 ) : (
-                  <span className="mt-0.5 size-1.5 rounded-full bg-[#1F8A4C]" />
+                  <span className="mt-0.5 size-1.5 rounded-full bg-ok" />
                 )}
               </button>
             );
@@ -778,7 +775,7 @@ function TimesPicker({
         <span className="text-[11px] text-muted">{t('appts.cal.legend')}</span>
       </Card>
       {full && (
-        <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[13px] text-[#8A4B00]" role="status">
+        <p className="rounded-xl bg-warn-soft px-3 py-2 text-[13px] text-warn" role="status">
           {t('appts.cal.full', { count: limit[rank], rank: t(`appts.rankShort.${rank}`) })}
         </p>
       )}
@@ -827,7 +824,7 @@ function TimesPicker({
         </Card>
       )}
       {ordered.length > 0 && (
-        <ol className="flex flex-col overflow-hidden rounded-2xl border border-line bg-white">
+        <ol className="flex flex-col overflow-hidden rounded-3xl bg-card shadow-card">
           {ordered.map((b) => (
             <li key={b.day} data-testid="picker-block">
               <button
@@ -836,13 +833,13 @@ function TimesPicker({
                   setFocus(b.day);
                   setMonth(b.day.slice(0, 7));
                 }}
-                className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-[#EDF0F3] px-4 py-2 text-left text-[14px]"
+                className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-line px-4 py-2 text-left text-[14px]"
               >
                 <span>
                   <b>{t(`appts.rankLabel.${b.rank}`, { n: ofRank(b.rank).indexOf(b) + 1 })}</b> ·{' '}
                   {dayLabel(b.day, lang)}
                 </span>
-                <span className={b.times.length ? 'text-ink' : 'text-[#8A4B00]'}>
+                <span className={b.times.length ? 'text-ink' : 'text-warn'}>
                   {b.times.length
                     ? b.times.map((x) => timeLabel(x, lang)).join(', ')
                     : t('appts.cal.noTimeYet')}
@@ -942,7 +939,7 @@ function TimesForm({
           </Chip>
         ))}
       </div>
-      <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] leading-5 text-[#8A4B00]">
+      <p className="rounded-xl bg-warn-soft px-3 py-2 text-[14px] leading-5 text-warn">
         {t('appts.staysBooked', { date: when(appt.at, tz, i18n.language) })}
       </p>
       <ErrorText code={error} />
@@ -1074,7 +1071,7 @@ function BookForm({
               </Chip>
             ))}
           </div>
-          <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] leading-5 text-[#8A4B00]">
+          <p className="rounded-xl bg-warn-soft px-3 py-2 text-[14px] leading-5 text-warn">
             {t('appts.bookConfirmNote', { hospital: h.hospital })}
           </p>
           <ErrorText code={error} />
@@ -1113,17 +1110,17 @@ function Choice({
       type="button"
       aria-pressed={on}
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left ${on ? 'border-2 border-brand' : 'border border-line'}`}
+      className={`flex items-center gap-3 rounded-2xl bg-card px-4 py-3 text-left ${on ? 'border-2 border-brand' : 'border border-line'}`}
       data-testid={testId}
     >
       <span
-        className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 ${on ? 'border-brand' : 'border-[#C9CFD8]'}`}
+        className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 ${on ? 'border-brand' : 'border-edge'}`}
       >
         {on && <span className="h-2 w-2 rounded-full bg-brand" />}
       </span>
       <span className="text-[14px] leading-5">
         <b className="text-[15px]">{title}</b>
-        {sub && <span className="block text-[#3D4552]">{sub}</span>}
+        {sub && <span className="block text-sub">{sub}</span>}
       </span>
     </button>
   );
@@ -1172,7 +1169,7 @@ function OfferView({
         {offer.status !== 'call_requested' && (
           <Card className="flex flex-col gap-2">
             <b>{t('appts.callMe', { hospital: h.hospital })}</b>
-            <span className="text-[14px] text-[#3D4552]">
+            <span className="text-[14px] text-sub">
               {t('appts.callMeBody', { hospital: h.hospital })}
             </span>
             <Button
@@ -1200,7 +1197,7 @@ function OfferView({
         )}
         <Card className="flex flex-col gap-2">
           <b>{t(appt ? 'appts.cancelThis' : 'appts.cancelBooking')}</b>
-          <span className="text-[14px] text-[#3D4552]">{t('appts.why')}</span>
+          <span className="text-[14px] text-sub">{t('appts.why')}</span>
           <div className="flex flex-wrap gap-2" role="group">
             {config.platform.appointmentChanges.patientCancelReasons.map((r) => (
               <Chip
@@ -1231,7 +1228,7 @@ function OfferView({
   return (
     <section className="flex flex-col gap-3" data-testid="offer-view">
       <h2 className="text-[18px] font-bold">{t('appts.chooseTitle')}</h2>
-      <p className="rounded-xl bg-[#FDF0DD] px-3 py-2 text-[14px] leading-5 text-[#8A4B00]">
+      <p className="rounded-xl bg-warn-soft px-3 py-2 text-[14px] leading-5 text-warn">
         {appt
           ? t('appts.offerIntro', {
               hospital: h.hospital,
@@ -1329,7 +1326,7 @@ function CancelView({
           </Chip>
         ))}
       </div>
-      <p className="rounded-xl bg-[#E6EFF8] px-3 py-2 text-[14px] leading-5 text-[#0B4A85]">
+      <p className="rounded-xl bg-brand-soft px-3 py-2 text-[14px] leading-5 text-brand-ink">
         {t('appts.cancelNote', { hospital: h.hospital })}
       </p>
       <ErrorText code={error} />

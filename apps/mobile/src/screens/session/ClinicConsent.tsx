@@ -59,7 +59,7 @@ export function ConsentScan({
   return (
     <div className="flex flex-col gap-3" data-testid="consent-scan">
       <h1 className="m-0 text-[24px] leading-8 font-bold">{t('clinicConsent.scan')}</h1>
-      <span className="text-[14px] text-[#3D4552]">
+      <span className="text-[14px] text-sub">
         {q.name ?? q.mrn ?? ''} ·{' '}
         {q.consent?.state === 'app_given' ? t('clinicConsent.given') : t('clinicConsent.waiting')}
       </span>
@@ -68,7 +68,7 @@ export function ConsentScan({
         type="button"
         disabled={busy}
         onClick={() => setScanning(true)}
-        className="relative flex h-64 items-center justify-center overflow-hidden rounded-2xl bg-[#1D232C]"
+        className="relative flex h-64 items-center justify-center overflow-hidden rounded-2xl bg-cam-panel"
         data-testid="consent-scan-camera"
       >
         <span className="size-44 rounded-2xl border-[3px] border-white shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
@@ -77,13 +77,13 @@ export function ConsentScan({
           {t('clinicConsent.scanHint')}
         </span>
       </button>
-      <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+      <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
         {t('clinicConsent.typeCode')}
         <input
           value={code}
           onChange={(e) => setCode(e.target.value)}
           autoCapitalize="characters"
-          className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-3 font-mono text-[15px] tracking-wider"
+          className="h-11 rounded-xl border border-edge bg-card px-3 font-mono text-[15px] tracking-wider"
           data-testid="consent-code"
         />
       </label>
@@ -98,7 +98,7 @@ export function ConsentScan({
       {error && (
         <p
           role="alert"
-          className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad"
+          className="rounded-xl bg-bad-soft px-3 py-2 text-[14px] text-bad"
           data-testid="consent-error"
         >
           {t(`clinicConsent.error.${error}`, { defaultValue: t('modes.errors.generic') })}
@@ -201,7 +201,7 @@ export function PhoneConsent({
         </>
       )}
       {error && (
-        <p role="alert" className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad">
+        <p role="alert" className="rounded-xl bg-bad-soft px-3 py-2 text-[14px] text-bad">
           {t(`clinicConsent.error.${error}`, { defaultValue: t('modes.errors.generic') })}
         </p>
       )}

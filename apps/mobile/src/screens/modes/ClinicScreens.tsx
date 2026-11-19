@@ -48,7 +48,7 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
     <div className="mx-auto flex min-h-full max-w-md flex-col gap-4 bg-ground px-5 pt-8 pb-6">
       {/* New UI (decision 050): a centred heading for setting up the phone. */}
       <div className="nc-fade-up flex flex-col items-center gap-2 text-center">
-        <span className="flex size-16 items-center justify-center rounded-2xl bg-brand text-white">
+        <span className="nc-gradient flex size-16 items-center justify-center rounded-2xl text-white">
           <svg
             width="30"
             height="30"
@@ -65,9 +65,7 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
           </svg>
         </span>
         <h1 className="m-0 text-[24px] leading-8 font-bold">{t('modes.clinicSetup.title')}</h1>
-        <p className="m-0 text-[15px] leading-[22px] text-[#3D4552]">
-          {t('modes.clinicSetup.hint')}
-        </p>
+        <p className="m-0 text-[15px] leading-[22px] text-sub">{t('modes.clinicSetup.hint')}</p>
       </div>
       <DeviceCheck who="clinic" onResult={setCheck} />
       {passed && (
@@ -214,7 +212,7 @@ export function ChangePassword() {
     });
   return (
     <Screen title={t('modes.changePassword.title')}>
-      <p className="text-[15px] leading-[22px] text-[#3D4552]">
+      <p className="text-[15px] leading-[22px] text-sub">
         {t('modes.changePassword.hint', { min })}
       </p>
       <Field
@@ -242,7 +240,7 @@ export function ChangePassword() {
         data-testid="pw-repeat"
       />
       {error === 'mismatch' ? (
-        <p role="alert" className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad">
+        <p role="alert" className="rounded-xl bg-bad-soft px-3 py-2 text-[14px] text-bad">
           {t('modes.changePassword.mismatch')}
         </p>
       ) : (
@@ -264,7 +262,7 @@ export function ClinicBlocked({ onOk }: { onOk: () => void }) {
   const { t } = useTranslation();
   return (
     <Screen title={t('modes.clinicBlocked.title')}>
-      <p className="text-[15px] leading-[22px] text-[#3D4552]" data-testid="clinic-blocked">
+      <p className="text-[15px] leading-[22px] text-sub" data-testid="clinic-blocked">
         {t('modes.clinicBlocked.body')}
       </p>
       <Button onClick={onOk} data-testid="clinic-blocked-ok">
@@ -319,7 +317,7 @@ export function LockScreen({
     });
   return (
     <Screen title={who ? t('greeting.welcomeBack', { name: who }) : t('modes.lock.title')}>
-      <p className="text-[15px] text-[#3D4552]">{t(`modes.lock.${kind}Hint`)}</p>
+      <p className="text-[15px] text-sub">{t(`modes.lock.${kind}Hint`)}</p>
       <p className="text-[13px] text-muted">{t('modes.lock.online')}</p>
       <div key={tries} className={tries ? 'nc-shake' : undefined}>
         <Field
@@ -333,7 +331,7 @@ export function LockScreen({
         />
       </div>
       {error === 'wrong' ? (
-        <p role="alert" className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad">
+        <p role="alert" className="rounded-xl bg-bad-soft px-3 py-2 text-[14px] text-bad">
           {t('modes.lock.wrong')}
         </p>
       ) : (

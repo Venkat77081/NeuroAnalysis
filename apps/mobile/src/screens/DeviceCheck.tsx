@@ -30,7 +30,7 @@ const PRESETS: Record<Preset, { recordMinutes: number; thermalMinutes: number }>
 const tierStyle: Record<string, string> = {
   A: 'bg-ok-soft text-ok',
   B: 'bg-brand-soft text-brand',
-  C: 'bg-[#FDECEA] text-bad',
+  C: 'bg-bad-soft text-bad',
   W: 'bg-warn-soft text-warn',
 };
 
@@ -205,7 +205,7 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
           type="button"
           onClick={() => setCameraTest(true)}
           disabled={running}
-          className="mt-3 h-12 w-full rounded-xl border border-[#C9CFD8] bg-white text-[15px] font-semibold disabled:opacity-50"
+          className="mt-3 h-12 w-full rounded-xl border border-edge bg-white text-[15px] font-semibold disabled:opacity-50"
         >
           {t('deviceCheck.cameraTest')}
         </button>
@@ -213,7 +213,7 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
           type="button"
           onClick={() => setCaptureTest(true)}
           disabled={running}
-          className="mt-2 h-12 w-full rounded-xl border border-[#C9CFD8] bg-white text-[15px] font-semibold disabled:opacity-50"
+          className="mt-2 h-12 w-full rounded-xl border border-edge bg-white text-[15px] font-semibold disabled:opacity-50"
           data-testid="open-capture-test"
         >
           {t('deviceCheck.captureTest')}
@@ -222,7 +222,7 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
           type="button"
           onClick={() => setTrackingTest(true)}
           disabled={running}
-          className="mt-2 h-12 w-full rounded-xl border border-[#C9CFD8] bg-white text-[15px] font-semibold disabled:opacity-50"
+          className="mt-2 h-12 w-full rounded-xl border border-edge bg-white text-[15px] font-semibold disabled:opacity-50"
           data-testid="open-tracking-test"
         >
           {t('deviceCheck.trackingTest')}
@@ -238,7 +238,7 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
           {(['quick', 'full'] as const).map((k) => (
             <label
               key={k}
-              className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm ${preset === k ? 'border-brand bg-brand-soft' : 'border-[#C9CFD8]'}`}
+              className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm ${preset === k ? 'border-brand bg-brand-soft' : 'border-edge'}`}
             >
               <input
                 type="radio"
@@ -281,7 +281,7 @@ export function DeviceCheck({ onBack }: { onBack: () => void }) {
             <button
               type="button"
               onClick={() => void kit.cancelBenchmark()}
-              className="h-12 flex-1 rounded-xl border border-[#C9CFD8] bg-white font-semibold"
+              className="h-12 flex-1 rounded-xl border border-edge bg-white font-semibold"
             >
               {t('common.cancel')}
             </button>

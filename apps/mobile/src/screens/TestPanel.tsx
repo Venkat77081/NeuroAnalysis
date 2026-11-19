@@ -109,7 +109,7 @@ export function TestPanel() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed top-1/3 right-0 z-50 min-h-12 min-w-12 rounded-l-xl bg-[#14181F]/75 px-3 text-[13px] font-semibold text-white"
+        className="fixed top-1/3 right-0 z-50 min-h-12 min-w-12 rounded-l-xl bg-cam/75 px-3 text-[13px] font-semibold text-white"
         data-testid="test-panel-open"
       >
         {t('testPanel.open')}
@@ -124,7 +124,7 @@ export function TestPanel() {
       )}
       {open && (
         <Sheet title={t('testPanel.title')} onClose={() => setOpen(false)} testId="test-panel">
-          <p className="m-0 text-[13px] leading-[19px] text-[#3D4552]">{t('testPanel.signIns')}</p>
+          <p className="m-0 text-[13px] leading-[19px] text-sub">{t('testPanel.signIns')}</p>
           <Button variant="secondary" onClick={invite} data-testid="tp-invite">
             {t('testPanel.invite')}
           </Button>

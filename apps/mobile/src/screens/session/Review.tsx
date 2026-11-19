@@ -15,7 +15,7 @@ import { Timeline } from './Timeline.tsx';
 export function ReasonList({ reasons }: { reasons: VerdictReason[] }) {
   const { t } = useTranslation();
   return (
-    <ul className="m-0 pl-5 text-sm leading-relaxed text-[#2B323C]" data-testid="verdict-reasons">
+    <ul className="m-0 pl-5 text-sm leading-relaxed text-ink" data-testid="verdict-reasons">
       {reasons.map((r, i) => (
         <li key={i}>{t(r.messageKey.replace(/^verdict\./, 'session.verdict.'), r.params ?? {})}</li>
       ))}
@@ -102,11 +102,11 @@ export function Review() {
         <button
           type="button"
           onClick={() => void play()}
-          className="relative h-44 rounded-2xl bg-[#1C222B]"
+          className="relative h-44 rounded-2xl bg-cam-panel"
           aria-label={t('session.review.play')}
           data-testid="play"
         >
-          <span className="absolute top-1/2 left-1/2 flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-ink">
+          <span className="absolute top-1/2 left-1/2 flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#16151f]">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M8 5v14l11-7z" />
             </svg>
@@ -116,7 +116,7 @@ export function Review() {
         {take.timeline && <Timeline timeline={take.timeline} />}
 
         <section
-          className={`flex flex-col gap-2 rounded-2xl border p-4 ${pass ? 'border-[#9ED4B5] bg-ok-soft' : 'border-[#F3B4AE] bg-[#FDECEA]'}`}
+          className={`flex flex-col gap-2 rounded-2xl border p-4 ${pass ? 'border-ok-soft bg-ok-soft' : 'border-bad-soft bg-bad-soft'}`}
           data-testid="verdict-card"
         >
           <span
@@ -244,7 +244,7 @@ function KeepSheet({ reasons, options }: { reasons: VerdictReason[]; options: st
       onClose={() => send({ type: 'CANCEL' })}
       testId="keep-sheet"
     >
-      <div className="rounded-xl border border-[#F3B4AE] bg-[#FDECEA] px-3.5 py-2.5">
+      <div className="rounded-xl border border-bad-soft bg-bad-soft px-3.5 py-2.5">
         <span className="text-xs font-bold tracking-wide text-bad uppercase">
           {t('session.keep.failed')}
         </span>
@@ -269,7 +269,7 @@ function KeepSheet({ reasons, options }: { reasons: VerdictReason[]; options: st
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="resize-none rounded-xl border border-[#C9CFD8] p-3 text-[15px] text-ink"
+            className="resize-none rounded-xl border border-edge p-3 text-[15px] text-ink"
           />
         </label>
       )}

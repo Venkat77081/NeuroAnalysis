@@ -20,14 +20,11 @@ export function LandmarksToggle({
       onClick={() => onChange(!on)}
       aria-label={compact ? t('session.landmarks') : undefined}
       className={`flex h-12 items-center justify-center gap-2 rounded-full text-[13px] font-semibold ${compact ? 'w-12' : 'px-3'} ${
-        on ? 'bg-[#4FC3F7] text-[#0E1116]' : 'bg-[#0E1116] text-white'
+        on ? 'bg-[#4FC3F7] text-cam' : 'bg-cam text-white'
       }`}
       data-testid="landmarks-switch"
     >
-      <span
-        className={`size-2.5 rounded-full ${on ? 'bg-[#0E1116]' : 'bg-[#8C96A5]'}`}
-        aria-hidden="true"
-      />
+      <span className={`size-2.5 rounded-full ${on ? 'bg-cam' : 'bg-muted'}`} aria-hidden="true" />
       {!compact && t('session.landmarks')}
     </button>
   );

@@ -99,11 +99,11 @@ export function DeviceCheck({
         <h2 className="text-[18px] font-bold">
           {t(who === 'clinic' ? 'modes.deviceCheck.checking' : 'modes.deviceCheck.patientTitle')}
         </h2>
-        <p className="text-[14px] leading-[20px] text-[#3D4552]">
+        <p className="text-[14px] leading-[20px] text-sub">
           {t(`modes.deviceCheck.hint.${who}`, { s: cfg.durationS })}
         </p>
         <div
-          className="h-2 overflow-hidden rounded-full bg-[#E4E8EE]"
+          className="h-2 overflow-hidden rounded-full bg-soft"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
@@ -123,7 +123,7 @@ export function DeviceCheck({
   const passed = result.outcome !== 'fail';
   return (
     <Card
-      className={`flex flex-col gap-2 ${passed ? '' : 'border-[#F2B8B5]'}`}
+      className={`flex flex-col gap-2 ${passed ? '' : 'border-bad-soft'}`}
       data-testid="device-check"
       data-outcome={result.outcome}
     >
@@ -139,7 +139,7 @@ export function DeviceCheck({
       </span>
       {device && <span className="text-[13px] text-muted">{device}</span>}
       {result.outcome === 'borderline' && (
-        <p className="rounded-xl bg-[#FFF4E0] px-3 py-2 text-[13px] text-[#7A4B00]">
+        <p className="rounded-xl bg-warn-soft px-3 py-2 text-[13px] text-warn">
           {t('modes.deviceCheck.borderline', { take: cfg.warnBelowFps })}
         </p>
       )}

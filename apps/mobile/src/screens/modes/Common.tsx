@@ -23,7 +23,7 @@ export function Field({
       <input
         id={id}
         {...rest}
-        className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[16px] font-normal"
+        className="h-12 rounded-xl border border-edge bg-card px-3 text-[16px] font-normal"
       />
     </label>
   );
@@ -35,7 +35,7 @@ export function ErrorText({ code }: { code: string | null }) {
   const key = `modes.errors.${code}`;
   const text = t(key);
   return (
-    <p role="alert" className="rounded-xl bg-[#FDECEA] px-3 py-2 text-[14px] text-bad">
+    <p role="alert" className="rounded-xl bg-bad-soft px-3 py-2 text-[14px] text-bad">
       {text === key ? t('modes.errors.generic') : text}
     </p>
   );

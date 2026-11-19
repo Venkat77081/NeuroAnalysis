@@ -2,14 +2,15 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
+// v31 (decision 055): Horizon+ pills: the brand gradient, a lined card colour, plain text.
 const variants: Record<Variant, string> = {
-  primary: 'bg-brand text-white disabled:bg-[#DDE1E7] disabled:text-muted',
-  secondary: 'border border-[#C9CFD8] bg-white text-ink disabled:opacity-50',
-  ghost: 'bg-transparent text-brand disabled:opacity-50',
-  danger: 'bg-[#E5484D] text-white disabled:opacity-50',
+  primary: 'nc-gradient text-white shadow-[0_8px_20px_rgb(79_70_229/0.3)]',
+  secondary: 'bg-card text-ink shadow-[inset_0_0_0_1.5px_var(--color-edge)] disabled:opacity-50',
+  ghost: 'bg-transparent text-brand-ink disabled:opacity-50',
+  danger: 'bg-alert text-white disabled:opacity-50',
 };
 
-/** Large touch targets (≥ 48 px, DEV_PLAN §4). */
+/** Large touch targets (≥ 48 px, DEV_PLAN §4); 52 px pills in the v31 look. */
 export function Button({
   variant = 'primary',
   className = '',
@@ -19,7 +20,7 @@ export function Button({
     <button
       type="button"
       {...rest}
-      className={`flex min-h-12 items-center justify-center rounded-2xl px-4 text-[16px] font-semibold disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`flex min-h-[52px] items-center justify-center rounded-full px-5 text-[16px] font-bold disabled:cursor-not-allowed ${variants[variant]} ${className}`}
     />
   );
 }
@@ -55,7 +56,7 @@ export function Card({
   ...rest
 }: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLElement>) {
   return (
-    <section {...rest} className={`rounded-2xl border border-line bg-white p-4 ${className}`}>
+    <section {...rest} className={`rounded-3xl bg-card p-4 shadow-card ${className}`}>
       {children}
     </section>
   );
@@ -75,7 +76,7 @@ export function Sheet({
 }) {
   return (
     <div
-      className="fixed inset-0 z-20 flex flex-col justify-end bg-[#14181F]/55 pt-[var(--sat)]"
+      className="fixed inset-0 z-20 flex flex-col justify-end bg-[#0f0e17]/55 pt-[var(--sat)]"
       data-testid={testId}
     >
       <button
@@ -89,9 +90,9 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="mx-auto flex max-h-[88vh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-3xl bg-white px-5 pt-3 pb-[calc(1.5rem+var(--sab))]"
+        className="mx-auto flex max-h-[88vh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-[28px] bg-card px-5 pt-3 pb-[calc(1.5rem+var(--sab))]"
       >
-        <span className="mx-auto h-1.5 w-10 rounded-full bg-[#C9CFD8]" aria-hidden="true" />
+        <span className="mx-auto h-1.5 w-10 rounded-full bg-edge" aria-hidden="true" />
         <h2 className="m-0 text-[22px] font-bold">{title}</h2>
         {children}
       </section>
@@ -112,7 +113,7 @@ export function Radio({
 }) {
   return (
     <label
-      className={`flex min-h-12 items-center gap-3 rounded-xl border px-3.5 text-[15px] ${checked ? 'border-brand bg-brand-soft' : 'border-[#C9CFD8] bg-white'}`}
+      className={`flex min-h-[52px] items-center gap-3 rounded-2xl px-3.5 text-[15px] ${checked ? 'bg-brand-soft font-semibold text-brand-ink shadow-[inset_0_0_0_2px_var(--color-brand)]' : 'bg-soft'}`}
     >
       <input
         type="radio"

@@ -11,10 +11,10 @@ export type DayPart = 'morning' | 'afternoon' | 'evening';
 export const dayPart = (d = new Date()): DayPart =>
   d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
 
-const SKY: Record<DayPart, string> = {
-  morning: 'linear-gradient(160deg, #fff1e0 0%, #ffe4cc 55%, #fde3cf 100%)',
-  afternoon: 'linear-gradient(160deg, #e6f2ff 0%, #d7eaff 100%)',
-  evening: 'linear-gradient(160deg, #1e2a4a 0%, #2d3a63 100%)',
+/** The sun by day (morning warmer, afternoon brighter); v31: the sky comes from the theme. */
+const SUN: Record<Exclude<DayPart, 'evening'>, string> = {
+  morning: 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c 72%)',
+  afternoon: 'radial-gradient(circle at 40% 40%, #fff7c2, #fbbf24 72%)',
 };
 
 export function Greeting({
@@ -38,7 +38,6 @@ export function Greeting({
   chip?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
-  const dark = part === 'evening';
   const date = new Date()
     .toLocaleDateString(i18n.language === 'hi' ? 'hi-IN' : 'en-IN', {
       weekday: 'long',
@@ -49,9 +48,8 @@ export function Greeting({
   const first = name?.trim().split(/\s+/)[0];
   return (
     <section
-      className={`relative overflow-hidden ${card ? 'rounded-[22px] px-4 pt-5 pb-4' : '-mx-5 rounded-b-[26px] px-5 pb-6'} ${dark ? 'text-white' : 'text-[#3B2417]'}`}
+      className={`nc-hero relative overflow-hidden text-ink ${card ? 'rounded-[28px] px-4 pt-5 pb-5' : '-mx-5 rounded-b-[28px] px-5 pb-7'}`}
       style={{
-        background: SKY[part],
         // Full width, under the status bar too (the page has top padding for it).
         ...(card
           ? {}
@@ -60,12 +58,20 @@ export function Greeting({
       data-testid="greeting"
       data-part={part}
     >
+      {/* v31: soft hills along the bottom, like the dashboards' greeting. */}
+      <span
+        aria-hidden
+        className="absolute -right-[10%] -bottom-[70px] -left-[10%] h-[110px] rounded-[50%] bg-hill"
+      />
       {part === 'evening' ? (
         <>
           <span
             aria-hidden
-            className="nc-moon absolute right-8 size-11 rounded-full shadow-[-12px_6px_0_0_#fde68a]"
-            style={{ top: card ? '1.25rem' : 'calc(1.25rem + var(--sat))' }}
+            className="nc-moon absolute right-6 size-14 rounded-full shadow-[0_0_40px_10px_rgb(165_180_252/0.35)]"
+            style={{
+              top: card ? '1rem' : 'calc(1rem + var(--sat))',
+              background: 'radial-gradient(circle at 38% 38%, #eef2ff, #a5b4fc 70%)',
+            }}
           />
           {[
             [62, 18],
@@ -76,7 +82,7 @@ export function Greeting({
             <span
               key={i}
               aria-hidden
-              className="nc-twinkle absolute size-1 rounded-full bg-white"
+              className="nc-twinkle absolute size-1 rounded-full bg-brand-ink"
               style={{
                 right: `${r! + 30}px`,
                 top: card ? `${top}px` : `calc(${top}px + var(--sat))`,
@@ -88,13 +94,10 @@ export function Greeting({
       ) : (
         <span
           aria-hidden
-          className="nc-rise absolute right-5 size-14 rounded-full"
+          className="nc-rise absolute right-5 size-16 rounded-full"
           style={{
             top: card ? '1rem' : 'calc(1rem + var(--sat))',
-            background:
-              part === 'morning'
-                ? 'radial-gradient(circle at 40% 40%, #fde68a, #fb923c)'
-                : 'radial-gradient(circle, #fff7c2, #fbbf24)',
+            background: SUN[part],
           }}
         />
       )}
@@ -106,17 +109,17 @@ export function Greeting({
         </div>
       )}
       <div className="relative z-10 flex items-center justify-between gap-2 pr-16">
-        <span className="text-[13px] opacity-80">{date}</span>
+        <span className="text-[13px] font-semibold text-sub">{date}</span>
         {right}
       </div>
       <h1
-        className="m-0 mt-1 pr-16 text-[28px] leading-[34px] font-extrabold whitespace-pre-line"
+        className="m-0 mt-1 pr-16 text-[28px] leading-[34px] font-extrabold tracking-[-0.4px] whitespace-pre-line"
         data-testid="greeting-text"
       >
         {first ? t(`greeting.${part}Name`, { name: first }) : t(`greeting.${part}`)}
       </h1>
       {line && (
-        <p className="m-0 mt-1.5 text-[14px] opacity-85" data-testid="greeting-line">
+        <p className="m-0 mt-1.5 text-[14px] text-sub" data-testid="greeting-line">
           {line}
         </p>
       )}

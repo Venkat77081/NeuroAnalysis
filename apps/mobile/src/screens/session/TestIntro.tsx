@@ -133,7 +133,7 @@ export function TestIntro() {
         </div>
 
         <div
-          className="nc-fade-up relative flex h-44 items-center justify-center rounded-2xl bg-gradient-to-br from-[#E6EFF8] to-[#FDE3CF] text-sm font-semibold text-[#3D4552]"
+          className="nc-fade-up relative flex h-44 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-soft to-[#FDE3CF] text-sm font-semibold text-sub"
           aria-label={t('session.intro.demoMissing')}
         >
           {cfg.instructions.demoVideo === 'TBD'
@@ -148,7 +148,7 @@ export function TestIntro() {
               className="nc-fade-up flex gap-3 text-[15px] leading-snug"
               style={{ animationDelay: `${0.1 + i * 0.08}s` }}
             >
-              <span className="flex size-[26px] flex-none items-center justify-center rounded-full bg-brand text-[13px] font-bold text-white">
+              <span className="flex size-[26px] flex-none items-center justify-center rounded-full nc-gradient text-[13px] font-bold text-white">
                 {i + 1}
               </span>
               <span>{s}</span>
@@ -188,7 +188,7 @@ export function TestIntro() {
                 type="button"
                 aria-pressed={!!done[c]}
                 onClick={() => setDone({ ...done, [c]: !done[c] })}
-                className={`flex min-h-12 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium ${done[c] ? 'border-[#9ED4B5] bg-ok-soft text-[#145F38]' : 'border-[#C9CFD8] bg-white text-muted'}`}
+                className={`flex min-h-12 items-center gap-1.5 rounded-full border px-3.5 text-[14px] font-medium ${done[c] ? 'border-ok-soft bg-ok-soft text-ok' : 'border-edge bg-card text-muted'}`}
               >
                 <Check />
                 {t(`session.checklist.${c}`)}
@@ -200,11 +200,11 @@ export function TestIntro() {
 
       {needHelper && (
         <section
-          className="mx-5 flex flex-col gap-2.5 rounded-2xl border border-line bg-white p-4"
+          className="mx-5 flex flex-col gap-2.5 rounded-3xl bg-card shadow-card p-4"
           data-testid="saw-helper"
         >
           <h2 className="text-[16px] font-bold">{t('modes.saw.title')}</h2>
-          <p className="text-[14px] leading-5 text-[#3D4552]">{t('modes.saw.body')}</p>
+          <p className="text-[14px] leading-5 text-sub">{t('modes.saw.body')}</p>
           <Button onClick={() => setHelper(true)} data-testid="saw-helper-yes">
             {t('modes.saw.yes')}
           </Button>

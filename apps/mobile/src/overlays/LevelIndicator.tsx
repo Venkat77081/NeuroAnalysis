@@ -20,7 +20,7 @@ export function LevelIndicator({
   const dotY = Math.max(-18, Math.min(18, tilt.pitchDeg * 1.2));
   return (
     <div
-      className="flex items-center gap-2 rounded-full bg-[#0E1116]/85 py-1 pr-3 pl-1"
+      className="flex items-center gap-2 rounded-full bg-cam/85 py-1 pr-3 pl-1"
       data-testid="level"
       data-ok={ok}
       aria-label={t('session.guidance.levelAria', {

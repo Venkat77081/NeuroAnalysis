@@ -114,7 +114,7 @@ export function ClinicQueue({
   const row = (q: QueueItem) => (
     <div
       key={q.request_id}
-      className="flex items-center justify-between gap-2 rounded-xl border border-line bg-white px-3.5 py-2.5 text-[14px]"
+      className="flex items-center justify-between gap-2 rounded-xl border border-line bg-card px-3.5 py-2.5 text-[14px]"
       data-testid="queue-item"
     >
       <span className="min-w-0">
@@ -157,10 +157,10 @@ export function ClinicQueue({
           <span
             className={`self-start rounded-xl px-2.5 py-0.5 text-[12px] font-semibold ${
               q.consent.state === 'app_given'
-                ? 'bg-[#E3F4EA] text-[#145F38]'
+                ? 'bg-ok-soft text-ok'
                 : q.consent.state === 'waiting'
-                  ? 'bg-[#FDF0DD] text-[#8A4B00]'
-                  : 'bg-[#EDF0F3] text-[#3D4552]'
+                  ? 'bg-warn-soft text-warn'
+                  : 'bg-soft text-sub'
             }`}
             data-testid="queue-consent"
           >
@@ -278,7 +278,7 @@ export function ClinicQueue({
       {!ready && (
         <p
           role="alert"
-          className="rounded-xl bg-[#FDECEA] px-3 py-2.5 text-[14px] leading-5 text-bad"
+          className="rounded-xl bg-bad-soft px-3 py-2.5 text-[14px] leading-5 text-bad"
           data-testid="queue-not-ready"
         >
           {t('clinicQueue.notReady')}

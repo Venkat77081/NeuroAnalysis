@@ -43,7 +43,7 @@ export function SkipSheet({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="resize-none rounded-xl border border-[#C9CFD8] p-3 text-[15px] text-ink"
+            className="resize-none rounded-xl border border-edge p-3 text-[15px] text-ink"
           />
         </label>
       )}

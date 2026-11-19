@@ -212,25 +212,25 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
       <div className="fixed inset-0" data-testid="live-view">
         <div className="absolute inset-x-4 top-[calc(1rem+var(--sat))] flex items-center justify-between gap-2">
           {live.mode === 'record' ? (
-            <span className="flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold text-white tabular-nums">
+            <span className="flex items-center gap-2 rounded-full bg-alert px-3 py-2 text-sm font-bold text-white tabular-nums">
               <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
               REC {live.elapsedS.toFixed(1)} / {live.durationS} s
             </span>
           ) : (
-            <span className="rounded-full bg-[#0E1116] px-3 py-2 text-sm font-semibold text-white">
+            <span className="rounded-full bg-cam px-3 py-2 text-sm font-semibold text-white">
               {t('captureTest.calibrateTitle')}
             </span>
           )}
           {live.mode === 'record' && (
             <span
-              className="rounded-xl bg-[#0E1116] px-3 py-2 text-sm font-semibold text-white"
+              className="rounded-xl bg-cam px-3 py-2 text-sm font-semibold text-white"
               data-testid="live-take"
             >
               {t('captureTest.take', { n: live.take, of: live.of })}
             </span>
           )}
         </div>
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-t-3xl bg-[#0E1116] p-5 pb-[calc(1.25rem+var(--sab))] text-white">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-t-3xl bg-cam p-5 pb-[calc(1.25rem+var(--sab))] text-white">
           <span className="text-sm">
             {live.mode === 'record'
               ? freeze
@@ -240,7 +240,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
           </span>
           {live.mode === 'record' && (
             <div
-              className="h-2 rounded bg-[#2E3540]"
+              className="h-2 rounded bg-cam-soft"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={live.durationS}
@@ -312,7 +312,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
             value={code}
             onChange={(e) => setCode(e.target.value as typeof code)}
             disabled={running}
-            className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[15px] font-normal"
+            className="h-12 rounded-xl border border-edge bg-white px-3 text-[15px] font-normal"
             data-testid="test-select"
           >
             {codes.map((c) => {
@@ -333,7 +333,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
               type="button"
               aria-pressed={repeats === n}
               onClick={() => setRepeats(n)}
-              className={`h-11 flex-1 rounded-xl border text-sm font-semibold ${repeats === n ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white'}`}
+              className={`h-11 flex-1 rounded-xl border text-sm font-semibold ${repeats === n ? 'border-transparent nc-gradient text-white' : 'border-edge bg-white'}`}
             >
               {n}
             </button>
@@ -384,7 +384,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={() => void calibrate()}
             disabled={running}
-            className="h-12 rounded-xl border border-[#C9CFD8] bg-white px-3 text-sm font-semibold disabled:opacity-50"
+            className="h-12 rounded-xl border border-edge bg-white px-3 text-sm font-semibold disabled:opacity-50"
           >
             {t('captureTest.calibrate')}
           </button>
@@ -453,7 +453,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
                     <button
                       type="button"
                       onClick={() => void play(r.takeId)}
-                      className="h-9 rounded-lg border border-[#C9CFD8] px-3 font-semibold"
+                      className="h-9 rounded-lg border border-edge px-3 font-semibold"
                     >
                       {t('captureTest.play')}
                     </button>
@@ -489,7 +489,7 @@ export function CaptureTest({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={() => void deleteAll()}
             disabled={running}
-            className="mt-3 h-11 w-full rounded-xl border border-[#C9CFD8] bg-white text-sm font-semibold"
+            className="mt-3 h-11 w-full rounded-xl border border-edge bg-white text-sm font-semibold"
           >
             {t('captureTest.deleteAll')}
           </button>

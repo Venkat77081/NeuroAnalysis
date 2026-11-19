@@ -322,7 +322,7 @@ export function CameraStage() {
     <div className="fixed inset-0 text-white" data-testid={`stage-${phase}`}>
       {/* Mock/browser: no native preview behind the page, so draw a dark stand-in for the camera image. */}
       {capture.implementation !== 'native' && (
-        <div className="absolute inset-0 bg-[#20262F]" aria-hidden="true" />
+        <div className="absolute inset-0 bg-cam-panel" aria-hidden="true" />
       )}
       {/* Green = gate open; amber = something to fix; white = checking / tracking (M5). */}
       <div className={L.guide}>
@@ -340,7 +340,7 @@ export function CameraStage() {
         {phase === 'recording' ? (
           <span />
         ) : (
-          <span className="rounded-full bg-[#0E1116]">
+          <span className="rounded-full bg-cam">
             <BackButton
               onClick={() => send(phase === 'countdown' ? { type: 'CANCEL' } : { type: 'BACK' })}
               label={t('common.back')}
@@ -360,7 +360,7 @@ export function CameraStage() {
               rememberOrientation(step.code, next);
               setOrientation(next);
             }}
-            className="order-3 flex size-12 items-center justify-center rounded-full bg-[#0E1116] text-[18px] font-semibold"
+            className="order-3 flex size-12 items-center justify-center rounded-full bg-cam text-[18px] font-semibold"
             aria-label={t('session.framing.switchOrientation')}
             data-testid="orientation-toggle"
           >
@@ -384,7 +384,7 @@ export function CameraStage() {
             )}
             {stepTitle(t, step.code, step.side)}
           </span>
-          <span className="block max-w-full truncate text-[11px] text-[#B8C0CC]">
+          <span className="block max-w-full truncate text-[11px] text-cam-sub">
             {t('session.framing.mode', {
               res: cfg.camera.resolution,
               fps,
@@ -411,7 +411,7 @@ export function CameraStage() {
           )}
           {thermal?.warn && (
             <p
-              className={`m-0 rounded-2xl px-4 py-3 text-[15px] font-semibold ${thermal.blockNewTakes ? 'bg-[#E5484D] text-white' : 'bg-[#F2A23A] text-[#1A1206]'}`}
+              className={`m-0 rounded-2xl px-4 py-3 text-[15px] font-semibold ${thermal.blockNewTakes ? 'bg-alert text-white' : 'bg-[#F2A23A] text-[#1A1206]'}`}
               role="alert"
               data-testid="thermal-warning"
             >
@@ -420,7 +420,7 @@ export function CameraStage() {
           )}
           {storageLow && (
             <p
-              className="m-0 rounded-2xl bg-[#E5484D] px-4 py-3 text-[15px] font-semibold text-white"
+              className="m-0 rounded-2xl bg-alert px-4 py-3 text-[15px] font-semibold text-white"
               role="alert"
               data-testid="storage-low"
             >
@@ -444,7 +444,7 @@ export function CameraStage() {
             />
           </div>
           {cameraError && (
-            <p className="m-0 rounded-2xl bg-[#E5484D] px-4 py-3 text-sm" role="alert">
+            <p className="m-0 rounded-2xl bg-alert px-4 py-3 text-sm" role="alert">
               {cameraError}
             </p>
           )}
@@ -463,7 +463,7 @@ export function CameraStage() {
       {phase === 'recording' && (guidance?.critical || guidance?.prompt) && (
         <div className={L.hints}>
           <p
-            className={`${L.hint} font-semibold ${guidance.critical ? '!bg-[#E5484D] !text-white' : '!bg-[#F2A23A] !text-[#1A1206]'}`}
+            className={`${L.hint} font-semibold ${guidance.critical ? '!bg-alert !text-white' : '!bg-[#F2A23A] !text-[#1A1206]'}`}
             role="alert"
             data-testid={guidance.critical ? 'critical-banner' : 'warn-banner'}
           >
@@ -482,7 +482,7 @@ export function CameraStage() {
         />
       ) : (
         <section className={L.panel} data-testid="controls">
-          <span className="text-center text-xs text-[#8C96A5]" data-testid="gate-status">
+          <span className="text-center text-xs text-muted" data-testid="gate-status">
             {advisory && !gateOpen
               ? t('session.guidance.advisory')
               : gateOpen
@@ -506,7 +506,7 @@ export function CameraStage() {
               data-gate={gateOpen ? 'open' : 'closed'}
             >
               <GateRing progress={guidance?.gateProgress ?? 0} />
-              <span className="size-14 rounded-full bg-[#E5484D]" />
+              <span className="size-14 rounded-full bg-alert" />
             </button>
           </div>
         </section>
@@ -594,7 +594,7 @@ function RecordingPanel({
   return (
     <>
       <span
-        className={`${L.rec} flex items-center gap-2 rounded-full bg-[#E5484D] px-3 py-2 text-sm font-bold tabular-nums`}
+        className={`${L.rec} flex items-center gap-2 rounded-full bg-alert px-3 py-2 text-sm font-bold tabular-nums`}
         data-testid="rec-badge"
       >
         <span className="size-2.5 rounded-full bg-white" aria-hidden="true" />
@@ -606,7 +606,7 @@ function RecordingPanel({
           <span className={L.auto}>{t('session.recording.auto', { total: durationS })}</span>
         </div>
         <div
-          className="h-2 w-full rounded bg-[#2E3540]"
+          className="h-2 w-full rounded bg-cam-soft"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={durationS}
@@ -618,7 +618,7 @@ function RecordingPanel({
         <button
           type="button"
           onClick={() => void capture.kit.stopRecording().catch(() => undefined)}
-          className="h-12 w-full rounded-2xl border border-[#4A525E] px-2 text-[15px] font-semibold"
+          className="h-12 w-full rounded-2xl border border-cam-edge px-2 text-[15px] font-semibold"
           data-testid="stop-early"
         >
           {t('session.recording.stopEarly')}
@@ -636,15 +636,15 @@ const PORTRAIT = {
   guide: 'pointer-events-none absolute inset-0',
   header: 'absolute inset-x-0 top-[var(--sat)] flex items-center justify-between gap-2 p-3',
   // New UI: the title sits next to Back and takes the room left, one line each (no clipping).
-  title: 'order-1 flex min-w-0 flex-1 flex-col items-start rounded-2xl bg-[#0E1116]/90 px-3 py-1.5',
+  title: 'order-1 flex min-w-0 flex-1 flex-col items-start rounded-2xl bg-cam/90 px-3 py-1.5',
   hints: 'absolute inset-x-4 top-[calc(5rem+var(--sat))] flex flex-col gap-2',
-  hint: 'm-0 rounded-2xl bg-[#0E1116] px-4 py-3 text-[15px]',
+  hint: 'm-0 rounded-2xl bg-cam px-4 py-3 text-[15px]',
   panel:
-    'absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-[#0E1116] px-5 pt-4 pb-[calc(1.5rem+var(--sab))]',
+    'absolute inset-x-0 bottom-0 flex flex-col gap-3 rounded-t-3xl bg-cam px-5 pt-4 pb-[calc(1.5rem+var(--sab))]',
   rec: 'absolute top-[calc(0.75rem+var(--sat))] left-3',
   timeRow: 'flex items-end justify-between',
   timeLeft: 'text-[44px] leading-none font-bold tabular-nums',
-  auto: 'text-right text-[13px] text-[#B8C0CC]',
+  auto: 'text-right text-[13px] text-cam-sub',
 };
 
 const RAIL = 'w-[calc(8.5rem+var(--sar))]';
@@ -654,14 +654,14 @@ const RIGHT_OF_RAIL = 'right-[calc(9.25rem+var(--sar))]';
 const LANDSCAPE = {
   guide: `pointer-events-none absolute top-[var(--sat)] bottom-[var(--sab)] left-[var(--sal)] right-[calc(8.5rem+var(--sar))]`,
   header: `absolute top-[calc(0.5rem+var(--sat))] ${LEFT} ${RIGHT_OF_RAIL} flex items-center justify-between gap-2`,
-  title: 'flex flex-col items-end rounded-xl bg-[#0E1116]/85 px-3 py-1',
+  title: 'flex flex-col items-end rounded-xl bg-cam/85 px-3 py-1',
   hints: `absolute bottom-[calc(0.75rem+var(--sab))] ${LEFT} ${RIGHT_OF_RAIL} flex flex-col items-start gap-2`,
-  hint: 'm-0 max-w-[32rem] rounded-xl bg-[#0E1116]/85 px-3 py-2 text-sm',
-  panel: `absolute inset-y-0 right-0 ${RAIL} flex flex-col items-center justify-center gap-3 bg-[#0E1116] pt-[var(--sat)] pr-[calc(0.75rem+var(--sar))] pb-[var(--sab)] pl-3 text-center`,
+  hint: 'm-0 max-w-[32rem] rounded-xl bg-cam/85 px-3 py-2 text-sm',
+  panel: `absolute inset-y-0 right-0 ${RAIL} flex flex-col items-center justify-center gap-3 bg-cam pt-[var(--sat)] pr-[calc(0.75rem+var(--sar))] pb-[var(--sab)] pl-3 text-center`,
   rec: `absolute top-[calc(0.5rem+var(--sat))] ${LEFT}`,
   timeRow: 'flex w-full flex-col items-center gap-1',
   timeLeft: 'text-[36px] leading-none font-bold tabular-nums',
-  auto: 'text-[11px] text-[#B8C0CC]',
+  auto: 'text-[11px] text-cam-sub',
 };
 
 const GREEN = '#3DDC84';
@@ -697,10 +697,10 @@ function GuidancePrompt({
     );
   if (state?.tracking)
     return (
-      <p className={`${className} text-[#B8C0CC]`} role="status" data-testid="guidance-tracking">
+      <p className={`${className} text-cam-sub`} role="status" data-testid="guidance-tracking">
         {t('session.guidance.tracking')}
         {ENGINEERING_TOOLS && (
-          <span className="ml-2 text-xs text-[#8C96A5]" data-testid="analysis-diag">
+          <span className="ml-2 text-xs text-muted" data-testid="analysis-diag">
             {t('session.guidance.diag', {
               fps: state.analysisFps.toFixed(0),
               ms: state.analysisLatencyMs.toFixed(0),
@@ -748,7 +748,7 @@ function Chips({ state }: { state: GuidanceView | null }) {
   const style = {
     OK: 'bg-[#123824] text-[#5BE3A0]',
     WARN: 'bg-[#3A2A10] text-[#F2A23A]',
-    UNKNOWN: 'bg-[#0E1116] text-[#8C96A5]',
+    UNKNOWN: 'bg-cam text-muted',
   };
   const mark = { OK: '✓', WARN: '!', UNKNOWN: '…' };
   return (

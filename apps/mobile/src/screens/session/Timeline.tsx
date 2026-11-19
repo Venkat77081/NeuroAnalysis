@@ -16,10 +16,10 @@ export function Timeline({ timeline }: { timeline: TakeTimeline }) {
     .join(' · ');
   return (
     <section className="flex flex-col gap-1.5" data-testid="timeline">
-      <div className="relative h-8 overflow-hidden rounded-lg bg-[#E3E7EC]" aria-hidden="true">
+      <div className="relative h-8 overflow-hidden rounded-lg bg-soft" aria-hidden="true">
         {timeline.movementWindow && (
           <div
-            className="absolute inset-y-0 bg-[#BFE8D0]"
+            className="absolute inset-y-0 bg-ok-soft"
             style={{
               left: pct(timeline.movementWindow.tStartS),
               width: width(timeline.movementWindow.tStartS, timeline.movementWindow.tEndS),
@@ -28,16 +28,12 @@ export function Timeline({ timeline }: { timeline: TakeTimeline }) {
           />
         )}
         {timeline.marks.map((m, i) => (
-          <div
-            key={i}
-            className="absolute top-2 bottom-2 w-px bg-[#1B7F4B]"
-            style={{ left: pct(m) }}
-          />
+          <div key={i} className="absolute top-2 bottom-2 w-px bg-ok" style={{ left: pct(m) }} />
         ))}
         {timeline.alerts.map((a, i) => (
           <div
             key={i}
-            className={`absolute bottom-0 h-2 ${a.severity === 'CRITICAL' ? 'bg-[#E5484D]' : 'bg-[#F2A23A]'}`}
+            className={`absolute bottom-0 h-2 ${a.severity === 'CRITICAL' ? 'bg-alert' : 'bg-[#F2A23A]'}`}
             style={{ left: pct(a.tStartS), width: width(a.tStartS, a.tEndS) }}
             data-testid={`alert-${a.severity}`}
           />

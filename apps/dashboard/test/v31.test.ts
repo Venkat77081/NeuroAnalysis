@@ -86,3 +86,49 @@ describe('v31: clinic hours grid', () => {
     expect(leaveOn([{ from: '', to: '' }], '2026-11-19')).toBeNull();
   });
 });
+
+import { daySlots, monthCells, shiftMonth, splitDay } from '../src/slots.tsx';
+
+describe('v31: time grid and month', () => {
+  const day = {
+    hours: [
+      ['09:00', '10:00'],
+      ['14:00', '15:00'],
+    ],
+    free: ['09:30', '14:00', '14:30'],
+    held: ['09:00'],
+    slot_minutes: 30,
+    on_leave: false,
+  };
+  it('lists every slot in clinic hours: free, held for an offer, or taken', () => {
+    expect(daySlots(day)).toEqual([
+      { time: '09:00', state: 'held' },
+      { time: '09:30', state: 'free' },
+      { time: '14:00', state: 'free' },
+      { time: '14:30', state: 'free' },
+    ]);
+    expect(daySlots({ ...day, free: ['09:30'], held: [] }).map((s) => s.state)).toEqual([
+      'taken',
+      'free',
+      'taken',
+      'taken',
+    ]);
+    expect(daySlots({ ...day, on_leave: true })).toEqual([]);
+  });
+  it('splits Morning and Afternoon at the configured hour', () => {
+    const { morning, afternoon } = splitDay(daySlots(day));
+    expect(morning.map((s) => s.time)).toEqual(['09:00', '09:30']);
+    expect(afternoon.map((s) => s.time)).toEqual(['14:00', '14:30']);
+    expect(splitDay([{ time: '11:59' }, { time: '12:00' }], '12:00').afternoon).toEqual([
+      { time: '12:00' },
+    ]);
+  });
+  it('shows a month from the Monday on or before the 1st, six weeks', () => {
+    const c = monthCells('2026-11');
+    expect(c).toHaveLength(42);
+    expect(c[0]).toBe('2026-10-26'); // 1 Nov 2026 is a Sunday
+    expect(c[41]).toBe('2026-12-06');
+    expect(shiftMonth('2026-12', 1)).toBe('2027-01');
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12');
+  });
+});

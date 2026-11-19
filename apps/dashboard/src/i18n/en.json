@@ -1078,7 +1078,7 @@
     "fhir": "Booked in the hospital system. NeuroCapture cannot write to it (read-only): after you save here, also move it there. NeuroCapture keeps your change until the hospital system’s time changes again.",
     "wants": "The patient would like: {{days}} · {{part}} · reason: {{reason}}. The appointment stays as booked until you answer.",
     "step1": "1. New date",
-    "step2": "2. Doctor and time on {{day}}",
+    "step2": "Doctor and time on {{day}}",
     "wd": {
       "mon": "Mon",
       "tue": "Tue",
@@ -1090,7 +1090,7 @@
     },
     "legendWanted": "patient’s choices",
     "legendBooked": "booked now",
-    "freeHint": "Free times come from each doctor’s clinic hours (Team page) minus their booked appointments. Check the doctor’s other commitments too.",
+    "freeHint": "Free times come from the doctor’s clinic hours (Settings) minus booked appointments; struck-through times are taken. Check the doctor’s other commitments too.",
     "bookedDoctor": "booked doctor",
     "onLeave": "On leave",
     "noHours": "No clinic hours set",
@@ -1273,10 +1273,22 @@
     "save": "Save hours",
     "bookable": "Bookable in the app (patients can ask for this doctor)"
   },
+  "slots": {
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "freeCount_one": "{{count}} free time",
+    "freeCount_other": "{{count}} free times",
+    "taken": "Booked or past",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "legendFree": "has free times",
+    "doctor": "Doctor",
+    "sameDoctor": "same doctor"
+  },
   "offers": {
     "mode": {
-      "now": "Move it now",
-      "offer": "Offer {{name}} choices"
+      "now": "Book it now",
+      "offer": "Offer up to {{max}} times"
     },
     "modeHint": "Offer choices: the patient picks one in the app; the times are held for them.",
     "notJoined": "This patient does not use the app: move it now and phone them.",

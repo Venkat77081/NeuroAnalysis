@@ -17,16 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { call, hospital } from './api.ts';
 import { appointmentChanges } from './config.ts';
 import { useUndo } from './undo.tsx';
-import {
-  addDays,
-  fmtDay,
-  fmtTime,
-  useSettings,
-  weekday,
-  zonedDay,
-  zonedIso,
-  zonedTime,
-} from './changes.tsx';
+import { fmtDay, fmtTime, useSettings, zonedDay, zonedIso, zonedTime } from './changes.tsx';
 import {
   Avatar,
   Badge,
@@ -39,6 +30,15 @@ import {
   fmt,
 } from './ui.tsx';
 import type { RequestOut as LinkOut } from './appointments.tsx';
+import {
+  MonthPicker,
+  TimeGrid,
+  daySlots,
+  dayState,
+  monthCells,
+  useFreeDays,
+  type DoctorDay,
+} from './slots.tsx';
 
 // --- Types ---
 
@@ -104,17 +104,6 @@ export interface Inbox {
   offers: OfferRow[];
   cancellations: CancelRow[];
   count: number;
-}
-interface DoctorDay {
-  doctor_id: string;
-  doctor_name: string;
-  department: string | null;
-  has_hours: boolean;
-  on_leave: boolean;
-  hours: string[][];
-  free: string[];
-  held: string[];
-  booked: number;
 }
 /** What MovePanel needs of an appointment. */
 export interface Movable {
@@ -207,13 +196,11 @@ export function MovePanel({
     };
   }, [shownDay, appt]);
 
-  const weeks = useMemo(() => {
-    if (!today) return [];
-    const start = addDays(today, -weekday(today));
-    return Array.from({ length: 6 }, (_, w) =>
-      Array.from({ length: 7 }, (_, d) => addDays(start, w * 7 + d)),
-    );
-  }, [today]);
+  // v31 (canvas v28): a month calendar with green dots on days with free times (the chosen
+  // doctor's, or everyone's), then one doctor's day as Morning / Afternoon chips.
+  const [monthPick, setMonth] = useState<string | null>(null);
+  const month = monthPick ?? (shownDay ?? '0000-00').slice(0, 7);
+  const cells = useMemo(() => monthCells(month), [month]);
 
   const pickDay = (d: string) => {
     setDay(d);
@@ -221,7 +208,9 @@ export function MovePanel({
     setDoctors(null);
   };
   const shown = (doctors ?? []).filter((d) => canAssign || d.doctor_id === appt?.doctor_id);
-  const chosen = doctor ?? appt?.doctor_id ?? null;
+  const chosen = doctor ?? appt?.doctor_id ?? shown[0]?.doctor_id ?? null;
+  const freeDays = useFreeDays(cells, chosen, appt?.id ?? null);
+  const chosenDay = shown.find((d) => d.doctor_id === chosen) ?? null;
   const chosenName =
     shown.find((d) => d.doctor_id === chosen)?.doctor_name ?? appt?.doctor_name ?? '';
   const picked = (d: string, f: string) =>
@@ -299,28 +288,6 @@ export function MovePanel({
       onClose={onClose}
       testId="move-panel"
     >
-      {appt && (
-        <div className="flex flex-wrap items-center gap-3">
-          <div role="group" className="flex overflow-hidden rounded-2xl border border-edge bg-card">
-            {(['now', 'offer'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={mode === m}
-                disabled={m === 'offer' && !canOffer}
-                onClick={() => setMode(m)}
-                className={`min-h-11 px-4 text-[14px] font-semibold disabled:opacity-40 ${mode === m ? 'bg-brand text-white' : ''}`}
-                data-testid={`move-mode-${m}`}
-              >
-                {t(`offers.mode.${m}`, { name: patient })}
-              </button>
-            ))}
-          </div>
-          <span className="text-[13px] text-muted">
-            {canOffer ? t('offers.modeHint') : t('offers.notJoined')}
-          </span>
-        </div>
-      )}
       {appt?.source === 'fhir' && (
         <Notice tone="warn" testId="move-fhir">
           {t('moves.fhir')}
@@ -331,127 +298,72 @@ export function MovePanel({
           {t('offers.wantedHint', { count: request.choices.length })}
         </Notice>
       )}
-      <div className="flex flex-wrap items-start gap-5">
+      <div className="flex flex-wrap items-start gap-6">
         <div className="flex min-w-[300px] flex-1 flex-col gap-2">
-          <b className="text-[15px]">{t('moves.step1')}</b>
-          <div className="grid grid-cols-7 gap-1.5" role="grid" aria-label={t('moves.step1')}>
-            {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((w) => (
-              <span key={w} className="text-center text-[12px] text-muted">
-                {t(`moves.wd.${w}`)}
-              </span>
-            ))}
-            {weeks.flat().map((d) => {
-              const sel = d === shownDay;
-              const has = picks.some((p) => p.day === d) || wanted.has(d);
-              // v30 (canvas v28): round days; the chosen one in the brand gradient.
-              const cls = sel
-                ? 'nc-gradient border-transparent font-extrabold text-white'
-                : d === booked
-                  ? 'border-warn bg-warn-soft text-warn'
-                  : has
-                    ? 'border-transparent bg-brand-soft text-brand-ink'
-                    : 'border-transparent bg-transparent text-ink hover:bg-soft';
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  disabled={d < today}
-                  aria-pressed={sel}
-                  aria-label={fmtDay(d)}
-                  onClick={() => pickDay(d)}
-                  className={`h-10 rounded-full border text-[14px] font-semibold disabled:opacity-35 ${cls}`}
-                  data-testid={`move-day-${d}`}
-                >
-                  {Number(d.slice(8))}
-                </button>
-              );
-            })}
-          </div>
+          <MonthPicker
+            month={month}
+            onMonth={setMonth}
+            day={shownDay}
+            onDay={pickDay}
+            today={today}
+            free={freeDays}
+            booked={booked}
+            marked={new Set([...wanted, ...picks.map((p) => p.day)])}
+          />
           <span className="flex flex-wrap gap-3 text-[12px] text-muted">
+            <span>
+              <span className="text-ok">●</span> {t('slots.legendFree')}
+            </span>
             <span className="text-brand-ink">
               ■ {t(offering ? 'offers.legendPicked' : 'moves.legendWanted')}
             </span>
             {appt && <span className="text-warn">■ {t('moves.legendBooked')}</span>}
           </span>
         </div>
-        <div className="flex min-w-[320px] flex-1 flex-col gap-2" data-testid="move-doctors">
-          <b className="text-[15px]">{t('moves.step2', { day: fmtDay(shownDay!) })}</b>
-          <span className="text-[13px] text-muted">
-            {t(offering ? 'offers.pickHint' : 'moves.freeHint', { max })}
+        <div className="flex min-w-[320px] flex-1 flex-col gap-3" data-testid="move-doctors">
+          <span className="text-[13px] font-semibold text-sub">
+            {t('moves.step2', { day: fmtDay(shownDay!) })}
           </span>
           {!doctors && <span className="text-muted">{t('app.loading')}</span>}
-          {shown.map((d) => {
-            const sel = d.doctor_id === chosen;
-            const state = d.on_leave
-              ? ['bad', t('moves.onLeave')]
-              : !d.has_hours
-                ? ['neutral', t('moves.noHours')]
-                : d.free.length
-                  ? ['ok', t('moves.free', { count: d.free.length })]
-                  : ['bad', t('moves.notFree')];
-            return (
-              <div
-                key={d.doctor_id}
-                className={`flex flex-col gap-2 rounded-xl border bg-card p-3 ${sel && !offering ? 'border-2 border-brand' : 'border-line'}`}
-                data-testid={`move-doctor-${d.doctor_name}`}
-              >
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="radio"
-                    name={`doctor-${appt?.id ?? request?.id}`}
-                    checked={sel}
-                    onChange={() => {
-                      setDoctor(d.doctor_id);
-                      setTime('');
-                    }}
-                    className="h-4 w-4"
-                  />
-                  <b className="flex-1">
-                    {d.doctor_name}
-                    <span className="font-normal text-muted">
-                      {d.department ? ` · ${d.department}` : ''}
-                      {d.doctor_id === appt?.doctor_id ? ` · ${t('moves.bookedDoctor')}` : ''}
-                    </span>
-                  </b>
-                  <Badge tone={state[0] as 'ok' | 'bad' | 'neutral'}>{state[1]}</Badge>
-                </label>
-                {(d.free.length > 0 || d.held.length > 0) && (
-                  <div className="flex flex-wrap gap-1.5 pl-6">
-                    {d.free.map((f) => {
-                      const on = offering ? picked(d.doctor_id, f) : sel && time === f;
-                      return (
-                        <button
-                          key={f}
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => {
-                            if (offering) togglePick(d, f);
-                            else {
-                              setDoctor(d.doctor_id);
-                              setTime(f);
-                            }
-                          }}
-                          className={chipCls(on)}
-                          data-testid={`move-slot-${f}`}
-                        >
-                          {fmtTime(f)}
-                        </button>
-                      );
-                    })}
-                    {d.held.map((f) => (
-                      <span
-                        key={`h${f}`}
-                        title={t('offers.heldTitle')}
-                        className="inline-flex min-h-9 items-center rounded-full border border-dashed border-brand bg-brand-soft px-3 text-[13px] font-semibold text-brand-ink"
-                      >
-                        {fmtTime(f)} · {t('offers.held')}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {doctors && shown.length > 0 && (
+            <select
+              value={chosen ?? ''}
+              onChange={(e) => {
+                setDoctor(e.target.value);
+                setTime('');
+              }}
+              disabled={shown.length < 2}
+              aria-label={t('slots.doctor')}
+              className="h-11 rounded-2xl bg-soft px-3 text-[14px] font-semibold"
+              data-testid="move-doctor-select"
+            >
+              {shown.map((d) => (
+                <option key={d.doctor_id} value={d.doctor_id}>
+                  {d.doctor_name}
+                  {d.doctor_id === appt?.doctor_id ? ` (${t('slots.sameDoctor')})` : ''} ·{' '}
+                  {dayState(d, t)[1]}
+                </option>
+              ))}
+            </select>
+          )}
+          {chosenDay && (
+            <div
+              className="flex flex-col gap-2"
+              data-testid={`move-doctor-${chosenDay.doctor_name}`}
+            >
+              {(chosenDay.on_leave || !chosenDay.has_hours || chosenDay.free.length === 0) && (
+                <Badge tone={dayState(chosenDay, t)[0]}>{dayState(chosenDay, t)[1]}</Badge>
+              )}
+              <TimeGrid
+                slots={daySlots(chosenDay)}
+                isOn={(f) => (offering ? picked(chosenDay.doctor_id, f) : time === f)}
+                onPick={(f) => (offering ? togglePick(chosenDay, f) : setTime(f))}
+              />
+              <span className="text-[12px] text-muted">
+                {t(offering ? 'offers.pickHint' : 'moves.freeHint', { max })}
+              </span>
+            </div>
+          )}
           <label className="flex flex-wrap items-center gap-2 text-[13px] text-sub">
             {t('moves.otherTime')}
             <input
@@ -542,6 +454,27 @@ export function MovePanel({
         </Notice>
       )}
       <DialogFooter>
+        {appt && (
+          <div
+            role="group"
+            className="flex rounded-full bg-card p-1 shadow-[inset_0_0_0_1px_var(--color-edge)]"
+            title={canOffer ? t('offers.modeHint') : t('offers.notJoined')}
+          >
+            {(['now', 'offer'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                disabled={m === 'offer' && !canOffer}
+                onClick={() => setMode(m)}
+                className={`min-h-9 rounded-full px-3.5 text-[13px] font-bold disabled:opacity-40 ${mode === m ? 'bg-ink text-ground' : 'text-sub'}`}
+                data-testid={`move-mode-${m}`}
+              >
+                {t(`offers.mode.${m}`, { name: patient, max })}
+              </button>
+            ))}
+          </div>
+        )}
         {!request && (
           <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
             {t('moves.why')}

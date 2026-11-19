@@ -162,7 +162,15 @@ test('v13/v14: settings, hours, requests with times, offers, booking, cancelling
   await moved.getByTestId('appt-move').click();
   const mp = page.getByTestId('move-panel');
   await mp.getByTestId('move-mode-offer').click();
+  // v31 (canvas v28): a month calendar; the day may be in next month.
+  if ((await mp.getByTestId(`move-day-${dayIn(8)}`).count()) === 0)
+    await mp.getByTestId('month-next').click();
   await mp.getByTestId(`move-day-${dayIn(8)}`).click();
+  // v31: one doctor at a time, picked in a list; then Morning / Afternoon chips.
+  const raoOption = await mp
+    .locator('[data-testid="move-doctor-select"] option', { hasText: 'Dr. Rao' })
+    .getAttribute('value');
+  await mp.getByTestId('move-doctor-select').selectOption(raoOption!);
   const raoDay = mp.getByTestId('move-doctor-Dr. Rao');
   await raoDay.getByTestId('move-slot-10:00').click();
   await raoDay.getByTestId('move-slot-10:30').click();

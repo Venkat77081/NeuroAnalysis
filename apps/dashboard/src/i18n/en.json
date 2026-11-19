@@ -283,7 +283,13 @@
     "storageReady": "Phones can record",
     "storageNotReady": "Recording is off",
     "storageWhy": "Recordings go straight from the phones into your own cloud storage, encrypted with your hospital's key. NeuroCapture keeps no copy and stores no videos: it only signs short upload links that can write one recording and nothing else.",
-    "recordingOff": "Recording is off until your video storage passes its test. Phones show that your hospital is not ready to receive recordings."
+    "recordingOff": "Recording is off until your video storage passes its test. Phones show that your hospital is not ready to receive recordings.",
+    "registerTitle": "Register a phone with this QR code",
+    "registerStep1": "On the new phone, open NeuroCapture and choose Clinic phone.",
+    "registerStep2": "Let it run the camera check.",
+    "registerStep3": "Tap Scan the QR code and point the camera here.",
+    "orType": "Or type this code:",
+    "qrAlt": "Registration QR code for a clinic phone"
   },
   "doctor": {
     "patientsTitle": "My patients",
@@ -1350,5 +1356,46 @@
     "notSetUp": "Not set up",
     "keyReady": "Take key ready",
     "noKey": "No take key yet"
+  },
+  "health": {
+    "title": "Connector, last {{hours}} hours",
+    "notRegistered": "No connector yet",
+    "notSeen": "Not seen yet",
+    "online": "Online · checked in {{minutes}} min ago",
+    "offline": "Offline since {{at}}",
+    "badgeOnline": "Connector online",
+    "badgeOffline": "Connector offline",
+    "aria": "One bar per hour: green when the connector checked in, red when it did not",
+    "now": "now",
+    "bar": {
+      "ok": "{{time}} · {{count}} check-ins",
+      "missed": "{{time}} · no check-in",
+      "before": "{{time}} · not connected yet"
+    },
+    "legend": "Green: checked in. Red: no check-in that hour. It counts as offline after {{minutes}} minutes without one."
+  },
+  "undo": {
+    "button": "Undo",
+    "waiting": "Sends in {{s}} s · nothing has gone to the patient yet",
+    "saving": "Saving…",
+    "done": "Saved",
+    "undone": "Undone · nothing was sent",
+    "failed": "Not saved: {{error}}",
+    "move": "Moving {{name}} to {{when}}",
+    "book": "Booking {{name}} for {{when}}",
+    "offer_one": "Sending {{count}} choice to {{name}}",
+    "offer_other": "Sending {{count}} choices to {{name}}",
+    "decline": "Answering {{name}}'s request",
+    "cancel": "Cancelling {{name}}'s appointment",
+    "noShow": "Marking {{name}} as did not come"
+  },
+  "bell": {
+    "label": "Notifications: {{count}}",
+    "title": "Needs you",
+    "empty": "You're all caught up.",
+    "requests_one": "{{count}} patient request waiting at the desk",
+    "requests_other": "{{count}} patient requests waiting at the desk",
+    "tests_one": "{{count}} visit needs your tests",
+    "tests_other": "{{count}} visits need your tests"
   }
 }

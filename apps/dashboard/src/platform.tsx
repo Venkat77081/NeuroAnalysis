@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ApiError, call } from './api.ts';
 import { ResetSignIn } from './reset.tsx';
 import { ActivityLog, type LogRow } from './activity.tsx';
+import { ConnectorStrip } from './health.tsx';
 import {
   Avatar,
   Badge,
@@ -33,6 +34,9 @@ interface Hospital {
   patients: number;
   /** Decision 044: the hospital's own storage passed its test. */
   can_record: boolean;
+  /** v29 (decision 052): null when no connector is registered. */
+  connector_online?: boolean | null;
+  connector_last_seen_at?: string | null;
 }
 interface Setup {
   admin_accepted: boolean;
@@ -96,7 +100,8 @@ export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) =
     }
   };
   const [filter, setFilter] = useState<'all' | 'attention' | 'suspended'>('all');
-  const attention = (h: Hospital) => h.status !== 'active' || !h.can_record;
+  const attention = (h: Hospital) =>
+    h.status !== 'active' || !h.can_record || h.connector_online === false;
   const shown = rows.filter((h) =>
     filter === 'all' ? true : filter === 'suspended' ? h.status === 'suspended' : attention(h),
   );
@@ -156,6 +161,13 @@ export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) =
                   {h.can_record ? t('platform.canRecordYes') : t('platform.noStorage')}
                 </Badge>
               </span>
+              {h.connector_online != null && (
+                <span data-testid={`connector-${h.name}`}>
+                  <Badge tone={h.connector_online ? 'ok' : 'bad'}>
+                    {t(h.connector_online ? 'health.badgeOnline' : 'health.badgeOffline')}
+                  </Badge>
+                </span>
+              )}
               {h.sms_enabled && <Badge tone="info">{t('platform.smsOn')}</Badge>}
             </div>
             <span className="text-[13px] text-sub">
@@ -196,6 +208,7 @@ export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) =
           onClose={() => setOpen(null)}
           testId="hospital-panel"
         >
+          <ConnectorStrip url={`/platform/hospitals/${openRow.id}/connector-history`} />
           <SetupSteps id={openRow.id} />
           <DialogFooter>
             {openRow.status === 'suspended' ? (

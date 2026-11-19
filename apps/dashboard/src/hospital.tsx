@@ -4,7 +4,8 @@
  * hospital connector by this browser; the platform only ever sees NCIDs.
  */
 import { ClinicHours } from './changes.tsx';
-import { deviceCheck } from './config.ts';
+import { deviceCheck, deviceQrPrefix } from './config.ts';
+import { ConnectorStrip } from './health.tsx';
 import { ResetSignIn } from './reset.tsx';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -238,6 +239,11 @@ function DataFlow({
         />
         <span className="hidden flex-1 lg:block" />
       </div>
+      {conn?.registered && (
+        <div className="rounded-3xl bg-soft p-4">
+          <ConnectorStrip url="/hospital/connector/history" />
+        </div>
+      )}
     </Card>
   );
 }
@@ -802,7 +808,10 @@ export function Phones() {
       const c = await call<{ code: string; expires_at: string }>('POST', '/hospital/device-codes', {
         label: label || null,
       });
-      setCode({ ...c, qr: await QRCode.toDataURL(c.code, { margin: 1, width: 180 }) });
+      setCode({
+        ...c,
+        qr: await QRCode.toDataURL(`${deviceQrPrefix}${c.code}`, { margin: 1, width: 200 }),
+      });
       setLabel('');
     });
   return (
@@ -821,18 +830,34 @@ export function Phones() {
           </Button>
         </div>
         {code && (
-          <div className="flex items-center gap-4" data-testid="d-code">
-            <img src={code.qr} alt="" width={180} height={180} />
-            <div>
-              <span className="text-[13px] text-muted">
-                {t('hospital.codeShown', { until: fmt(code.expires_at) })}
-              </span>
+          <div
+            className="flex flex-wrap items-center gap-5 rounded-3xl bg-soft p-4"
+            data-testid="d-code"
+          >
+            <img
+              src={code.qr}
+              alt={t('hospital.qrAlt')}
+              width={200}
+              height={200}
+              className="rounded-2xl bg-white p-2"
+            />
+            <div className="flex min-w-[240px] flex-1 flex-col gap-2">
+              <b className="text-[16px]">{t('hospital.registerTitle')}</b>
+              <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-[14px] text-sub">
+                <li>{t('hospital.registerStep1')}</li>
+                <li>{t('hospital.registerStep2')}</li>
+                <li>{t('hospital.registerStep3')}</li>
+              </ol>
+              <span className="text-[13px] text-muted">{t('hospital.orType')}</span>
               <p
-                className="font-mono text-[24px] font-bold tracking-widest"
+                className="m-0 font-mono text-[24px] font-bold tracking-widest"
                 data-testid="d-code-text"
               >
                 {code.code}
               </p>
+              <span className="text-[13px] text-muted">
+                {t('hospital.codeShown', { until: fmt(code.expires_at) })}
+              </span>
             </div>
           </div>
         )}

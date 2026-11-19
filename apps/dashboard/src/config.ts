@@ -19,4 +19,8 @@ export const appointmentChanges: {
   bookingDeclineAnswers: string[];
   movedShownDays: number;
   slotMinuteOptions: number[];
+  undoSeconds: number;
 } = platformJson.appointmentChanges;
+
+/** v29 (decision 052): the clinic-phone registration QR holds this prefix + the code. */
+export const deviceQrPrefix: string = platformJson.invites.deviceQrPrefix;

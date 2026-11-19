@@ -342,13 +342,14 @@ export function MovePanel({
             {weeks.flat().map((d) => {
               const sel = d === shownDay;
               const has = picks.some((p) => p.day === d) || wanted.has(d);
+              // v30 (canvas v28): round days; the chosen one in the brand gradient.
               const cls = sel
-                ? 'border-brand bg-brand text-white'
+                ? 'nc-gradient border-transparent font-extrabold text-white'
                 : d === booked
                   ? 'border-warn bg-warn-soft text-warn'
                   : has
-                    ? 'border-brand bg-brand-soft text-brand-ink'
-                    : 'border-edge bg-card text-ink';
+                    ? 'border-transparent bg-brand-soft text-brand-ink'
+                    : 'border-transparent bg-transparent text-ink hover:bg-soft';
               return (
                 <button
                   key={d}
@@ -357,7 +358,7 @@ export function MovePanel({
                   aria-pressed={sel}
                   aria-label={fmtDay(d)}
                   onClick={() => pickDay(d)}
-                  className={`h-10 rounded-lg border text-[14px] font-semibold disabled:opacity-35 ${cls}`}
+                  className={`h-10 rounded-full border text-[14px] font-semibold disabled:opacity-35 ${cls}`}
                   data-testid={`move-day-${d}`}
                 >
                   {Number(d.slice(8))}

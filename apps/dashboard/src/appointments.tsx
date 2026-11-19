@@ -413,7 +413,7 @@ export function Appointments({
     view === 'week'
       ? `${fmtDay(week[0]!, false)} – ${fmtDay(week[6]!, false)}`
       : view === 'day'
-        ? fmtDay(day)
+        ? longDay(day)
         : t('appts.title');
   const shownAppts = (appts ?? []).filter(
     (a) => !calendar || !calDoctor || (a.doctor_id ?? '') === calDoctor,
@@ -497,7 +497,7 @@ export function Appointments({
           />
         )}
       </div>
-      <Notice>{t('app.notStored')}</Notice>
+      <span className="-mt-2 text-[12px] text-muted">{t('app.notStored')}</span>
       <ErrorNote error={error} />
       {notice && <Notice testId="notice">{notice}</Notice>}
       {calendar && (
@@ -1082,4 +1082,15 @@ function FreeToday({ day, onBook }: { day: string; onBook?: () => void }) {
       ))}
     </Card>
   );
+}
+
+/** "Thursday 19 November" for the Day view's title. */
+function longDay(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d!, 12)).toLocaleDateString('en-IN', {
+    timeZone: 'UTC',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 }

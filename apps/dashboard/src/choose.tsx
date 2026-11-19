@@ -211,7 +211,7 @@ function TestsForm({
   };
 
   return (
-    <div className="flex flex-wrap items-start gap-5">
+    <div className="flex flex-col-reverse gap-5">
       <Card title={t('choose.fromHistory')} className="min-w-72 flex-1" testId="choose-history">
         <span className="text-[12px] text-muted">{t('doctor.fetchedNow')}</span>
         {view && !view.records_available && <Notice tone="warn">{t('doctor.unavailable')}</Notice>}

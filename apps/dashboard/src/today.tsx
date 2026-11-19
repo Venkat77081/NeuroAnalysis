@@ -216,8 +216,8 @@ export function DeskToday({
           <span className="ml-auto">
             {canMarkNoShow(a, now) ? (
               <Button
-                variant="secondary"
-                className="min-h-9 bg-bad-soft text-[13px] text-bad shadow-none"
+                variant="danger-soft"
+                className="min-h-9 text-[13px]"
                 onClick={() => setNoShow(a.id)}
                 data-testid="today-no-show"
               >

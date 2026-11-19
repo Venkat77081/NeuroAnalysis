@@ -3,7 +3,6 @@
  * connector), invites, deletion requests and the activity log. Patient identity is fetched from the
  * hospital connector by this browser; the platform only ever sees NCIDs.
  */
-import { ClinicHours } from './changes.tsx';
 import { deviceCheck, deviceQrPrefix } from './config.ts';
 import { ConnectorStrip } from './health.tsx';
 import { ResetSignIn } from './reset.tsx';
@@ -774,7 +773,6 @@ export function Team() {
         </>
       )}
       <HospitalPermissions />
-      <ClinicHours />
       {adding === 'operator' && (
         <Dialog
           title={t('team.addOperatorTitle')}
@@ -1199,7 +1197,7 @@ export function Activity() {
   }, [t]);
   return (
     <Page title={t('hospital.activityTitle')}>
-      <Notice>{t('log.hospitalHint')}</Notice>
+      <span className="-mt-3 text-[13px] text-sub">{t('log.hospitalHint')}</span>
       <ErrorNote error={error} />
       <ActivityLog rows={rows ?? []} testId="activity-log" />
     </Page>

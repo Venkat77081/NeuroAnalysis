@@ -320,6 +320,16 @@ const dayMonth = (iso: string) =>
  * their capture result, slow motion and frame steps, and the review form. Videos are decrypted by
  * the connector into memory only. No scores.
  */
+const DARK_TOKENS = {
+  '--color-card': '#1a1926',
+  '--color-ink': '#f3f2fa',
+  '--color-sub': '#c4c2d6',
+  '--color-muted': '#a3a1bb',
+  '--color-edge': '#3a3852',
+  '--color-soft': '#2e2c45',
+  '--color-line': '#2a2838',
+} as React.CSSProperties;
+
 function Theatre({
   takes,
   start,
@@ -497,7 +507,8 @@ function Theatre({
             </button>
           ))}
           <b className="px-1 pt-3 pb-1 text-[15px]">{t('theatre.review')}</b>
-          <div className="rounded-2xl bg-[#24223a] p-3 text-ink [&_*]:text-white">
+          {/* The review form in dark colours (scoped tokens), whatever the page theme. */}
+          <div className="rounded-2xl bg-[#24223a] p-3 text-ink" style={DARK_TOKENS}>
             <ReviewForm key={take} take={take} onSaved={(rv) => onReviewed(take, rv)} />
           </div>
           <span className="mt-auto pt-3 text-center text-[11px] text-[#8a89a0]">
@@ -789,7 +800,7 @@ export function PatientView({
           )}
         </div>
       </div>
-      <Notice>{t('app.notStored')}</Notice>
+      <span className="text-[12px] text-muted">{t('app.notStored')}</span>
     </div>
   );
 

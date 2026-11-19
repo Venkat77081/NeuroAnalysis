@@ -142,3 +142,22 @@ describe('v31: chip times', () => {
     expect(chipTime('12:15')).toBe('12:15');
   });
 });
+
+import registry from '../../../config/biomarker-registry.json' with { type: 'json' };
+import { takeOptions, takeSeconds, testOrder } from '../src/config.ts';
+
+describe('v31: test lengths (decision 054)', () => {
+  it('offers the default length and nothing too short for any measurement', () => {
+    for (const code of testOrder) {
+      const opts = takeOptions[code]!;
+      expect(opts).toContain(takeSeconds[code]);
+      const need = Math.max(
+        ...registry.biomarkers
+          .filter((b) => b.testCode === code)
+          .map((b) => b.inputs.minDurationS ?? 0),
+      );
+      for (const s of opts) expect(s).toBeGreaterThanOrEqual(need);
+    }
+    expect(takeOptions.SAW).toEqual([45, 60, 90]);
+  });
+});

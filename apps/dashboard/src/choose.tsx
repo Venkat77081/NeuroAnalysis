@@ -6,7 +6,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { takeSeconds } from './config.ts';
+import { takeOptions, takeSeconds } from './config.ts';
+import { useSettings } from './changes.tsx';
 import { call, hospital } from './api.ts';
 import type { Appointment } from './appointments.tsx';
 import { Button, Card, ErrorNote, Notice, Page, fmt, fmtDate } from './ui.tsx';
@@ -162,6 +163,10 @@ function TestsForm({
   const [days, setDays] = useState(7);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // v31 (decision 054): each test's length: the hospital's (Settings) unless changed here.
+  const settings = useSettings();
+  const [own, setOwn] = useState<Record<string, number>>({});
+  const len = (c: string) => own[c] ?? settings?.test_durations?.[c] ?? takeSeconds[c] ?? 15;
 
   useEffect(() => {
     call<{ ncid: string; status: string; phone_unsuitable_fps: number | null }[]>(
@@ -197,6 +202,7 @@ function TestsForm({
     try {
       await call('POST', `/hospital/appointments/${a.id}/request`, {
         tests,
+        durations: Object.fromEntries(tests.map((c) => [c, len(c)])),
         med_state: med,
         places: [...(home ? ['home'] : []), ...(clinic ? ['clinic'] : [])],
         // Record by the end of that day (local time); home links only.
@@ -312,9 +318,28 @@ function TestsForm({
                 <b className="text-[15px]">{t(`tests.${c}`)}</b>
                 <span className="text-[12px] leading-[17px] opacity-85">
                   {t(`choose.card.${HANDS.includes(c) ? 'hands' : c === 'SAW' ? 'walk' : 'face'}`, {
-                    s: takeSeconds[c] ?? 15,
+                    s: len(c),
                   })}
                 </span>
+                {on && (takeOptions[c]?.length ?? 0) > 1 && (
+                  <select
+                    value={len(c)}
+                    onClick={(e) => e.preventDefault()}
+                    onChange={(e) => setOwn((o) => ({ ...o, [c]: Number(e.target.value) }))}
+                    aria-label={t('choose.lengthFor', { test: t(`tests.${c}`) })}
+                    className="h-8 self-start rounded-xl bg-white/20 px-2 text-[12px] font-bold text-white [&>option]:text-ink"
+                    data-testid={`choose-length-${c}`}
+                  >
+                    {takeOptions[c]!.map((o) => (
+                      <option key={o} value={o}>
+                        {t('choose.lengthOption', { s: o })}
+                        {o === (settings?.test_durations?.[c] ?? takeSeconds[c])
+                          ? ` · ${t('choose.lengthHospital')}`
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <span className="mt-auto text-[13px] font-extrabold">
                   {on ? `✓ ${t('choose.chosen')}` : `＋ ${t('choose.add')}`}
                 </span>
@@ -429,10 +454,7 @@ function TestsForm({
             <b className="text-[17px]" data-testid="choose-summary">
               {t('choose.summary', {
                 count: tests.length,
-                min: Math.max(
-                  1,
-                  Math.round(tests.reduce((n, c) => n + (takeSeconds[c] ?? 15) * 3, 60) / 60),
-                ),
+                min: Math.max(1, Math.round(tests.reduce((n, c) => n + len(c) * 3, 60) / 60)),
               })}
             </b>
             <span className="text-[13px] text-sub">{t('choose.fps')}</span>

@@ -241,9 +241,6 @@
       "passLevelHint": "Hospitals choose within this range; below {{warn}} fps a take is borderline",
       "speed": "Recording speed",
       "speedHint": "Every test records at 60 fps, never 30",
-      "takeLength": "Take length",
-      "takeLengthHint": "15 s for most tests, 45 s for Stand and Walk",
-      "fromConfig": "From config",
       "consent": "Consent text version",
       "consentHint": "Shown in the app and on clinic phones",
       "twoStep": "Two-step sign-in for staff",
@@ -553,6 +550,9 @@
     "historyTitle": "History · {{name}}"
   },
   "choose": {
+    "lengthFor": "Length of {{test}}",
+    "lengthOption": "{{s}} s",
+    "lengthHospital": "hospital’s",
     "title": "Choose tests for upcoming appointments",
     "hint": "Reception assigned these appointments to you. The patient gets the record link only after you send it.",
     "empty": "Nothing waiting: every appointment assigned to you has its tests.",
@@ -1144,6 +1144,12 @@
     "noReason": "no reason given"
   },
   "settings": {
+    "lengthsTitle": "Test lengths",
+    "lengthsHint": "How long the phone records each test. Doctors can pick another length for one patient when they choose the tests.",
+    "lengthDefault": "Default {{s}} s",
+    "seconds_one": "{{count}} second",
+    "seconds_other": "{{count}} seconds",
+    "lengthsNote": "Only lengths long enough for every measurement are offered. Requests already sent keep their lengths.",
     "title": "Settings",
     "saved": "Settings saved.",
     "save": "Save settings",

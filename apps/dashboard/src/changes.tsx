@@ -14,7 +14,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call } from './api.ts';
 import { ClinicHours } from './hours.tsx';
-import { Button, Card, ErrorNote, Notice, Page, SettingsLayout } from './ui.tsx';
+import { takeSeconds, testOrder } from './config.ts';
+import { Button, Card, ErrorNote, Notice, Page, SettingRow, SettingsLayout } from './ui.tsx';
 
 // --- Time in the hospital's zone ---
 
@@ -108,6 +109,9 @@ export interface Settings {
   // v16 (decision 047)
   clinic_phone_consent: boolean;
   options: Record<string, number[]>;
+  // v31 (decision 054): each test's take length and the lengths it may be set to.
+  test_durations: Record<string, number>;
+  test_duration_options: Record<string, number[]>;
 }
 type NumKey =
   | 'booking_preferred'
@@ -185,6 +189,7 @@ export function HospitalSettingsPage() {
           sections={[
             { id: 'set-hours', label: t('hours.title') },
             { id: 'set-phones', label: t('settings.phonesTitle') },
+            { id: 'set-lengths', label: t('settings.lengthsTitle') },
             { id: 'set-changes', label: t('settings.changesTitle') },
             { id: 'set-booking', label: t('settings.bookingTitle') },
             { id: 'set-offers', label: t('settings.offersTitle') },
@@ -217,6 +222,40 @@ export function HospitalSettingsPage() {
             <span className="text-[13px] text-muted">
               {t('settings.fpsNote', { warn: s.warn_below_fps })}
             </span>
+          </Card>
+          {/* v31 (decision 054): take lengths moved here from Platform settings. */}
+          <Card title={t('settings.lengthsTitle')} testId="settings-lengths" id="set-lengths">
+            <span className="text-[14px] text-sub">{t('settings.lengthsHint')}</span>
+            {testOrder
+              .filter((c) => s.test_duration_options[c])
+              .map((c) => (
+                <SettingRow
+                  key={c}
+                  title={t(`tests.${c}`)}
+                  hint={t('settings.lengthDefault', { s: takeSeconds[c] })}
+                  testId={`settings-length-${c}`}
+                >
+                  <select
+                    value={v.test_durations[c]}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        test_durations: { ...v.test_durations, [c]: Number(e.target.value) },
+                      }))
+                    }
+                    aria-label={t(`tests.${c}`)}
+                    className={select}
+                    data-testid={`length-${c}`}
+                  >
+                    {s.test_duration_options[c]!.map((o) => (
+                      <option key={o} value={o}>
+                        {t('settings.seconds', { count: o })}
+                      </option>
+                    ))}
+                  </select>
+                </SettingRow>
+              ))}
+            <span className="text-[13px] text-muted">{t('settings.lengthsNote')}</span>
           </Card>
           <Card title={t('settings.changesTitle')} testId="settings-changes" id="set-changes">
             <label className="flex min-h-11 items-center gap-2 text-[14px]">

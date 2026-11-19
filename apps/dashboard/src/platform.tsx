@@ -738,9 +738,6 @@ export function PlatformSettingsPage() {
           <SettingRow title={t('platform.set.speed')} hint={t('platform.set.speedHint')}>
             {fixed('60 fps')}
           </SettingRow>
-          <SettingRow title={t('platform.set.takeLength')} hint={t('platform.set.takeLengthHint')}>
-            {fixed(t('platform.set.fromConfig'))}
-          </SettingRow>
           <SettingRow title={t('platform.set.consent')} hint={t('platform.set.consentHint')}>
             {fixed(pp.consentVersion)}
           </SettingRow>

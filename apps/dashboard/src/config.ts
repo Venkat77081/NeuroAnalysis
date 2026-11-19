@@ -38,6 +38,16 @@ export const takeSeconds: Record<string, number> = Object.fromEntries(
   [FT, FTF, FR, SAW, FA].map((c) => [c.code, c.task.durationS]),
 );
 
+/** v31 (decision 054): the lengths each test may be set to (config/tests durationOptionsS). */
+export const takeOptions: Record<string, number[]> = Object.fromEntries(
+  [FT, FTF, FR, SAW, FA].map((c) => [
+    c.code,
+    (c.task as { durationOptionsS?: number[] }).durationOptionsS ?? [c.task.durationS],
+  ]),
+);
+/** The tests in protocol order (DNE). */
+export const testOrder: string[] = [FT, FTF, FR, SAW, FA].map((c) => c.code);
+
 /** v31: Automatic appearance is dark from darkFromHour until lightFromHour (local time). */
 export const appearance: { darkFromHour: number; lightFromHour: number } = platformJson.appearance;
 

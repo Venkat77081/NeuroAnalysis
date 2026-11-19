@@ -76,3 +76,15 @@ export function scanVideo(
     },
   };
 }
+
+/**
+ * v29 (decision 052): the code in a clinic-phone registration QR (`prefix` + code, from the
+ * dashboard's Phones page). A bare code is accepted too. Null when the text is something else.
+ */
+export function deviceCodeFrom(text: string, prefix: string): string | null {
+  let v = text.trim();
+  if (v.toLowerCase().startsWith(prefix.toLowerCase())) v = v.slice(prefix.length);
+  else if (/^[a-z0-9]+:/i.test(v)) return null; // another kind of QR (invite, consent, a link)
+  v = v.replace(/\s+/g, '').toUpperCase();
+  return /^[A-Z0-9-]{6,32}$/.test(v) ? v : null;
+}

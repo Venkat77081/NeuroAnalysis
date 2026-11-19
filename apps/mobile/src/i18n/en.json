@@ -535,10 +535,12 @@
     },
     "clinicSetup": {
       "title": "Register this clinic phone",
-      "hint": "Enter the server address and the one-time code from your hospital's dashboard. After this, the phone works only for clinic operators.",
+      "hint": "Scan the QR code on your hospital's dashboard (Phones page), or type the one-time code shown there. After this, the phone works only for clinic operators.",
       "server": "Server address",
       "code": "Registration code",
-      "register": "Register phone"
+      "register": "Register phone",
+      "scan": "Scan the QR code",
+      "scanHint": "Point the camera at the QR code on your hospital's dashboard (Phones page)."
     },
     "signIn": {
       "title": "Operator sign-in",
@@ -690,7 +692,8 @@
       "time_taken": "That time is no longer free. Choose another, or ask the hospital to call you.",
       "cannot_keep": "The current date is no longer possible.",
       "appointment_cancelled": "This appointment was cancelled.",
-      "reason_unknown": "Choose a reason from the list."
+      "reason_unknown": "Choose a reason from the list.",
+      "not_device_qr": "This QR code is not a phone registration code. Open Phones in the dashboard and make a new code."
     },
     "hospitals": {
       "title": "My hospitals and clinics",

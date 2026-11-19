@@ -12,6 +12,8 @@ import { Button } from '../../ui/kit.tsx';
 import { attempt, ErrorText, Field, Screen } from './Common.tsx';
 import { DeviceCheck } from './DeviceCheck.tsx';
 import { Greeting } from '../../ui/Greeting.tsx';
+import { QrScanner } from '../patient/QrScanner.tsx';
+import { deviceCodeFrom } from '../../lib/qr.ts';
 import { EngineeringMenu } from '../EngineeringMenu.tsx';
 
 export function ClinicSetup({ onDone }: { onDone: () => void }) {
@@ -24,6 +26,8 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
   // Decision 035: the code is asked for (and used) only after the camera check passes.
   const [check, setCheck] = useState<DeviceCheckResult | null>(null);
   const passed = !!check && check.outcome !== 'fail';
+  // v29 (decision 052): scan the registration QR shown on the dashboard's Phones page.
+  const [scanning, setScanning] = useState(false);
   const submit = (ep = endpoint, cd = code) =>
     attempt(setBusy, setError, async () => {
       const link = await enroll(
@@ -91,6 +95,22 @@ export function ClinicSetup({ onDone }: { onDone: () => void }) {
               data-testid="clinic-server"
             />
           )}
+          {scanning && (
+            <QrScanner
+              hint={t('modes.clinicSetup.scanHint')}
+              onResult={(text) => {
+                setScanning(false);
+                const found = deviceCodeFrom(text, config.platform.invites.deviceQrPrefix);
+                if (!found) return setError('not_device_qr');
+                setCode(found);
+                void submit(endpoint, found);
+              }}
+              onClose={() => setScanning(false)}
+            />
+          )}
+          <Button disabled={busy} onClick={() => setScanning(true)} data-testid="clinic-scan">
+            {t('modes.clinicSetup.scan')}
+          </Button>
           <Field
             id="clinic-code"
             label={t('modes.clinicSetup.code')}

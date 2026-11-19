@@ -170,6 +170,22 @@ over the appointment list instead of expanding a row:
 - **Both settings pages and Activity:** settings pages have a section menu. Activity is grouped by
   day, with kind chips and Export CSV.
 
+## Hours, times, test lengths, evening (v31, decision 054)
+
+- **Clinic hours** (Settings): one doctor at a time, an Open/Closed grid of time blocks by
+  weekday. Team cards show each doctor's week (M–S) and hours.
+- **Picking a time:** the move/offer dialog, "Free on this day" and Book appointment share one
+  month calendar with green dots on days with free times (`GET /hospital/free-days`). A doctor's
+  day shows as Morning / Afternoon chips, with taken times struck through.
+- **Invite from Appointments** opens in a pop-up.
+- **Test lengths:**
+  - Settings → Test lengths sets each test's length (options from `config/tests`, never shorter
+    than the default);
+  - a doctor may change a test's length when choosing tests;
+  - the request carries the lengths to the phone.
+- **Appearance:** Automatic (the default) is dark from 18:00 to 06:00 (`config/platform.json`
+  `appearance`).
+
 ## Local run
 
 ```bash

@@ -21,7 +21,7 @@ The full plan is in `DEV_PLAN.md` (v3.1). The agreed UI mockups are linked from 
 
 ## Agreed product decisions (mockup review, 13 Nov 2026)
 
-- Takes are **fixed duration**: 15 s (FT, FR, FTF, FA), 45 s (SAW). The native timer stops recording; detectors never do.
+- Takes are **fixed duration** per take: 15 s (FT, FR, FTF, FA), 45 s (SAW) by default. A hospital may choose a longer length from config options, and a doctor may choose another for one request (decision 054). The native timer stops recording; detectors never do.
 - Capture follows the **DNE protocol** (decision 013): FT, FTF, FR with both hands in one take, patient seated facing the camera; SAW back and forth 15 ft. The per-hand variant lives on branch `claude/variant-per-hand-protocol`.
 - Every test records at **60 fps** with no 30 fps fallback; below **59 fps** a take fails; a doctor may change the limit in settings (decision 015).
 - Biomarker readiness is **never shown to operators**. Retake-fixable readiness failures become plain RETAKE reasons.

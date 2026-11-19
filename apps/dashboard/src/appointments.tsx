@@ -818,7 +818,7 @@ export function BookAppointment({ initial }: { initial?: Found }) {
       <ErrorNote error={error} />
       {notice && <Notice testId="notice">{notice}</Notice>}
       {/* v30: the month and that day's free times beside the form; a free time fills it in. */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <ManualAppointment
           docs={docs}
           canAssign={canAssign}

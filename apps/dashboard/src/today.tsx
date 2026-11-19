@@ -156,7 +156,7 @@ export function DeskToday({
     <Hero
       tz={tz}
       name={hello(name)}
-      line={t('today.line', { count: list.length, requests })}
+      line={`${t('today.lineAppts', { count: list.length })} · ${t('today.lineRequests', { count: requests })}`}
       chips={[
         t('today.chipToday', { count: list.length }),
         t('today.chipRequests', { count: requests }),
@@ -511,7 +511,11 @@ export function DoctorToday({
     <Hero
       tz={tz}
       name={name}
-      line={t('doctorToday.line', { count: all.length, tests: needTests, recs: recs.length })}
+      line={[
+        t('doctorToday.linePatients', { count: all.length }),
+        t('doctorToday.lineTests', { count: needTests }),
+        t('doctorToday.lineRecs', { count: recs.length }),
+      ].join(' · ')}
       chips={[
         t('today.chipToday', { count: all.length }),
         t('doctorToday.chipTests', { count: needTests }),

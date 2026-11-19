@@ -14,6 +14,8 @@ import { ChooseTests, waitingForTests } from './choose.tsx';
 import { PermsContext, menuFor } from './perms.ts';
 import { PermissionsPage } from './permissions.tsx';
 import { Backdrop, CommandPalette, OfflineBanner, TopBar, useSearchKey } from './shell.tsx';
+import { useUndo } from './undo.tsx';
+import { Bell } from './bell.tsx';
 
 interface Me {
   id: string;
@@ -46,6 +48,8 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [inviteQuery, setInviteQuery] = useState<string | undefined>();
   const openSearch = useCallback(() => setSearching(true), []);
+  // v29: changes still waiting for Undo are sent before signing out.
+  const { flush } = useUndo();
   useSearchKey(openSearch);
 
   const loadMe = async () => {
@@ -165,10 +169,24 @@ export function App() {
         name={me.display_name ?? me.email}
         role={t(`roles.${me.role}`)}
         onSearch={openSearch}
-        onSignOut={() => {
-          signOut();
-          setMe(null);
-        }}
+        bell={
+          <Bell
+            who={me.id}
+            changes={changes}
+            waiting={waiting}
+            onPage={(p) => nav.includes(p) && go(p)}
+            onPatient={(ncid) => {
+              go('myPatients');
+              setPatient(ncid);
+            }}
+          />
+        }
+        onSignOut={() =>
+          void flush().finally(() => {
+            signOut();
+            setMe(null);
+          })
+        }
       />
       <OfflineBanner />
       <PermsContext.Provider value={perms}>{body}</PermsContext.Provider>

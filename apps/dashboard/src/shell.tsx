@@ -123,6 +123,7 @@ export function TopBar({
   role,
   onSearch,
   onSignOut,
+  bell,
 }: {
   tabs: Tab[];
   active: string;
@@ -132,6 +133,8 @@ export function TopBar({
   role: string;
   onSearch: () => void;
   onSignOut: () => void;
+  /** v29: the notification bell. */
+  bell?: ReactNode;
 }) {
   const { t } = useTranslation();
   return (
@@ -182,6 +185,7 @@ export function TopBar({
             ⌘K
           </kbd>
         </button>
+        {bell}
         <ThemeButton />
         <span
           className="flex shrink-0 items-center gap-2"

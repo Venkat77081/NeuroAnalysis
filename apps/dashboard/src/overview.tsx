@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { call, hospital } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Hero, Page, Segmented, Table, fmt } from './ui.tsx';
 
@@ -52,7 +53,7 @@ function savedPeriod(): Period {
   }
 }
 
-function zone(): string {
+export function zone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
   } catch {
@@ -64,7 +65,7 @@ const day = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
 /** Badges always carry words; tone only adds colour. */
-const TONE: Record<string, 'ok' | 'warn' | 'bad' | 'neutral'> = {
+export const TONE: Record<string, 'ok' | 'warn' | 'bad' | 'neutral'> = {
   ok: 'ok',
   pass: 'ok',
   active: 'ok',
@@ -320,6 +321,45 @@ function ChartCard({
   );
 }
 
+/** v29: the words for a list item and what to open (also used by the bell). */
+export function describeItem(
+  t: TFunction,
+  item: Item,
+  names: Record<string, string>,
+): { text: string; action: { label: string; page?: string; ncid?: string } | null } {
+  const who = item.ncid ? (names[item.ncid] ?? t('overview.patient')) : '';
+  if (item.key === 'hospital')
+    return {
+      text: item.name ?? '',
+      action:
+        item.status !== 'ok' && item.status !== 'suspended'
+          ? { label: t('overview.open'), page: 'hospitals' }
+          : null,
+    };
+  if (item.key === 'appointment')
+    return {
+      text: `${fmt(item.at)} · ${who} · ${item.doctor ?? t('overview.noDoctor')}`,
+      action:
+        item.status === 'needDoctor'
+          ? { label: t('overview.chooseDoctor'), page: 'appointments' }
+          : null,
+    };
+  if (item.key === 'recording')
+    return {
+      text: `${who} · ${fmt(item.at)} · ${t(`overview.place.${item.place}`)}${item.flagged ? ` · ${t('overview.flagged')}` : ''}`,
+      action: item.ncid ? { label: t('overview.review'), ncid: item.ncid } : null,
+    };
+  return {
+    text: t(`overview.health.${item.key}`, {
+      at: item.at ? fmt(item.at) : '',
+      place: item.place ? t(`overview.storage.${item.place}`, { defaultValue: item.place }) : '',
+    }),
+    action: ['missing', 'unknown', 'fail', 'failing', 'off'].includes(item.status)
+      ? { label: t('overview.setUp'), page: 'connections' }
+      : null,
+  };
+}
+
 function ItemRow({
   item,
   names,
@@ -332,28 +372,13 @@ function ItemRow({
   onPatient: (ncid: string) => void;
 }) {
   const { t } = useTranslation();
-  const who = item.ncid ? (names[item.ncid] ?? t('overview.patient')) : '';
-  let text: string;
-  let action: { label: string; go: () => void } | null = null;
-  if (item.key === 'hospital') {
-    text = item.name ?? '';
-    if (item.status !== 'ok' && item.status !== 'suspended')
-      action = { label: t('overview.open'), go: () => onOpen('hospitals') };
-  } else if (item.key === 'appointment') {
-    text = `${fmt(item.at)} · ${who} · ${item.doctor ?? t('overview.noDoctor')}`;
-    if (item.status === 'needDoctor')
-      action = { label: t('overview.chooseDoctor'), go: () => onOpen('appointments') };
-  } else if (item.key === 'recording') {
-    text = `${who} · ${fmt(item.at)} · ${t(`overview.place.${item.place}`)}${item.flagged ? ` · ${t('overview.flagged')}` : ''}`;
-    action = { label: t('overview.review'), go: () => item.ncid && onPatient(item.ncid) };
-  } else {
-    text = t(`overview.health.${item.key}`, {
-      at: item.at ? fmt(item.at) : '',
-      place: item.place ? t(`overview.storage.${item.place}`, { defaultValue: item.place }) : '',
-    });
-    if (['missing', 'unknown', 'fail', 'failing', 'off'].includes(item.status))
-      action = { label: t('overview.setUp'), go: () => onOpen('connections') };
-  }
+  const { text, action: a } = describeItem(t, item, names);
+  const action = a
+    ? {
+        label: a.label,
+        go: () => (a.ncid ? onPatient(a.ncid) : a.page ? onOpen(a.page) : undefined),
+      }
+    : null;
   return (
     <li
       className="flex min-h-11 items-center gap-2 border-t border-line py-2 text-[14px]"

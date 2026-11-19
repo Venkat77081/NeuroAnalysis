@@ -67,3 +67,17 @@ def test_clinic_queue_carries_lengths(api, two_hospitals):
     ncid, _walkin, _reqs, _ptok, otok = _clinic_setup(api, t)
     q = _queue(api, otok)[ncid]
     assert q["durations"] == {code: (45 if code == "SAW" else 15) for code in q["tests"]}
+
+
+def test_never_shorter_than_the_default(monkeypatch):
+    """Even if a config lists a shorter length, it is not offered and not accepted."""
+    from app import test_lengths
+
+    monkeypatch.setattr(
+        test_lengths,
+        "_tests",
+        lambda: {"FT": {"durationS": 15, "durationOptionsS": [10, 15, 20]}, "SAW": {"durationS": 45}},
+    )
+    assert test_lengths.length_options() == {"FT": [15.0, 20.0], "SAW": [45.0]}
+    assert test_lengths.offered({"FT": 10}) == "FT"
+    assert test_lengths.offered({"FT": 20, "SAW": 45}) is None

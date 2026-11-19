@@ -29,20 +29,21 @@ def default_lengths() -> dict[str, float]:
 
 
 def length_options() -> dict[str, list[float]]:
-    """The lengths that may be chosen, by test code (the default is always one of them)."""
+    """The lengths that may be chosen, by test code: the default and longer ones only (never
+    shorter than the default, even if the config lists one; user, 19 Nov 2026)."""
     out = {}
     for code, t in _tests().items():
-        opts = [float(x) for x in t.get("durationOptionsS") or [t["durationS"]]]
-        if float(t["durationS"]) not in opts:
-            opts.append(float(t["durationS"]))
-        out[code] = sorted(opts)
+        default = float(t["durationS"])
+        opts = {float(x) for x in t.get("durationOptionsS") or [] if float(x) >= default}
+        out[code] = sorted(opts | {default})
     return out
 
 
 def offered(lengths: dict[str, float]) -> str | None:
     """The first test whose length is not one of its options (None when all are fine)."""
     opts = length_options()
+    base = default_lengths()
     for code, s in lengths.items():
-        if code not in opts or float(s) not in opts[code]:
+        if code not in opts or float(s) not in opts[code] or float(s) < base[code]:
             return code
     return None

@@ -38,12 +38,16 @@ export const takeSeconds: Record<string, number> = Object.fromEntries(
   [FT, FTF, FR, SAW, FA].map((c) => [c.code, c.task.durationS]),
 );
 
-/** v31 (decision 054): the lengths each test may be set to (config/tests durationOptionsS). */
+/**
+ * v31 (decision 054): the lengths each test may be set to (config/tests durationOptionsS): the
+ * default and longer ones only, never shorter (user, 19 Nov 2026).
+ */
 export const takeOptions: Record<string, number[]> = Object.fromEntries(
-  [FT, FTF, FR, SAW, FA].map((c) => [
-    c.code,
-    (c.task as { durationOptionsS?: number[] }).durationOptionsS ?? [c.task.durationS],
-  ]),
+  [FT, FTF, FR, SAW, FA].map((c) => {
+    const opts = (c.task as { durationOptionsS?: number[] }).durationOptionsS ?? [];
+    const ok = [...new Set([c.task.durationS, ...opts.filter((o) => o >= c.task.durationS)])];
+    return [c.code, ok.sort((a, b) => a - b)];
+  }),
 );
 /** The tests in protocol order (DNE). */
 export const testOrder: string[] = [FT, FTF, FR, SAW, FA].map((c) => c.code);

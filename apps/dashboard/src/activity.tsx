@@ -153,11 +153,11 @@ export function ActivityLog({
     a.click();
     URL.revokeObjectURL(url);
   };
-  const sel = 'h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 text-[14px] font-normal';
+  const sel = 'h-11 rounded-2xl border border-edge bg-card px-2 text-[14px] font-normal';
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
           {t('log.person')}
           <select
             className={`${sel} min-w-64`}
@@ -173,7 +173,7 @@ export function ActivityLog({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
           {t('log.what')}
           <select className={sel} value={kind} onChange={(e) => setKind(e.target.value)}>
             <option value="">{t('log.kind.all')}</option>
@@ -184,7 +184,7 @@ export function ActivityLog({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
           {t('log.from')}
           <input
             type="date"
@@ -211,7 +211,7 @@ export function ActivityLog({
           testId={testId}
         >
           {shown.map((r, i) => (
-            <tr key={i} className="border-t border-[#EDF0F3] align-top">
+            <tr key={i} className="border-t border-line align-top">
               <td className="px-4 py-3 whitespace-nowrap text-muted">{fmt(r.at)}</td>
               <td className="px-4 py-3" data-testid="log-who">
                 <span className="font-semibold">{r.who.name}</span>

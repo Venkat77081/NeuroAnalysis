@@ -157,7 +157,7 @@ export function HospitalSettingsPage() {
       setError(e);
     }
   };
-  const select = 'h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 font-normal';
+  const select = 'h-11 rounded-2xl border border-edge bg-card px-2 font-normal';
   /** v14: one setting chosen from its list (config/platform.json). */
   const num = (k: NumKey) => (
     <label key={k} className="contents text-[14px]">
@@ -183,8 +183,8 @@ export function HospitalSettingsPage() {
       {s && (
         <>
           <Card title={t('settings.phonesTitle')} testId="settings-phones">
-            <span className="text-[14px] text-[#3D4552]">{t('settings.phonesHint')}</span>
-            <label className="flex max-w-md flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+            <span className="text-[14px] text-sub">{t('settings.phonesHint')}</span>
+            <label className="flex max-w-md flex-col gap-1 text-[13px] font-semibold text-sub">
               {t('settings.minFps')}
               <select
                 value={v.device_min_fps}
@@ -216,7 +216,7 @@ export function HospitalSettingsPage() {
               />
               {t('settings.patientChanges')}
             </label>
-            <label className="flex max-w-md flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+            <label className="flex max-w-md flex-col gap-1 text-[13px] font-semibold text-sub">
               {t('settings.cutoff')}
               <select
                 value={v.change_cutoff_hours}
@@ -233,7 +233,7 @@ export function HospitalSettingsPage() {
                 ))}
               </select>
             </label>
-            <label className="flex max-w-md flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+            <label className="flex max-w-md flex-col gap-1 text-[13px] font-semibold text-sub">
               {t('settings.timeZone')}
               <select
                 value={v.time_zone}
@@ -354,7 +354,7 @@ export function ClinicHours() {
   useEffect(reload, [reload]);
   return (
     <Card title={t('hours.title')} testId="clinic-hours">
-      <span className="max-w-3xl text-[14px] text-[#3D4552]">{t('hours.hint')}</span>
+      <span className="max-w-3xl text-[14px] text-sub">{t('hours.hint')}</span>
       <ErrorNote error={error} />
       {rows?.length === 0 && <span className="text-muted">{t('hours.noDoctors')}</span>}
       {(rows ?? []).map((r) => (
@@ -396,7 +396,7 @@ function DoctorHoursRow({ row, onSaved }: { row: Hours; onSaved: () => void }) {
   const id = row.doctor_name.replace(/\W+/g, '-');
   return (
     <div
-      className="flex flex-col gap-3 border-t border-[#EDF0F3] pt-3"
+      className="flex flex-col gap-3 border-t border-line pt-3"
       data-testid={`hours-${row.doctor_name}`}
     >
       <div className="flex flex-wrap items-end gap-3">
@@ -410,12 +410,12 @@ function DoctorHoursRow({ row, onSaved }: { row: Hours; onSaved: () => void }) {
           onChange={(e) => setDept(e.target.value)}
           data-testid="hours-dept"
         />
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
           {t('hours.slot')}
           <select
             value={slot}
             onChange={(e) => setSlot(Number(e.target.value))}
-            className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 font-normal"
+            className="h-11 rounded-2xl border border-edge bg-card px-2 font-normal"
             data-testid="hours-slot"
           >
             {appointmentChanges.slotMinuteOptions.map((m) => (
@@ -451,7 +451,7 @@ function DoctorHoursRow({ row, onSaved }: { row: Hours; onSaved: () => void }) {
         ))}
       </div>
       <div className="flex flex-col gap-2">
-        <span className="text-[13px] font-semibold text-[#3D4552]">{t('hours.leave')}</span>
+        <span className="text-[13px] font-semibold text-sub">{t('hours.leave')}</span>
         {leave.map((l, i) => (
           <div key={i} className="flex flex-wrap items-end gap-2">
             <Field

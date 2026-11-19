@@ -80,13 +80,13 @@ export function ResetSignIn({
 
   return (
     <div
-      className="flex w-full flex-col gap-2 rounded-xl border border-line bg-white p-3"
+      className="flex w-full flex-col gap-2 rounded-xl border border-line bg-card p-3"
       role="group"
       aria-label={t('reset.title', { name })}
       data-testid="reset-panel"
     >
       <b className="text-[15px]">{t('reset.title', { name })}</b>
-      <span className="text-[13px] leading-[19px] text-[#3D4552]">
+      <span className="text-[13px] leading-[19px] text-sub">
         {t('reset.explain', { email, hours: staffReset.resetTtlHours })}
       </span>
       <label className="flex flex-col gap-1 text-[13px] font-semibold">
@@ -94,7 +94,7 @@ export function ResetSignIn({
         <select
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          className="h-10 rounded-xl border border-[#C9CFD8] bg-white px-2 text-[14px] font-normal"
+          className="h-10 rounded-2xl border border-edge bg-card px-2 text-[14px] font-normal"
           data-testid="reset-reason"
         >
           {staffReset.resetReasons.map((r) => (

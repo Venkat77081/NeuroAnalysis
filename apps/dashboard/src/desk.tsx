@@ -126,7 +126,7 @@ interface Pick {
 }
 
 const chipCls = (on: boolean) =>
-  `min-h-9 rounded-full border px-3 text-[13px] font-semibold ${on ? 'border-brand bg-brand text-white' : 'border-[#C9CFD8] bg-white'}`;
+  `min-h-9 rounded-full border px-3 text-[13px] font-semibold ${on ? 'border-brand bg-brand text-white' : 'border-edge bg-card'}`;
 
 // --- Move panel ---
 
@@ -301,10 +301,7 @@ export function MovePanel({
     >
       {appt && (
         <div className="flex flex-wrap items-center gap-3">
-          <div
-            role="group"
-            className="flex overflow-hidden rounded-xl border border-[#C9CFD8] bg-white"
-          >
+          <div role="group" className="flex overflow-hidden rounded-2xl border border-edge bg-card">
             {(['now', 'offer'] as const).map((m) => (
               <button
                 key={m}
@@ -349,10 +346,10 @@ export function MovePanel({
               const cls = sel
                 ? 'border-brand bg-brand text-white'
                 : d === booked
-                  ? 'border-[#E8B96B] bg-warn-soft text-warn'
+                  ? 'border-warn bg-warn-soft text-warn'
                   : has
-                    ? 'border-brand bg-brand-soft text-brand'
-                    : 'border-[#C9CFD8] bg-white text-ink';
+                    ? 'border-brand bg-brand-soft text-brand-ink'
+                    : 'border-edge bg-card text-ink';
               return (
                 <button
                   key={d}
@@ -370,7 +367,7 @@ export function MovePanel({
             })}
           </div>
           <span className="flex flex-wrap gap-3 text-[12px] text-muted">
-            <span className="text-brand">
+            <span className="text-brand-ink">
               ■ {t(offering ? 'offers.legendPicked' : 'moves.legendWanted')}
             </span>
             {appt && <span className="text-warn">■ {t('moves.legendBooked')}</span>}
@@ -394,7 +391,7 @@ export function MovePanel({
             return (
               <div
                 key={d.doctor_id}
-                className={`flex flex-col gap-2 rounded-xl border bg-white p-3 ${sel && !offering ? 'border-2 border-brand' : 'border-line'}`}
+                className={`flex flex-col gap-2 rounded-xl border bg-card p-3 ${sel && !offering ? 'border-2 border-brand' : 'border-line'}`}
                 data-testid={`move-doctor-${d.doctor_name}`}
               >
                 <label className="flex items-center gap-2.5">
@@ -444,7 +441,7 @@ export function MovePanel({
                       <span
                         key={`h${f}`}
                         title={t('offers.heldTitle')}
-                        className="inline-flex min-h-9 items-center rounded-full border border-dashed border-[#7A5FD0] bg-[#EFEAFD] px-3 text-[13px] font-semibold text-[#5A3FB0]"
+                        className="inline-flex min-h-9 items-center rounded-full border border-dashed border-brand bg-brand-soft px-3 text-[13px] font-semibold text-brand-ink"
                       >
                         {fmtTime(f)} · {t('offers.held')}
                       </span>
@@ -454,13 +451,13 @@ export function MovePanel({
               </div>
             );
           })}
-          <label className="flex flex-wrap items-center gap-2 text-[13px] text-[#3D4552]">
+          <label className="flex flex-wrap items-center gap-2 text-[13px] text-sub">
             {t('moves.otherTime')}
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="h-10 rounded-lg border border-[#C9CFD8] px-2"
+              className="h-10 rounded-lg border border-edge px-2"
               data-testid="move-time"
             />
             {offering && (
@@ -508,7 +505,7 @@ export function MovePanel({
               </button>
             </div>
           ))}
-          <span className="text-[13px] text-[#3D4552]">
+          <span className="text-[13px] text-sub">
             {t('offers.heldFor', { name: patient, hours: settings.offer_reply_hours })}
           </span>
           {appt && (
@@ -545,12 +542,12 @@ export function MovePanel({
       )}
       <DialogFooter>
         {!request && (
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
             {t('moves.why')}
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 font-normal"
+              className="h-11 rounded-2xl border border-edge bg-card px-2 font-normal"
               data-testid="move-reason"
             >
               <option value="">{t('moves.chooseWhy')}</option>
@@ -989,7 +986,7 @@ export function RequestsTab({
           {shown.map((r) => (
             <tr
               key={r.key}
-              className="border-t border-[#EDF0F3]"
+              className="border-t border-line"
               data-testid={`inbox-${ident[r.ncid]?.mrn ?? r.ncid}`}
             >
               <td className="px-4 py-3">

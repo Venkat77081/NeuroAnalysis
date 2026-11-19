@@ -164,7 +164,7 @@ export function MessagingCard() {
   return (
     <Card title={t('messaging.title')} testId="messaging-card">
       <span className="-mt-2 text-[13px] font-semibold text-ok">{t('messaging.keptAt')}</span>
-      <p className="text-[14px] leading-5 text-[#3D4552]">{t('messaging.intro')}</p>
+      <p className="text-[14px] leading-5 text-sub">{t('messaging.intro')}</p>
       <ErrorNote error={error} />
       {note && <Notice testId="messaging-note">{note}</Notice>}
       {view && (
@@ -177,10 +177,10 @@ export function MessagingCard() {
             {field('email', 'host', email, setEmail)}
             <div className="grid grid-cols-2 gap-3">
               {field('email', 'port', email, setEmail, 'number')}
-              <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+              <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
                 {t('messaging.emailFields.security')}
                 <select
-                  className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-3 text-[14px] font-normal"
+                  className="h-11 rounded-2xl border border-edge bg-card px-3 text-[14px] font-normal"
                   value={email.security || 'starttls'}
                   disabled={view.email.set_by_it.includes('security')}
                   onChange={(e) => setEmail({ ...email, security: e.target.value })}

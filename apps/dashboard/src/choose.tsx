@@ -95,7 +95,7 @@ export function ChooseTests({ meId, onCount }: { meId: string; onCount: (n: numb
               <button
                 type="button"
                 onClick={() => setSel(a.id)}
-                className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl bg-white px-4 py-3.5 text-left text-[14px] ${
+                className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-2xl bg-card px-4 py-3.5 text-left text-[14px] ${
                   a.id === sel ? 'border-2 border-brand' : 'border border-line'
                 }`}
                 data-testid={`choose-${i?.mrn ?? a.ncid}`}
@@ -218,7 +218,7 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
             </div>
           ) : null,
         )}
-        <span className="text-[14px] text-[#3D4552]" data-testid="choose-last">
+        <span className="text-[14px] text-sub" data-testid="choose-last">
           {last
             ? t('choose.lastTime', {
                 date: fmtDate(last.at),
@@ -273,12 +273,12 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
           ))}
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
             {t('doctor.medState')}
             <select
               value={med}
               onChange={(e) => setMed(e.target.value as typeof med)}
-              className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 font-normal"
+              className="h-11 rounded-2xl border border-edge bg-card px-2 font-normal"
               data-testid="choose-med"
             >
               {(['OFF', 'ON', 'ANY'] as const).map((m) => (
@@ -292,7 +292,7 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
         <fieldset className="flex flex-col gap-2" data-testid="choose-where">
           <legend className="mb-1.5 text-[14px] font-bold">{t('choose.whereTitle')}</legend>
           <div
-            className={`flex gap-3 rounded-xl px-4 py-3.5 ${home ? 'border-2 border-brand bg-[#F4F8FC]' : 'border border-[#C9CFD8]'} ${joined === false ? 'opacity-60' : ''}`}
+            className={`flex gap-3 rounded-xl px-4 py-3.5 ${home ? 'border-2 border-brand bg-brand-soft' : 'border border-edge'} ${joined === false ? 'opacity-60' : ''}`}
           >
             <input
               type="checkbox"
@@ -316,13 +316,13 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
               )}
               {home && (
                 <span className="flex flex-col gap-2">
-                  <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+                  <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
                     {t('choose.recordBy')}
                     <input
                       type="date"
                       value={due}
                       onChange={(e) => setDue(e.target.value)}
-                      className="h-11 rounded-xl border border-[#C9CFD8] px-3 font-normal"
+                      className="h-11 rounded-2xl border border-edge px-3 font-normal"
                       data-testid="choose-due"
                     />
                   </label>
@@ -342,7 +342,7 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
                       value={days}
                       aria-label={t('choose.days')}
                       onChange={(e) => setDays(Number(e.target.value))}
-                      className="h-9 w-16 rounded-lg border border-[#C9CFD8] px-2"
+                      className="h-9 w-16 rounded-lg border border-edge px-2"
                       data-testid="choose-days"
                     />
                     {t('choose.repeatB')}
@@ -353,7 +353,7 @@ function TestsForm({ a, onSent }: { a: Appointment; onSent: () => void }) {
             </span>
           </div>
           <div
-            className={`flex gap-3 rounded-xl px-4 py-3.5 ${clinic ? 'border-2 border-brand bg-[#F4F8FC]' : 'border border-[#C9CFD8]'}`}
+            className={`flex gap-3 rounded-xl px-4 py-3.5 ${clinic ? 'border-2 border-brand bg-brand-soft' : 'border border-edge'}`}
           >
             <input
               type="checkbox"

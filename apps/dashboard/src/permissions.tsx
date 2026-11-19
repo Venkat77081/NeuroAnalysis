@@ -92,7 +92,7 @@ export function PermissionsPage({ siteId, onBack }: { siteId: string; onBack: ()
           </span>
         )}
       </div>
-      <p className="max-w-3xl text-[14px] leading-[21px] text-[#3D4552]">{t('perm.hint')}</p>
+      <p className="max-w-3xl text-[14px] leading-[21px] text-sub">{t('perm.hint')}</p>
       <ErrorNote error={error} />
       {perms && (
         <PermissionsTable rows={perms.rows} draft={draft} onToggle={toggle} testId="perm-table" />
@@ -161,7 +161,7 @@ export function PermissionsTable({
   const { t } = useTranslation();
   const cell = 'px-2 py-2.5 text-center';
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-card">
       <table className="w-full min-w-[860px] border-collapse text-[14px]" data-testid={testId}>
         <thead>
           <tr className="text-left text-[13px] text-muted">
@@ -183,12 +183,12 @@ export function PermissionsTable({
               onToggle={onToggle}
             />
           ))}
-          <tr className="bg-[#EDF0F3]">
-            <td colSpan={5} className="px-4 py-2.5 text-[12px] font-bold text-[#3D4552]">
+          <tr className="bg-soft">
+            <td colSpan={5} className="px-4 py-2.5 text-[12px] font-bold text-sub">
               {t('perm.fixedTitle').toUpperCase()}
             </td>
           </tr>
-          <tr className="border-t border-[#EDF0F3]" data-testid="perm-fixed">
+          <tr className="border-t border-line" data-testid="perm-fixed">
             <td className="px-4 py-2.5">🔒 {t('perm.fixed.clinical')}</td>
             <td className={`${cell} text-muted`}>{t('perm.no')}</td>
             <td className={`${cell} text-muted`}>{t('perm.no')}</td>
@@ -196,7 +196,7 @@ export function PermissionsTable({
             <td className={`${cell} text-muted`}>{t('perm.no')}</td>
           </tr>
           {(['identity', 'consent', 'logged'] as const).map((k) => (
-            <tr key={k} className="border-t border-[#EDF0F3]">
+            <tr key={k} className="border-t border-line">
               <td className="px-4 py-2.5">🔒 {t(`perm.fixed.${k}`)}</td>
               <td colSpan={4} className={`${cell} text-muted`}>
                 {t(`perm.fixedValue.${k}`)}
@@ -224,7 +224,7 @@ function GroupRows({
   if (rows.length === 0) return null;
   return (
     <>
-      <tr className="bg-[#F6F7F9]">
+      <tr className="bg-soft">
         <td colSpan={5} className="px-4 py-2.5 text-[12px] font-bold text-muted">
           {t(`perm.group.${group}`).toUpperCase()}
         </td>
@@ -234,7 +234,7 @@ function GroupRows({
         return (
           <tr
             key={r.key}
-            className={`border-t border-[#EDF0F3] ${r.changed ? 'bg-[#FFFAF2]' : ''}`}
+            className={`border-t border-line ${r.changed ? 'bg-warn-soft' : ''}`}
             data-testid={`perm-${r.key}`}
           >
             <td className="px-4 py-2.5">

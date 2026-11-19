@@ -145,6 +145,31 @@ over the appointment list instead of expanding a row:
 - **Bell (v29):** what needs you now, with a dot for anything new since you last opened it.
 - **Phones (v29):** the registration QR is scanned on the new clinic phone ("Scan the QR code").
 
+## Pages as drawn in canvas v28 (v30, decision 053)
+
+- **Front desk:**
+  - pages are **Today**, **Appointments**, **Book appointment**, **Requests** (red count) and
+    **Invite patients**;
+  - Today lists the day's patients in time order with one action each: "Did not come" from the
+    appointment time, Choose doctor, or Open;
+  - ⌘K finds a patient with their MRN and next visit, then offers "Book an appointment for X" (⌘B)
+    and "Invite X to the app" (⌘I).
+- **Doctor:**
+  - **Today** has "Your clinic today" and New recordings;
+  - **My patients** is a table with status chips;
+  - the patient page starts with the journey, the latest recordings, the last remark and the next
+    visit;
+  - recordings play full screen with speeds, frame steps and the review.
+- **Platform:**
+  - **Hospitals** has filter chips and a set-up ring on each card;
+  - "+ Onboard a hospital" opens a pop-up;
+  - the side panel shows the connector, storage, messages and phones.
+- **Hospital admin:**
+  - Team and Phones are cards; adding an operator and inviting staff happen in pop-ups;
+  - clinic hours are on **Settings**.
+- **Both settings pages and Activity:** settings pages have a section menu. Activity is grouped by
+  day, with kind chips and Export CSV.
+
 ## Local run
 
 ```bash

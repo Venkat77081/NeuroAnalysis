@@ -5,7 +5,8 @@
     "patientTtlDays": 7,
     "staffTtlDays": 7,
     "deviceCodeTtlHours": 24,
-    "deviceCodeLength": 10
+    "deviceCodeLength": 10,
+    "deviceQrPrefix": "ncd1:"
   },
   "passwords": {
     "minLength": 10,
@@ -156,6 +157,7 @@
     ],
     "answerShownDays": 14,
     "movedShownDays": 7,
+    "undoSeconds": 8,
     "slotMinutes": 15,
     "slotMinuteOptions": [10, 15, 20, 30, 45, 60],
     "timeZones": {
@@ -193,6 +195,12 @@
     "cancelledShownDays": 14,
     "patientHistoryMax": 50,
     "freeDaysMaxSpan": 62
+  },
+  "connectorHealth": {
+    "heartbeatSeconds": 300,
+    "offlineAfterMinutes": 20,
+    "historyHours": 24,
+    "keepDays": 30
   },
   "clinicConsent": {
     "qrPrefix": "ncc1:",

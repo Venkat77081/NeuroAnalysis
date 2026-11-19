@@ -5,7 +5,8 @@
     "patientTtlDays": 7,
     "staffTtlDays": 7,
     "deviceCodeTtlHours": 24,
-    "deviceCodeLength": 10
+    "deviceCodeLength": 10,
+    "deviceQrPrefix": "ncd1:"
   },
   "passwords": {
     "minLength": 10,

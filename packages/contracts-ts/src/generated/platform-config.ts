@@ -12,6 +12,10 @@ export interface PlatformConfig {
     staffTtlDays: number;
     deviceCodeTtlHours: number;
     deviceCodeLength: number;
+    /**
+     * v29 (decision 052): the clinic-phone registration QR holds this prefix + the code; the phone scans it on set-up.
+     */
+    deviceQrPrefix: string;
   };
   passwords: {
     minLength: number;
@@ -183,6 +187,10 @@ export interface PlatformConfig {
     deskReasons: string[];
     answerShownDays: number;
     movedShownDays: number;
+    /**
+     * v29 (decision 052): how long the dashboard holds a desk change (book, move, offer, cancel, did not come) so it can be undone before anything is sent; 0 = sent at once.
+     */
+    undoSeconds: number;
     slotMinutes: number;
     /**
      * @minItems 1
@@ -264,6 +272,15 @@ export interface PlatformConfig {
      * v17: most days one calendar request may ask free-time counts for.
      */
     freeDaysMaxSpan: number;
+  };
+  /**
+   * v29 (decision 052): the hospital connector checks in with the platform every heartbeatSeconds; it counts as offline after offlineAfterMinutes without one. Dashboards show the last historyHours, one bar per hour; hourly counts are kept for keepDays.
+   */
+  connectorHealth: {
+    heartbeatSeconds: number;
+    offlineAfterMinutes: number;
+    historyHours: number;
+    keepDays: number;
   };
   /**
    * v16 (decision 047): clinic recordings need the patient's consent, given in their app and shown as a one-time QR code (prefix + code) the clinic phone scans; or, when the hospital allows it, on the clinic phone with a reason.

@@ -20,7 +20,8 @@
     "permissions",
     "deviceCheck",
     "appointmentChanges",
-    "clinicConsent"
+    "clinicConsent",
+    "connectorHealth"
   ],
   "properties": {
     "schemaVersion": {
@@ -33,7 +34,13 @@
     "invites": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["patientTtlDays", "staffTtlDays", "deviceCodeTtlHours", "deviceCodeLength"],
+      "required": [
+        "patientTtlDays",
+        "staffTtlDays",
+        "deviceCodeTtlHours",
+        "deviceCodeLength",
+        "deviceQrPrefix"
+      ],
       "properties": {
         "patientTtlDays": {
           "type": "integer",
@@ -54,6 +61,11 @@
           "type": "integer",
           "minimum": 8,
           "maximum": 16
+        },
+        "deviceQrPrefix": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+:$",
+          "description": "v29 (decision 052): the clinic-phone registration QR holds this prefix + the code; the phone scans it on set-up."
         }
       }
     },
@@ -446,6 +458,7 @@
         "deskReasons",
         "answerShownDays",
         "movedShownDays",
+        "undoSeconds",
         "slotMinutes",
         "slotMinuteOptions",
         "timeZones",
@@ -531,6 +544,12 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 90
+        },
+        "undoSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30,
+          "description": "v29 (decision 052): how long the dashboard holds a desk change (book, move, offer, cancel, did not come) so it can be undone before anything is sent; 0 = sent at once."
         },
         "slotMinutes": {
           "type": "integer",
@@ -726,6 +745,18 @@
           "minimum": 7,
           "maximum": 120
         }
+      }
+    },
+    "connectorHealth": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v29 (decision 052): the hospital connector checks in with the platform every heartbeatSeconds; it counts as offline after offlineAfterMinutes without one. Dashboards show the last historyHours, one bar per hour; hourly counts are kept for keepDays.",
+      "required": ["heartbeatSeconds", "offlineAfterMinutes", "historyHours", "keepDays"],
+      "properties": {
+        "heartbeatSeconds": { "type": "integer", "minimum": 30, "maximum": 3600 },
+        "offlineAfterMinutes": { "type": "integer", "minimum": 2, "maximum": 1440 },
+        "historyHours": { "type": "integer", "minimum": 6, "maximum": 168 },
+        "keepDays": { "type": "integer", "minimum": 1, "maximum": 365 }
       }
     },
     "clinicConsent": {

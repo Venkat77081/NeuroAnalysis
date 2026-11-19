@@ -7,7 +7,15 @@ import { Button, ErrorNote, Field, Notice, dayPart } from './ui.tsx';
 import { Logo } from './shell.tsx';
 
 /** v28: the sunrise on the left (wide screens), the form on the right. */
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
+function Shell({
+  title,
+  sub,
+  children,
+}: {
+  title: string;
+  sub?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   const { t } = useTranslation();
   const part = dayPart();
   return (
@@ -47,6 +55,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
             <b className="text-[17px]">{t('app.name')}</b>
           </span>
           <h1 className="text-[30px] leading-9 font-extrabold tracking-[-0.4px]">{title}</h1>
+          {sub && <span className="-mt-2 text-[15px] text-sub">{sub}</span>}
           {children}
         </div>
       </main>
@@ -123,6 +132,7 @@ export function SignIn({
   const [code, setCode] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -165,8 +175,18 @@ export function SignIn({
   if (setup) return <TwoStepSetup onDone={onSignedIn} />;
   if (challenge)
     return (
-      <Shell title={t('auth.title')}>
-        <CodeField id="code" value={code} onChange={setCode} testId="two-step-code" />
+      <Shell title={t('auth.codeTitle')} sub={t('auth.codeSub')}>
+        <button
+          type="button"
+          onClick={() => {
+            setChallenge(null);
+            setCode('');
+          }}
+          className="-order-1 self-start text-[13px] font-semibold text-brand-ink"
+        >
+          ‹ {email}
+        </button>
+        <CodeField id="code" value={code} onChange={setCode} testId="two-step-code" big />
         <ErrorNote error={error} />
         <Button
           disabled={busy || !isCode(code)}
@@ -178,7 +198,7 @@ export function SignIn({
       </Shell>
     );
   return (
-    <Shell title={t('auth.title')}>
+    <Shell title={t('auth.title')} sub={t('auth.sub')}>
       {notice && <Notice>{notice}</Notice>}
       <Field
         id="email"
@@ -203,9 +223,22 @@ export function SignIn({
         disabled={busy || !email || !password}
         onClick={() => void login()}
         data-testid="sign-in"
+        className="min-h-[50px] text-[15px]"
       >
         {t('auth.submit')}
       </Button>
+      <span className="flex flex-wrap justify-between gap-2 text-[13px]">
+        <button
+          type="button"
+          onClick={() => setForgot(!forgot)}
+          className="font-semibold text-brand-ink"
+          aria-expanded={forgot}
+        >
+          {t('auth.forgot')}
+        </button>
+        <span className="text-muted">{t('auth.twoStepOn')}</span>
+      </span>
+      {forgot && <Notice tone="warn">{t('auth.forgotHint')}</Notice>}
     </Shell>
   );
 }
@@ -266,26 +299,44 @@ function CodeField({
   value,
   onChange,
   testId,
+  big = false,
 }: {
   id: string;
   value: string;
   onChange: (v: string) => void;
   testId: string;
+  /** v30 (canvas v28): large, spaced digits. */
+  big?: boolean;
 }) {
   const { t } = useTranslation();
   const v = digits(value);
   const looksLikeKey = /[a-z]/i.test(v) || v.length > 6;
   return (
     <>
-      <Field
-        id={id}
-        label={t('auth.code')}
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        data-testid={testId}
-      />
+      {big ? (
+        <input
+          id={id}
+          aria-label={t('auth.code')}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="••••••"
+          maxLength={8}
+          className="h-[64px] w-full rounded-2xl border-2 border-transparent bg-soft px-5 text-center font-mono text-[30px] font-extrabold tracking-[0.5em] text-ink outline-none focus:border-brand"
+          data-testid={testId}
+        />
+      ) : (
+        <Field
+          id={id}
+          label={t('auth.code')}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          data-testid={testId}
+        />
+      )}
       {looksLikeKey && (
         <p role="alert" className="text-[13px] text-bad" data-testid="code-hint">
           {t('auth.codeNotKey')}

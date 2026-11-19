@@ -498,6 +498,7 @@
     "addAndAssign": "Add appointment",
     "added": "Appointment added.",
     "inviteFor": "Send a join invite to {{name}}",
+    "inviteSub": "The invite goes out through your hospital’s SMS or e-mail. NeuroCapture never sees the number or address.",
     "lastChange": "Last change",
     "history": "History",
     "hideHistory": "Hide history",
@@ -1283,7 +1284,12 @@
     "afternoon": "Afternoon",
     "legendFree": "has free times",
     "doctor": "Doctor",
-    "sameDoctor": "same doctor"
+    "sameDoctor": "same doctor",
+    "fromTime_one": "{{count}} free · {{time}}",
+    "fromTime_other": "{{count}} free · from {{time}}",
+    "open": "Open",
+    "dialogTitle": "Free on {{day}}",
+    "dialogSub": "Choose a time to book it; struck-through times are taken."
   },
   "offers": {
     "mode": {

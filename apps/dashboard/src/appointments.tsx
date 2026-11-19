@@ -5,10 +5,11 @@
  * where to record: at home (record link) and/or in the clinic (clinic phones' queue). Names and
  * MRNs come live from the connector and are never stored here.
  */
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, hospital } from './api.ts';
 import {
+  Avatar,
   Badge,
   Button,
   Card,
@@ -25,12 +26,21 @@ import {
   fmtDate,
 } from './ui.tsx';
 import { CalendarView, weekOf } from './calendar.tsx';
-import { addDays, fmtDay, fmtTime, useSettings, weekday, zonedDay, zonedTime } from './changes.tsx';
+import { addDays, fmtDay, fmtTime, useSettings, zonedDay, zonedTime } from './changes.tsx';
 import { InviteBox } from './invites.tsx';
 import { describe, roleText } from './activity.tsx';
 import { usePerms } from './perms.ts';
 import { CancelDialog, MovePanel, NoShowDialog, RequestsTab, type Inbox } from './desk.tsx';
 import { appointmentChanges } from './config.ts';
+import {
+  MonthPicker,
+  TimeGrid,
+  daySlots,
+  dayState,
+  monthCells,
+  useFreeDays,
+  type DoctorDay,
+} from './slots.tsx';
 
 export type Stage =
   'needs_doctor' | 'needs_tests' | 'sent' | 'recorded' | 'missed' | 'not_recorded' | 'cancelled';
@@ -265,7 +275,7 @@ export function Appointments({
 }: {
   onChangeCount?: (n: number) => void;
   /** v30: "+ Add" opens the Book appointment page. */
-  onBook?: () => void;
+  onBook?: (slot?: BookSlot) => void;
   /** v30: the Requests page opens this view on its Requests tab. */
   initialTab?: 'list' | 'requests';
 } = {}) {
@@ -303,6 +313,10 @@ export function Appointments({
   // null: today in the hospital's zone.
   const [dayPick, setDay] = useState<string | null>(null);
   const day = dayPick ?? zonedDay(now, tz);
+  // v31: the Day view's month shows green dots on days with free times (all doctors).
+  const [calMonth, setCalMonth] = useState<string | null>(null);
+  const calCells = useMemo(() => monthCells(calMonth ?? day.slice(0, 7)), [calMonth, day]);
+  const freeDays = useFreeDays(calCells, null, null, view === 'day');
   const pickView = (v: View) => {
     setView(v);
     try {
@@ -423,7 +437,7 @@ export function Appointments({
       title={pageTitle}
       actions={
         onBook ? (
-          <Button onClick={onBook} data-testid="appts-add">
+          <Button onClick={() => onBook()} data-testid="appts-add">
             ＋ {t('cal.add')}
           </Button>
         ) : undefined
@@ -519,15 +533,22 @@ export function Appointments({
           </Card>
           {view === 'day' && (
             <div className="flex flex-col gap-4">
-              <Card title={fmtMonth(day)} testId="cal-month">
-                <MiniMonth
+              <Card testId="cal-month">
+                <MonthPicker
+                  month={calMonth ?? day.slice(0, 7)}
+                  onMonth={setCalMonth}
                   day={day}
+                  onDay={(d) => {
+                    setCalMonth(null);
+                    setDay(d);
+                  }}
                   today={zonedDay(now, tz)}
+                  free={freeDays}
                   marked={new Set((appts ?? []).map((a) => zonedDay(a.at, tz)))}
-                  onPick={setDay}
+                  testPrefix="mini-"
                 />
               </Card>
-              <FreeToday day={day} onBook={onBook && (() => onBook())} />
+              <FreeToday day={day} onBook={onBook && ((x) => onBook({ day, ...x }))} />
             </div>
           )}
         </div>
@@ -782,19 +803,29 @@ export function Appointments({
         </Notice>
       )}
       {inviting && (
-        <InviteBox
-          key={inviting.mrn}
-          mrns={[inviting.mrn]}
+        // v31: a pop-up over the list instead of a card below it.
+        <Dialog
           title={t('appts.inviteFor', { name: inviting.name })}
-          onSent={() => reload()}
-        />
+          sub={t('appts.inviteSub')}
+          size="sm"
+          onClose={() => setInviting(null)}
+          testId="p-invite"
+        >
+          <InviteBox
+            key={inviting.mrn}
+            mrns={[inviting.mrn]}
+            title={t('appts.inviteFor', { name: inviting.name })}
+            plain
+            onSent={() => reload()}
+          />
+        </Dialog>
       )}
     </Page>
   );
 }
 
 /** v30: "Book appointment" is its own page for the desk (and anyone allowed to add). */
-export function BookAppointment({ initial }: { initial?: Found }) {
+export function BookAppointment({ initial, slot }: { initial?: Found; slot?: BookSlot }) {
   const { t } = useTranslation();
   const perms = usePerms();
   const [docs, setDocs] = useState<Doctor[]>([]);
@@ -803,9 +834,12 @@ export function BookAppointment({ initial }: { initial?: Found }) {
   const settings = useSettings();
   const tz = settings?.time_zone ?? browserZone();
   const [now] = useState(() => Date.now());
-  const [day, setDay] = useState(() => zonedDay(now, tz));
-  const [at, setAt] = useState('');
-  const [doctor, setDoctor] = useState('');
+  const [day, setDay] = useState(() => slot?.day ?? zonedDay(now, tz));
+  const [month, setMonth] = useState(() => (slot?.day ?? zonedDay(now, tz)).slice(0, 7));
+  const cells = useMemo(() => monthCells(month), [month]);
+  const freeDays = useFreeDays(cells, null, null);
+  const [at, setAt] = useState(slot ? `${slot.day}T${slot.time}` : '');
+  const [doctor, setDoctor] = useState(slot?.doctorId ?? '');
   const canAssign = perms.has('appointments.assign');
   useEffect(() => {
     call<Doctor[]>('GET', '/hospital/doctors').then(
@@ -830,8 +864,16 @@ export function BookAppointment({ initial }: { initial?: Found }) {
           onAdded={() => setNotice(t('appts.added'))}
         />
         <div className="flex flex-col gap-4">
-          <Card title={fmtMonth(day)} testId="book-month">
-            <MiniMonth day={day} today={zonedDay(now, tz)} marked={new Set()} onPick={setDay} />
+          <Card testId="book-month">
+            <MonthPicker
+              month={month}
+              onMonth={setMonth}
+              day={day}
+              onDay={setDay}
+              today={zonedDay(now, tz)}
+              free={freeDays}
+              testPrefix="book-day-"
+            />
           </Card>
           <FreeToday
             day={day}
@@ -1013,63 +1055,17 @@ export function AppointmentHistory({ id }: { id: string }) {
   );
 }
 
-function fmtMonth(day: string): string {
-  const [y, m] = day.split('-').map(Number);
-  return new Date(Date.UTC(y!, m! - 1, 1, 12)).toLocaleDateString('en-IN', {
-    timeZone: 'UTC',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-/** v30 (canvas v28): the month next to the Day view; days with appointments have a dot. */
-export function MiniMonth({
-  day,
-  today,
-  marked,
-  onPick,
-}: {
+/** A free time picked in the "Free on this day" card, carried to Book appointment. */
+export interface BookSlot {
   day: string;
-  today: string;
-  marked: ReadonlySet<string>;
-  onPick: (d: string) => void;
-}) {
-  const first = `${day.slice(0, 8)}01`;
-  const start = addDays(first, -weekday(first));
-  const cells = Array.from({ length: 42 }, (_, i) => addDays(start, i));
-  return (
-    <div className="grid grid-cols-7 gap-1 text-center" role="grid">
-      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-        <span key={i} className="text-[11px] font-bold text-muted">
-          {d}
-        </span>
-      ))}
-      {cells.map((c) => {
-        const inMonth = c.slice(0, 7) === day.slice(0, 7);
-        const sel = c === day;
-        return (
-          <button
-            key={c}
-            type="button"
-            onClick={() => onPick(c)}
-            className={`relative flex h-8 items-center justify-center rounded-full text-[13px] ${sel ? 'nc-gradient font-extrabold text-white' : c === today ? 'font-bold text-brand-ink shadow-[inset_0_0_0_1.5px_var(--color-brand)]' : inMonth ? '' : 'text-muted opacity-50'}`}
-            aria-pressed={sel}
-            data-testid={`mini-${c}`}
-          >
-            {Number(c.slice(8))}
-            {marked.has(c) && (
-              <span
-                className={`absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full ${sel ? 'bg-white' : 'bg-[#10b981]'}`}
-              />
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
+  time: string;
+  doctorId: string;
 }
 
-/** v30 (canvas v28): free times on the chosen day (doctors' clinic hours minus bookings). */
+/**
+ * v31 (canvas v28): "Free on this day" lists each doctor once (how many free times, the first
+ * one); Open shows that doctor's day as Morning / Afternoon times, and a time books.
+ */
 function FreeToday({
   day,
   onBook,
@@ -1078,52 +1074,96 @@ function FreeToday({
   onBook?: (slot: { time: string; doctorId: string }) => void;
 }) {
   const { t } = useTranslation();
-  const [free, setFree] = useState<{ time: string; doctor: string; doctorId: string }[] | null>(
-    null,
-  );
+  const [docs, setDocs] = useState<DoctorDay[] | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   useEffect(() => {
     let off = false;
-    call<{ doctors: { doctor_id: string; doctor_name: string; free: string[] }[] }>(
-      'GET',
-      `/hospital/availability?date=${day}`,
-    ).then(
-      (r) =>
-        !off &&
-        setFree(
-          r.doctors
-            .flatMap((d) =>
-              d.free.map((time) => ({ time, doctor: d.doctor_name, doctorId: d.doctor_id })),
-            )
-            .sort((a, b) => a.time.localeCompare(b.time)),
-        ),
-      () => !off && setFree([]),
+    call<{ doctors: DoctorDay[] }>('GET', `/hospital/availability?date=${day}`).then(
+      (r) => !off && setDocs(r.doctors),
+      () => !off && setDocs([]),
     );
     return () => {
       off = true;
     };
   }, [day]);
+  const total = (docs ?? []).reduce((n, d) => n + d.free.length, 0);
+  const shown = open ? (docs ?? []).find((d) => d.doctor_id === open) : null;
   return (
-    <Card title={t('cal.freeTitle')} testId="cal-free">
-      {free && free.length === 0 && <p className="text-[14px] text-muted">{t('cal.noFree')}</p>}
-      {(free ?? []).slice(0, 8).map((f) => (
-        <div
-          key={`${f.time}-${f.doctor}`}
-          className="flex items-center gap-3 border-t border-line py-2"
-        >
-          <b className="text-[14px] tabular-nums">{fmtTime(f.time)}</b>
-          <span className="flex-1 text-[12px] text-muted">{f.doctor}</span>
-          {onBook && (
+    <Card
+      title={t('cal.freeTitle')}
+      testId="cal-free"
+      action={
+        docs && total > 0 ? (
+          <Badge tone="ok">{t('slots.freeCount', { count: total })}</Badge>
+        ) : undefined
+      }
+    >
+      {docs && docs.length === 0 && <p className="text-[14px] text-muted">{t('cal.noFree')}</p>}
+      {(docs ?? []).map((d) => {
+        const st = dayState(d, t);
+        return (
+          <div
+            key={d.doctor_id}
+            className="flex items-center gap-3 border-t border-line py-2.5"
+            data-testid={`free-doctor-${d.doctor_name}`}
+          >
+            <Avatar name={d.doctor_name} size={32} />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <b className="truncate text-[14px]">{d.doctor_name}</b>
+              <span className={`text-[12px] ${d.free.length ? 'text-muted' : 'text-warn'}`}>
+                {d.free.length
+                  ? t('slots.fromTime', { count: d.free.length, time: fmtTime(d.free[0]!) })
+                  : st[1]}
+              </span>
+            </span>
             <Button
               variant="secondary"
               className="min-h-8 bg-brand-soft text-[13px] text-brand-ink shadow-none"
-              onClick={() => onBook({ time: f.time, doctorId: f.doctorId })}
-              data-testid={`free-${f.time}`}
+              disabled={!d.has_hours || d.on_leave}
+              onClick={() => setOpen(d.doctor_id)}
+              data-testid={`free-open-${d.doctor_name}`}
             >
-              {t('cal.book')}
+              {t('slots.open')}
             </Button>
+          </div>
+        );
+      })}
+      {shown && (
+        <Dialog
+          title={t('slots.dialogTitle', { day: fmtDay(day) })}
+          sub={onBook ? t('slots.dialogSub') : undefined}
+          size="sm"
+          onClose={() => setOpen(null)}
+          testId="free-dialog"
+        >
+          <select
+            value={shown.doctor_id}
+            onChange={(e) => setOpen(e.target.value)}
+            aria-label={t('slots.doctor')}
+            className="h-11 rounded-2xl bg-soft px-3 text-[14px] font-semibold"
+            data-testid="free-doctor-select"
+          >
+            {(docs ?? []).map((d) => (
+              <option key={d.doctor_id} value={d.doctor_id}>
+                {d.doctor_name} · {dayState(d, t)[1]}
+              </option>
+            ))}
+          </select>
+          {daySlots(shown).length === 0 ? (
+            <span className="text-[14px] text-muted">{dayState(shown, t)[1]}</span>
+          ) : (
+            <TimeGrid
+              slots={daySlots(shown)}
+              isOn={() => false}
+              onPick={(time) => {
+                setOpen(null);
+                onBook?.({ time, doctorId: shown.doctor_id });
+              }}
+              testPrefix="free-"
+            />
           )}
-        </div>
-      ))}
+        </Dialog>
+      )}
     </Card>
   );
 }

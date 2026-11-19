@@ -8,7 +8,7 @@ import { Activity, Connections, DeletionRequests, Phones, Team } from './hospita
 import { OverviewPage } from './overview.tsx';
 import { InvitePatients } from './invites.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
-import { Appointments, BookAppointment, type Found } from './appointments.tsx';
+import { Appointments, BookAppointment, type BookSlot, type Found } from './appointments.tsx';
 import { DeskToday, DoctorToday } from './today.tsx';
 import { HospitalSettingsPage } from './changes.tsx';
 import { ChooseTests, waitingForTests } from './choose.tsx';
@@ -50,6 +50,8 @@ export function App() {
   const [inviteQuery, setInviteQuery] = useState<string | undefined>();
   /** v30: a patient handed from the search to the booking page. */
   const [bookFor, setBookFor] = useState<Found | undefined>();
+  // v31: a free time picked on the Day view fills the booking form.
+  const [bookSlot, setBookSlot] = useState<BookSlot | undefined>();
   const openSearch = useCallback(() => setSearching(true), []);
   // v29: changes still waiting for Undo are sent before signing out.
   const { flush } = useUndo();
@@ -142,12 +144,27 @@ export function App() {
     body = (
       <Appointments
         onChangeCount={setChanges}
-        onBook={nav.includes('book') ? () => setPage('book') : undefined}
+        onBook={
+          nav.includes('book')
+            ? (slot) => {
+                setBookFor(undefined);
+                setBookSlot(slot);
+                setPage('book');
+              }
+            : undefined
+        }
       />
     );
   else if (page === 'requests')
     body = <Appointments key="requests" initialTab="requests" onChangeCount={setChanges} />;
-  else if (page === 'book') body = <BookAppointment key={bookFor?.mrn} initial={bookFor} />;
+  else if (page === 'book')
+    body = (
+      <BookAppointment
+        key={`${bookFor?.mrn}-${bookSlot?.day}-${bookSlot?.time}`}
+        initial={bookFor}
+        slot={bookSlot}
+      />
+    );
   else if (page === 'settings') body = <HospitalSettingsPage />;
   else if (page === 'chooseTests') body = <ChooseTests meId={me.id} onCount={setWaiting} />;
   else if (patient)
@@ -178,6 +195,7 @@ export function App() {
     setPermsFor(null);
     setInviteQuery(undefined);
     setBookFor(undefined);
+    setBookSlot(undefined);
   };
   const actions = [
     ...(nav.includes('book')
@@ -258,6 +276,7 @@ export function App() {
             nav.includes('book')
               ? (p) => {
                   go('book');
+                  setBookSlot(undefined);
                   setBookFor(p);
                 }
               : undefined

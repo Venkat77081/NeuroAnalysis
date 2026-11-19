@@ -31,10 +31,13 @@ export function InviteBox({
   mrns,
   title,
   onSent,
+  plain = false,
 }: {
   mrns: string[];
   title: string;
   onSent?: (results: InviteResult[]) => void;
+  /** v31: inside a pop-up (the pop-up has the title). */
+  plain?: boolean;
 }) {
   const { t } = useTranslation();
   const [via, setVia] = useState<Via>('email');
@@ -56,8 +59,8 @@ export function InviteBox({
     }
     setBusy(false);
   };
-  return (
-    <Card title={title} testId="p-invite">
+  const body = (
+    <>
       <span className="text-[13px] font-semibold text-sub">{t('invite.sendBy')}</span>
       <div className="flex flex-wrap gap-2">
         {(['email', 'sms', 'print'] as const).map((v) => (
@@ -107,6 +110,14 @@ export function InviteBox({
           ))}
         </ul>
       )}
+    </>
+  );
+  // v31: inside a pop-up the pop-up has the title.
+  return plain ? (
+    <div className="flex flex-col gap-3">{body}</div>
+  ) : (
+    <Card title={title} testId="p-invite">
+      {body}
     </Card>
   );
 }

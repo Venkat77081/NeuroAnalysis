@@ -495,12 +495,12 @@ export function MovePanel({
             </select>
           </label>
         )}
-        <label className="flex min-h-11 items-center gap-2 text-[14px]">
+        <label className="flex min-h-11 max-w-[280px] items-center gap-2 text-[13px] leading-[18px]">
           <input
             type="checkbox"
             checked={notify}
             onChange={(e) => setNotify(e.target.checked)}
-            className="h-4 w-4"
+            className="h-4 w-4 shrink-0"
             data-testid="move-notify"
           />
           {t('moves.notify')}

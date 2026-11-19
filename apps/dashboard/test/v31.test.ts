@@ -132,3 +132,13 @@ describe('v31: time grid and month', () => {
     expect(shiftMonth('2026-01', -1)).toBe('2025-12');
   });
 });
+
+import { chipTime } from '../src/slots.tsx';
+
+describe('v31: chip times', () => {
+  it('drops am/pm (the Morning / Afternoon heading says which)', () => {
+    expect(chipTime('09:30')).toBe('9:30');
+    expect(chipTime('14:00')).toBe('2:00');
+    expect(chipTime('12:15')).toBe('12:15');
+  });
+});

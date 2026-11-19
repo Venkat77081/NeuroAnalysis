@@ -11,7 +11,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { call } from './api.ts';
 import { appointmentChanges } from './config.ts';
-import { addDays, fmtDay, fmtTime, weekday } from './changes.tsx';
+import { addDays, fmtDay, weekday } from './changes.tsx';
 
 export interface DoctorDay {
   doctor_id: string;
@@ -62,6 +62,12 @@ export function daySlots(
     .map(([time, state]) => ({ time, state }));
 }
 
+/** "9:30", "2:00": the chips' short form (the Morning / Afternoon heading says which). */
+export function chipTime(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  return `${h! % 12 || 12}:${String(m).padStart(2, '0')}`;
+}
+
 /** Morning: before `afternoonFrom` (config); Afternoon: from then on. */
 export function splitDay<T extends { time: string }>(
   slots: T[],
@@ -93,11 +99,13 @@ export function useFreeDays(
   cells: string[],
   doctorId: string | null,
   appointmentId: string | null,
+  enabled = true,
 ): Record<string, number> {
   const [free, setFree] = useState<Record<string, number>>({});
   const from = cells[0]!;
   const to = cells[cells.length - 1]!;
   useEffect(() => {
+    if (!enabled) return;
     let off = false;
     const q = new URLSearchParams({ from, to });
     if (doctorId) q.set('doctor_id', doctorId);
@@ -109,7 +117,7 @@ export function useFreeDays(
     return () => {
       off = true;
     };
-  }, [from, to, doctorId, appointmentId]);
+  }, [from, to, doctorId, appointmentId, enabled]);
   return free;
 }
 
@@ -264,7 +272,7 @@ export function TimeGrid({
                 data-testid={`${testPrefix}${s.time}`}
                 data-state={s.state}
               >
-                {fmtTime(s.time)}
+                {chipTime(s.time)}
               </button>
             );
           })}

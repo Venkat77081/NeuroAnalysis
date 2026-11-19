@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { call, hospital } from './api.ts';
 import { AppointmentHistory, type Appointment } from './appointments.tsx';
 import { useSettings, zonedDay, zonedTime } from './changes.tsx';
-import { NoShowDialog, type Inbox } from './desk.tsx';
+import { NoShowDialog, sinceText, type Inbox } from './desk.tsx';
 import {
   Avatar,
   Badge,
@@ -154,6 +154,7 @@ export function DeskToday({
 
   const hero = (
     <Hero
+      tz={tz}
       name={hello(name)}
       line={t('today.line', { count: list.length, requests })}
       chips={[
@@ -173,7 +174,7 @@ export function DeskToday({
             <b className="text-[16px]">{nameOf(next.ncid)}</b>
             <span className="text-sub">
               {t(`today.status.${todayStatus(next, now, !!joined[next.ncid]).key}`, {
-                minutes: 0,
+                since: sinceText(t, 0),
               })}
             </span>
           </span>
@@ -210,7 +211,7 @@ export function DeskToday({
           </span>
           <span className="min-w-[180px] flex-1" data-testid="today-status">
             <Badge tone={st.tone}>
-              {t(`today.status.${st.key}`, { minutes: st.minutes ?? 0 })}
+              {t(`today.status.${st.key}`, { since: sinceText(t, st.minutes ?? 0) })}
             </Badge>
           </span>
           <span className="ml-auto">
@@ -508,6 +509,7 @@ export function DoctorToday({
   const nowAt = which === 'today' ? list.findIndex((a) => Date.parse(a.at) > now) : -2;
   const hero = (
     <Hero
+      tz={tz}
       name={name}
       line={t('doctorToday.line', { count: all.length, tests: needTests, recs: recs.length })}
       chips={[

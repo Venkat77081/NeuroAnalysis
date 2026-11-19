@@ -1404,8 +1404,7 @@
     "confirm": "Yes, did not come",
     "keep": "Not yet",
     "done": "{{name}}'s appointment on {{when}} is marked as did not come and cancelled.",
-    "when_one": "{{time}} with {{doctor}} · now {{count}} minute late",
-    "when_other": "{{time}} with {{doctor}} · now {{count}} minutes late",
+    "when": "{{time}} with {{doctor}} · now {{since}} late",
     "willTitle": "This will",
     "willCancel": "cancel the {{time}} appointment and close its record links",
     "willTell": "tell {{doctor}} (told by e-mail)",
@@ -1583,11 +1582,13 @@
     "reqCancelled": "Cancelled · {{reason}}",
     "offerNoAnswer": "Offer · no answer",
     "offerCall": "Asked to be called",
+    "sinceM": "{{m}} min",
+    "sinceHM": "{{h}} h {{m}} min",
     "status": {
       "noShow": "Did not come",
       "cancelled": "Cancelled",
       "recorded": "Recorded",
-      "late": "Not recorded · {{minutes}} min since start",
+      "late": "Not recorded · {{since}} late",
       "needsDoctor": "Needs a doctor",
       "needsTests": "Tests not chosen yet",
       "clinic": "In the clinic queue",
@@ -1714,6 +1715,7 @@
     "addOperator": "Operator",
     "invite": "Invite",
     "addOperatorTitle": "Add a clinic phone operator",
+    "addOperatorSub": "They sign in on the hospital's clinic phones with this ID. You get a temporary password to give them; they change it at their first sign-in.",
     "inviteTitle": "Invite a team member"
   }
 }

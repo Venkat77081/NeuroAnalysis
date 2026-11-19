@@ -372,8 +372,18 @@ export function SettingRow({
 
 export type DayPart = 'morning' | 'afternoon' | 'evening';
 /** Same parts of the day as the phone app (decision 050). */
-export const dayPart = (d = new Date()): DayPart =>
-  d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
+export const dayPart = (d = new Date(), tz?: string): DayPart => {
+  const h = tz
+    ? Number(
+        new Intl.DateTimeFormat('en-GB', {
+          hour: '2-digit',
+          hourCycle: 'h23',
+          timeZone: tz,
+        }).format(d),
+      )
+    : d.getHours();
+  return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+};
 
 /**
  * v28: the sunrise greeting (same idea as the phone app's card): date and time, "Good morning,
@@ -384,18 +394,21 @@ export function Hero({
   line,
   chips = [],
   right,
-  part = dayPart(),
   now = new Date(),
+  tz,
+  part = dayPart(now, tz),
 }: {
   name: string | null;
   line?: ReactNode;
   chips?: ReactNode[];
   right?: ReactNode;
-  part?: DayPart;
   now?: Date;
+  /** The hospital's time zone, so the greeting agrees with the day's list. */
+  tz?: string;
+  part?: DayPart;
 }) {
   const { t } = useTranslation();
-  const when = `${now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')} · ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+  const when = `${now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: tz }).replace(',', '')} · ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz })}`;
   const first = name?.trim().split(/\s+/)[0];
   const who = first && /^dr\.?$/i.test(first) ? name!.trim() : first;
   return (

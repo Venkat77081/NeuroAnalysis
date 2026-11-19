@@ -12,6 +12,7 @@
  * Times are the hospital's own time zone (Settings), whatever the browser's zone is.
  */
 import { useEffect, useMemo, useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { call, hospital } from './api.ts';
 import { appointmentChanges } from './config.ts';
@@ -1070,6 +1071,12 @@ export function RequestsTab({
  * v18 (decision 049), v30 look (canvas v28): "X did not come?" with what will happen. Offered from
  * the appointment time; the change waits for Undo (decision 052) before it is sent.
  */
+/** "227 min" reads as "3 h 47 min" from an hour on. */
+export const sinceText = (t: TFunction, minutes: number) =>
+  minutes >= 60
+    ? t('today.sinceHM', { h: Math.floor(minutes / 60), m: minutes % 60 })
+    : t('today.sinceM', { m: minutes });
+
 export function NoShowDialog({
   appt,
   patient,
@@ -1125,7 +1132,7 @@ export function NoShowDialog({
           {t('noShow.when', {
             time: when,
             doctor: appt.doctor_name ?? t('cal.noDoctor'),
-            count: late,
+            since: sinceText(t, late),
           })}
         </span>
       </div>

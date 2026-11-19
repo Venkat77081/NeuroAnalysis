@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canMarkNoShow, todayStatus } from '../src/today.tsx';
+import { sinceText } from '../src/desk.tsx';
+import { dayPart } from '../src/ui.tsx';
 import { hospitalView } from '../src/platform.tsx';
 import { journey } from '../src/doctor.tsx';
 import { nextVisits, notInApp } from '../src/shell.tsx';
@@ -154,5 +156,17 @@ describe('v30 activity, doctor Today and patients', () => {
     expect(patientState({ ...base, newRecording: true }).key).toBe('newRecording');
     expect(patientState({ ...base, sessions: 0 }).key).toBe('newPatient');
     expect(patientState(base).key).toBe('upToDate');
+  });
+
+  it('writes long waits as hours and minutes', () => {
+    const t = ((k: string, o: Record<string, number>) => `${k}:${JSON.stringify(o)}`) as never;
+    expect(sinceText(t, 17)).toBe('today.sinceM:{"m":17}');
+    expect(sinceText(t, 227)).toBe('today.sinceHM:{"h":3,"m":47}');
+  });
+  it("greets by the hospital's time of day, not the computer's", () => {
+    const at = new Date('2026-11-19T11:47:00Z'); // 17:17 in Kolkata
+    expect(dayPart(at, 'Asia/Kolkata')).toBe('evening');
+    expect(dayPart(at, 'UTC')).toBe('morning');
+    expect(dayPart(new Date('2026-11-19T18:40:00Z'), 'Asia/Kolkata')).toBe('morning'); // 00:10
   });
 });

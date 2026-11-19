@@ -121,6 +121,24 @@ over the appointment list instead of expanding a row:
 - The buttons at the bottom stay visible while the dialog scrolls; on a narrow window it fills the
   screen.
 
+## Look and navigation (v28 "Horizon+", decision 051)
+
+- **Top bar:** a floating bar instead of the sidebar, with pill tabs and red counts.
+- **Search:** ⌘K or Ctrl+K finds pages, actions and, for people allowed to search, patients live
+  in the hospital's records.
+- **Theme:** the round button switches between "same as this computer", light and dark.
+- **Overview:** opens with a sunrise greeting by time of day.
+- **Appointments:**
+  - a List, Day or Week switch. Day shows the doctors side by side, and Week runs Monday to
+    Sunday;
+  - a coral Now line;
+  - clicking an appointment opens its history.
+- **Hospitals (platform):** cards with a set-up side panel.
+- **Data connections:** starts with a picture of how data flows, with the live state of each part.
+- **Connector offline:** when the connector cannot be reached, a note says that names are hidden
+  and patient codes are shown instead.
+- **Motion:** all of it stops with "reduce motion".
+
 ## Local run
 
 ```bash

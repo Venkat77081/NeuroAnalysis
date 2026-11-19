@@ -776,7 +776,7 @@ export function Team() {
       {adding === 'operator' && (
         <Dialog
           title={t('team.addOperatorTitle')}
-          sub={t('hospital.teamHint')}
+          sub={t('team.addOperatorSub')}
           size="sm"
           onClose={() => setAdding(null)}
           testId="operator-dialog"

@@ -542,7 +542,7 @@ export function Dialog({
       onClick={(e) => {
         if (e.target === ref.current) close();
       }}
-      className={`m-0 h-full max-h-none w-full max-w-none bg-card p-0 text-ink backdrop:bg-[#0f0e17]/45 backdrop:backdrop-blur-[2px] sm:m-auto sm:h-auto sm:max-h-[90vh] sm:w-[calc(100%-48px)] sm:rounded-[28px] sm:shadow-[0_30px_80px_rgb(0_0_0/0.3)] ${width}`}
+      className={`m-0 h-full max-h-none w-full max-w-none bg-card p-0 text-ink backdrop:bg-[#0f0e17]/45 backdrop:backdrop-blur-[2px] sm:m-auto sm:max-h-[90vh] sm:w-[calc(100%-48px)] sm:rounded-[28px] sm:shadow-[0_30px_80px_rgb(0_0_0/0.3)] ${size === 'side' ? '' : 'sm:h-fit'} ${width}`}
       data-testid={testId}
     >
       <div

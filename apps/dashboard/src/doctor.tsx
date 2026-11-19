@@ -6,7 +6,18 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { call, hospital, hospitalFile } from './api.ts';
-import { Badge, Button, Card, ErrorNote, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  ErrorNote,
+  Notice,
+  Page,
+  Table,
+  fmt,
+  fmtDate,
+} from './ui.tsx';
 import { StageBadge, type Appointment } from './appointments.tsx';
 
 interface PlatformPatient {
@@ -54,13 +65,19 @@ export function MyPatients({ onOpen }: { onOpen: (ncid: string) => void }) {
           {t('doctor.noPatients')}
         </Notice>
       )}
-      <Table head={['', t('hospital.mrn'), '', '']} testId="my-patients">
+      <Table
+        head={[t('doctor.patient'), t('hospital.mrn'), t('doctor.recordings'), '']}
+        testId="my-patients"
+      >
         {(rows ?? []).map((p) => {
           const i = ident[p.ncid];
           return (
-            <tr key={p.ncid} className="border-t border-[#EDF0F3]">
+            <tr key={p.ncid} className="border-t border-line">
               <td className="px-4 py-3 font-semibold">
-                {i?.name ?? <code className="text-[12px] text-muted">{p.ncid}</code>}
+                <span className="flex items-center gap-3">
+                  <Avatar name={i?.name ?? null} size={36} />
+                  {i?.name ?? <code className="text-[12px] text-muted">{p.ncid}</code>}
+                </span>
               </td>
               <td className="px-4 py-3">{i?.mrn ?? ''}</td>
               <td className="px-4 py-3 text-[13px] text-muted">
@@ -72,6 +89,7 @@ export function MyPatients({ onOpen }: { onOpen: (ncid: string) => void }) {
               <td className="px-4 py-3">
                 <Button
                   variant="secondary"
+                  className="min-h-9 text-[13px]"
                   onClick={() => onOpen(p.ncid)}
                   data-testid={`open-${i?.mrn ?? p.ncid}`}
                 >
@@ -192,25 +210,37 @@ export function PatientView({ ncid, onBack }: { ncid: string; onBack: () => void
     }
   };
 
-  return (
-    <Page title={view?.name ?? ncid}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button variant="ghost" onClick={onBack}>
-          ← {t('app.back')}
-        </Button>
-        <span className="text-[13px] font-semibold text-ok">{t('app.live')}</span>
+  // v28: a profile header (avatar, name, MRN line, "live from your records").
+  const header = (
+    <div className="nc-fu flex flex-col gap-3" data-testid="patient-header">
+      <Button variant="ghost" className="min-h-9 self-start px-2" onClick={onBack}>
+        ← {t('app.back')}
+      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Avatar name={view?.name ?? null} size={68} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h1 className="text-[28px] leading-9 font-extrabold tracking-[-0.4px]">
+            {view?.name ?? ncid}
+          </h1>
+          <span className="flex flex-wrap items-center gap-2 text-[14px] text-sub">
+            <span data-testid="patient-mrn">
+              {view
+                ? [`MRN ${view.mrn}`, view.birth_date && fmtDate(view.birth_date), view.sex]
+                    .filter(Boolean)
+                    .join(' · ')
+                : ''}
+            </span>
+            <Badge tone="neutral">{t('shell.liveRecords')}</Badge>
+          </span>
+          <span className="text-[12px] text-muted">NCID {ncid}</span>
+        </div>
       </div>
-      <Card testId="patient-header">
-        <span className="text-[14px] text-muted" data-testid="patient-mrn">
-          {view
-            ? [`MRN ${view.mrn}`, view.birth_date && fmtDate(view.birth_date), view.sex]
-                .filter(Boolean)
-                .join(' · ')
-            : ''}
-        </span>
-        <span className="text-[12px] text-muted">NCID {ncid}</span>
-        <Notice>{t('app.notStored')}</Notice>
-      </Card>
+      <Notice>{t('app.notStored')}</Notice>
+    </div>
+  );
+
+  return (
+    <Page title={view?.name ?? ncid} hero={header}>
       <ErrorNote error={error} />
       {notice && <Notice testId="notice">{notice}</Notice>}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -237,7 +267,7 @@ export function PatientView({ ncid, onBack }: { ncid: string; onBack: () => void
         <div className="flex flex-col gap-5">
           <Card title={t('doctor.recordings')} testId="recordings">
             <span className="text-[12px] text-muted">{t('doctor.decrypted')}</span>
-            <ul className="flex flex-col divide-y divide-[#EDF0F3]">
+            <ul className="flex flex-col divide-y divide-line">
               {recs.map((r) => (
                 <li key={r.take_id} className="flex flex-col gap-2 py-3">
                   <div className="flex flex-wrap items-center gap-2 text-[14px]">
@@ -344,7 +374,7 @@ function ReviewForm({ take, onSaved }: { take: string; onSaved: (r: Review) => v
         placeholder={t('doctor.note')}
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        className="h-11 min-w-48 flex-1 rounded-xl border border-[#C9CFD8] px-3"
+        className="h-11 min-w-48 flex-1 rounded-2xl border border-edge px-3"
         data-testid="review-note"
       />
       <Button disabled={usable === null} onClick={() => void save()} data-testid="review-save">
@@ -426,7 +456,7 @@ function PlanEditor({ ncid }: { ncid: string }) {
         </span>
       )}
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
           {t('doctor.everyDays')}
           <input
             type="number"
@@ -438,11 +468,11 @@ function PlanEditor({ ncid }: { ncid: string }) {
               setSaved(false);
               setPlan({ ...plan, every_days: Number(e.target.value) });
             }}
-            className="h-11 w-24 rounded-xl border border-[#C9CFD8] px-3"
+            className="h-11 w-24 rounded-2xl border border-edge px-3"
             data-testid="plan-days"
           />
         </label>
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
           {t('doctor.medState')}
           <select
             value={plan.med_state}
@@ -450,7 +480,7 @@ function PlanEditor({ ncid }: { ncid: string }) {
               setSaved(false);
               setPlan({ ...plan, med_state: e.target.value as Plan['med_state'] });
             }}
-            className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2"
+            className="h-11 rounded-2xl border border-edge bg-card px-2"
             data-testid="plan-med"
           >
             {(['OFF', 'ON', 'ANY'] as const).map((m) => (
@@ -530,7 +560,7 @@ function VisitRemark({
           maxLength={4000}
           rows={3}
           aria-label={t('remarks.label')}
-          className="rounded-xl border border-[#C9CFD8] p-2 text-[14px]"
+          className="rounded-2xl border border-edge p-2 text-[14px]"
           data-testid="remark-text"
         />
         <ErrorNote error={error} />
@@ -658,7 +688,7 @@ function Timeline({ ncid }: { ncid: string }) {
         <div
           role="group"
           aria-label={t('remarks.periodLabel')}
-          className="flex overflow-hidden rounded-xl border border-[#C9CFD8] bg-white"
+          className="flex overflow-hidden rounded-2xl border border-edge bg-card"
         >
           {PERIODS.map((v) => (
             <button
@@ -674,7 +704,7 @@ function Timeline({ ncid }: { ncid: string }) {
           ))}
         </div>
       </div>
-      <ol className="flex flex-col divide-y divide-[#EDF0F3]">
+      <ol className="flex flex-col divide-y divide-line">
         {shown.map((a) => (
           <li key={a.id} className="flex flex-col gap-1.5 py-3" data-testid="timeline-appt">
             <div className="flex flex-wrap items-center gap-2 text-[14px]">

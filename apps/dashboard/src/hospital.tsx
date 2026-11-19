@@ -87,6 +87,161 @@ interface StorageInfo {
   azure_role_definition: unknown;
 }
 
+type FlowState = 'ok' | 'warn' | 'bad' | 'info';
+const passed = (c: Record<string, string> | null) =>
+  !!c && Object.keys(c).length > 0 && Object.values(c).every((v) => v === 'pass');
+const failed = (c: Record<string, string> | null) =>
+  !!c && Object.values(c).some((v) => v === 'fail');
+
+/** v28: one coloured node of the data-flow picture. */
+function FlowNode({
+  title,
+  text,
+  state,
+  status,
+  colour,
+  testId,
+}: {
+  title: string;
+  text: string;
+  state: FlowState;
+  status: string;
+  colour: string;
+  testId: string;
+}) {
+  return (
+    <div
+      className="nc-fu flex min-w-[200px] flex-1 flex-col gap-1.5 rounded-[22px] border-t-[5px] bg-card px-4 py-3.5 shadow-[0_8px_28px_rgb(22_21_31/0.1)]"
+      style={{ borderTopColor: colour }}
+      data-testid={testId}
+    >
+      <b className="text-[15px]">{title}</b>
+      <span className="text-[13px] leading-[19px] text-sub">{text}</span>
+      <span>
+        <Badge tone={state === 'info' ? 'info' : state}>{status}</Badge>
+      </span>
+    </div>
+  );
+}
+
+function FlowArrow({ label }: { label: string }) {
+  return (
+    <div className="hidden min-w-[70px] flex-[0.6] flex-col items-center gap-1.5 text-[12px] font-semibold text-muted lg:flex">
+      <span className="text-center">{label}</span>
+      <span aria-hidden className="nc-flow h-1 w-full rounded-full" />
+    </div>
+  );
+}
+
+/**
+ * v28 (decision 051): how data moves, with the live state of each part. Names and videos stay in
+ * the hospital; the platform passes sealed packages and counts.
+ */
+function DataFlow({
+  conn,
+  storage,
+  keys,
+}: {
+  conn: ConnectorInfo | null;
+  storage: StorageInfo | null;
+  keys: KeyRow[] | null;
+}) {
+  const { t } = useTranslation();
+  const connState: FlowState = !conn?.registered
+    ? 'warn'
+    : passed(conn.check)
+      ? 'ok'
+      : failed(conn.check)
+        ? 'bad'
+        : 'warn';
+  const connStatus = !conn?.registered
+    ? t('flow.notSetUp')
+    : passed(conn.check)
+      ? t('flow.working')
+      : failed(conn.check)
+        ? t('flow.failing')
+        : t('flow.notTested');
+  const storeState: FlowState = storage?.can_record
+    ? 'ok'
+    : storage?.kind && storage.kind !== 'none' && failed(storage.check)
+      ? 'bad'
+      : 'warn';
+  const keyReady = (keys ?? []).some((k) => k.status === 'active');
+  return (
+    <Card title={t('flow.title')} testId="data-flow">
+      <span className="-mt-2 text-[14px] text-sub">{t('flow.sub')}</span>
+      <div className="flex flex-wrap items-stretch gap-3 lg:flex-nowrap lg:items-center">
+        <div className="relative flex flex-1 flex-wrap items-center gap-3 rounded-3xl border-2 border-dashed border-brand-2/60 px-3 pt-6 pb-3 lg:flex-nowrap">
+          <span className="absolute -top-3 left-4 bg-card px-2 text-[12px] font-extrabold text-brand-2 uppercase">
+            {t('flow.inside')}
+          </span>
+          <FlowNode
+            title={t('flow.records')}
+            text={t('flow.recordsText')}
+            state={connState}
+            status={connStatus}
+            colour="var(--color-brand)"
+            testId="flow-records"
+          />
+          <FlowArrow label={t('flow.readLive')} />
+          <FlowNode
+            title={t('flow.connector')}
+            text={conn?.url ?? t('flow.connectorText')}
+            state={connState}
+            status={connStatus}
+            colour="var(--color-brand-2)"
+            testId="flow-connector"
+          />
+        </div>
+        <FlowArrow label={t('flow.sealed')} />
+        <div className="relative flex flex-[0.55] items-center rounded-3xl border-2 border-dashed border-coral/70 px-3 pt-6 pb-3">
+          <span className="absolute -top-3 left-4 bg-card px-2 text-[12px] font-extrabold text-coral uppercase">
+            {t('app.name')}
+          </span>
+          <FlowNode
+            title={t('flow.platform')}
+            text={t('flow.platformText')}
+            state="info"
+            status={t('flow.noNames')}
+            colour="var(--color-coral)"
+            testId="flow-platform"
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap lg:px-3">
+        <FlowNode
+          title={t('flow.phones')}
+          text={t('flow.phonesText')}
+          state={keyReady ? 'ok' : 'warn'}
+          status={keyReady ? t('flow.keyReady') : t('flow.noKey')}
+          colour="#0891b2"
+          testId="flow-phones"
+        />
+        <FlowArrow label={t('flow.encrypted')} />
+        <FlowNode
+          title={t('flow.storage')}
+          text={
+            storage?.kind && storage.kind !== 'none'
+              ? t(`flow.storageKind.${storage.kind}`, { defaultValue: storage.kind })
+              : t('flow.storageText')
+          }
+          state={storeState}
+          status={
+            storage?.can_record
+              ? t('flow.working')
+              : storeState === 'bad'
+                ? t('flow.failing')
+                : t('flow.notSetUp')
+          }
+          colour="#059669"
+          testId="flow-storage"
+        />
+        <span className="hidden flex-1 lg:block" />
+      </div>
+    </Card>
+  );
+}
+
 export function Connections() {
   const { t } = useTranslation();
   const [conn, connErr, reloadConn] = useLoad(() =>
@@ -153,6 +308,7 @@ export function Connections() {
         </Notice>
       )}
       <ErrorNote error={error ?? connErr} />
+      <DataFlow conn={conn} storage={storage} keys={keys} />
       <Card title={t('hospital.connectorTitle')} testId="connector-card">
         {conn?.registered && (
           <p className="text-[14px]">
@@ -174,13 +330,13 @@ export function Connections() {
             placeholder="https://connector.hospital.example"
             data-testid="c-url"
           />
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
             {t('hospital.connectorKey')}
             <textarea
               value={pem}
               onChange={(e) => setPem(e.target.value)}
               rows={3}
-              className="rounded-xl border border-[#C9CFD8] p-2 font-mono text-[12px]"
+              className="rounded-2xl border border-edge p-2 font-mono text-[12px]"
               data-testid="c-key"
             />
           </label>
@@ -330,7 +486,7 @@ export function Connections() {
                     href={storage.azure_consent_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-semibold text-brand underline"
+                    className="font-semibold text-brand-ink underline"
                   >
                     {t('hospital.azureConsent')}
                   </a>
@@ -344,7 +500,7 @@ export function Connections() {
               <summary className="cursor-pointer text-[13px] font-semibold">
                 {t('hospital.azureRole')}
               </summary>
-              <pre className="overflow-x-auto rounded-lg bg-[#F4F6F8] p-3 text-[12px]">
+              <pre className="overflow-x-auto rounded-lg bg-soft p-3 text-[12px]">
                 {JSON.stringify(storage.azure_role_definition, null, 2)}
               </pre>
             </details>
@@ -431,9 +587,7 @@ export function Team() {
     o.temporary_password && setTemp({ code: o.code, pw: o.temporary_password });
   return (
     <Page title={t('hospital.teamTitle')}>
-      <p className="max-w-3xl text-[14px] leading-[21px] text-[#3D4552]">
-        {t('hospital.teamHint')}
-      </p>
+      <p className="max-w-3xl text-[14px] leading-[21px] text-sub">{t('hospital.teamHint')}</p>
       <ErrorNote error={error} />
       <Card title={t('hospital.operatorsTitle')}>
         {temp && (
@@ -476,7 +630,7 @@ export function Team() {
             {t('hospital.addOperator')}
           </Button>
         </div>
-        <ul className="flex flex-col divide-y divide-[#EDF0F3]" data-testid="operators">
+        <ul className="flex flex-col divide-y divide-line" data-testid="operators">
           {(ops ?? []).map((o) => (
             <li key={o.id} className="flex flex-wrap items-center gap-2 py-2 text-[14px]">
               <span className="w-28 font-semibold">{o.code}</span>
@@ -532,12 +686,12 @@ export function Team() {
             onChange={(e) => setName(e.target.value)}
             data-testid="st-name"
           />
-          <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+          <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
             {t('hospital.role')}
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 text-[14px]"
+              className="h-11 rounded-2xl border border-edge bg-card px-2 text-[14px]"
             >
               <option value="doctor">{t('roles.doctor')}</option>
               <option value="receptionist">{t('roles.receptionist')}</option>
@@ -563,7 +717,7 @@ export function Team() {
             {t('hospital.inviteStaff')}
           </Button>
         </div>
-        <ul className="flex flex-col divide-y divide-[#EDF0F3]" data-testid="staff">
+        <ul className="flex flex-col divide-y divide-line" data-testid="staff">
           {(staff ?? []).map((u) => (
             <li key={u.id} className="flex flex-wrap items-center gap-2 py-2 text-[14px]">
               <span className="font-semibold">{u.display_name ?? u.email}</span>
@@ -698,7 +852,7 @@ export function Phones() {
         testId="devices"
       >
         {(devices ?? []).map((d) => (
-          <tr key={d.id} className="border-t border-[#EDF0F3]">
+          <tr key={d.id} className="border-t border-line">
             <td className="px-4 py-3 font-semibold">{d.label ?? d.model}</td>
             <td className="px-4 py-3 text-[13px] text-muted">
               {d.model} · Android {d.os_version}

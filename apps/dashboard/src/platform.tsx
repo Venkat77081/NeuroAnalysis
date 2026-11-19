@@ -1,10 +1,22 @@
 /** Platform admin (M14): onboard hospitals, follow their set-up, suspend; platform activity log. */
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, call } from './api.ts';
 import { ResetSignIn } from './reset.tsx';
 import { ActivityLog, type LogRow } from './activity.tsx';
-import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table } from './ui.tsx';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Dialog,
+  DialogFooter,
+  ErrorNote,
+  Field,
+  Notice,
+  Page,
+  Segmented,
+} from './ui.tsx';
 
 interface Hospital {
   id: string;
@@ -83,82 +95,123 @@ export function Hospitals({ onPermissions }: { onPermissions: (siteId: string) =
       setError(e);
     }
   };
+  const [filter, setFilter] = useState<'all' | 'attention' | 'suspended'>('all');
+  const attention = (h: Hospital) => h.status !== 'active' || !h.can_record;
+  const shown = rows.filter((h) =>
+    filter === 'all' ? true : filter === 'suspended' ? h.status === 'suspended' : attention(h),
+  );
+  const openRow = rows.find((h) => h.id === open);
   return (
-    <Page title={t('platform.hospitalsTitle')}>
+    <Page
+      title={t('platform.hospitalsTitle')}
+      sub={t('platform.hospitalsSub', { count: rows.length })}
+    >
       <ErrorNote error={error} />
       <Onboard onDone={() => void load()} />
-      <Table
-        head={[
-          t('platform.name'),
-          t('platform.status'),
-          t('platform.devices'),
-          t('platform.operators'),
-          t('platform.patients'),
-          t('platform.canRecord'),
-          '',
-        ]}
-        testId="hospitals"
-      >
-        {rows.map((h) => (
-          <Fragment key={h.id}>
-            <tr className="border-t border-[#EDF0F3]">
-              <td className="px-4 py-3">
-                <span className="font-semibold">{h.name}</span>
-                <span className="block text-[12px] text-muted">
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented
+          options={[
+            { value: 'all' as const, label: t('platform.filter.all', { count: rows.length }) },
+            {
+              value: 'attention' as const,
+              label: t('platform.filter.attention', { count: rows.filter(attention).length }),
+            },
+            {
+              value: 'suspended' as const,
+              label: t('platform.filter.suspended', {
+                count: rows.filter((h) => h.status === 'suspended').length,
+              }),
+            },
+          ]}
+          value={filter}
+          onChange={setFilter}
+          label={t('platform.filter.label')}
+          testId={(v) => `hosp-filter-${v}`}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="hospitals">
+        {shown.map((h) => (
+          <section
+            key={h.id}
+            className={`nc-fu flex flex-col gap-3 rounded-3xl bg-card p-4 shadow-card ${open === h.id ? 'shadow-[0_0_0_2px_var(--color-brand)]' : ''}`}
+            data-testid={`hospital-${h.name}`}
+          >
+            <div className="flex items-center gap-3">
+              <Avatar name={h.name} size={44} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <b className="truncate text-[15px]">{h.name}</b>
+                <span className="truncate text-[12px] text-muted">
                   {[t(`platform.${h.kind}`), h.city, h.region].filter(Boolean).join(' · ')}
                 </span>
-              </td>
-              <td className="px-4 py-3">
-                <Badge
-                  tone={h.status === 'active' ? 'ok' : h.status === 'suspended' ? 'bad' : 'warn'}
-                >
-                  {h.status}
-                </Badge>
-              </td>
-              <td className="px-4 py-3">{h.devices}</td>
-              <td className="px-4 py-3">{h.operators}</td>
-              <td className="px-4 py-3">{h.patients}</td>
-              <td className="px-4 py-3" data-testid={`can-record-${h.name}`}>
+              </span>
+              <Badge
+                tone={h.status === 'active' ? 'ok' : h.status === 'suspended' ? 'bad' : 'warn'}
+              >
+                {t(`platform.statusName.${h.status}`, { defaultValue: h.status })}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span data-testid={`can-record-${h.name}`}>
                 <Badge tone={h.can_record ? 'ok' : 'bad'}>
-                  {h.can_record ? t('platform.yes') : t('platform.noStorage')}
+                  {h.can_record ? t('platform.canRecordYes') : t('platform.noStorage')}
                 </Badge>
-              </td>
-              <td className="flex gap-2 px-4 py-3">
-                <Button
-                  variant="secondary"
-                  onClick={() => setOpen(open === h.id ? null : h.id)}
-                  data-testid={`setup-${h.name}`}
-                >
-                  {t('platform.setup')}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => onPermissions(h.id)}
-                  data-testid={`perms-${h.name}`}
-                >
-                  {t('perm.button')}
-                </Button>
-                {h.status === 'suspended' ? (
-                  <Button variant="secondary" onClick={() => void setStatus(h, 'active')}>
-                    {t('platform.resume')}
-                  </Button>
-                ) : (
-                  <Button variant="danger" onClick={() => void setStatus(h, 'suspended')}>
-                    {t('platform.suspend')}
-                  </Button>
-                )}
-              </td>
-            </tr>
-            {open === h.id && (
-              <tr>
-                <td colSpan={7} className="px-4 pb-4">
-                  <SetupSteps id={h.id} />
-                </td>
-              </tr>
-            )}
-          </Fragment>
+              </span>
+              {h.sms_enabled && <Badge tone="info">{t('platform.smsOn')}</Badge>}
+            </div>
+            <span className="text-[13px] text-sub">
+              {t('platform.counts', {
+                devices: h.devices,
+                operators: h.operators,
+                patients: h.patients,
+              })}
+            </span>
+            <div className="mt-auto flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                className="min-h-9 text-[13px]"
+                onClick={() => setOpen(open === h.id ? null : h.id)}
+                data-testid={`setup-${h.name}`}
+              >
+                {t('platform.setup')}
+              </Button>
+              <Button
+                variant="secondary"
+                className="min-h-9 text-[13px]"
+                onClick={() => onPermissions(h.id)}
+                data-testid={`perms-${h.name}`}
+              >
+                {t('perm.button')}
+              </Button>
+            </div>
+          </section>
         ))}
-      </Table>
+      </div>
+      {openRow && (
+        <Dialog
+          title={openRow.name}
+          sub={[t(`platform.${openRow.kind}`), openRow.city, openRow.region]
+            .filter(Boolean)
+            .join(' · ')}
+          size="side"
+          onClose={() => setOpen(null)}
+          testId="hospital-panel"
+        >
+          <SetupSteps id={openRow.id} />
+          <DialogFooter>
+            {openRow.status === 'suspended' ? (
+              <Button variant="secondary" onClick={() => void setStatus(openRow, 'active')}>
+                {t('platform.resume')}
+              </Button>
+            ) : (
+              <Button variant="danger" onClick={() => void setStatus(openRow, 'suspended')}>
+                {t('platform.suspend')}
+              </Button>
+            )}
+            <span className="flex-1" />
+            <Button onClick={() => onPermissions(openRow.id)}>{t('perm.button')}</Button>
+          </DialogFooter>
+        </Dialog>
+      )}
     </Page>
   );
 }
@@ -184,7 +237,7 @@ function SetupSteps({ id }: { id: string }) {
     [t('platform.stepTeam'), s.doctors > 0 && (s.operators > 0 || s.devices >= 0)],
   ];
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-ground p-3">
+    <div className="flex flex-col gap-3">
       <ol className="flex flex-col gap-1.5 text-[14px]" data-testid="setup-steps">
         {steps.map(([label, ok]) => (
           <li key={label} className="flex items-center gap-2">
@@ -277,7 +330,7 @@ function Onboard({ onDone }: { onDone: () => void }) {
       setBusy(false);
     }
   };
-  const sel = 'h-11 rounded-xl border border-[#C9CFD8] bg-white px-2 text-[14px]';
+  const sel = 'h-11 rounded-2xl border border-edge bg-card px-2 text-[14px]';
   return (
     <Card title={t('platform.onboard')} testId="onboard">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -288,7 +341,7 @@ function Onboard({ onDone }: { onDone: () => void }) {
           onChange={(e) => setF({ ...f, name: e.target.value })}
           data-testid="h-name"
         />
-        <label className="flex flex-col gap-1 text-[13px] font-semibold text-[#3D4552]">
+        <label className="flex flex-col gap-1 text-[13px] font-semibold text-sub">
           {t('platform.kind')}
           <select
             className={sel}
@@ -406,7 +459,7 @@ export function PlatformSettingsPage() {
         <ErrorNote error={error} />
       )}
       <Card title={t('platform.storageTitle')} testId="platform-storage">
-        <p className="text-[14px] leading-5 text-[#3D4552]">{t('platform.storageIntro')}</p>
+        <p className="text-[14px] leading-5 text-sub">{t('platform.storageIntro')}</p>
         <ul className="m-0 flex list-none flex-col p-0">
           {kinds.map(([k, ok, label]) => (
             <li

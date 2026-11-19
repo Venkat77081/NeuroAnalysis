@@ -82,6 +82,8 @@ test('M14: platform admin — hospitals, set-up status, onboarding, platform log
   await expect(steps.locator('li', { hasText: 'Hospital take key registered' })).toContainText(
     'pass',
   );
+  // v28: set-up opens in a side panel; close it to onboard the next hospital.
+  await page.getByTestId('dialog-close').click();
   await page.getByTestId('h-name').fill('Lakeview Hospital');
   await page.getByTestId('h-email').fill('admin@lakeview.example');
   await page.getByTestId('h-create').click();

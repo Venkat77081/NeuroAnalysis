@@ -18,7 +18,7 @@ test('v10: overviews for platform, hospital admin, front desk and doctor', async
   await page.getByTestId('tile-hospitals').click();
   await expect(page.getByTestId('hospitals')).toBeVisible();
   // Decision 044: each hospital records only into its own storage (the test stack: development storage).
-  await expect(page.getByTestId('can-record-Sunrise Neuro Clinic')).toHaveText('Yes');
+  await expect(page.getByTestId('can-record-Sunrise Neuro Clinic')).toHaveText('Can record');
   await page.getByTestId('nav-platformSettings').click();
   await expect(page.getByTestId('kind-s3')).toContainText('available');
   await expect(page.getByTestId('kind-azure')).toContainText('Azure app not registered');

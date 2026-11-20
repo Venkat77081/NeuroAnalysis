@@ -163,6 +163,13 @@ export async function hospital<T>(method: string, path: string, body?: unknown):
   return out as T;
 }
 
+/** M15: a text document from the connector (the biomarker report's HTML). Never cached. */
+export async function hospitalText(path: string): Promise<string> {
+  const r = await connectorRaw('GET', path);
+  if (!r.ok) throw errorOf(r, await parse(r).catch(() => null));
+  return r.text();
+}
+
 /** A decrypted recording file as an object URL (revoke it when done). Never cached. */
 export async function hospitalFile(path: string): Promise<string> {
   const r = await connectorRaw('GET', path);

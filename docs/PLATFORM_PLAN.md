@@ -144,7 +144,7 @@ managed clinics, NeuroCapture runs one per clinic.
 
 Server keypoint extraction on the 60 fps video, then the registry formulas (REG@0.3.0). Results
 are written to the hospital under the NCID. The report is labelled decision support, not a
-diagnosis.
+diagnosis. Started in `biomarkers/` (decision 057, docs/biomarkers.md).
 
 ### M16 — iOS (was M10)
 

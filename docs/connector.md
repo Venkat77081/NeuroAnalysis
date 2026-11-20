@@ -10,6 +10,7 @@ mode (run by NeuroCapture). It is the only part of NeuroCapture that handles pat
   the records.
 - It **writes the clinical activity log**: searched, invited, viewed history, viewed a recording.
 - It **decrypts recordings** for the hospital's doctors.
+- It **computes biomarkers** (optional, M15): the analysis runs here and the report stays here.
 
 The platform only ever learns NCIDs, invite channels and pass/fail health results. The API is in
 `contracts/connector-api.yaml`, and decision 025 explains the security design.
@@ -42,6 +43,20 @@ docker run -d --name nc-connector -p 8100:8100 -v nc-connector:/data --env-file 
 
 The connector must be reachable over HTTPS from the doctors' browsers (hospital network, VPN or
 a hospital-controlled endpoint) and from the NeuroCapture platform (for health checks).
+
+### With biomarker analysis (M15, decision 059)
+
+The image `connector/Dockerfile.analysis` adds the analysis package (MediaPipe, SciPy) and its
+models, about 1 GB more. Build it from the repo root and run it like the plain image:
+
+```bash
+docker build -f connector/Dockerfile.analysis -t neurocapture-connector:analysis .
+```
+
+Doctors then see **Biomarkers** on Finger Tapping recordings. The connector decrypts the video,
+analyses it in the background (one take at a time, about a minute each, on the CPU), deletes the
+decrypted copy and keeps the result and the report in `nc_biomarker_runs`. The platform never
+receives them. Without the package the button is not shown.
 
 ## 2. Register it
 

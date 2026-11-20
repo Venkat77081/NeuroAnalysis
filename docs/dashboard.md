@@ -131,3 +131,13 @@ pnpm e2e:dashboard                                # real platform + connector + 
 ## Overview (v10, decision 042)
 
 Every role starts on **Overview**: five cards, one chart (hover for values, **Table** for the numbers) and a short list. The platform admin's page holds counts and hospital names only. The hospital admin's **Data connections** page has **Messages to patients: e-mail and SMS**, saved at the hospital connector (encrypted), with "Send a test".
+
+## Biomarker report (M15, decision 059)
+
+- **Doctor's patient page:** each Finger Tapping recording has **Biomarkers**. It is analysed at
+  the hospital's connector in about a minute; the button then opens the **Biomarker report** (each
+  value and how it was worked out) in a dialog.
+- **Where it is kept:** the report stays in the hospital's database; the platform never receives
+  it.
+- **Not installed:** without the analysis at the connector, the patient page says so and shows no
+  button.

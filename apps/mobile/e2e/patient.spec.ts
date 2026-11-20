@@ -21,11 +21,18 @@ type W = { __ncMock: { fakeServer: Fake } };
 const fake = (page: Page) =>
   page.evaluate(() => ({ link: (globalThis as unknown as W).__ncMock.fakeServer.issueInvite() }));
 
-async function recordAndAccept(page: Page) {
+async function recordAndAccept(page: Page, saveVideo = false) {
   await page.getByTestId('set-up-camera').click();
   await page.getByTestId('record').click();
   await expect(page.getByTestId('verdict-card')).toBeVisible({ timeout: 45_000 });
   await expect(page.getByTestId('verdict-title')).toHaveText('Capture passed');
+  if (saveVideo) {
+    // Decision 058: test mode saves the take's video to the phone for the biomarker analysis.
+    await page.getByTestId('save-video').click();
+    await expect(page.getByTestId('save-video-note')).toHaveText(
+      /^Saved to Movies\/NeuroCapture as NeuroCapture_FT_take1_1\.mp4$/,
+    );
+  }
   await page.getByTestId('accept').click();
 }
 
@@ -105,7 +112,7 @@ test('v3: join → record link → consent → home session; second hospital; wi
       await expect(page.getByTestId('set-up-camera')).toBeHidden();
       await page.getByTestId('saw-helper-yes').click();
     }
-    await recordAndAccept(page);
+    await recordAndAccept(page, i === 0);
   }
   await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
   await expect(page.getByTestId('summary-counts')).toContainText('5Passed');

@@ -51,9 +51,11 @@ cd connector && python -m scripts.gen_contract   # regenerate contracts/connecto
 python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack [--lan <wifi ip>]   # real platform + connector + FHIR stand-in, seeded; prints sign-ins
 pnpm dev:dashboard        # dashboards against that stack (http://localhost:5174); see docs/qa/testing-guide.md
 pnpm e2e:dashboard        # dashboards against the real platform + connector, then the no-identity scan
+cd biomarkers && .venv/bin/python -m ncbio analyse take.mp4 --test FT   # biomarkers at the hospital (M15, docs/biomarkers.md)
+cd biomarkers && .venv/bin/pytest -q && .venv/bin/ruff check .
 cd backend && python -m app.admin create-platform-admin --email you@example.org   # prints a one-time invite link (M10)
 ```
 
 ## Layout
 
-See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI), `connector` (hospital connector, FastAPI, docs/connector.md), `apps/dashboard` (web dashboards, docs/dashboard.md).
+See DEV_PLAN §6. Key packages: `packages/quality-core` (pure TS), `packages/capture-kit` (Capacitor plugin + Mock/Webcam impls), `packages/contracts-ts` (generated types + validator CLI), `apps/mobile` (React + Vite + Capacitor), `backend` (FastAPI), `connector` (hospital connector, FastAPI, docs/connector.md), `apps/dashboard` (web dashboards, docs/dashboard.md), `biomarkers` (biomarker analysis at the hospital, MediaPipe + SciPy, docs/biomarkers.md).

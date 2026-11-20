@@ -303,7 +303,13 @@
       "retakeBtn": "Retake",
       "keep": "Keep this take…",
       "skip": "Skip test…",
-      "allUsed": "All {{n}} retakes used for this test"
+      "allUsed": "All {{n}} retakes used for this test",
+      "saveVideo": "Save video to phone",
+      "saveVideoHint": "Test mode only: for checking the biomarker analysis on a computer.",
+      "videoSaved": "Saved to {{folder}} as {{name}}",
+      "videoNotAllowed": "Saving videos works only in test mode on a debug build.",
+      "videoNeedsAndroid10": "Saving videos needs Android 10 or newer.",
+      "videoFailed": "The video could not be saved. Try again."
     },
     "verdict": {
       "recording_error": "The recording failed.",

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { call, hospital, hospitalFile } from './api.ts';
 import { Badge, Button, Card, ErrorNote, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
 import { StageBadge, type Appointment } from './appointments.tsx';
+import { BiomarkerAction, BiomarkerReport, useBiomarkers } from './biomarkers.tsx';
 
 interface PlatformPatient {
   ncid: string;
@@ -158,6 +159,9 @@ export function PatientView({ ncid, onBack }: { ncid: string; onBack: () => void
   const [error, setError] = useState<unknown>(null);
   const [playing, setPlaying] = useState<{ take: string; url: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // M15 (decision 059): biomarkers computed at the hospital; the report opens in a dialog.
+  const bio = useBiomarkers(ncid);
+  const [report, setReport] = useState<string | null>(null);
 
   useEffect(() => {
     hospital<View>('GET', `/v1/patients/${ncid}`).then(setView, setError);
@@ -260,6 +264,13 @@ export function PatientView({ ncid, onBack }: { ncid: string; onBack: () => void
                       </Badge>
                     )}
                     <span className="flex-1" />
+                    <BiomarkerAction
+                      take={r.take_id}
+                      test={r.test_code}
+                      complete={r.status === 'complete'}
+                      bio={bio}
+                      onOpen={setReport}
+                    />
                     {r.status === 'complete' && (
                       <Button
                         variant="secondary"
@@ -296,12 +307,22 @@ export function PatientView({ ncid, onBack }: { ncid: string; onBack: () => void
           </Card>
           <Timeline ncid={ncid} />
           <PlanEditor ncid={ncid} />
-          <Card title={t('doctor.biomarkerTitle')} className="border-dashed">
-            <Badge>{t('doctor.planned')}</Badge>
+          <Card title={t('doctor.biomarkerTitle')} testId="biomarkers">
+            <ErrorNote error={bio.error} />
+            <p className="text-[13px] text-muted">
+              {bio.caps?.installed ? t('biomarkers.cardHint') : t('biomarkers.notInstalled')}
+            </p>
             <p className="text-[13px] text-muted">{t('doctor.biomarkerHint')}</p>
           </Card>
         </div>
       </div>
+      {report && (
+        <BiomarkerReport
+          take={report}
+          title={`${t('doctor.biomarkerTitle')} · ${view?.name ?? ncid}`}
+          onClose={() => setReport(null)}
+        />
+      )}
     </Page>
   );
 }

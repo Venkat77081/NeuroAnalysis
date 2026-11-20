@@ -295,6 +295,15 @@ export interface CaptureKitPlugin {
   /** Decrypts into a temporary in-app file; always call closePlayback when the player closes. */
   playTake(opts: { takeId: string }): Promise<{ playerUrl: string }>;
   closePlayback(opts: { takeId?: string }): Promise<void>;
+  /**
+   * Debug test mode only (decision 058): saves the take's decrypted video to the phone's
+   * Movies/NeuroCapture folder. Rejects with "export_not_allowed" in release builds and on a phone
+   * set up to upload to a real server; "export_needs_android_10" before Android 10.
+   */
+  exportTakeVideo(opts: {
+    takeId: string;
+    label?: string;
+  }): Promise<{ fileName: string; folder: string }>;
   /** Decrypted landmarks.bin of a take (NCLM-v1, base64), for the replay overlay; null if none. */
   readLandmarks(opts: { takeId: string }): Promise<{ data: string | null }>;
   /** Decrypted sensors.bin of a take as base64 (M8 verdict from recorded evidence); null when absent. */

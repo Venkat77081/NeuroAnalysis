@@ -510,8 +510,13 @@ paths:
   /v1/appointments/{appointment_id}/remark:
     put:
       summary: Write Remark
-      description: The appointment's own doctor writes (or clears) its visit remarks.
-        The text stays here.
+      description: 'The appointment''s own doctor writes (or clears) their remark
+        on it. After a move to another
+
+        doctor, the new doctor adds their own; the first doctor''s stays and can no
+        longer be changed
+
+        (decision 061). The text stays here.'
       operationId: write_remark_v1_appointments__appointment_id__remark_put
       security:
       - HTTPBearer: []
@@ -1232,6 +1237,11 @@ components:
       title: AccessIn
     AccessOut:
       properties:
+        view_only:
+          items:
+            type: string
+          type: array
+          title: View Only
         allowed:
           items:
             type: string
@@ -2146,6 +2156,9 @@ components:
       title: RemarkIn
     RemarkOut:
       properties:
+        id:
+          type: string
+          title: Id
         appointment_id:
           type: string
           title: Appointment Id
@@ -2158,12 +2171,18 @@ components:
         author_id:
           type: string
           title: Author Id
+        author_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Author Name
         updated_at:
           type: string
           format: date-time
           title: Updated At
       type: object
       required:
+      - id
       - appointment_id
       - ncid
       - text
@@ -2238,6 +2257,11 @@ components:
         reviewer_id:
           type: string
           title: Reviewer Id
+        reviewer_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reviewer Name
         at:
           type: string
           format: date-time

@@ -4,7 +4,17 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from uuid import uuid4
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, TypeDecorator, create_engine
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Integer,
+    String,
+    Text,
+    TypeDecorator,
+    UniqueConstraint,
+    create_engine,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -77,6 +87,8 @@ class Review(Base):
     usable: Mapped[bool] = mapped_column(Boolean)
     note: Mapped[str | None] = mapped_column(String(2000))
     reviewer_id: Mapped[str] = mapped_column(String(64))
+    #: Decision 061: who reviewed, as shown to other doctors (their display name at the time).
+    reviewer_name: Mapped[str | None] = mapped_column(String(120))
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
@@ -129,6 +141,22 @@ class VisitRemark(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
+class Remark(Base):
+    """Decision 061: visit remarks, one per doctor per appointment, with the author's name. After a
+    move to another doctor, the new doctor adds their own remark; the earlier one stays (read only).
+    Replaces `nc_visit_remarks` (copied over at start-up)."""
+
+    __tablename__ = "nc_remarks"
+    __table_args__ = (UniqueConstraint("appointment_id", "author_id"),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    appointment_id: Mapped[str] = mapped_column(String(32), index=True)
+    ncid: Mapped[str] = mapped_column(String(40), index=True)
+    author_id: Mapped[str] = mapped_column(String(64))
+    author_name: Mapped[str | None] = mapped_column(String(120))
+    text: Mapped[str] = mapped_column(String(4000))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
 class MessagingSettings(Base):
     """Decision 042: e-mail and SMS settings the hospital admin enters in the dashboard. One row.
     The whole document is encrypted (AES-GCM, key derived from this connector's signing key);
@@ -167,7 +195,34 @@ def factory():
 
 
 def init_db() -> None:
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    _upgrade(engine)
+
+
+def _upgrade(engine) -> None:
+    """Small in-place upgrades (no migration tool here): add columns that newer versions need, and
+    copy visit remarks into `nc_remarks` (decision 061). Safe to run at every start."""
+    from sqlalchemy import inspect, text
+
+    cols = {c["name"] for c in inspect(engine).get_columns("nc_reviews")}
+    with engine.begin() as con:
+        if "reviewer_name" not in cols:
+            con.execute(text("ALTER TABLE nc_reviews ADD COLUMN reviewer_name VARCHAR(120)"))
+    with factory()() as db:
+        have = {(r.appointment_id, r.author_id) for r in db.query(Remark).all()}
+        for old in db.query(VisitRemark).all():
+            if (old.appointment_id, old.author_id) not in have:
+                db.add(
+                    Remark(
+                        appointment_id=old.appointment_id,
+                        ncid=old.ncid,
+                        author_id=old.author_id,
+                        text=old.text,
+                        updated_at=old.updated_at,
+                    )
+                )
+        db.commit()
 
 
 def get_db():

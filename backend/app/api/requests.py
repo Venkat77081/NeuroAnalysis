@@ -59,16 +59,17 @@ def aware(dt: datetime | None) -> datetime | None:
     return dt if dt is None or dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
-def _patient(db: DbSession, p: Principal, ncid: str, *, clinical: bool = True) -> Patient:
+def _patient(db: DbSession, p: Principal, ncid: str, *, clinical: bool = True, view: bool = False) -> Patient:
     """`clinical=False` for booking work (adding an appointment, choosing its doctor): a doctor who
-    may book appointments at this hospital is not limited to their assigned patients for that."""
+    may book appointments at this hospital is not limited to their assigned patients for that.
+    `view=True`: reading only, where view-only access after a move counts (decision 061)."""
     from app.assignments import check_patient_access
 
     pt = db.scalar(select(Patient).where(Patient.ncid == ncid, Patient.site_id == p.site_id))
     if not pt:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "patient not found")
     if clinical:
-        check_patient_access(db, p, pt)
+        check_patient_access(db, p, pt, view=view)
     return pt
 
 
@@ -542,7 +543,7 @@ def appointment_history(
 ) -> list[EventOut]:
     """Who did what for this appointment, oldest first (user, 16 Nov 2026)."""
     a, pt = _appointment(db, p, appt_id)
-    _patient(db, p, pt.ncid)  # doctors: assigned patients only
+    _patient(db, p, pt.ncid, view=True)  # doctors: their patients (view-only after a move too)
     return appointment_events(db, a)
 
 
@@ -737,6 +738,9 @@ class HistoryOut(BaseModel):
     ncid: str
     app_status: str
     withdrawn_at: datetime | None
+    #: Decision 061: for a doctor who may only view (their appointment moved to another doctor).
+    view_only: bool = False
+    moved_to: str | None = None
     appointments: list[AppointmentOut]
     other_requests: list[RequestOut]
     sessions: list[SessionRow]
@@ -747,7 +751,7 @@ def history(
     ncid: str, p: Principal = Depends(can_view_or_send), db: DbSession = Depends(get_db)
 ) -> HistoryOut:
     """Appointments, requests and sessions. All of it stays with the hospital after a withdrawal."""
-    pt = _patient(db, p, ncid)
+    pt = _patient(db, p, ncid, view=True)
     acc = db.scalar(select(PatientAccount).where(PatientAccount.patient_id == pt.id))
     appts = db.scalars(
         select(Appointment).where(Appointment.patient_id == pt.id).order_by(Appointment.at.desc())
@@ -769,8 +773,13 @@ def history(
         .where(Session.patient_id == pt.id)
         .order_by(Session.started_at.desc())
     )
+    from app.assignments import doctor_view_only_ids, moved_to_names
+
+    view_only = p.role == "doctor" and pt.id in doctor_view_only_ids(db, p.actor_id)
     return HistoryOut(
         ncid=ncid,
+        view_only=view_only,
+        moved_to=moved_to_names(db, p.actor_id, {pt.id}).get(pt.id) if view_only else None,
         app_status=acc.status if acc else "clinic",
         withdrawn_at=acc.withdrawn_at if acc else None,
         appointments=[_appt_out(db, a, ncid) for a in appts],

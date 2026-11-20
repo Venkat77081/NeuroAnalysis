@@ -354,3 +354,48 @@ def test_cancel_closes_request_and_fhir_keeps_desk_change(api, two_hospitals):
     assert datetime.fromisoformat(
         api.post("/hospital/appointments", headers=desk, json=changed).json()["at"]
     ) == _local(12, 9)
+
+
+def test_moved_to_another_doctor_leaves_the_first_doctor_view_only(api, two_hospitals):
+    """Decision 061: the first doctor keeps view-only access; the new doctor has full access."""
+    from test_patient_app import _SECRETS
+    from test_tenancy import staff_login
+
+    t = two_hospitals
+    desk, dr1, docs, ncid, _ = _setup(api, t)
+    rao, menon = docs["v13-rao@sunrise.example"], docs["v13-menon@sunrise.example"]
+    appt = api.post(
+        "/hospital/appointments",
+        headers=desk,
+        json={"ncid": ncid, "at": _local(5, 10).isoformat(), "doctor_id": rao},
+    ).json()
+    mine = next(p for p in api.get("/hospital/patients", headers=dr1).json() if p["ncid"] == ncid)
+    assert (mine["view_only"], mine["moved_to"]) == (False, None)
+    r = api.post(
+        f"/hospital/appointments/{appt['id']}/move",
+        headers=desk,
+        json={"at": _local(7, 11, 30).isoformat(), "doctor_id": menon, "reason": "doctor_unavailable"},
+    )
+    assert r.status_code == 200, r.text
+
+    # Dr. Rao: still listed, view only, with where it went; reading works, changing does not.
+    mine = next(p for p in api.get("/hospital/patients", headers=dr1).json() if p["ncid"] == ncid)
+    assert mine["view_only"] is True and mine["moved_to"]
+    h = api.get(f"/hospital/patients/{ncid}/history", headers=dr1)
+    assert h.status_code == 200 and h.json()["view_only"] is True and h.json()["moved_to"]
+    assert api.get(f"/hospital/appointments/{appt['id']}/history", headers=dr1).status_code == 200
+    put = api.put(
+        f"/hospital/patients/{ncid}/plan",
+        headers=dr1,
+        json={"tests": ["FT"], "every_days": 7, "med_state": "OFF"},
+    )
+    assert put.status_code == 403 and put.json()["detail"]["code"] == "moved_view_only"
+    rr = api.post(f"/hospital/patients/{ncid}/rerecord", headers=dr1, json={"tests": []})
+    assert rr.status_code == 403
+
+    # Dr. Menon: full access.
+    dr2 = hdr(
+        staff_login(api, "v13-menon@sunrise.example", _SECRETS["v13-menon@sunrise.example"])["access_token"]
+    )
+    h2 = api.get(f"/hospital/patients/{ncid}/history", headers=dr2).json()
+    assert (h2["view_only"], h2["moved_to"]) == (False, None)

@@ -27,6 +27,8 @@ class Staff:
     role: str
     #: Decision 033: what this person may do at the hospital, set on the platform per hospital.
     perms: frozenset[str] = frozenset()
+    #: Decision 061: display name, shown with this person's remarks and reviews.
+    name: str | None = None
 
 
 def staff(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Staff:
@@ -54,6 +56,7 @@ def staff(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -> Staff
         user_id=str(claims["sub"]),
         role=claims["role"],
         perms=frozenset(perms) if isinstance(perms, list) else frozenset(),
+        name=str(claims["name"])[:120] if claims.get("name") else None,
     )
 
 

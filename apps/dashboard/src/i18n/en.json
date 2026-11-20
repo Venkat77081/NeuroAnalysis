@@ -891,7 +891,9 @@
       "all": "All"
     },
     "hidden_one": "{{count}} older appointment hidden: choose a longer period above.",
-    "hidden_other": "{{count}} older appointments hidden: choose a longer period above."
+    "hidden_other": "{{count}} older appointments hidden: choose a longer period above.",
+    "by": "{{name}} · {{date}}",
+    "aDoctor": "A doctor"
   },
   "overview": {
     "countsOnly": "Counts only: NeuroCapture holds no patient names.",
@@ -1849,7 +1851,7 @@
     "retry": "Biomarkers: try again",
     "failedHint": "The last analysis did not finish. Try again.",
     "reportSub": "Computed at your hospital from the 60 fps video. Decision support, not a diagnosis.",
-    "cardHint": "Finger Tapping and Forearm Roll recordings are analysed at your hospital soon after they upload. Open a recording's report to see each value and how it was worked out.",
+    "cardHint": "Finger Tapping, Finger-to-Finger and Forearm Roll recordings are analysed at your hospital soon after they upload. Open a recording's report to see each value and how it was worked out.",
     "notInstalled": "Biomarker analysis is not installed on your hospital's connector yet.",
     "reportChip": "Report",
     "runningChip": "Analysing",
@@ -1862,5 +1864,11 @@
       "failed": "Did not finish",
       "none": "Not analysed yet"
     }
+  },
+  "moved": {
+    "badge": "Moved to {{doctor}} · view only",
+    "anotherDoctor": "another doctor",
+    "notice": "View only: this patient's appointment moved to {{doctor}}. You can still see the record, recordings, reports, remarks and reviews, but you can no longer add remarks or reviews, change the plan or send record links.",
+    "panel": "Moved to {{doctor}}: you can view this patient, but no longer add remarks or reviews."
   }
 }

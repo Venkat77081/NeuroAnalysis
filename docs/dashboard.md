@@ -248,3 +248,11 @@ The doctor's **My patients** page works like Choose tests:
 - **My patients side panel:** **Biomarker reports** lists the latest visit's reportable recordings
   (Ready, Analysing, Did not finish, Not analysed yet) with **Open**, and the footer has
   **Biomarker report**. **Add remark** moved to the remark itself.
+
+## Moved appointments (decision 061)
+
+- **First doctor:** after the front desk moves an appointment to another doctor, the first doctor
+  still sees the patient, marked **Moved to Dr. X · view only**. They can read everything, but
+  cannot add remarks or reviews, change the plan or send record links.
+- **New doctor:** adds their own remark next to the earlier one.
+- **Authors:** every remark and review shows who gave it, and the activity log records the author.

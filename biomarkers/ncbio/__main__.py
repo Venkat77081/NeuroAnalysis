@@ -3,7 +3,7 @@
     python -m ncbio models                         # download the keypoint models (once)
     python -m ncbio analyse VIDEO --test FT [--out result.json] [--keypoints kp.npz]
     python -m ncbio analyse KP.npz --test FT --report report.html [--ncid NC-…]
-    python -m ncbio demo-report report.html [--test FR]   # the report on a synthetic take (no patient)
+    python -m ncbio demo-report report.html [--test FR|FTF]   # the report on a synthetic take (no patient)
     python -m ncbio analyse VIDEO --test FT --overlay check.mp4   # points drawn on the video, R / L
 
 The result holds biomarker values only: no names, no frames, no landmark streams.
@@ -19,7 +19,7 @@ import urllib.request
 from pathlib import Path
 
 from .config import analysis_config
-from .demo import demo_roll_take, demo_take
+from .demo import demo_ftf_take, demo_roll_take, demo_take
 from .keypoints import TEST_KINDS, Keypoints, keypoints_from_video, model_path
 from .overlay import write_overlay
 from .report import render
@@ -62,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     details: dict = {}
     if args.cmd == "demo-report":
-        take = demo_take() if args.test == "FT" else demo_roll_take()
+        take = {"FT": demo_take, "FR": demo_roll_take, "FTF": demo_ftf_take}[args.test]()
         result = analyse_keypoints(take, args.test, details=details)
         args.out.write_text(render(result, details, ncid="NC-DEMO-0000", demo=True), encoding="utf-8")
         print(args.out)

@@ -93,3 +93,47 @@ def rolling(
         version="0",
         models=[],
     )
+
+
+def finger_to_finger(
+    seconds: float = 15.0,
+    fps: float = 60.0,
+    right: tuple[float, float, float] | None = (0.6, 0.3, 1.0),
+    left: tuple[float, float, float] | None = (0.6, 0.3, 1.0),
+    noise_px: float = 0.0,
+    seed: int = 0,
+) -> Keypoints:
+    """Each index joint (hand 6) moves out and down from the middle and back: (Ax, Ay, f) per side,
+    in forearm lengths and Hz. Tops (fingers together, highest) at phase 0."""
+    rng = np.random.default_rng(seed)
+    n = int(round(seconds * fps))
+    t = np.arange(n) / fps
+    pose = np.full((n, 33, 4), np.nan)
+    mid = 960.0
+    pose[:, 11, :2], pose[:, 12, :2] = (mid + 150, 300), (mid - 150, 300)
+    hands = {}
+    for side, spec, sign, (elbow, wrist) in (("right", right, -1, (14, 16)), ("left", left, 1, (13, 15))):
+        pose[:, elbow, :2] = (mid + sign * 400, 700)
+        pose[:, wrist, :2] = (mid + sign * 400, 700 - FOREARM_PX)
+        h = np.full((n, 21, 3), np.nan)
+        if spec is not None:
+            ax, ay, f = spec
+            g = (1 - np.cos(2 * np.pi * f * t)) / 2
+            h[:, :, 0] = (mid + sign * (20 + FOREARM_PX * ax * g))[:, None]
+            h[:, :, 1] = (450 + FOREARM_PX * ay * g)[:, None]
+            h[..., 2] = 0
+            if noise_px:
+                h[:, 6, :2] += rng.normal(0, noise_px, (n, 2))
+        hands[side] = h
+    pose[..., 3] = 0.99
+    return Keypoints(
+        t=t,
+        width=1920,
+        height=1080,
+        pose=pose,
+        pose_world=np.full((n, 33, 3), np.nan),
+        hands=hands,
+        library="synthetic",
+        version="0",
+        models=[],
+    )

@@ -125,3 +125,38 @@ export async function assignPatient(doctorEmail: string): Promise<void> {
   });
   if (!r.ok) throw new Error(`booking failed: ${r.status}`);
 }
+
+/** Decision 061: the front desk moves every upcoming appointment of one doctor to another. */
+export async function moveAppointments(fromEmail: string, toEmail: string): Promise<number> {
+  const s = stack();
+  const tok = await apiToken(s.desk_email, s.desk_totp);
+  const h = { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' };
+  const docs = (await fetch(`${s.platform_url}/hospital/doctors`, { headers: h }).then((r) =>
+    r.json(),
+  )) as { id: string; email: string }[];
+  const from = docs.find((d) => d.email === fromEmail)!.id;
+  const to = docs.find((d) => d.email === toEmail)!.id;
+  const appts = (await fetch(`${s.platform_url}/hospital/appointments?days=60`, {
+    headers: h,
+  }).then((r) => r.json())) as {
+    id: string;
+    doctor_id: string | null;
+    status: string;
+    at: string;
+  }[];
+  let n = 0;
+  for (const a of appts.filter((x) => x.doctor_id === from && x.status === 'booked')) {
+    const r = await fetch(`${s.platform_url}/hospital/appointments/${a.id}/move`, {
+      method: 'POST',
+      headers: h,
+      body: JSON.stringify({
+        at: new Date(Date.parse(a.at) + 86_400_000).toISOString(),
+        doctor_id: to,
+        reason: 'doctor_unavailable',
+      }),
+    });
+    if (!r.ok) throw new Error(`move failed: ${r.status} ${await r.text()}`);
+    n += 1;
+  }
+  return n;
+}

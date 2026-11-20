@@ -35,6 +35,9 @@ interface PlatformPatient {
   status: string;
   sessions: number;
   last_session_at: string | null;
+  /** Decision 061: their appointment moved to another doctor; this doctor may only view. */
+  view_only?: boolean;
+  moved_to?: string | null;
 }
 interface Ident {
   ncid: string;
@@ -282,6 +285,13 @@ export function MyPatients({
               </span>
               <span className="flex flex-wrap gap-1.5">
                 <Badge tone={st.tone}>{t(`patients.state.${st.key}`)}</Badge>
+                {p.view_only && (
+                  <span data-testid={`moved-${i?.mrn ?? p.ncid}`}>
+                    <Badge tone="warn">
+                      {t('moved.badge', { doctor: p.moved_to ?? t('moved.anotherDoctor') })}
+                    </Badge>
+                  </span>
+                )}
               </span>
               <span className="grid grid-cols-2 gap-2 text-[12px] text-muted">
                 <span>
@@ -309,7 +319,8 @@ export function MyPatients({
           state={current.st}
           onClose={() => setSel(null)}
           onOpen={(focus) => onOpen(current.p.ncid, focus)}
-          onChooseTests={onChooseTests}
+          onChooseTests={current.p.view_only ? undefined : onChooseTests}
+          movedTo={current.p.view_only ? (current.p.moved_to ?? t('moved.anotherDoctor')) : null}
         />
       )}
     </Page>
@@ -324,6 +335,7 @@ function PatientPanel({
   onClose,
   onOpen,
   onChooseTests,
+  movedTo = null,
 }: {
   ncid: string;
   ident: Ident | null;
@@ -331,6 +343,8 @@ function PatientPanel({
   onClose: () => void;
   onOpen: (focus?: 'remark') => void;
   onChooseTests?: () => void;
+  /** Decision 061: the appointment moved to this doctor; this panel is view only. */
+  movedTo?: string | null;
 }) {
   const { t } = useTranslation();
   const [recs, setRecs] = useState<Recording[]>([]);
@@ -361,6 +375,11 @@ function PatientPanel({
       testId="patient-panel"
     >
       <ErrorNote error={error} />
+      {movedTo && (
+        <Notice tone="warn" testId="panel-view-only">
+          {t('moved.panel', { doctor: movedTo })}
+        </Notice>
+      )}
       <div className="flex flex-wrap gap-1.5">
         <Badge tone={state.tone}>{t(`patients.state.${state.key}`)}</Badge>
         <Badge tone="neutral">{t('shell.liveRecords')}</Badge>
@@ -443,16 +462,24 @@ function PatientPanel({
         <span className="flex items-baseline justify-between gap-2">
           <span>
             <b>{t('patient.lastRemark')}</b>
-            {last && <span className="text-muted"> · {fmtDate(last.updated_at)}</span>}
+            {last && (
+              <span className="text-muted">
+                {' '}
+                · {last.author_name ? `${last.author_name} · ` : ''}
+                {fmtDate(last.updated_at)}
+              </span>
+            )}
           </span>
-          <button
-            type="button"
-            className="text-[12px] font-bold text-brand"
-            onClick={() => onOpen('remark')}
-            data-testid="panel-remark-add"
-          >
-            {t('patient.addRemark')}
-          </button>
+          {!movedTo && (
+            <button
+              type="button"
+              className="text-[12px] font-bold text-brand"
+              onClick={() => onOpen('remark')}
+              data-testid="panel-remark-add"
+            >
+              {t('patient.addRemark')}
+            </button>
+          )}
         </span>
         <span className="block text-sub">{last ? `“${last.text}”` : t('patient.noRemark')}</span>
       </section>
@@ -561,6 +588,7 @@ function PatientPanel({
           reviews={reviews}
           onReviewed={(take, rv) => setReviews((m) => ({ ...m, [take]: rv }))}
           onClose={() => setWatching(null)}
+          viewOnly={!!movedTo}
         />
       )}
       {report && (
@@ -603,6 +631,8 @@ interface Recording {
   status: string;
 }
 interface Review {
+  /** Decision 061: who reviewed. */
+  reviewer_name?: string | null;
   take_id: string;
   usable: boolean;
   note: string | null;
@@ -620,6 +650,9 @@ interface Plan {
   rerecord_requested_at: string | null;
 }
 interface PlatformHistory {
+  /** Decision 061: this doctor may only view (the appointment moved to another doctor). */
+  view_only?: boolean;
+  moved_to?: string | null;
   app_status: string;
   withdrawn_at: string | null;
   appointments: Appointment[];
@@ -713,6 +746,7 @@ function Theatre({
   reviews,
   onReviewed,
   onClose,
+  viewOnly = false,
 }: {
   takes: Recording[];
   start: string;
@@ -720,6 +754,8 @@ function Theatre({
   reviews: Record<string, Review>;
   onReviewed: (take: string, r: Review) => void;
   onClose: () => void;
+  /** Decision 061: no review after the appointment moved to another doctor. */
+  viewOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const [take, setTake] = useState(start);
@@ -869,7 +905,10 @@ function Theatre({
                   {reviews[r.take_id]
                     ? t('doctor.reviewed', {
                         v: reviews[r.take_id]!.usable ? t('doctor.usable') : t('doctor.notUsable'),
-                      })
+                      }) +
+                      (reviews[r.take_id]!.reviewer_name
+                        ? ` · ${reviews[r.take_id]!.reviewer_name}`
+                        : '')
                     : r.flagged_for_review
                       ? t('theatre.flagged')
                       : `${takeSeconds[r.test_code] ?? ''} s`}
@@ -882,11 +921,15 @@ function Theatre({
               </span>
             </button>
           ))}
-          <b className="px-1 pt-3 pb-1 text-[15px]">{t('theatre.review')}</b>
-          {/* The review form in dark colours (scoped tokens), whatever the page theme. */}
-          <div className="rounded-2xl bg-[#24223a] p-3 text-ink" style={DARK_TOKENS}>
-            <ReviewForm key={take} take={take} onSaved={(rv) => onReviewed(take, rv)} />
-          </div>
+          {!viewOnly && (
+            <>
+              <b className="px-1 pt-3 pb-1 text-[15px]">{t('theatre.review')}</b>
+              {/* The review form in dark colours (scoped tokens), whatever the page theme. */}
+              <div className="rounded-2xl bg-[#24223a] p-3 text-ink" style={DARK_TOKENS}>
+                <ReviewForm key={take} take={take} onSaved={(rv) => onReviewed(take, rv)} />
+              </div>
+            </>
+          )}
           <span className="mt-auto pt-3 text-center text-[11px] text-[#8a89a0]">
             {t('theatre.noScores')}
           </span>
@@ -1044,7 +1087,10 @@ function PatientSummary({
           {last ? (
             <>
               <span className="text-[14px] leading-[21px]">“{last.text}”</span>
-              <span className="text-[12px] text-muted">{fmtDate(last.updated_at)}</span>
+              <span className="text-[12px] text-muted">
+                {last.author_name ? `${last.author_name} · ` : ''}
+                {fmtDate(last.updated_at)}
+              </span>
             </>
           ) : (
             <span className="text-[14px] text-muted">{t('patient.noRemark')}</span>
@@ -1104,7 +1150,16 @@ export function PatientView({
   const bio = useBiomarkers(ncid);
   const [report, setReport] = useState<string | null>(null);
 
+  // Decision 061: after a move to another doctor, this doctor may only view.
+  const [access, setAccess] = useState<{ viewOnly: boolean; movedTo: string | null }>({
+    viewOnly: false,
+    movedTo: null,
+  });
   useEffect(() => {
+    call<PlatformHistory>('GET', `/hospital/patients/${ncid}/history`).then(
+      (h) => setAccess({ viewOnly: !!h.view_only, movedTo: h.moved_to ?? null }),
+      () => undefined,
+    );
     hospital<View>('GET', `/v1/patients/${ncid}`).then(setView, setError);
     hospital<Recording[]>('GET', `/v1/patients/${ncid}/recordings`).then(setRecs, setError);
     hospital<Review[]>('GET', `/v1/patients/${ncid}/reviews`).then(
@@ -1181,20 +1236,22 @@ export function PatientView({
           <span className="text-[12px] text-muted">NCID {ncid}</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {onChooseTests && (
+          {onChooseTests && !access.viewOnly && (
             <Button variant="secondary" onClick={onChooseTests} data-testid="header-choose">
               {t('patient.chooseTests')}
             </Button>
           )}
-          <Button
-            variant="secondary"
-            onClick={() =>
-              document.getElementById('patient-timeline')?.scrollIntoView({ behavior: 'smooth' })
-            }
-            data-testid="header-remark"
-          >
-            {t('patient.addRemark')}
-          </Button>
+          {!access.viewOnly && (
+            <Button
+              variant="secondary"
+              onClick={() =>
+                document.getElementById('patient-timeline')?.scrollIntoView({ behavior: 'smooth' })
+              }
+              data-testid="header-remark"
+            >
+              {t('patient.addRemark')}
+            </Button>
+          )}
           {latestReport && (
             <Button
               variant="secondary"
@@ -1224,6 +1281,11 @@ export function PatientView({
   return (
     <Page title={view?.name ?? ncid} hero={header}>
       <ErrorNote error={error} />
+      {access.viewOnly && (
+        <Notice tone="warn" testId="view-only">
+          {t('moved.notice', { doctor: access.movedTo ?? t('moved.anotherDoctor') })}
+        </Notice>
+      )}
       {notice && <Notice testId="notice">{notice}</Notice>}
       <PatientSummary
         ncid={ncid}
@@ -1246,6 +1308,7 @@ export function PatientView({
           reviews={reviews}
           onReviewed={(take, rv) => setReviews((m) => ({ ...m, [take]: rv }))}
           onClose={() => setWatching(null)}
+          viewOnly={access.viewOnly}
         />
       )}
       <h2 className="mt-2 text-[17px] font-bold">{t('patient.details')}</h2>
@@ -1293,6 +1356,9 @@ export function PatientView({
                             ? t('doctor.usable')
                             : t('doctor.notUsable'),
                         })}
+                        {reviews[r.take_id]!.reviewer_name
+                          ? ` · ${reviews[r.take_id]!.reviewer_name}`
+                          : ''}
                       </Badge>
                     )}
                     <span className="flex-1" />
@@ -1313,26 +1379,30 @@ export function PatientView({
                       </Button>
                     )}
                   </div>
-                  <ReviewForm
-                    take={r.take_id}
-                    onSaved={(rv) => setReviews((m) => ({ ...m, [r.take_id]: rv }))}
-                  />
+                  {!access.viewOnly && (
+                    <ReviewForm
+                      take={r.take_id}
+                      onSaved={(rv) => setReviews((m) => ({ ...m, [r.take_id]: rv }))}
+                    />
+                  )}
                 </li>
               ))}
             </ul>
-            <Button
-              variant="secondary"
-              className="self-start"
-              onClick={() => void rerecord()}
-              data-testid="rerecord"
-            >
-              {t('doctor.rerecord')}
-            </Button>
+            {!access.viewOnly && (
+              <Button
+                variant="secondary"
+                className="self-start"
+                onClick={() => void rerecord()}
+                data-testid="rerecord"
+              >
+                {t('doctor.rerecord')}
+              </Button>
+            )}
           </Card>
           <div id="patient-timeline">
             <Timeline ncid={ncid} />
           </div>
-          <PlanEditor ncid={ncid} />
+          {!access.viewOnly && <PlanEditor ncid={ncid} />}
           <Card title={t('doctor.biomarkerTitle')} testId="biomarkers">
             <ErrorNote error={bio.error} />
             <p className="text-[13px] text-muted">
@@ -1534,29 +1604,35 @@ function savedPeriod(): Period {
   }
 }
 interface Remark {
+  id?: string;
   appointment_id: string;
   text: string;
   author_id: string;
+  /** Decision 061: who wrote it; after a move, each doctor has their own remark. */
+  author_name?: string | null;
   updated_at: string;
 }
 
-/** Decision 040: one note per appointment by its own doctor, kept at the hospital (connector). */
+/** Decision 040, 061: remarks on one appointment, each with its author; the appointment's own
+ * doctor writes or edits theirs (kept at the hospital, connector). */
 function VisitRemark({
   appointmentId,
-  remark,
+  remarks,
   mine,
-  doctorName,
+  meId,
   onSaved,
 }: {
   appointmentId: string;
-  remark: Remark | undefined;
+  remarks: Remark[];
+  /** This doctor may write on this appointment (their own, not view-only). */
   mine: boolean;
-  doctorName: string | null;
+  meId: string | null;
   onSaved: (r: Remark | null) => void;
 }) {
   const { t } = useTranslation();
+  const own = remarks.find((r) => r.author_id === meId);
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(remark?.text ?? '');
+  const [text, setText] = useState(own?.text ?? '');
   const [error, setError] = useState<unknown>(null);
   const save = async () => {
     setError(null);
@@ -1592,32 +1668,36 @@ function VisitRemark({
         </div>
       </div>
     );
-  if (!remark && !mine) return null;
+  if (remarks.length === 0 && !mine) return null;
   return (
     <div
-      className="ml-3 flex flex-col gap-1 rounded-xl bg-ground px-3 py-2 text-[13px]"
+      className="ml-3 flex flex-col gap-1.5 rounded-xl bg-ground px-3 py-2 text-[13px]"
       data-testid="remark"
     >
-      <span className="font-semibold">
-        {t('remarks.label')}
-        {remark && doctorName ? ` · ${doctorName} · ${fmtDate(remark.updated_at)}` : ''}
-      </span>
-      {remark ? (
-        <span className="whitespace-pre-wrap">{remark.text}</span>
-      ) : (
-        <span className="text-muted">{t('remarks.none')}</span>
-      )}
+      <span className="font-semibold">{t('remarks.label')}</span>
+      {remarks.length === 0 && <span className="text-muted">{t('remarks.none')}</span>}
+      {remarks.map((r) => (
+        <span key={r.id ?? r.author_id} className="flex flex-col" data-testid="remark-item">
+          <span className="whitespace-pre-wrap">{r.text}</span>
+          <span className="text-[12px] text-muted" data-testid="remark-author">
+            {t('remarks.by', {
+              name: r.author_name ?? t('remarks.aDoctor'),
+              date: fmtDate(r.updated_at),
+            })}
+          </span>
+        </span>
+      ))}
       {mine && (
         <Button
           variant="ghost"
           className="self-start"
           onClick={() => {
-            setText(remark?.text ?? '');
+            setText(own?.text ?? '');
             setEditing(true);
           }}
           data-testid="remark-edit"
         >
-          {remark ? t('remarks.edit') : t('remarks.add')}
+          {own ? t('remarks.edit') : t('remarks.add')}
         </Button>
       )}
     </div>
@@ -1629,7 +1709,7 @@ function Timeline({ ncid }: { ncid: string }) {
   const { t } = useTranslation();
   const [h, setH] = useState<PlatformHistory | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [remarks, setRemarks] = useState<Record<string, Remark>>({});
+  const [remarks, setRemarks] = useState<Remark[]>([]);
   const [meId, setMeId] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>(savedPeriod);
   const pickPeriod = (v: Period) => {
@@ -1642,10 +1722,7 @@ function Timeline({ ncid }: { ncid: string }) {
   };
   useEffect(() => {
     void call<PlatformHistory>('GET', `/hospital/patients/${ncid}/history`).then(setH, setError);
-    void hospital<Remark[]>('GET', `/v1/patients/${ncid}/remarks`).then(
-      (rs) => setRemarks(Object.fromEntries(rs.map((r) => [r.appointment_id, r]))),
-      () => {},
-    );
+    void hospital<Remark[]>('GET', `/v1/patients/${ncid}/remarks`).then(setRemarks, () => {});
     void call<{ id: string }>('GET', '/staff/me').then(
       (m) => setMeId(m.id),
       () => {},
@@ -1733,16 +1810,14 @@ function Timeline({ ncid }: { ncid: string }) {
             <ul className="flex flex-col gap-1 pl-3">{a.requests.map(req)}</ul>
             <VisitRemark
               appointmentId={a.id}
-              remark={remarks[a.id]}
-              mine={!!meId && a.doctor_id === meId}
-              doctorName={a.doctor_name}
+              remarks={remarks.filter((r) => r.appointment_id === a.id)}
+              mine={!!meId && a.doctor_id === meId && !h?.view_only}
+              meId={meId}
               onSaved={(r) =>
-                setRemarks((cur) => {
-                  const next = { ...cur };
-                  if (r) next[a.id] = r;
-                  else delete next[a.id];
-                  return next;
-                })
+                setRemarks((cur) => [
+                  ...cur.filter((x) => !(x.appointment_id === a.id && x.author_id === meId)),
+                  ...(r ? [r] : []),
+                ])
               }
             />
           </li>

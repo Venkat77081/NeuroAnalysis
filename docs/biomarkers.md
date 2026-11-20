@@ -63,16 +63,16 @@ Release builds and phones set up to upload to a real server refuse to save video
 
 ## Plan
 
-| Step  | What                                                                                             | State |
-| ----- | ------------------------------------------------------------------------------------------------ | ----- |
-| M15.1 | Package, config, result contract, MediaPipe keypoints, pre-processing, **FT1–FT12**              | done  |
-| M15.2 | **FR1–FR12** (wrist vertical position, pose 15/16)                                               | next  |
-| M15.3 | **FTF1–FTF18** (index middle joint, hand 6: period, speed, smoothness, velocity angle, symmetry) |       |
-| M15.4 | **FA1–FA18** (face mesh distances of Table A-III, normalised by the inner eye corners)           |       |
-| M15.5 | **SAW1–SAW15** (3-D ankles, knee angles, pelvis; walking and turning segments)                   |       |
-| M15.6 | Run at the connector: analyse each new take, store results at the hospital under the NCID        |       |
-| M15.7 | Doctor's report on the patient page (labelled decision support), trends between visits           |       |
-| M15.8 | Check on real recordings: keypoints by eye on sample takes, repeat-take agreement                |       |
+| Step  | What                                                                                             | State                        |
+| ----- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| M15.1 | Package, config, result contract, MediaPipe keypoints, pre-processing, **FT1–FT12**              | done                         |
+| M15.2 | **FR1–FR12** (wrist vertical position, pose 15/16)                                               | next                         |
+| M15.3 | **FTF1–FTF18** (index middle joint, hand 6: period, speed, smoothness, velocity angle, symmetry) |                              |
+| M15.4 | **FA1–FA18** (face mesh distances of Table A-III, normalised by the inner eye corners)           |                              |
+| M15.5 | **SAW1–SAW15** (3-D ankles, knee angles, pelvis; walking and turning segments)                   |                              |
+| M15.6 | Run at the connector: analyse a take when the doctor asks, keep the result at the hospital       | done (decision 059)          |
+| M15.7 | Report on the doctor's patient page (decision support); trends between visits                    | FT report done; trends to do |
+| M15.8 | Check on real recordings: keypoints by eye on sample takes, repeat-take agreement                |                              |
 
 ## The report (FT)
 

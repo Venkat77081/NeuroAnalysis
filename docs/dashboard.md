@@ -156,7 +156,7 @@ over the appointment list instead of expanding a row:
     and "Invite X to the app" (⌘I).
 - **Doctor:**
   - **Today** has "Your clinic today" and New recordings;
-  - **My patients** is a table with status chips;
+  - **My patients** has status chips (cards since v33, below);
   - the patient page starts with the journey, the latest recordings, the last remark and the next
     visit;
   - recordings play full screen with speeds, frame steps and the review.
@@ -207,3 +207,16 @@ The doctor's **Choose tests** page works like the platform's Hospitals page:
 - a card opens a side panel with the tests as tick rows (each with its length, never shorter than
   the default), where to record (Home / Clinic / Both), medicine state, record-by date,
   **Repeat at home** every N days, the medical history and **Send**.
+
+## My patients as cards (v33, canvas page v33, decision 056)
+
+The doctor's **My patients** page works like Choose tests:
+
+- filter chips (All, New recordings, Needs tests, Flagged, Visit today) and an order (next visit,
+  latest recording, name);
+- one card per patient with the name and MRN, a status chip, the next visit and the last
+  recording, and a ring for the days since the last recording (full right after one, empty at
+  `myPatients.ringDays`; green, amber and red limits in `config/platform.json`);
+- a card opens a side panel with the journey, the latest recordings (they play full screen), the
+  last remark and the next visit, and buttons for **Watch**, **Add remark** (opens the patient page
+  at the timeline), **Choose tests** and **Open full page**.

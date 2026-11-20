@@ -175,6 +175,27 @@ jobs:
       - name: Connector image builds
         run: docker build -t neurocapture-connector:ci .
 
+  biomarkers:
+    name: Biomarker analysis (ruff, pytest with MediaPipe)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: biomarkers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y libegl1 libgles2
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python -m ncbio models
+      - run: pytest -q
+      - name: Analysis image builds
+        working-directory: .
+        run: docker build -f biomarkers/Dockerfile -t neurocapture-biomarkers:ci .
+
   compose:
     name: docker compose up → /health
     runs-on: ubuntu-latest

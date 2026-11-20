@@ -26,13 +26,16 @@ def _take_checks(kp: Keypoints, test_code: str) -> dict[str, str]:
     return reasons
 
 
-def analyse_keypoints(kp: Keypoints, test_code: str, cfg: dict | None = None) -> dict:
+def analyse_keypoints(
+    kp: Keypoints, test_code: str, cfg: dict | None = None, details: dict | None = None
+) -> dict:
+    """The result document. With `details`, the extractor also leaves its working there."""
     cfg = cfg or analysis_config()
     ids = registry_ids(test_code)
     blocked = _take_checks(kp, test_code)
     got: dict[str, Value] = {}
     if test_code in EXTRACTORS and len(blocked) < len(ids):
-        got = {v["id"]: v for v in EXTRACTORS[test_code](kp, cfg)}
+        got = {v["id"]: v for v in EXTRACTORS[test_code](kp, cfg, details)}
     values: list[Value] = []
     for bid in ids:
         if bid in blocked:
@@ -56,8 +59,10 @@ def analyse_keypoints(kp: Keypoints, test_code: str, cfg: dict | None = None) ->
     }
 
 
-def analyse_video(video: Path, test_code: str, keypoints_out: Path | None = None) -> dict:
+def analyse_video(
+    video: Path, test_code: str, keypoints_out: Path | None = None, details: dict | None = None
+) -> dict:
     kp = keypoints_from_video(video, test_code)
     if keypoints_out:
         kp.save(keypoints_out)
-    return analyse_keypoints(kp, test_code)
+    return analyse_keypoints(kp, test_code, details=details)

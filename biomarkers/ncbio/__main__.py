@@ -2,7 +2,8 @@
 
     python -m ncbio models                         # download the keypoint models (once)
     python -m ncbio analyse VIDEO --test FT [--out result.json] [--keypoints kp.npz]
-    python -m ncbio analyse KP.npz --test FT       # again from saved keypoints
+    python -m ncbio analyse KP.npz --test FT --report report.html [--ncid NC-…]
+    python -m ncbio demo-report report.html       # the report on a synthetic take (no patient)
 
 The result holds biomarker values only: no names, no frames, no landmark streams.
 """
@@ -17,7 +18,9 @@ import urllib.request
 from pathlib import Path
 
 from .config import analysis_config
+from .demo import demo_take
 from .keypoints import TEST_KINDS, Keypoints, model_path
+from .report import render
 from .run import analyse_keypoints, analyse_video
 
 
@@ -42,14 +45,29 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--test", required=True, choices=sorted(TEST_KINDS))
     a.add_argument("--out", type=Path)
     a.add_argument("--keypoints", type=Path, help="also save the keypoints here (.npz)")
+    a.add_argument("--report", type=Path, help="also write the report with the working (.html, FT only)")
+    a.add_argument("--ncid", help="patient code to print on the report (never a name or MRN)")
+    a.add_argument("--recorded", help="when the take was recorded, as printed on the report")
+    d = sub.add_parser("demo-report", help="the report on a synthetic take, to see how it looks")
+    d.add_argument("out", type=Path)
     args = ap.parse_args(argv)
     if args.cmd == "models":
         download_models()
         return 0
+    details: dict = {}
+    if args.cmd == "demo-report":
+        result = analyse_keypoints(demo_take(), "FT", details=details)
+        args.out.write_text(render(result, details, ncid="NC-DEMO-0000", demo=True))
+        print(args.out)
+        return 0
     if args.input.suffix == ".npz":
-        result = analyse_keypoints(Keypoints.load(args.input), args.test)
+        result = analyse_keypoints(Keypoints.load(args.input), args.test, details=details)
     else:
-        result = analyse_video(args.input, args.test, args.keypoints)
+        result = analyse_video(args.input, args.test, args.keypoints, details=details)
+    if args.report:
+        if args.test != "FT":
+            raise SystemExit("the report is built for FT so far")
+        args.report.write_text(render(result, details, ncid=args.ncid, recorded=args.recorded))
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.out:
         args.out.write_text(text + "\n")

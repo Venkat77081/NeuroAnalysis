@@ -34,3 +34,4 @@ ignore = ["S101"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["N802", "N806"]
 "ncbio/*" = ["N806"]
+"ncbio/report.py" = ["N806", "E501"]  # HTML templates

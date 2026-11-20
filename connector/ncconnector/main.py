@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session as DbSession
 from ncconnector import __version__, activity, biomarkers, platform, takes
 from ncconnector.auth import Staff, perm, platform_signed, role
 from ncconnector.config import get_settings
-from ncconnector.db import ActivityLog, BiomarkerRun, NcidMap, Review, VisitRemark, get_db, init_db
+from ncconnector.db import ActivityLog, BiomarkerRun, NcidMap, Remark, Review, get_db, init_db
 from ncconnector.delivery import DeliveryError, check_config
 from ncconnector.keys import has_take_key
 from ncconnector.providers import send_invite
@@ -109,19 +109,33 @@ doctor = role("doctor")
 clinical = doctor
 
 
-def allowed(s: Staff, ncids: list[str]) -> set[str]:
-    """M14: which of these patients this staff member may see. Doctors: only those assigned to them;
+def access(s: Staff, ncids: list[str]) -> tuple[set[str], set[str]]:
+    """M14: which of these patients this staff member may see, and (decision 061) which of those
+    only to view (their appointment moved to another doctor). Doctors: only their own patients;
     clinic phones: only patients in the hospital's clinic queue. Asked of the platform on every
     request (a reassignment takes effect at once)."""
     if s.role in ("hospital_admin", "receptionist"):
-        return set(ncids)
+        return set(ncids), set()
     if s.role not in ("doctor", "operator") or not ncids:
-        return set()
+        return set(), set()
     try:
         out = platform.call("POST", "/connector/v1/access", {"user_id": s.user_id, "ncids": ncids})
     except platform.PlatformError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "platform_unreachable"}) from exc
-    return set(out["allowed"])
+    return set(out["allowed"]), set(out.get("view_only") or [])
+
+
+def allowed(s: Staff, ncids: list[str]) -> set[str]:
+    return access(s, ncids)[0]
+
+
+def require_full_access(s: Staff, ncid: str, not_found: str) -> None:
+    """Decision 061: writing (a review, a remark) needs full access; view-only gets 403."""
+    ok, view_only = access(s, [ncid])
+    if ncid not in ok:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, not_found)
+    if ncid in view_only:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "moved_view_only"})
 
 
 def require_access(s: Staff, ncid: str) -> None:
@@ -602,6 +616,8 @@ class ReviewOut(BaseModel):
     usable: bool
     note: str | None
     reviewer_id: str
+    #: Decision 061: who reviewed (display name).
+    reviewer_name: str | None = None
     at: datetime
 
 
@@ -613,6 +629,7 @@ def _review_out(r: Review) -> ReviewOut:
         usable=r.usable,
         note=r.note,
         reviewer_id=r.reviewer_id,
+        reviewer_name=r.reviewer_name,
         at=r.at,
     )
 
@@ -626,18 +643,22 @@ def review_take(
         info = platform.call("GET", f"/connector/v1/takes/{take_id}")
     except platform.PlatformError as exc:
         raise _platform_error(exc) from exc
-    if db.get(NcidMap, info["ncid"]) is None or info["ncid"] not in allowed(s, [info["ncid"]]):
+    if db.get(NcidMap, info["ncid"]) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
+    require_full_access(s, info["ncid"], "take not found")
     r = Review(
         take_id=take_id,
         ncid=info["ncid"],
         usable=body.usable,
         note=(body.note or "").strip() or None,
         reviewer_id=s.user_id,
+        reviewer_name=s.name,
     )
     db.add(r)
     db.commit()
-    activity.write(db, s.role, s.user_id, "take_reviewed", info["ncid"], take_id=take_id, usable=body.usable)
+    activity.write(
+        db, s.role, s.user_id, "take_reviewed", info["ncid"], take_id=take_id, usable=body.usable, by=s.name
+    )
     return _review_out(r)
 
 
@@ -706,19 +727,24 @@ class RemarkIn(BaseModel):
 
 
 class RemarkOut(BaseModel):
+    id: str
     appointment_id: str
     ncid: str
     text: str
     author_id: str
+    #: Decision 061: who wrote it (display name); several doctors may remark on one appointment.
+    author_name: str | None = None
     updated_at: datetime
 
 
-def _remark_out(r: VisitRemark) -> RemarkOut:
+def _remark_out(r: Remark) -> RemarkOut:
     return RemarkOut(
+        id=r.id,
         appointment_id=r.appointment_id,
         ncid=r.ncid,
         text=r.text,
         author_id=r.author_id,
+        author_name=r.author_name,
         updated_at=r.updated_at,
     )
 
@@ -727,32 +753,49 @@ def _remark_out(r: VisitRemark) -> RemarkOut:
 def write_remark(
     appointment_id: str, body: RemarkIn, s: Staff = Depends(doctor), db: DbSession = Depends(get_db)
 ) -> RemarkOut | None:
-    """The appointment's own doctor writes (or clears) its visit remarks. The text stays here."""
+    """The appointment's own doctor writes (or clears) their remark on it. After a move to another
+    doctor, the new doctor adds their own; the first doctor's stays and can no longer be changed
+    (decision 061). The text stays here."""
     try:
         info = platform.call("GET", f"/connector/v1/appointments/{appointment_id}")
     except platform.PlatformError as exc:
         raise _platform_error(exc) from exc
-    if info["ncid"] not in allowed(s, [info["ncid"]]):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "appointment not found")
+    require_full_access(s, info["ncid"], "appointment not found")
     if info["doctor_id"] != s.user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, {"code": "not_your_appointment"})
-    r = db.get(VisitRemark, appointment_id)
+    r = db.scalar(
+        select(Remark).where(Remark.appointment_id == appointment_id, Remark.author_id == s.user_id)
+    )
     text = body.text.strip()
     if not text:
         if r:
             db.delete(r)
             db.commit()
         activity.write(
-            db, s.role, s.user_id, "visit_remark_cleared", info["ncid"], appointment_id=appointment_id
+            db,
+            s.role,
+            s.user_id,
+            "visit_remark_cleared",
+            info["ncid"],
+            appointment_id=appointment_id,
+            by=s.name,
         )
         return None
     if r is None:
-        r = VisitRemark(appointment_id=appointment_id, ncid=info["ncid"], text=text, author_id=s.user_id)
+        r = Remark(
+            appointment_id=appointment_id,
+            ncid=info["ncid"],
+            text=text,
+            author_id=s.user_id,
+            author_name=s.name,
+        )
         db.add(r)
     else:
-        r.text, r.author_id, r.updated_at = text, s.user_id, datetime.now(UTC)
+        r.text, r.author_name, r.updated_at = text, s.name or r.author_name, datetime.now(UTC)
     db.commit()
-    activity.write(db, s.role, s.user_id, "visit_remark_written", info["ncid"], appointment_id=appointment_id)
+    activity.write(
+        db, s.role, s.user_id, "visit_remark_written", info["ncid"], appointment_id=appointment_id, by=s.name
+    )
     return _remark_out(r)
 
 
@@ -761,7 +804,7 @@ def remarks(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(get
     """Every visit remark for this patient (doctors who may open the patient)."""
     _mrn_for(db, ncid)
     require_access(s, ncid)
-    q = select(VisitRemark).where(VisitRemark.ncid == ncid).order_by(VisitRemark.updated_at.desc())
+    q = select(Remark).where(Remark.ncid == ncid).order_by(Remark.updated_at.desc())
     return [_remark_out(r) for r in db.scalars(q)]
 
 

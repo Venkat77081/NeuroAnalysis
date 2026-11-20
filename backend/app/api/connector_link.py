@@ -193,9 +193,13 @@ def get_connector_token(
     site = _my_site(db, p)
     if not site.connector_url or not site.connector_public_key:
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "connector_not_registered"})
+    from app.models import StaffUser
     from app.permissions import granted
 
-    token, ttl = connector_token(site.id, p.actor_id, p.role, granted(db, p))
+    me = db.get(StaffUser, p.actor_id)
+    # Decision 061: the connector records who wrote a remark or review by this name.
+    name = (me.display_name or me.email) if me else None
+    token, ttl = connector_token(site.id, p.actor_id, p.role, granted(db, p), name=name)
     return ConnectorTokenOut(token=token, expires_in=ttl, connector_url=site.connector_url)
 
 
@@ -687,6 +691,8 @@ class AccessIn(BaseModel):
 
 
 class AccessOut(BaseModel):
+    #: Decision 061: of `allowed`, the patients this doctor may only view (a moved appointment).
+    view_only: list[str] = Field(default_factory=list)
     #: The NCIDs (of those asked) this staff member may see. Doctors: assigned patients only.
     allowed: list[str]
 
@@ -699,7 +705,7 @@ def connector_access(
 ) -> AccessOut:
     """M14: the connector asks which patients a doctor may see before showing identity, history or
     recordings. Unknown or inactive users, and other hospitals' staff, may see none."""
-    from app.assignments import ALL_PATIENTS_ROLES, doctor_patients_clause
+    from app.assignments import ALL_PATIENTS_ROLES, doctor_patients_clause, moved_away_clause
     from app.models import Operator, RecordingRequest, StaffUser
 
     op = db.get(Operator, body.user_id)
@@ -726,6 +732,9 @@ def connector_access(
     if not user or not user.active or user.site_id != site.id:
         return AccessOut(allowed=[])
     q = select(Patient.ncid).where(Patient.site_id == site.id, Patient.ncid.in_(body.ncids))
-    if user.role not in ALL_PATIENTS_ROLES:
-        q = q.where(doctor_patients_clause(user.id))
-    return AccessOut(allowed=list(db.scalars(q)))
+    if user.role in ALL_PATIENTS_ROLES:
+        return AccessOut(allowed=list(db.scalars(q)))
+    full = set(db.scalars(q.where(doctor_patients_clause(user.id))))
+    # Decision 061: an appointment moved away from this doctor still lets them view the patient.
+    view = set(db.scalars(q.where(moved_away_clause(user.id)))) - full
+    return AccessOut(allowed=sorted(full | view), view_only=sorted(view))

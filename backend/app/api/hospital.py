@@ -631,6 +631,9 @@ class PatientOut(BaseModel):
     doctor_id: str | None = None
     #: The patient's phone failed the camera check and they told the hospital (record in clinic).
     phone_unsuitable_fps: float | None = None
+    #: Decision 061: for a doctor whose appointment moved to another doctor: view only, and where to.
+    view_only: bool = False
+    moved_to: str | None = None
 
 
 @router.get("/patients", response_model=list[PatientOut])
@@ -642,10 +645,12 @@ def list_patients(
     live from the hospital's records through the connector. Doctors see only their own patients."""
     from sqlalchemy import func
 
-    from app.assignments import doctor_patient_ids
+    from app.assignments import doctor_patient_ids, doctor_view_only_ids, moved_to_names
     from app.models import PatientAssignment, Session
 
     mine = doctor_patient_ids(db, p.actor_id) if p.role == "doctor" else set()
+    view_only = doctor_view_only_ids(db, p.actor_id) if p.role == "doctor" else set()
+    moved_to = moved_to_names(db, p.actor_id, view_only) if view_only else {}
     stats = (
         select(Session.patient_id, func.count().label("n"), func.max(Session.started_at).label("last"))
         .group_by(Session.patient_id)
@@ -671,9 +676,11 @@ def list_patients(
             last_session_at=last,
             doctor_id=doc,
             phone_unsuitable_fps=acc.camera_failed_fps if acc else None,
+            view_only=pt.id in view_only,
+            moved_to=moved_to.get(pt.id),
         )
         for pt, acc, n, last, doc in db.execute(q)
-        if p.role != "doctor" or pt.id in mine
+        if p.role != "doctor" or pt.id in mine or pt.id in view_only
     ]
 
 

@@ -20,7 +20,8 @@
     "right": "Right",
     "left": "Left",
     "asym": "Asymmetry",
-    "asymHint": "Asymmetry = |R − L| ÷ (R + L). 0 means both hands are the same; 1 means one hand did not move."
+    "asymHint": "Asymmetry = |R − L| ÷ (R + L). 0 means both hands are the same; 1 means one hand did not move.",
+    "both": "Both hands"
   },
   "units": {
     "forearm": "forearm",
@@ -50,7 +51,8 @@
   "step4": {
     "title": "Calculations",
     "asym": "|{r} − {l}| ÷ ({r} + {l}) = {diff} ÷ {total} = {value}",
-    "notComputed": "Not computed: {reason}"
+    "notComputed": "Not computed: {reason}",
+    "std": "spread (STD) of {n} values = √(mean of (value − {mean})²) = {value}"
   },
   "step5": {
     "cols": {
@@ -167,6 +169,69 @@
         "show": "Show the {n} rolls of the {hand}",
         "cols": {
           "tap": "Roll"
+        }
+      }
+    },
+    "FTF": {
+      "docTitle": "Finger-to-Finger report",
+      "title": "Finger-to-Finger",
+      "measures": {
+        "period": {
+          "mean": "Mean period",
+          "std": "Period spread (STD)"
+        },
+        "speed": {
+          "mean": "Mean speed",
+          "std": "Speed spread (STD)"
+        },
+        "smoothness": {
+          "mean": "Mean path smoothness",
+          "std": "Path smoothness spread (STD)"
+        },
+        "angle_cc": {
+          "mean": "Mean direction match between cycles",
+          "std": "Direction match spread (STD)"
+        },
+        "pair": {
+          "horizontal": "Horizontal finger symmetry",
+          "vertical": "Vertical finger symmetry"
+        }
+      },
+      "summary": {
+        "hint": "Periods in seconds, speeds in forearm lengths per second. Smoothness: 1 = a perfectly smooth path, higher = more wavering. Direction match and symmetry are correlations: 1 = the same movement, 0 = no relation, −1 = opposite."
+      },
+      "step1": {
+        "body": "MediaPipe finds the middle joint of each index finger (point 6, steadier than the tip), the elbows and wrists, and the shoulders in every frame."
+      },
+      "step2": {
+        "title": "The finger-to-finger signal",
+        "formula": "h(t) = how high the index finger's middle joint is above its lowest point ÷ forearm length",
+        "closing": "top of the movement",
+        "yAxis": "h (forearm lengths)"
+      },
+      "step3": {
+        "title": "Cycles",
+        "body": "A cycle runs from one top of the vertical movement to the next (top, bottom, top). A top counts when the dip between is at least {prom} % of the signal's range and at least {gap} s after the one before.",
+        "count": "{hand}: {n} cycles"
+      },
+      "step4": {
+        "perTap": {
+          "period": "each cycle: time from one top to the next",
+          "speed": "each half cycle (top to bottom, bottom to top): distance travelled ÷ its time",
+          "smoothness": "each half cycle: path length ÷ length of a fitted curve (2nd-order) over the same span",
+          "angle_cc": "every pair of cycles: correlation of the movement direction along the cycle"
+        },
+        "mean": "mean of {n} values = ({terms}) ÷ {n} = {sum} ÷ {n} = {value}",
+        "pairRule": {
+          "horizontal": "each right-hand cycle: correlation of both joints' distances from the body midline",
+          "vertical": "each right-hand cycle: correlation of both joints' heights"
+        }
+      },
+      "step5": {
+        "title": "Every cycle",
+        "show": "Show the {n} cycles of the {hand}",
+        "cols": {
+          "tap": "Cycle"
         }
       }
     }

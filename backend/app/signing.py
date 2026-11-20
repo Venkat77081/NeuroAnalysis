@@ -138,8 +138,11 @@ def platform_public_pem() -> str:
     return public_pem(platform_key().public_key())
 
 
-def connector_token(site_id: str, user_id: str, role: str, perms: list[str] | None = None) -> tuple[str, int]:
-    """`perms`: what this person may do at the hospital (decision 033); the connector enforces it."""
+def connector_token(
+    site_id: str, user_id: str, role: str, perms: list[str] | None = None, name: str | None = None
+) -> tuple[str, int]:
+    """`perms`: what this person may do at the hospital (decision 033); the connector enforces it.
+    `name`: the staff member's display name, shown with their remarks and reviews (decision 061)."""
     ttl = get_settings().connector_token_ttl_s
     now_ = datetime.now(UTC)
     claims = {
@@ -149,6 +152,7 @@ def connector_token(site_id: str, user_id: str, role: str, perms: list[str] | No
         "sub": user_id,
         "role": role,
         "perms": perms or [],
+        **({"name": name} if name else {}),
         "iat": now_,
         "exp": now_ + timedelta(seconds=ttl),
     }

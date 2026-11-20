@@ -149,3 +149,11 @@ Every role starts on **Overview**: five cards, one chart (hover for values, **Ta
   report**.
 - **Where the report is kept:** encrypted in the hospital's own cloud storage, next to the video.
 - **Older recordings:** they keep the **Biomarkers** button.
+
+## Moved appointments (decision 061)
+
+- **First doctor:** after the front desk moves an appointment to another doctor, the first doctor
+  still sees the patient, marked **Moved to Dr. X · view only**. They can read everything, but
+  cannot add remarks or reviews, change the plan or send record links.
+- **New doctor:** adds their own remark next to the earlier one.
+- **Authors:** every remark and review shows who gave it, and the activity log records the author.

@@ -176,6 +176,9 @@ jobs:
           NC_REQUIRE_AZURITE: '1'
       - name: Connector image builds
         run: docker build -t neurocapture-connector:ci .
+      - name: Connector image with biomarker analysis builds (decision 059)
+        working-directory: .
+        run: docker build -f connector/Dockerfile.analysis -t neurocapture-connector:analysis-ci .
 
   biomarkers:
     name: Biomarker analysis (ruff, pytest with MediaPipe)

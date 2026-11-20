@@ -16,6 +16,7 @@ import logging
 import tempfile
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import quote
 
@@ -23,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ncconnector import activity, platform, takes
+from ncconnector.config import get_settings
 from ncconnector.db import BiomarkerFiles, BiomarkerRun, KeyValue, NcidMap, factory, now
 from ncconnector.keys import take_private_key
 from ncconnector.storage import read_object, write_object
@@ -178,15 +180,17 @@ CURSOR = "biomarkers.since"
 
 
 def poll_new_takes(db: DbSession, limit: int = 50) -> int:
-    """Decision 060: analyse each take whose upload completed since the last look. The first look
-    starts from now (older takes are analysed when a doctor asks). Returns how many were queued."""
+    """Decision 060: analyse each take whose upload completed since the last look. The very first
+    look also covers the last `analysis_backfill_days` (older takes: when a doctor asks). Returns
+    how many were queued."""
     if analyser() is None:
         return 0
     cur = db.get(KeyValue, CURSOR)
     if cur is None:
-        db.add(KeyValue(key=CURSOR, value=now().isoformat()))
+        start_at = now() - timedelta(days=get_settings().analysis_backfill_days)
+        cur = KeyValue(key=CURSOR, value=start_at.isoformat())
+        db.add(cur)
         db.commit()
-        return 0
     try:
         rows = platform.call("GET", f"/connector/v1/takes?since={quote(cur.value)}&limit={limit}")
     except platform.PlatformError as exc:

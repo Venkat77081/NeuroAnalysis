@@ -106,11 +106,11 @@ def test_new_take_in_development_storage_is_analysed_automatically(connector, mo
     monkeypatch.setattr(
         biomarkers, "ANALYSER", lambda video, test, ncid: ({"testCode": test}, "<p>dev report</p>")
     )
-    with factory()() as db:
-        assert biomarkers.poll_new_takes(db) == 0
+    # Uploaded before the first look: covered by the backfill window (analysis_backfill_days).
     _, doc, ncid, take_id = _setup(env, "tk-bio-auto")
     with factory()() as db:
         assert biomarkers.poll_new_takes(db) == 1
+        assert biomarkers.poll_new_takes(db) == 0
     biomarkers.wait_idle()
     runs = c.get(f"/v1/patients/{ncid}/biomarkers", headers=doc).json()
     assert [(r["take_id"], r["status"]) for r in runs] == [(take_id, "done")]

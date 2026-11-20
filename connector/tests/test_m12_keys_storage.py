@@ -530,7 +530,7 @@ def test_new_take_is_analysed_and_its_report_kept_in_the_hospital_bucket(env, aw
     monkeypatch.setattr(biomarkers, "ANALYSER", fake)
     rotate_take_key()
     with factory()() as db:
-        assert biomarkers.poll_new_takes(db) == 0  # the first look only sets where to start
+        assert biomarkers.poll_new_takes(db) == 0  # nothing uploaded yet
 
     ncid, acc, sess = patient_session(env, env["desk_tok"])
     link_ncid(ncid)

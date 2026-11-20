@@ -39,6 +39,8 @@ export function App() {
   const [notice, setNotice] = useState<string | undefined>();
   const [page, setPage] = useState<string>('');
   const [patient, setPatient] = useState<string | null>(null);
+  // v33: "Add remark" in the My patients panel opens the patient page at the timeline.
+  const [patientFocus, setPatientFocus] = useState<'remark' | undefined>(undefined);
   /** Platform admin: the hospital whose permissions are open. */
   const [permsFor, setPermsFor] = useState<string | null>(null);
   /** v3: appointments waiting for this doctor's tests (count in the menu). */
@@ -171,6 +173,7 @@ export function App() {
     body = (
       <PatientView
         ncid={patient}
+        focus={patientFocus}
         onBack={() => setPatient(null)}
         onChooseTests={
           nav.includes('chooseTests')
@@ -182,7 +185,16 @@ export function App() {
         }
       />
     );
-  else body = <MyPatients onOpen={setPatient} />;
+  else
+    body = (
+      <MyPatients
+        onOpen={(ncid, focus) => {
+          setPatientFocus(focus);
+          setPatient(ncid);
+        }}
+        onChooseTests={nav.includes('chooseTests') ? () => setPage('chooseTests') : undefined}
+      />
+    );
 
   // v30: the front desk's first page is "Today".
   const navLabel = (p: string) =>

@@ -15,6 +15,9 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   await signIn(page, s.doctor_email, s.doctor_totp);
   await page.getByTestId('nav-myPatients').click(); // v3: doctors land on "Choose tests"
   await expect(page.getByTestId('my-patients')).toContainText('Asha Testpatient');
+  // v33: a card opens the side panel; "Open full page" goes to the patient page.
+  await page.getByTestId(`patient-card-${s.patient_mrn}`).click();
+  await expect(page.getByTestId('patient-panel')).toBeVisible();
   await page.getByTestId(`open-${s.patient_mrn}`).click();
 
   // Live history from the hospital's FHIR server, through the connector.
@@ -86,5 +89,8 @@ test('M14: first sign-in sets up two-step with an authenticator app', async ({ p
   await page.getByTestId('setup-confirm').click();
   await expect(page.getByTestId('nav-chooseTests')).toBeVisible();
   await page.getByTestId('nav-myPatients').click();
-  await expect(page.getByTestId('my-patients')).toBeVisible();
+  // v33: a new doctor's card grid is empty, so the page shows the "no patients" note instead.
+  await expect(
+    page.getByTestId('no-patients').or(page.locator('[data-testid^="patient-card-"]').first()),
+  ).toBeVisible();
 });

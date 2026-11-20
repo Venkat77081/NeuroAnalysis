@@ -390,7 +390,7 @@
     "registerIntro": "Open NeuroCapture on the new phone, choose Clinic phone and scan the code. A code works once."
   },
   "doctor": {
-    "patientsTitle": "Your patients",
+    "patientsTitle": "My patients",
     "lastSession": "Last session {{date}}",
     "sessions_one": "{{count}} session",
     "sessions_other": "{{count}} sessions",
@@ -1769,17 +1769,16 @@
     "allRecs": "All my patients"
   },
   "patients": {
-    "sub": "Names come live from your hospital records · {{count}} patients",
     "filter": "Show",
     "next": "Next visit",
     "last": "Last recording",
     "status": "Status",
     "chip": {
       "all": "All {{count}}",
-      "today": "Today {{count}}",
       "newRecording": "New recordings {{count}}",
       "needsTests": "Needs tests {{count}}",
-      "flagged": "Flagged {{count}}"
+      "flagged": "Flagged {{count}}",
+      "today": "Visit today {{count}}"
     },
     "state": {
       "needsTests": "Needs tests",
@@ -1788,7 +1787,24 @@
       "today": "Visit today",
       "newPatient": "New patient",
       "upToDate": "Up to date"
-    }
+    },
+    "sortLabel": "Order",
+    "sort": {
+      "next": "Next visit first",
+      "recent": "Latest recording first",
+      "name": "By name"
+    },
+    "daysShort": "{{n}} d",
+    "ringLabel_one": "{{count}} day since the last recording",
+    "ringLabel_other": "{{count}} days since the last recording",
+    "noRecording": "No recording yet",
+    "noneYet": "None yet",
+    "noneShown": "No patients match this filter.",
+    "watchShort": "Watch ›",
+    "openFull": "Open full page",
+    "nothingToWatch": "Nothing to watch yet",
+    "sub_one": "Names come live from your hospital records · {{count}} patient",
+    "sub_other": "Names come live from your hospital records · {{count}} patients"
   },
   "theatre": {
     "title": "{{test}} recording",

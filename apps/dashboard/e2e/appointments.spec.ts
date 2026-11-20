@@ -109,6 +109,9 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
 
   // The patient page: the timeline and the "every N days" plan the doctor asked for.
   await page.getByTestId('nav-myPatients').click();
+  // v33: a card opens the side panel; "Open full page" goes to the patient page.
+  await page.getByTestId(`patient-card-${s.patient_mrn}`).click();
+  await expect(page.getByTestId('patient-panel')).toBeVisible();
   await page.getByTestId(`open-${s.patient_mrn}`).click();
   await expect(page.getByTestId('timeline')).toContainText('At home');
   await expect(page.getByTestId('timeline')).toContainText('In the clinic');

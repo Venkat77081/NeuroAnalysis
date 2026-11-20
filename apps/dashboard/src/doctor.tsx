@@ -11,15 +11,16 @@ import {
   Badge,
   Button,
   Card,
+  Dialog,
+  DialogFooter,
   ErrorNote,
   Notice,
   Page,
-  Table,
   fmt,
   fmtDate,
 } from './ui.tsx';
 import { StageBadge, type Appointment } from './appointments.tsx';
-import { takeSeconds } from './config.ts';
+import { myPatientsRing, takeSeconds } from './config.ts';
 
 interface PlatformPatient {
   ncid: string;
@@ -55,16 +56,89 @@ export function patientState(p: {
   return { key: 'upToDate', tone: 'ok' };
 }
 
-export function MyPatients({ onOpen }: { onOpen: (ncid: string) => void }) {
+/** v33: whole days from `at` until `now` (null when there is no recording yet). */
+export function daysSince(at: string | null, now: number): number | null {
+  if (!at) return null;
+  return Math.max(0, Math.floor((now - Date.parse(at)) / 86_400_000));
+}
+
+/** v33: the card's ring: full right after a recording, empty at `ringDays` (config/platform.json). */
+export function recency(
+  days: number | null,
+  cfg: { ringDays: number; okWithinDays: number; warnWithinDays: number } = myPatientsRing,
+): { pct: number; tone: 'ok' | 'warn' | 'bad' | 'none' } {
+  if (days === null) return { pct: 0, tone: 'none' };
+  const pct = Math.round(Math.max(5, Math.min(100, 100 * (1 - days / cfg.ringDays))));
+  const tone = days <= cfg.okWithinDays ? 'ok' : days <= cfg.warnWithinDays ? 'warn' : 'bad';
+  return { pct, tone };
+}
+
+export type PatientSort = 'next' | 'recent' | 'name';
+
+/** v33: next visit first, latest recording first, or by name; patients without one go last. */
+export function sortPatients<
+  T extends { name: string | null; next: string | null; last: string | null },
+>(list: T[], by: PatientSort): T[] {
+  const time = (v: string | null, dir: 1 | -1) => (v ? dir * Date.parse(v) : null);
+  const byName = (x: T, y: T) =>
+    !x.name || !y.name ? (x.name ? -1 : y.name ? 1 : 0) : x.name.localeCompare(y.name);
+  return [...list].sort((x, y) => {
+    if (by === 'name') return byName(x, y);
+    const [k, dir] = by === 'next' ? (['next', 1] as const) : (['last', -1] as const);
+    const a = time(x[k], dir);
+    const b = time(y[k], dir);
+    if (a === null || b === null) return a !== null ? -1 : b !== null ? 1 : byName(x, y);
+    return a - b || byName(x, y);
+  });
+}
+
+const RING_COLOUR = {
+  ok: 'var(--color-ok)',
+  warn: 'var(--color-warn)',
+  bad: 'var(--color-bad)',
+  none: 'var(--color-line)',
+};
+
+function RecencyRing({ days }: { days: number | null }) {
+  const { t } = useTranslation();
+  const r = recency(days);
+  return (
+    <span
+      className="relative inline-flex size-[52px] shrink-0 items-center justify-center rounded-full"
+      style={{
+        background: `conic-gradient(${RING_COLOUR[r.tone]} 0 ${r.pct}%, var(--color-line) 0)`,
+      }}
+      role="img"
+      aria-label={
+        days === null ? t('patients.noRecording') : t('patients.ringLabel', { count: days })
+      }
+      data-testid="recency-ring"
+    >
+      <span className="flex size-[40px] items-center justify-center rounded-full bg-card text-[13px] font-extrabold">
+        {days === null ? '—' : t('patients.daysShort', { n: days })}
+      </span>
+    </span>
+  );
+}
+
+type PatientFilter = 'all' | 'newRecording' | 'needsTests' | 'flagged' | 'today';
+
+export function MyPatients({
+  onOpen,
+  onChooseTests,
+}: {
+  onOpen: (ncid: string, focus?: 'remark') => void;
+  onChooseTests?: () => void;
+}) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<PlatformPatient[] | null>(null);
   const [ident, setIdent] = useState<Record<string, Ident>>({});
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [recent, setRecent] = useState<{ ncid: string | null; flagged: boolean | null }[]>([]);
   const [error, setError] = useState<unknown>(null);
-  const [filter, setFilter] = useState<'all' | 'today' | 'newRecording' | 'needsTests' | 'flagged'>(
-    'all',
-  );
+  const [filter, setFilter] = useState<PatientFilter>('all');
+  const [sort, setSort] = useState<PatientSort>('next');
+  const [sel, setSel] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
   useEffect(() => {
     void (async () => {
@@ -101,40 +175,37 @@ export function MyPatients({ onOpen }: { onOpen: (ncid: string) => void }) {
       )
       .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
     const mine = recent.filter((r) => r.ncid === p.ncid);
+    const nextToday = !!next && new Date(next.at).toDateString() === today;
     const st = patientState({
       sessions: p.sessions,
       nextStage: next?.stage ?? null,
       newRecording: mine.length > 0,
       flagged: mine.some((r) => r.flagged),
-      nextToday: !!next && new Date(next.at).toDateString() === today,
+      nextToday,
     });
-    return { p, next, st };
+    return {
+      p,
+      next,
+      st,
+      nextToday,
+      name: ident[p.ncid]?.name ?? null,
+      last: p.last_session_at,
+      nextAt: next?.at ?? null,
+    };
   });
-  const count = (k: string) =>
-    info.filter(
-      (x) =>
-        x.st.key === k || (k === 'today' && x.next && new Date(x.next.at).toDateString() === today),
-    ).length;
-  const shown = info.filter(
-    (x) =>
-      filter === 'all' ||
-      x.st.key === filter ||
-      (filter === 'today' && x.next && new Date(x.next.at).toDateString() === today),
+  const hit = (x: (typeof info)[number], k: PatientFilter) =>
+    k === 'all' || x.st.key === k || (k === 'today' && x.nextToday);
+  const shown = sortPatients(
+    info.filter((x) => hit(x, filter)).map((x) => ({ ...x, next: x.nextAt, appt: x.next })),
+    sort,
   );
-  const head = [
-    t('doctor.patient'),
-    t('patients.next'),
-    t('patients.last'),
-    t('patients.status'),
-    '',
-  ];
+  const current = info.find((x) => x.p.ncid === sel);
   return (
-    <Page
-      title={t('doctor.patientsTitle')}
-      sub={t('patients.sub', { count: rows?.length ?? 0 })}
-      actions={
+    <Page title={t('doctor.patientsTitle')} sub={t('patients.sub', { count: rows?.length ?? 0 })}>
+      <ErrorNote error={error} />
+      <div className="nc-fu flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('patients.filter')}>
-          {(['all', 'today', 'newRecording', 'needsTests', 'flagged'] as const).map((k) => (
+          {(['all', 'newRecording', 'needsTests', 'flagged', 'today'] as const).map((k) => (
             <button
               key={k}
               type="button"
@@ -143,59 +214,288 @@ export function MyPatients({ onOpen }: { onOpen: (ncid: string) => void }) {
               className={`min-h-9 rounded-full px-3.5 text-[13px] font-semibold ${filter === k ? 'bg-ink text-ground' : 'bg-card text-sub shadow-[inset_0_0_0_1px_var(--color-edge)]'}`}
               data-testid={`patients-filter-${k}`}
             >
-              {t(`patients.chip.${k}`, { count: k === 'all' ? info.length : count(k) })}
+              {t(`patients.chip.${k}`, { count: info.filter((x) => hit(x, k)).length })}
             </button>
           ))}
         </div>
-      }
-    >
-      <ErrorNote error={error} />
+        <label className="flex items-center gap-2 text-[13px] text-sub">
+          <span className="sr-only">{t('patients.sortLabel')}</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as PatientSort)}
+            className="h-9 rounded-full bg-card px-3.5 text-[13px] font-semibold text-ink shadow-[inset_0_0_0_1px_var(--color-edge)]"
+            data-testid="patients-sort"
+          >
+            {(['next', 'recent', 'name'] as const).map((k) => (
+              <option key={k} value={k}>
+                {t(`patients.sort.${k}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {rows?.length === 0 && (
         <Notice tone="warn" testId="no-patients">
           {t('doctor.noPatients')}
         </Notice>
       )}
-      <Table head={head} testId="my-patients">
-        {shown.map(({ p, next, st }) => {
+      {rows && rows.length > 0 && shown.length === 0 && (
+        <p className="text-[14px] text-muted" data-testid="patients-none">
+          {t('patients.noneShown')}
+        </p>
+      )}
+      <div
+        className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3"
+        data-testid="my-patients"
+      >
+        {shown.map(({ p, appt, st, last }) => {
           const i = ident[p.ncid];
+          const on = sel === p.ncid;
           return (
-            <tr key={p.ncid} className="border-t border-line">
-              <td className="px-4 py-3">
-                <span className="flex items-center gap-3">
-                  <Avatar name={i?.name ?? null} size={40} />
-                  <span className="flex flex-col">
-                    <b className="text-[14px]">
+            <button
+              key={p.ncid}
+              type="button"
+              onClick={() => setSel(p.ncid)}
+              aria-pressed={on}
+              className={`nc-fu flex flex-col gap-3 rounded-[24px] bg-card p-4 text-left shadow-card transition hover:-translate-y-0.5 ${on ? 'ring-2 ring-brand' : ''}`}
+              data-testid={`patient-card-${i?.mrn ?? p.ncid}`}
+            >
+              <span className="flex items-center justify-between gap-2.5">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Avatar name={i?.name ?? null} size={42} />
+                  <span className="flex min-w-0 flex-col">
+                    <b className="truncate text-[15px]">
                       {i?.name ?? <code className="text-[12px] text-muted">{p.ncid}</code>}
                     </b>
                     <span className="text-[12px] text-muted">{i ? `MRN ${i.mrn}` : ''}</span>
                   </span>
                 </span>
-              </td>
-              <td className="px-4 py-3 text-[13px]">{next ? fmt(next.at) : '—'}</td>
-              <td className="px-4 py-3 text-[13px]">
-                {p.last_session_at ? fmtDate(p.last_session_at) : '—'}
-                <span className="block text-[12px] text-muted">
-                  {t('doctor.sessions', { count: p.sessions })}
-                </span>
-              </td>
-              <td className="px-4 py-3">
+                <RecencyRing days={daysSince(last, now)} />
+              </span>
+              <span className="flex flex-wrap gap-1.5">
                 <Badge tone={st.tone}>{t(`patients.state.${st.key}`)}</Badge>
-              </td>
-              <td className="px-4 py-3 text-right">
-                <Button
-                  variant="secondary"
-                  className="min-h-9 text-[13px]"
-                  onClick={() => onOpen(p.ncid)}
-                  data-testid={`open-${i?.mrn ?? p.ncid}`}
-                >
-                  {t('doctor.open')}
-                </Button>
-              </td>
-            </tr>
+              </span>
+              <span className="grid grid-cols-2 gap-2 text-[12px] text-muted">
+                <span>
+                  {t('patients.next')}
+                  <b className="block text-[13px] text-ink">{appt ? fmt(appt.at) : '—'}</b>
+                </span>
+                <span>
+                  {t('patients.last')}
+                  <b className="block text-[13px] text-ink">
+                    {last
+                      ? `${fmtDate(last)} · ${t('doctor.sessions', { count: p.sessions })}`
+                      : t('patients.noneYet')}
+                  </b>
+                </span>
+              </span>
+            </button>
           );
         })}
-      </Table>
+      </div>
+      {current && (
+        <PatientPanel
+          key={current.p.ncid}
+          ncid={current.p.ncid}
+          ident={ident[current.p.ncid] ?? null}
+          state={current.st}
+          onClose={() => setSel(null)}
+          onOpen={(focus) => onOpen(current.p.ncid, focus)}
+          onChooseTests={onChooseTests}
+        />
+      )}
     </Page>
+  );
+}
+
+/** v33 (canvas V33PatientsPanel): a card opened at the side, with the patient page's first part. */
+function PatientPanel({
+  ncid,
+  ident,
+  state,
+  onClose,
+  onOpen,
+  onChooseTests,
+}: {
+  ncid: string;
+  ident: Ident | null;
+  state: ReturnType<typeof patientState>;
+  onClose: () => void;
+  onOpen: (focus?: 'remark') => void;
+  onChooseTests?: () => void;
+}) {
+  const { t } = useTranslation();
+  const [recs, setRecs] = useState<Recording[]>([]);
+  const [reviews, setReviews] = useState<Record<string, Review>>({});
+  const [watching, setWatching] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => {
+    hospital<Recording[]>('GET', `/v1/patients/${ncid}/recordings`).then(setRecs, setError);
+    hospital<Review[]>('GET', `/v1/patients/${ncid}/reviews`).then(
+      (rs) => setReviews(Object.fromEntries([...rs].reverse().map((r) => [r.take_id, r]))),
+      () => undefined,
+    );
+  }, [ncid]);
+  const { points, latest, session, last, next, nextTests } = useSummary(ncid, recs);
+  const name = ident?.name ?? ncid;
+  const watchable = session.find((r) => r.status === 'complete');
+  return (
+    <Dialog
+      title={name}
+      sub={ident ? `MRN ${ident.mrn}` : `NCID ${ncid}`}
+      size="side"
+      onClose={onClose}
+      testId="patient-panel"
+    >
+      <ErrorNote error={error} />
+      <div className="flex flex-wrap gap-1.5">
+        <Badge tone={state.tone}>{t(`patients.state.${state.key}`)}</Badge>
+        <Badge tone="neutral">{t('shell.liveRecords')}</Badge>
+      </div>
+      <section className="flex flex-col gap-2" data-testid="panel-journey">
+        <b className="text-[14px]">{t('patient.journey')}</b>
+        {points.length === 0 ? (
+          <span className="text-[13px] text-muted">{t('patient.noJourney')}</span>
+        ) : (
+          <div className="relative flex items-start pt-1">
+            <span className="absolute top-[11px] right-2 left-2 h-[2px] bg-line" />
+            {points.map((p, i) => (
+              <span
+                key={`${p.at}-${i}`}
+                className="relative flex flex-1 flex-col items-center gap-1 text-[11px] text-muted"
+                title={t(`patient.point.${p.kind}`, { count: p.tests ?? 0 })}
+              >
+                <span
+                  className="size-[14px] rounded-full shadow-[0_0_0_3px_var(--color-card)]"
+                  style={{ background: JOURNEY_COLOUR[p.kind] }}
+                />
+                {dayMonth(p.at)}
+              </span>
+            ))}
+          </div>
+        )}
+      </section>
+      <section className="flex flex-col gap-2" data-testid="panel-latest">
+        <span className="flex items-center justify-between gap-2">
+          <b className="text-[14px]">
+            {latest
+              ? t('patient.latestTitle', {
+                  date: dayMonth(latest.started_at),
+                  where: latest.recorded_by === 'patient' ? t('doctor.home') : t('doctor.clinic'),
+                  med: t(`med.${latest.med_state}`),
+                })
+              : t('patient.latestNone')}
+          </b>
+          {watchable && (
+            <button
+              type="button"
+              className="text-[12px] font-bold text-brand"
+              onClick={() => setWatching(watchable.take_id)}
+            >
+              {t('patients.watchShort')}
+            </button>
+          )}
+        </span>
+        {session.length > 0 && (
+          <div className="grid grid-cols-5 gap-1.5">
+            {session.map((r) => (
+              <button
+                key={r.take_id}
+                type="button"
+                disabled={r.status !== 'complete'}
+                onClick={() => setWatching(r.take_id)}
+                className="overflow-hidden rounded-xl bg-soft text-left disabled:opacity-60"
+                data-testid={`panel-tile-${r.test_code}`}
+              >
+                <span className="flex h-12 items-center justify-center bg-[linear-gradient(135deg,#1d1b2e,#3b3760)] text-[12px] text-white">
+                  ▶
+                </span>
+                <span className="flex flex-col px-1.5 py-1 text-[10px] font-bold">
+                  {r.test_code}
+                  <span className={r.capture_verdict === 'PASS' ? 'text-ok' : 'text-warn'}>
+                    {r.capture_verdict === 'PASS'
+                      ? `✓ ${t('patient.passed')}`
+                      : t(`verdict.${r.capture_verdict}`)}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+      <section
+        className="rounded-2xl bg-soft px-3 py-2.5 text-[13px] leading-[19px]"
+        data-testid="panel-remark"
+      >
+        <b>{t('patient.lastRemark')}</b>
+        {last && <span className="text-muted"> · {fmtDate(last.updated_at)}</span>}
+        <span className="block text-sub">{last ? `“${last.text}”` : t('patient.noRemark')}</span>
+      </section>
+      <section className="flex items-center justify-between gap-2" data-testid="panel-next">
+        <span className="flex flex-col">
+          <b className="text-[14px]">{t('patient.nextVisit')}</b>
+          <span className="text-[12px] text-muted">
+            {next
+              ? `${fmt(next.at)} · ${
+                  nextTests.length
+                    ? t('patient.nextTests', {
+                        tests: nextTests.map((c) => t(`tests.${c}`)).join(', '),
+                      })
+                    : t('today.status.needsTests')
+                }`
+              : t('patient.noNext')}
+          </span>
+        </span>
+        {next?.change_request_id && (
+          <Badge tone="warn">
+            {t('patient.askedToChange', { name: ident?.name?.split(/\s+/)[0] ?? '' })}
+          </Badge>
+        )}
+      </section>
+      <DialogFooter>
+        <div className="grid w-full grid-cols-2 gap-2">
+          {watchable ? (
+            <Button onClick={() => setWatching(watchable.take_id)} data-testid="panel-watch">
+              ▶ {t('patient.watch', { date: dayMonth(watchable.started_at) })}
+            </Button>
+          ) : (
+            <Button disabled>{t('patients.nothingToWatch')}</Button>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => onOpen('remark')}
+            data-testid="panel-remark-add"
+          >
+            {t('patient.addRemark')}
+          </Button>
+          {onChooseTests && (
+            <Button variant="secondary" onClick={onChooseTests} data-testid="panel-choose">
+              {t('patient.chooseTests')}
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => onOpen()}
+            data-testid={`open-${ident?.mrn ?? ncid}`}
+          >
+            {t('patients.openFull')}
+          </Button>
+        </div>
+      </DialogFooter>
+      {watching && (
+        <Theatre
+          takes={(() => {
+            const sid = recs.find((r) => r.take_id === watching)?.session_id;
+            return recs.filter((r) => r.session_id === sid);
+          })()}
+          start={watching}
+          name={name}
+          reviews={reviews}
+          onReviewed={(take, rv) => setReviews((m) => ({ ...m, [take]: rv }))}
+          onClose={() => setWatching(null)}
+        />
+      )}
+    </Dialog>
   );
 }
 
@@ -520,6 +820,27 @@ function Theatre({
   );
 }
 
+/** v33: what the patient page and the My patients panel show first (journey, latest, remark, next). */
+function useSummary(ncid: string, recs: Recording[]) {
+  const [h, setH] = useState<PlatformHistory | null>(null);
+  const [remarks, setRemarks] = useState<Remark[]>([]);
+  const [now] = useState(() => Date.now());
+  useEffect(() => {
+    call<PlatformHistory>('GET', `/hospital/patients/${ncid}/history`).then(setH, () => undefined);
+    hospital<Remark[]>('GET', `/v1/patients/${ncid}/remarks`).then(setRemarks, () => undefined);
+  }, [ncid]);
+  const byAppt = Object.fromEntries(remarks.map((r) => [r.appointment_id, r]));
+  const points = h ? journey(h, recs, byAppt, now) : [];
+  const latest = [...recs].sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at))[0];
+  const session = latest ? recs.filter((r) => r.session_id === latest.session_id) : [];
+  const last = [...remarks].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))[0];
+  const next = h?.appointments
+    .filter((a) => a.status === 'booked' && Date.parse(a.at) > now)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
+  const nextTests = next ? [...new Set(next.requests.flatMap((r) => r.tests))] : [];
+  return { points, latest, session, last, next, nextTests };
+}
+
 function PatientSummary({
   ncid,
   name,
@@ -537,22 +858,7 @@ function PatientSummary({
   onWatch?: (take: string) => void;
 }) {
   const { t } = useTranslation();
-  const [h, setH] = useState<PlatformHistory | null>(null);
-  const [remarks, setRemarks] = useState<Remark[]>([]);
-  const [now] = useState(() => Date.now());
-  useEffect(() => {
-    call<PlatformHistory>('GET', `/hospital/patients/${ncid}/history`).then(setH, () => undefined);
-    hospital<Remark[]>('GET', `/v1/patients/${ncid}/remarks`).then(setRemarks, () => undefined);
-  }, [ncid]);
-  const byAppt = Object.fromEntries(remarks.map((r) => [r.appointment_id, r]));
-  const points = h ? journey(h, recs, byAppt, now) : [];
-  const latest = [...recs].sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at))[0];
-  const session = latest ? recs.filter((r) => r.session_id === latest.session_id) : [];
-  const last = [...remarks].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))[0];
-  const next = h?.appointments
-    .filter((a) => a.status === 'booked' && Date.parse(a.at) > now)
-    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
-  const nextTests = next ? [...new Set(next.requests.flatMap((r) => r.tests))] : [];
+  const { points, latest, session, last, next, nextTests } = useSummary(ncid, recs);
   const playingRec = recs.find((r) => r.take_id === playing?.take);
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]">
@@ -691,9 +997,12 @@ export function PatientView({
   ncid,
   onBack,
   onChooseTests,
+  focus,
 }: {
   ncid: string;
   onBack: () => void;
+  /** v33: "Add remark" in the My patients panel opens the page at the timeline. */
+  focus?: 'remark';
   /** v30: "Choose tests" in the header. */
   onChooseTests?: () => void;
 }) {
@@ -715,6 +1024,14 @@ export function PatientView({
       () => undefined,
     );
   }, [ncid]);
+  useEffect(() => {
+    if (focus !== 'remark') return;
+    const id = setTimeout(
+      () => document.getElementById('patient-timeline')?.scrollIntoView({ behavior: 'smooth' }),
+      400,
+    );
+    return () => clearTimeout(id);
+  }, [focus]);
   useEffect(
     () => () => {
       if (playing) URL.revokeObjectURL(playing.url); // decrypted video lives in memory only

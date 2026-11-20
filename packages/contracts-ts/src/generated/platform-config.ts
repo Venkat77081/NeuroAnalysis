@@ -298,6 +298,14 @@ export interface PlatformConfig {
     lightFromHour: number;
   };
   /**
+   * v33: the ring on each My patients card. It is full right after a recording and empty at ringDays since the last one; green up to okWithinDays, amber up to warnWithinDays, then red.
+   */
+  myPatients?: {
+    ringDays: number;
+    okWithinDays: number;
+    warnWithinDays: number;
+  };
+  /**
    * v16 (decision 047): clinic recordings need the patient's consent, given in their app and shown as a one-time QR code (prefix + code) the clinic phone scans; or, when the hospital allows it, on the clinic phone with a reason.
    */
   clinicConsent: {

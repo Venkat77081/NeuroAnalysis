@@ -137,3 +137,80 @@ def finger_to_finger(
         version="0",
         models=[],
     )
+
+
+def face_activation(
+    seconds: float = 15.0,
+    fps: float = 60.0,
+    eye: tuple[float, float, float] = (10.0, 6.0, 0.5),
+    brow: tuple[float, float, float] = (12.0, 5.0, 0.5),
+    mouth: tuple[float, float, float] = (4.0, 10.0, 0.4),
+    width: tuple[float, float, float] = (60.0, 12.0, 0.4),
+    jaw: tuple[float, float, float] = (40.0, 8.0, 0.4),
+    left_phase: float = 0.0,
+    ied_px: float = 60.0,
+    face_found: bool = True,
+    noise_px: float = 0.0,
+    seed: int = 0,
+) -> Keypoints:
+    """A face whose eyelids, brows, lips, mouth corners and chin move as base + A (1 − cos 2πft)/2
+    px, (base, A, f) per feature; the left side lags by `left_phase` radians."""
+    from ncbio.fa import GROUPS
+
+    rng = np.random.default_rng(seed)
+    n = int(round(seconds * fps))
+    t = np.arange(n) / fps
+    face = np.full((n, 478, 3), np.nan)
+    face[..., 2] = 0
+
+    def g(spec, phase=0.0):
+        base, a, f = spec
+        return base + a * (1 - np.cos(2 * np.pi * f * t - phase)) / 2
+
+    def put(idx, x, y):
+        face[:, idx, 0], face[:, idx, 1] = x, y
+
+    face[:, 133, :2] = (-ied_px / 2, 0)
+    face[:, 362, :2] = (ied_px / 2, 0)
+    for side, sx, ph in (("r", -1, 0.0), ("l", 1, left_phase)):
+        h = g(eye, ph)
+        b = g(brow, ph)
+        upper, lower = (GROUPS["eye_r"][1], GROUPS["eye_r"][0]) if side == "r" else GROUPS["eye_l"]
+        brow_pts, lid_pts = GROUPS[f"brow_{side}"]
+        for k, (u, lo) in enumerate(zip(upper, lower, strict=True)):
+            x = sx * (ied_px / 2 + 5 + 4 * k)
+            put(u, x, -h / 2)
+            put(lo, x, h / 2)
+        for bp, lp in zip(brow_pts, lid_pts, strict=True):
+            put(bp, face[0, lp, 0], face[:, lp, 1] - b)
+        m = g(mouth, ph)
+        lower_m, upper_m = GROUPS[f"mouth_{side}"]
+        for k, (lo, u) in enumerate(zip(lower_m, upper_m, strict=True)):
+            x = sx * (4 + 6 * k)
+            put(u, x, 40.0)
+            put(lo, x, 40.0 + m)
+    w = g(width)
+    put(78, -w / 2, 40.0)
+    put(308, w / 2, 40.0)
+    j = g(jaw)
+    top, chin = GROUPS["jaw"]
+    for u, c in zip(top, chin, strict=True):
+        if u == 13:
+            put(13, 0.0, 40.0)
+        put(c, face[0, u, 0], face[:, u, 1] + j)
+    if noise_px:
+        face[..., :2] += rng.normal(0, noise_px, face[..., :2].shape)
+    if not face_found:
+        face[:] = np.nan
+    return Keypoints(
+        t=t,
+        width=1280,
+        height=720,
+        pose=np.full((n, 33, 4), np.nan),
+        pose_world=np.full((n, 33, 3), np.nan),
+        hands={},
+        face=face,
+        library="synthetic",
+        version="0",
+        models=[],
+    )

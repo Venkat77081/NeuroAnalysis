@@ -21,14 +21,17 @@
     "left": "Left",
     "asym": "Asymmetry",
     "asymHint": "Asymmetry = |R − L| ÷ (R + L). 0 means both hands are the same; 1 means one hand did not move.",
-    "both": "Both hands"
+    "both": "Both hands",
+    "value": "Value"
   },
   "units": {
     "forearm": "forearm",
     "s": "s",
     "forearm/s": "forearm/s",
     "forearm/s²": "forearm/s²",
-    "ratio": ""
+    "ratio": "",
+    "ied": "IED",
+    "ied/s": "IED/s"
   },
   "step1": {
     "title": "Points found in the video",
@@ -233,6 +236,75 @@
         "cols": {
           "tap": "Cycle"
         }
+      }
+    },
+    "FA": {
+      "docTitle": "Facial Activation report",
+      "title": "Facial Activation",
+      "measures": {
+        "FA1": "Eye opening variation (R)",
+        "FA2": "Eye opening variation (L)",
+        "FA3": "Mouth opening variation",
+        "FA4": "Mouth width variation",
+        "FA5": "Jaw opening variation",
+        "FA6": "Eye opening speed variation (R)",
+        "FA7": "Eye opening speed variation (L)",
+        "FA8": "Eyebrow lift speed variation (R)",
+        "FA9": "Eyebrow lift speed variation (L)",
+        "FA10": "Mouth opening speed variation",
+        "FA11": "Eye opening range (R)",
+        "FA12": "Eye opening range (L)",
+        "FA13": "Mouth opening range",
+        "FA14": "Mouth width range",
+        "FA15": "Eyes opening symmetry",
+        "FA16": "Mouth opening symmetry",
+        "FA17": "Eyes opening speed symmetry",
+        "FA18": "Mouth opening speed symmetry"
+      },
+      "groups": {
+        "std": "How much each feature moves (STD)",
+        "speed": "How much the speed varies (STD of the change per second)",
+        "niqr": "Range (normalised)",
+        "cc": "Left–right symmetry"
+      },
+      "summary": {
+        "hint": "IED = the distance between the inner eye corners; every distance is divided by it, frame by frame. Range = (90th − 10th percentile) ÷ 90th percentile. Symmetry is a correlation: 1 = left and right move together, 0 = no relation, −1 = opposite."
+      },
+      "step1": {
+        "title": "Points found in the video",
+        "body": "MediaPipe finds 478 points on the face in every frame. Table A-III of the DNE paper names the groups of points for the eyes, eyebrows, mouth and jaw.",
+        "faceFound": "Face found in {pct} % of frames",
+        "ied": "Inner-eye-corner distance (points 133 and 362): the middle value (median) over {n} frames = {px} px; each frame uses its own"
+      },
+      "step2": {
+        "title": "The face signals",
+        "formula": "d = √(sum of the squared distances between the paired points of the two groups) ÷ inner-eye-corner distance",
+        "yAxis": "d (IED)"
+      },
+      "signals": {
+        "eyes": "Eye opening",
+        "brows": "Eyebrow height",
+        "mouth": "Mouth opening (left and right halves)",
+        "width": "Mouth width",
+        "jaw": "Jaw opening",
+        "right": "right side",
+        "left": "left side"
+      },
+      "step4": {
+        "title": "Calculations",
+        "rule": {
+          "std": "spread (STD) of the signal over the take",
+          "speed": "spread (STD) of its change per second, frame to frame",
+          "niqr": "(90th percentile − 10th percentile) ÷ 90th percentile",
+          "cc": "Pearson correlation of the left and right signals",
+          "cc_speed": "Pearson correlation of the left and right changes per second"
+        },
+        "niqr": "({p90} − {p10}) ÷ {p90} = {value}",
+        "cc": "correlation over {n} frames = {value}",
+        "std": "spread (STD) of {n} values around {mean} = {value}"
+      },
+      "footer": {
+        "sources": "Formulas: DNE toolbox (IEEE JBHI 2024), Appendix B and Table A-III. Distances are in inner-eye-corner distances (IED), so head size and the distance to the camera do not change them."
       }
     }
   }

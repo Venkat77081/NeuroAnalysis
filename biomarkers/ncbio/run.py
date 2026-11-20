@@ -66,3 +66,18 @@ def analyse_video(
     if keypoints_out:
         kp.save(keypoints_out)
     return analyse_keypoints(kp, test_code, details=details)
+
+
+#: Tests the report is built for (the connector offers analysis for these).
+REPORT_TESTS = frozenset({"FT"})
+
+
+def analyse_take(video: Path, test_code: str, ncid: str | None = None) -> tuple[dict, str]:
+    """For the hospital connector: the result document and the report (HTML) of one take."""
+    from .report import render
+
+    if test_code not in REPORT_TESTS:
+        raise ValueError(f"no report for {test_code} yet")
+    details: dict = {}
+    result = analyse_video(video, test_code, details=details)
+    return result, render(result, details, ncid=ncid)

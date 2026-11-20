@@ -1,0 +1,62 @@
+"""Command line (runs at the hospital, on decrypted takes only):
+
+    python -m ncbio models                         # download the keypoint models (once)
+    python -m ncbio analyse VIDEO --test FT [--out result.json] [--keypoints kp.npz]
+    python -m ncbio analyse KP.npz --test FT       # again from saved keypoints
+
+The result holds biomarker values only: no names, no frames, no landmark streams.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import sys
+import urllib.request
+from pathlib import Path
+
+from .config import analysis_config
+from .keypoints import TEST_KINDS, Keypoints, model_path
+from .run import analyse_keypoints, analyse_video
+
+
+def download_models() -> None:
+    for kind, m in analysis_config()["models"].items():
+        dest = model_path(kind)
+        if not dest.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if not m["url"].startswith("https://"):
+                raise SystemExit(f"refusing a non-https model URL for {kind}")
+            urllib.request.urlretrieve(m["url"], dest)  # noqa: S310 (https only, checked above)
+        digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+        print(f"{kind:5} {dest.name}  sha256 {digest}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="ncbio", description=__doc__.split("\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("models", help="download the keypoint models")
+    a = sub.add_parser("analyse", help="biomarkers of one take")
+    a.add_argument("input", type=Path, help="video (.mp4) or saved keypoints (.npz)")
+    a.add_argument("--test", required=True, choices=sorted(TEST_KINDS))
+    a.add_argument("--out", type=Path)
+    a.add_argument("--keypoints", type=Path, help="also save the keypoints here (.npz)")
+    args = ap.parse_args(argv)
+    if args.cmd == "models":
+        download_models()
+        return 0
+    if args.input.suffix == ".npz":
+        result = analyse_keypoints(Keypoints.load(args.input), args.test)
+    else:
+        result = analyse_video(args.input, args.test, args.keypoints)
+    text = json.dumps(result, indent=2, ensure_ascii=False)
+    if args.out:
+        args.out.write_text(text + "\n")
+    else:
+        print(text)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

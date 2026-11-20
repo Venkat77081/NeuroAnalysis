@@ -53,6 +53,27 @@ docker build -f biomarkers/Dockerfile -t neurocapture-biomarkers .   # from the 
 | M15.7 | Doctor's report on the patient page (labelled decision support), trends between visits           |       |
 | M15.8 | Check on real recordings: keypoints by eye on sample takes, repeat-take agreement                |       |
 
+## The report (FT)
+
+`--report report.html` writes one self-contained HTML file (inline charts, no scripts), in the
+dashboards' colours and in light and dark. Text is in `config/messages/report.en.json`.
+
+1. **Results:** each measure for the right hand, the left hand and the asymmetry, with units and
+   registry IDs; a value that cannot be computed shows the reason instead.
+2. **Points found:** how often each hand was found, and the forearm length (the median
+   elbow-to-wrist distance, with the number of frames).
+3. **The tapping signal:** the formula, the filter settings, and each hand's signal before and
+   after smoothing, with every closing of the fingers marked.
+4. **Taps:** how a tap is found; one tap drawn with its amplitude, period and fastest point; the
+   amplitude of every tap for both hands (a decrement shows as a falling line).
+5. **Calculations:** each biomarker with its rule and its numbers put in, for example
+   "mean of 46 taps = (0.453 + 0.472 + 0.463 + … + 0.362) ÷ 46 = 19.2 ÷ 46 = 0.417", and each
+   asymmetry as "|R − L| ÷ (R + L)" with the values.
+6. **Every tap:** a table per hand (start, period, amplitude, max speed, max acceleration).
+
+`python -m ncbio demo-report demo.html` makes the same report from a synthetic take (no patient).
+It shows a "Synthetic demo" note.
+
 ## Accuracy on synthetic tapping (tests/test_ft.py)
 
 Both hands tapping at 3 Hz with an amplitude of 0.5 forearm, 60 fps, 15 s:

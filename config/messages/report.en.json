@@ -12,7 +12,10 @@
     "video": "Video",
     "videoValue": "{count} frames · {fps} fps · {duration} s"
   },
-  "hands": { "right": "Right hand", "left": "Left hand" },
+  "hands": {
+    "right": "Right hand",
+    "left": "Left hand"
+  },
   "summary": {
     "title": "Results",
     "measure": "Measure",
@@ -88,10 +91,20 @@
       "acceleration": "Max accel."
     }
   },
-  "status": { "NOT_COMPUTABLE": "Not computed", "NOT_IMPLEMENTED": "Not built yet" },
+  "status": {
+    "NOT_COMPUTABLE": "Not computed",
+    "NOT_IMPLEMENTED": "Not built yet"
+  },
   "footer": {
     "versions": "Analysis {analysis} · registry {registry} · {library} {version} · models: {models}",
     "sources": "Formulas: DNE toolbox (IEEE JBHI 2024, Table A-II) and Hoang et al. 2022 (arXiv 2205.07209). Distances are in forearm lengths, so the distance to the camera does not change them.",
     "privacy": "Computed at the hospital. This file holds no name or record number."
+  },
+  "overlay": {
+    "_comment": "Drawn on video frames by OpenCV: plain ASCII only.",
+    "right": "R (patient's right)",
+    "left": "L (patient's left)",
+    "legend": "R = patient's right hand, L = patient's left hand",
+    "notFound": "{side}: not found"
   }
 }

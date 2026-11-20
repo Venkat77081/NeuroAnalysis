@@ -51,6 +51,16 @@ docker build -f biomarkers/Dockerfile -t neurocapture-biomarkers .   # from the 
 
 Release builds and phones set up to upload to a real server refuse to save videos.
 
+### Checking right and left
+
+- **Overlay video:** `--overlay check.mp4` writes a copy of the take with each hand's thumb tip,
+  index tip, tapping line and forearm drawn in its report colour. Labels: **R** = patient's right
+  (indigo), **L** = patient's left (orange). If R sits on the patient's left hand, the sides are
+  swapped, for example because the video is mirrored. The copy shows the patient like the video
+  itself, so it stays at the hospital with it.
+- **One-hand take:** tap with the right hand only and hold the left still. The report must show
+  taps for the right hand and none for the left.
+
 ## Plan
 
 | Step  | What                                                                                             | State |

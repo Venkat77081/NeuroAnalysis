@@ -51,3 +51,20 @@ def test_text_files_are_read_and_written_as_utf8():
         src = f.read_text(encoding="utf-8")
         calls = len(re.findall(r"\.(?:read_text|write_text)\(", src))
         assert src.count('encoding="utf-8"') >= calls, f.name
+
+
+def test_overlay_draws_each_side_in_its_colour(tmp_path):
+    from ncbio.overlay import COLOUR, draw_frame, write_overlay
+
+    kp = tapping(seconds=0.5)
+    img = draw_frame(np.zeros((1080, 1920, 3), np.uint8), kp, 0)
+    # Right forearm is at x = 300, left at x = 900 (tests/synth.py): each is drawn in its colour.
+    assert tuple(img[600, 300]) == COLOUR["right"]
+    assert tuple(img[600, 900]) == COLOUR["left"]
+    path = tmp_path / "in.mp4"
+    w = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 60, (1920, 1080))
+    for _ in range(kp.t.size):
+        w.write(np.zeros((1080, 1920, 3), np.uint8))
+    w.release()
+    assert write_overlay(path, kp, tmp_path / "out.mp4") == kp.t.size
+    assert cv2.VideoCapture(str(tmp_path / "out.mp4")).get(cv2.CAP_PROP_FRAME_COUNT) == kp.t.size

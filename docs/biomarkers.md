@@ -63,18 +63,18 @@ Release builds and phones set up to upload to a real server refuse to save video
 
 ## Plan
 
-| Step  | What                                                                                             | State                        |
-| ----- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
-| M15.1 | Package, config, result contract, MediaPipe keypoints, pre-processing, **FT1–FT12**              | done                         |
-| M15.2 | **FR1–FR12** (wrist height above its lowest point, pose 15/16, in forearm lengths)               | done                         |
-| M15.3 | **FTF1–FTF18** (index middle joint, hand 6: period, speed, smoothness, velocity angle, symmetry) |                              |
-| M15.4 | **FA1–FA18** (face mesh distances of Table A-III, normalised by the inner eye corners)           |                              |
-| M15.5 | **SAW1–SAW15** (3-D ankles, knee angles, pelvis; walking and turning segments)                   |                              |
-| M15.6 | Run at the connector after each upload; report kept encrypted in the hospital's storage          | done (decisions 059, 060)    |
-| M15.7 | Report on the doctor's patient page (decision support); trends between visits                    | FT report done; trends to do |
-| M15.8 | Check on real recordings: keypoints by eye on sample takes, repeat-take agreement                |                              |
+| Step  | What                                                                                              | State                        |
+| ----- | ------------------------------------------------------------------------------------------------- | ---------------------------- |
+| M15.1 | Package, config, result contract, MediaPipe keypoints, pre-processing, **FT1–FT12**               | done                         |
+| M15.2 | **FR1–FR12** (wrist height above its lowest point, pose 15/16, in forearm lengths)                | done                         |
+| M15.3 | **FTF1–FTF18** (index middle joint, hand 6: period, speed, smoothness, direction match, symmetry) | done                         |
+| M15.4 | **FA1–FA18** (face mesh distances of Table A-III, normalised by the inner eye corners)            |                              |
+| M15.5 | **SAW1–SAW15** (3-D ankles, knee angles, pelvis; walking and turning segments)                    |                              |
+| M15.6 | Run at the connector after each upload; report kept encrypted in the hospital's storage           | done (decisions 059, 060)    |
+| M15.7 | Report on the doctor's patient page (decision support); trends between visits                     | FT report done; trends to do |
+| M15.8 | Check on real recordings: keypoints by eye on sample takes, repeat-take agreement                 |                              |
 
-## The report (FT, FR)
+## The report (FT, FR, FTF)
 
 `--report report.html` writes one self-contained HTML file (inline charts, no scripts), in the
 dashboards' colours and in light and dark. Text is in `config/messages/report.en.json`.
@@ -92,7 +92,7 @@ dashboards' colours and in light and dark. Text is in `config/messages/report.en
    asymmetry as "|R − L| ÷ (R + L)" with the values.
 6. **Every tap:** a table per hand (start, period, amplitude, max speed, max acceleration).
 
-`python -m ncbio demo-report demo.html [--test FR]` makes the same report from a synthetic take (no patient).
+`python -m ncbio demo-report demo.html [--test FR|FTF]` makes the same report from a synthetic take (no patient).
 It shows a "Synthetic demo" note.
 
 ## Accuracy on synthetic tapping (tests/test_ft.py)
@@ -133,3 +133,21 @@ container, measured on frames with no person in them, so real takes will be slow
   | Acceleration | −4 %           | +17 %            |
 
   Acceleration is the value most affected by jitter in the points.
+
+## Finger-to-Finger (FTF1–FTF18)
+
+- **Point:** each index finger's middle joint (hand point 6), in forearm lengths. A cycle runs from
+  one top of its vertical movement to the next (top, bottom, top).
+- **Per hand** (left first, as in the registry):
+  - **period:** mean and STD of the cycle times;
+  - **speed:** distance travelled in each half cycle ÷ its time, mean and STD;
+  - **path smoothness:** per half cycle, path length ÷ length of a 2nd-order curve fitted along the
+    path's main direction (1 = perfectly smooth), mean and STD;
+  - **direction match:** the movement direction θ along each cycle, compared between every pair of
+    cycles (Pearson CC of cos θ and sin θ, only where the joint moves), mean and STD.
+- **Both hands:** per right-hand cycle, the CC of the two joints' distances from the body midline
+  (horizontal, FTF17) and of their heights (vertical, FTF18).
+- **On synthetic movement** (1 Hz, 0.6 × 0.3 forearm, 60 fps, 15 s):
+  - period, speed and smoothness come out exact, and direction match and symmetry are 1.00;
+  - with 2 px of jitter, direction match is 0.99;
+  - with a slower left hand, symmetry falls to about −0.1.

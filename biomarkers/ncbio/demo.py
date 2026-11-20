@@ -128,3 +128,24 @@ def demo_ftf_take(seed: int = 5) -> Keypoints:
         version="",
         models=[],
     )
+
+
+def demo_face_take(seed: int = 3) -> Keypoints:
+    """A synthetic Facial Activation: brows lift and the mouth smiles and opens a few times; the left
+    side moves a little less and a little later (no patient)."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from tests.synth import face_activation
+
+    return face_activation(
+        eye=(10.0, 5.0, 0.45),
+        brow=(12.0, 6.0, 0.45),
+        mouth=(4.0, 12.0, 0.35),
+        width=(60.0, 14.0, 0.35),
+        jaw=(40.0, 9.0, 0.35),
+        left_phase=0.5,
+        noise_px=0.25,
+        seed=seed,
+    )

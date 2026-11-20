@@ -141,3 +141,11 @@ Every role starts on **Overview**: five cards, one chart (hover for values, **Ta
   it.
 - **Not installed:** without the analysis at the connector, the patient page says so and shows no
   button.
+
+## Reports without a click (decision 060)
+
+- **After upload:** Finger Tapping and Forearm Roll recordings are analysed at the hospital's
+  connector soon after they upload. The patient page then shows **Analysing…** and **Biomarker
+  report**.
+- **Where the report is kept:** encrypted in the hospital's own cloud storage, next to the video.
+- **Older recordings:** they keep the **Biomarkers** button.

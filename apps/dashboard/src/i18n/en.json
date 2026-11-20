@@ -1243,13 +1243,13 @@
   },
   "biomarkers": {
     "analyse": "Biomarkers",
-    "analyseHint": "Work out this recording's biomarkers at your hospital (about a minute)",
+    "analyseHint": "Work out this recording's biomarkers at your hospital now (about a minute)",
     "running": "Analysing…",
     "open": "Biomarker report",
     "retry": "Biomarkers: try again",
     "failedHint": "The last analysis did not finish. Try again.",
     "reportSub": "Computed at your hospital from the 60 fps video. Decision support, not a diagnosis.",
-    "cardHint": "Finger Tapping recordings have a Biomarkers button. The report shows each value and how it was worked out.",
+    "cardHint": "Finger Tapping and Forearm Roll recordings are analysed at your hospital soon after they upload. Open a recording's report to see each value and how it was worked out.",
     "notInstalled": "Biomarker analysis is not installed on your hospital's connector yet."
   }
 }

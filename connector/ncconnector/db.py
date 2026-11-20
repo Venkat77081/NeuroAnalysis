@@ -97,6 +97,26 @@ class BiomarkerRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
+class BiomarkerFiles(Base):
+    """Decision 060: where a take's biomarker result and report are, in the hospital's own storage
+    (encrypted with a data key wrapped by the hospital's take key)."""
+
+    __tablename__ = "nc_biomarker_files"
+    take_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    key_id: Mapped[str] = mapped_column(String(50))
+    wrapped_key: Mapped[str] = mapped_column(String(1024))
+    locations: Mapped[dict] = mapped_column(JSON)
+    stored_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+class KeyValue(Base):
+    """Small connector state (decision 060: where the automatic analysis has looked up to)."""
+
+    __tablename__ = "nc_state"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(200))
+
+
 class VisitRemark(Base):
     """Decision 040: one free-text note per appointment, by that appointment's doctor ("visit
     remarks"). Hospital-owned, like reviews; the platform never receives the text."""

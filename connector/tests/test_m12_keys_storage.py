@@ -482,3 +482,80 @@ def test_hospital_azure_container_write_only(env, monkeypatch):
     lm = next(n for n in names if n.endswith("landmarks.enc"))
     service.get_blob_client(container, lm).upload_blob(b"tampered", overwrite=True)
     assert c.get(f"/v1/takes/{take_id}/files/landmarks", headers=ctoken(env)).status_code == 502
+
+
+# --- M15 (decision 060): automatic analysis, report kept encrypted in the hospital's bucket ---
+
+
+def test_new_take_is_analysed_and_its_report_kept_in_the_hospital_bucket(env, aws, monkeypatch):
+    import requests
+    import test_upload_flow
+    from app.config import get_settings as platform_settings
+
+    from ncconnector import biomarkers
+    from ncconnector.db import ActivityLog, BiomarkerFiles, BiomarkerRun, factory
+
+    api, c = env["platform"], env["client"]
+    original_put = test_upload_flow.put
+
+    def put(api_, url, data):
+        if url.startswith("http://testserver"):
+            return original_put(api_, url, data)
+        r = requests.put(url, data=data, timeout=10)
+        r.headers["ETag"] = r.headers.get("ETag", "")
+        return r
+
+    monkeypatch.setattr(test_upload_flow, "put", put)
+    monkeypatch.setattr(platform_settings(), "part_size", 8 * 1024 * 1024)
+    r = api.put(
+        "/hospital/storage",
+        headers=hdr(env["admin_tok"]),
+        json={
+            "kind": "s3",
+            "s3": {
+                "bucket": "sunrise-recordings",
+                "region": "ap-south-1",
+                "role_arn": "arn:aws:iam::123456789012:role/nc-upload",
+                "prefix": "neurocapture/",
+            },
+        },
+    )
+    assert r.status_code == 200, r.text
+    seen: list[bytes] = []
+
+    def fake(video, test, ncid):
+        seen.append(video.read_bytes())
+        return {"testCode": test, "biomarkers": [{"id": "FT1", "value": 0.42}]}, "<p>FT report 0.420</p>"
+
+    monkeypatch.setattr(biomarkers, "ANALYSER", fake)
+    rotate_take_key()
+    with factory()() as db:
+        assert biomarkers.poll_new_takes(db) == 0  # nothing uploaded yet
+
+    ncid, acc, sess = patient_session(env, env["desk_tok"])
+    link_ncid(ncid)
+    take_id = record(env, acc, sess, "tk-auto")
+    with factory()() as db:
+        assert biomarkers.poll_new_takes(db) == 1
+    biomarkers.wait_idle()
+    assert seen == [b"\x00" * 3000]
+    with factory()() as db:
+        assert biomarkers.poll_new_takes(db) == 0  # each take once
+        run = db.get(BiomarkerRun, take_id)
+        assert (run.status, run.requested_by, run.report, run.result) == ("done", "auto", None, None)
+        files = db.get(BiomarkerFiles, take_id)
+        assert files is not None and files.key_id
+        assert "biomarkers_computed" in [a.action for a in db.query(ActivityLog).all()]
+
+    # Next to the take in the hospital's bucket, encrypted: the platform cannot read it.
+    objs = {o["Key"]: o for o in aws.list_objects_v2(Bucket="sunrise-recordings")["Contents"]}
+    video_key = next(k for k in objs if k.endswith("video.enc"))
+    folder = video_key.rsplit("/", 1)[0]
+    report_key = f"{folder}/biomarkers-report.html.enc"
+    assert report_key in objs and f"{folder}/biomarkers-result.json.enc" in objs
+    body = aws.get_object(Bucket="sunrise-recordings", Key=report_key)["Body"].read()
+    assert b"FT report" not in body and b"0.420" not in body
+
+    # The doctor's click: read from the bucket, decrypted at the connector.
+    rep = c.get(f"/v1/takes/{take_id}/biomarkers/report", headers=ctoken(env))
+    assert rep.status_code == 200 and "FT report 0.420" in rep.text

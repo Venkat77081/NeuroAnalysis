@@ -41,12 +41,22 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   expect(await player.evaluate((v: HTMLVideoElement) => v.videoWidth)).toBe(320);
   await page.screenshot({ path: 'test-results/doctor-patient.png', fullPage: true });
 
-  // M15 (decision 059): the connector analyses the take and keeps the report at the hospital. The
-  // sample video is 30 fps, so every value says why it was not computed.
+  // M15 (decisions 059 and 060): the connector analyses the take by itself soon after its upload
+  // and keeps the report at the hospital; the doctor only opens it. The sample video is 30 fps,
+  // so every value says why it was not computed.
   const bio = page.getByTestId(`bio-${s.take_id}`);
-  await expect(bio).toHaveAttribute('data-state', 'none');
-  await bio.click();
-  await expect(bio).toHaveAttribute('data-state', 'done', { timeout: 90_000 });
+  await expect
+    .poll(
+      async () => {
+        // Coming back to the patient page later, as a doctor would; nobody clicks "Biomarkers".
+        await page.getByTestId('nav-myPatients').click();
+        await page.getByTestId(`open-${s.patient_mrn}`).click();
+        await expect(bio).toBeVisible();
+        return bio.getAttribute('data-state');
+      },
+      { timeout: 120_000, intervals: [3_000] },
+    )
+    .toBe('done');
   await bio.click();
   const frame = page.frameLocator('[data-testid="bio-report-frame"]');
   await expect(frame.getByRole('heading', { name: 'Finger Tapping' })).toBeVisible();

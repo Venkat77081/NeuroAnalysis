@@ -8,6 +8,7 @@ It holds no name or record number; the NCID is shown only when the caller passes
 from __future__ import annotations
 
 import json
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from functools import lru_cache
 from html import escape
@@ -15,7 +16,7 @@ from html import escape
 import numpy as np
 
 from .config import analysis_config, config_dir
-from .ft import LAYOUT, MEASURES, HandDetail
+from .cyclic import MEASURES, HandDetail, layout
 
 SIDES = ("right", "left")
 
@@ -25,10 +26,24 @@ def text() -> dict:
     return json.loads((config_dir() / "messages" / "report.en.json").read_text(encoding="utf-8"))
 
 
-def tr(key: str, **kw: object) -> str:
-    node: object = text()
+#: The test being written up: its own wording (tests.<code>.*) wins over the shared wording.
+_TEST: ContextVar[str] = ContextVar("report_test", default="FT")
+
+
+def _lookup(node: object, key: str) -> object | None:
     for part in key.split("."):
-        node = node[part]  # type: ignore[index]
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+def tr(key: str, **kw: object) -> str:
+    node = _lookup(text().get("tests", {}).get(_TEST.get(), {}), key)
+    if node is None:
+        node = _lookup(text(), key)
+    if node is None:
+        raise KeyError(key)
     s = str(node)
     return s.format(**kw) if kw else s
 
@@ -328,7 +343,18 @@ def render(
     standalone: bool = True,
 ) -> str:
     """The report as HTML. `standalone` adds the document shell (doctype, head, body)."""
+    token = _TEST.set(result["testCode"])
+    try:
+        return _render(result, details, ncid=ncid, recorded=recorded, demo=demo, standalone=standalone)
+    finally:
+        _TEST.reset(token)
+
+
+def _render(
+    result: dict, details: dict, *, ncid: str | None, recorded: str | None, demo: bool, standalone: bool
+) -> str:
     cfg = analysis_config()
+    rows_layout = details.get("layout") or layout(result["testCode"])
     vals = {b["id"]: b for b in result["biomarkers"]}
     hands: dict[str, HandDetail] = details.get("hands", {})
     t: np.ndarray = details.get("t", np.zeros(0))
@@ -363,7 +389,7 @@ def render(
 
     # Results.
     rows = []
-    for rid, lid, aid, key, _unit in LAYOUT:
+    for rid, lid, aid, key, _unit in rows_layout:
         rows.append(
             f"<tr><td>{escape(tr(f'measures.{key}'))}</td>"
             f"{_value_cell(vals.get(rid))}{_value_cell(vals.get(lid))}{_value_cell(vals.get(aid))}</tr>"
@@ -444,7 +470,7 @@ def render(
 
         # 4. Calculations, with the numbers put in.
         calc = []
-        for rid, lid, aid, key, _u in LAYOUT:
+        for rid, lid, aid, key, _u in rows_layout:
             for s, bid in (("right", rid), ("left", lid)):
                 h = hands[s]
                 head = f'<span class="what"><span class="id">{bid}</span>{escape(tr(f"measures.{key}"))} · {escape(tr(f"summary.{s}"))}</span>'

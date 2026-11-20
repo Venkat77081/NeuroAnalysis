@@ -213,6 +213,8 @@ def main() -> None:
                 "NCC_FHIR_MRN_SYSTEM": "urn:test-hospital:mrn",
                 "NCC_HOSPITAL_NAME": "Sunrise Neuro Clinic",
                 "NCC_CORS_ORIGINS": origins,
+                # Decision 060: look for newly uploaded takes often, so the e2e sees the automatic analysis.
+                "NCC_ANALYSIS_INTERVAL_S": "3",
             },
             stdout=logs["connector"],
             stderr=subprocess.STDOUT,

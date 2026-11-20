@@ -56,3 +56,40 @@ def tapping(
         version="0",
         models=[],
     )
+
+
+def rolling(
+    seconds: float = 15.0,
+    fps: float = 60.0,
+    right: tuple[float, float] | None = (0.4, 2.0),
+    left: tuple[float, float] | None = (0.4, 2.0),
+    noise_px: float = 0.0,
+    seed: int = 0,
+) -> Keypoints:
+    """Forearm roll: each forearm (elbow 200 px below the wrist) moves up by
+    forearm × A (1 − cos 2πft) / 2, (A, f) per side. No hand points."""
+    rng = np.random.default_rng(seed)
+    n = int(round(seconds * fps))
+    t = np.arange(n) / fps
+    pose = np.full((n, 33, 4), np.nan)
+    for (elbow, wrist), x0, spec in (((14, 16), 700.0, right), ((13, 15), 1100.0, left)):
+        if spec is None:
+            continue
+        a, f = spec
+        wy = 600 - FOREARM_PX * a * (1 - np.cos(2 * np.pi * f * t)) / 2
+        pose[:, wrist, 0], pose[:, wrist, 1] = x0, wy
+        pose[:, elbow, 0], pose[:, elbow, 1] = x0, wy + FOREARM_PX
+        if noise_px:
+            pose[:, wrist, :2] += rng.normal(0, noise_px, (n, 2))
+    pose[..., 3] = 0.99
+    return Keypoints(
+        t=t,
+        width=1920,
+        height=1080,
+        pose=pose,
+        pose_world=np.full((n, 33, 3), np.nan),
+        hands={},
+        library="synthetic",
+        version="0",
+        models=[],
+    )

@@ -27,6 +27,9 @@ FILE_NAMES = {
     "sensors": "sensors.bin",
     "quality": "quality.json",
     "meta": "meta.json",
+    # M15 (decision 060): written by this connector, next to the take, in the hospital's storage.
+    "bio_report": "biomarkers-report.html",
+    "bio_result": "biomarkers-result.json",
 }
 
 _OAEP = padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)

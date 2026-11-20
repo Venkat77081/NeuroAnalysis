@@ -58,6 +58,12 @@ analyses it in the background (one take at a time, about a minute each, on the C
 decrypted copy and keeps the result and the report in `nc_biomarker_runs`. The platform never
 receives them. Without the package the button is not shown.
 
+Decision 060: the connector also looks for newly uploaded takes every `NCC_ANALYSIS_INTERVAL_S`
+seconds (60; `0` = off) and analyses them by itself. The first look also covers the last
+`NCC_ANALYSIS_BACKFILL_DAYS` days (7). With a hospital bucket or container, the result and the
+report are written next to the take, encrypted with the hospital's take key
+(`biomarkers-*.enc`), so the connector's storage credentials need write access to that folder.
+
 ## 2. Register it
 
 ```bash

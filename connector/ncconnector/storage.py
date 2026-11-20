@@ -25,6 +25,31 @@ def read_object(location: dict) -> bytes:
         raise PlatformError(503, {"code": "hospital_storage_unreachable"}) from exc
 
 
+def write_object(location: dict, data: bytes) -> None:
+    """M15 (decision 060): the connector writes the encrypted biomarker report next to the take, in
+    the hospital's own storage, with the hospital's credentials."""
+    if location.get("kind") == "azure":
+        from azure.core.exceptions import AzureError
+
+        try:
+            azure_service(location["account"], location.get("endpoint")).get_blob_client(
+                location["container"], location["key"]
+            ).upload_blob(data, overwrite=True)
+        except AzureError as exc:
+            raise PlatformError(503, {"code": "hospital_storage_unreachable"}) from exc
+        return
+    s = get_settings()
+    client = boto3.client(
+        "s3",
+        endpoint_url=location.get("endpoint") or s.s3_endpoint,
+        region_name=location.get("region") or s.s3_region,
+    )
+    try:
+        client.put_object(Bucket=location["bucket"], Key=location["key"], Body=data)
+    except (BotoCoreError, ClientError) as exc:
+        raise PlatformError(503, {"code": "hospital_storage_unreachable"}) from exc
+
+
 @lru_cache
 def azure_service(account: str, endpoint: str | None):
     """The hospital's storage account, as the connector: an account key, or its Entra identity."""

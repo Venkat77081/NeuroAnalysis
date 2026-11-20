@@ -335,6 +335,55 @@ class CaptureKitPlugin : Plugin() {
         }
     }
 
+    /**
+     * Debug test mode only (decision 058): saves the decrypted video of a take to the phone's
+     * Movies/NeuroCapture folder, to analyse it on a computer (docs/biomarkers.md). Refused in a
+     * release build and on a phone set up to upload to a real server, so a patient's recording can
+     * never leave the app this way. Android 10 or newer (no storage permission needed).
+     */
+    @PluginMethod
+    fun exportTakeVideo(call: PluginCall) {
+        val takeId = call.getString("takeId") ?: return call.reject("takeId required")
+        val label = call.getString("label") ?: "take"
+        if (!TAKE_ID.matches(takeId) || !EXPORT_LABEL.matches(label)) return call.reject("invalid takeId or label")
+        if (!debuggable()) return call.reject("export_not_allowed")
+        io.execute {
+            if (android.os.Build.VERSION.SDK_INT < 29) return@execute call.reject("export_needs_android_10")
+            if (uploads.profiles().isNotEmpty()) return@execute call.reject("export_not_allowed")
+            val tmp = File(playbackDir(), "$takeId.export.mp4")
+            try {
+                tmp.parentFile?.mkdirs()
+                vault.decryptTo(takeId, "video.mp4", tmp)
+                val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+                val name = "NeuroCapture_${label}_$stamp.mp4"
+                val folder = android.os.Environment.DIRECTORY_MOVIES + "/NeuroCapture"
+                val media = android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, folder)
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(media, values) ?: throw java.io.IOException("insert failed")
+                try {
+                    resolver.openOutputStream(uri)!!.use { out -> tmp.inputStream().use { it.copyTo(out) } }
+                    values.clear()
+                    values.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, values, null, null)
+                } catch (e: Exception) {
+                    resolver.delete(uri, null, null)
+                    throw e
+                }
+                call.resolve(JSObject().apply { put("fileName", name); put("folder", folder) })
+            } catch (e: Exception) {
+                call.reject("exportTakeVideo failed: ${e.javaClass.simpleName}")
+            } finally {
+                tmp.delete()
+            }
+        }
+    }
+
     @PluginMethod
     fun closePlayback(call: PluginCall) {
         val takeId = call.getString("takeId")
@@ -707,6 +756,7 @@ class CaptureKitPlugin : Plugin() {
     companion object {
         const val PLUGIN_VERSION = "0.9.0"
         private val TAKE_ID = Regex("^[A-Za-z0-9_-]{1,64}$")
+        private val EXPORT_LABEL = Regex("^[A-Za-z0-9_-]{1,32}$")
         private val REPORT_NAME = Regex("^[A-Za-z0-9._-]{1,120}\\.json$")
     }
 }

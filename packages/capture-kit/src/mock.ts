@@ -700,6 +700,19 @@ export class MockCaptureKit implements CaptureKitPlugin {
     else this.playing.clear();
   }
 
+  /** Test helper: videos saved with exportTakeVideo (file names). */
+  exported: string[] = [];
+
+  async exportTakeVideo(opts: {
+    takeId: string;
+    label?: string;
+  }): Promise<{ fileName: string; folder: string }> {
+    if (!this.takes.has(opts.takeId)) throw new Error('unknown take');
+    const fileName = `NeuroCapture_${opts.label ?? 'take'}_${this.exported.length + 1}.mp4`;
+    this.exported.push(fileName);
+    return { fileName, folder: 'Movies/NeuroCapture' };
+  }
+
   /** Test helper: takes with an open (decrypted) playback copy. */
   openPlaybacks(): string[] {
     return [...this.playing];

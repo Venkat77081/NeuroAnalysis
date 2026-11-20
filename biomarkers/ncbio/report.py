@@ -22,7 +22,7 @@ SIDES = ("right", "left")
 
 @lru_cache
 def text() -> dict:
-    return json.loads((config_dir() / "messages" / "report.en.json").read_text())
+    return json.loads((config_dir() / "messages" / "report.en.json").read_text(encoding="utf-8"))
 
 
 def tr(key: str, **kw: object) -> str:

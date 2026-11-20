@@ -40,3 +40,14 @@ def test_cli_says_what_is_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("NCBIO_MODELS_DIR", str(tmp_path / "no-models"))
     with pytest.raises(SystemExit, match="python -m ncbio models"):
         main(["analyse", str(tmp_path / "take.mp4"), "--test", "FT"])
+
+
+def test_text_files_are_read_and_written_as_utf8():
+    """Windows reads files in its own encoding unless told (the "²" in forearm/s² broke there)."""
+    import re
+    from pathlib import Path
+
+    for f in (Path(__file__).parents[1] / "ncbio").glob("*.py"):
+        src = f.read_text(encoding="utf-8")
+        calls = len(re.findall(r"\.(?:read_text|write_text)\(", src))
+        assert src.count('encoding="utf-8"') >= calls, f.name

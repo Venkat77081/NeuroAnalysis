@@ -16,12 +16,12 @@ def config_dir() -> Path:
 
 @lru_cache
 def analysis_config() -> dict:
-    return json.loads((config_dir() / "analysis.json").read_text())
+    return json.loads((config_dir() / "analysis.json").read_text(encoding="utf-8"))
 
 
 @lru_cache
 def registry() -> dict:
-    return json.loads((config_dir() / "biomarker-registry.json").read_text())
+    return json.loads((config_dir() / "biomarker-registry.json").read_text(encoding="utf-8"))
 
 
 def registry_ids(test_code: str) -> list[str]:

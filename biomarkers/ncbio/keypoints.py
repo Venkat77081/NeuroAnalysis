@@ -138,6 +138,9 @@ Detector = Callable[[np.ndarray, int], object]
 
 def mediapipe_detectors(kinds: set[str]) -> dict[str, Detector]:
     """VIDEO-mode MediaPipe landmarkers for the kinds asked ("pose", "hand", "face")."""
+    # MediaPipe's native logs (model loading, alignment notes) are noise for the user; errors stay.
+    os.environ.setdefault("GLOG_minloglevel", "2")
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
     import mediapipe as mp
     from mediapipe.tasks.python import BaseOptions, vision
 

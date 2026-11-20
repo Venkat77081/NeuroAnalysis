@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     details: dict = {}
     if args.cmd == "demo-report":
         result = analyse_keypoints(demo_take(), "FT", details=details)
-        args.out.write_text(render(result, details, ncid="NC-DEMO-0000", demo=True))
+        args.out.write_text(render(result, details, ncid="NC-DEMO-0000", demo=True), encoding="utf-8")
         print(args.out)
         return 0
     if not args.input.is_file():
@@ -77,10 +77,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.report:
         if args.test != "FT":
             raise SystemExit("the report is built for FT so far")
-        args.report.write_text(render(result, details, ncid=args.ncid, recorded=args.recorded))
+        args.report.write_text(
+            render(result, details, ncid=args.ncid, recorded=args.recorded), encoding="utf-8"
+        )
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.out:
-        args.out.write_text(text + "\n")
+        args.out.write_text(text + "\n", encoding="utf-8")
     else:
         print(text)
     return 0

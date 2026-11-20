@@ -89,3 +89,42 @@ def demo_roll_take(seed: int = 11) -> Keypoints:
         version="",
         models=[],
     )
+
+
+def demo_ftf_take(seed: int = 5) -> Keypoints:
+    """A synthetic Finger-to-Finger: the right index joint moves out and down from the middle about
+    once a second; the left a little slower and less far, with one pause."""
+    rng = np.random.default_rng(seed)
+    t = np.arange(900) / 60.0
+    mid = 960.0
+    pose = np.full((t.size, 33, 4), np.nan)
+    pose[:, 11, :2], pose[:, 12, :2] = (mid + 160, 300), (mid - 160, 300)
+    hands = {}
+    for side, sign, fa, f, ax, ay, pause, (elbow, wrist) in (
+        ("right", -1, FOREARM_PX[0], 1.05, 0.62, 0.28, None, (14, 16)),
+        ("left", 1, FOREARM_PX[1], 0.9, 0.52, 0.24, (9.0, 9.6), (13, 15)),
+    ):
+        pose[:, elbow, :2] = (mid + sign * 420, 720)
+        pose[:, wrist, :2] = (mid + sign * 420, 720 - fa)
+        fr = np.full_like(t, f) * (1 + 0.05 * np.sin(2 * np.pi * 0.13 * t))
+        if pause:
+            fr[(t >= pause[0]) & (t < pause[1])] = 0.0
+        g = (1 - np.cos(2 * np.pi * np.cumsum(fr) / 60.0)) / 2
+        h = np.full((t.size, 21, 3), np.nan)
+        h[:, :, 0] = (mid + sign * (25 + fa * ax * g))[:, None]
+        h[:, :, 1] = (440 + fa * ay * g + 0.04 * fa * np.sin(4 * np.pi * np.cumsum(fr) / 60.0))[:, None]
+        h[..., 2] = 0
+        h[:, 6, :2] += rng.normal(0, 1.2, (t.size, 2))
+        hands[side] = h
+    pose[..., 3] = 0.98
+    return Keypoints(
+        t=t,
+        width=1920,
+        height=1080,
+        pose=pose,
+        pose_world=np.full((t.size, 33, 3), np.nan),
+        hands=hands,
+        library="synthetic demo",
+        version="",
+        models=[],
+    )

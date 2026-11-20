@@ -350,6 +350,84 @@ def render(
         _TEST.reset(token)
 
 
+def _ftf_results(vals: dict) -> str:
+    """Finger-to-Finger results: each measure for the left and the right hand, then both hands."""
+    from .ftf import LAYOUT as FTF_LAYOUT
+    from .ftf import PAIRS
+
+    rows = "".join(
+        f"<tr><td>{escape(tr(f'measures.{key}.{stat}'))}</td>{_value_cell(vals.get(lid))}{_value_cell(vals.get(rid))}</tr>"
+        for lid, rid, key, stat, _u in FTF_LAYOUT
+    )
+    pairs = "".join(
+        f"<tr><td>{escape(tr(f'measures.pair.{key}'))}</td>{_value_cell(vals.get(bid))}</tr>"
+        for bid, key in PAIRS
+    )
+    return (
+        f'<section aria-labelledby="results"><h2 id="results">{escape(tr("summary.title"))}</h2>'
+        f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'
+        f"<th>{escape(tr('summary.left'))}</th><th>{escape(tr('summary.right'))}</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>"
+        f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'
+        f"<th>{escape(tr('summary.both'))}</th></tr></thead><tbody>{pairs}</tbody></table></div>"
+        f'<p class="hint">{escape(tr("summary.hint"))}</p></section>'
+    )
+
+
+def _ftf_calc(vals: dict, hands: dict[str, HandDetail], pairs: dict[str, list[float]]) -> list[str]:
+    """Each Finger-to-Finger value with its rule and its numbers put in."""
+    from .ftf import LAYOUT as FTF_LAYOUT
+    from .ftf import PAIRS
+
+    out = []
+    for lid, rid, key, stat, _u in FTF_LAYOUT:
+        for s, bid in (("left", lid), ("right", rid)):
+            h = hands[s]
+            head = (
+                f'<span class="what"><span class="id">{bid}</span>{escape(tr(f"measures.{key}.{stat}"))}'
+                f" · {escape(tr(f'summary.{s}'))}</span>"
+            )
+            v = vals[bid]
+            pc = h.per_cycle.get(key) or []
+            if v["status"] != "COMPUTED" or not pc:
+                body = (
+                    f"<code>{escape(tr('step4.notComputed', reason=v.get('reason', h.reason or '')))}</code>"
+                )
+            elif stat == "mean":
+                body = (
+                    f'<span class="rule">{escape(tr(f"step4.perTap.{key}"))}</span>'
+                    f"<code>{escape(tr('step4.mean', n=len(pc), terms=_terms(pc), sum=num(float(np.sum(pc))), value=num(v['value'])))}</code>"
+                )
+            else:
+                body = f"<code>{escape(tr('step4.std', n=len(pc), mean=num(float(np.mean(pc))), value=num(v['value'])))}</code>"
+            out.append(f'<div class="row">{head}{body}</div>')
+    for bid, key in PAIRS:
+        v = vals[bid]
+        head = f'<span class="what"><span class="id">{bid}</span>{escape(tr(f"measures.pair.{key}"))}</span>'
+        pc = pairs.get(key) or []
+        if v["status"] != "COMPUTED" or not pc:
+            body = f"<code>{escape(tr('step4.notComputed', reason=v.get('reason', '')))}</code>"
+        else:
+            body = (
+                f'<span class="rule">{escape(tr(f"step4.pairRule.{key}"))}</span>'
+                f"<code>{escape(tr('step4.mean', n=len(pc), terms=_terms(pc), sum=num(float(np.sum(pc))), value=num(v['value'])))}</code>"
+            )
+        out.append(f'<div class="row">{head}{body}</div>')
+    return out
+
+
+def _ftf_cycles_table(t: np.ndarray, h: HandDetail, side: str) -> str:
+    head = "".join(f"<th>{escape(tr(f'step5.cols.{k}'))}</th>" for k in ("tap", "start", "period"))
+    body = "".join(
+        f"<tr><td>{i + 1}</td><td class='v'>{t[i0]:.2f}</td><td class='v'>{num(h.per_cycle['period'][i])}</td></tr>"
+        for i, (i0, _i1) in enumerate(h.cycles)
+    )
+    return (
+        f"<details><summary>{escape(tr('step5.show', n=len(h.cycles), hand=tr(f'hands.{side}').lower()))}</summary>"
+        f'<div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div></details>'
+    )
+
+
 def _render(
     result: dict, details: dict, *, ncid: str | None, recorded: str | None, demo: bool, standalone: bool
 ) -> str:
@@ -387,20 +465,24 @@ def _render(
     if demo:
         out.append(f'<div class="demo" role="note">{escape(tr("demoBanner"))}</div>')
 
+    is_ftf = result["testCode"] == "FTF"
     # Results.
     rows = []
-    for rid, lid, aid, key, _unit in rows_layout:
+    if is_ftf:
+        out.append(_ftf_results(vals))
+    for rid, lid, aid, key, _unit in [] if is_ftf else rows_layout:
         rows.append(
             f"<tr><td>{escape(tr(f'measures.{key}'))}</td>"
             f"{_value_cell(vals.get(rid))}{_value_cell(vals.get(lid))}{_value_cell(vals.get(aid))}</tr>"
         )
-    out.append(
-        f'<section aria-labelledby="results"><h2 id="results">{escape(tr("summary.title"))}</h2>'
-        f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'
-        f"<th>{escape(tr('summary.right'))}</th><th>{escape(tr('summary.left'))}</th>"
-        f"<th>{escape(tr('summary.asym'))}</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
-        f'<p class="hint">{escape(tr("summary.asymHint"))}</p></section>'
-    )
+    if not is_ftf:
+        out.append(
+            f'<section aria-labelledby="results"><h2 id="results">{escape(tr("summary.title"))}</h2>'
+            f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'
+            f"<th>{escape(tr('summary.right'))}</th><th>{escape(tr('summary.left'))}</th>"
+            f"<th>{escape(tr('summary.asym'))}</th></tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
+            f'<p class="hint">{escape(tr("summary.asymHint"))}</p></section>'
+        )
 
     if hands:
         # 1. Points found.
@@ -457,7 +539,7 @@ def _render(
             for s in SIDES
         )
         zoom = ""
-        first = next((hands[s] for s in SIDES if hands[s].per_cycle), None)
+        first = None if is_ftf else next((hands[s] for s in SIDES if hands[s].per_cycle), None)
         if first is not None:
             svg, cap = one_tap_chart(t, first)
             zoom = f'<figure><figcaption>{escape(tr("oneTap.title"))}</figcaption>{svg}<p class="hint">{escape(cap)}</p></figure>'
@@ -465,12 +547,17 @@ def _render(
             f'<section><h2><span class="n">3</span>{escape(tr("step3.title"))}</h2>'
             f"<p>{escape(tr('step3.body', prom=round(c['minProminenceFrac'] * 100), gap=c['minPeriodS']))}</p>"
             f'<ul class="steps">{counts}</ul>{zoom}'
-            f"<figure><figcaption>{escape(tr('step3.chart'))}</figcaption>{per_tap_chart(hands)}</figure></section>"
+            + (
+                ""
+                if is_ftf
+                else f"<figure><figcaption>{escape(tr('step3.chart'))}</figcaption>{per_tap_chart(hands)}</figure>"
+            )
+            + "</section>"
         )
 
         # 4. Calculations, with the numbers put in.
-        calc = []
-        for rid, lid, aid, key, _u in rows_layout:
+        calc = _ftf_calc(vals, hands, details.get("pairs") or {}) if is_ftf else []
+        for rid, lid, aid, key, _u in [] if is_ftf else rows_layout:
             for s, bid in (("right", rid), ("left", lid)):
                 h = hands[s]
                 head = f'<span class="what"><span class="id">{bid}</span>{escape(tr(f"measures.{key}"))} · {escape(tr(f"summary.{s}"))}</span>'
@@ -499,6 +586,9 @@ def _render(
         for s in SIDES:
             h = hands[s]
             if not h.per_cycle:
+                continue
+            if is_ftf:
+                tables.append(_ftf_cycles_table(t, h, s))
                 continue
             cols = ("tap", "start", "period", *MEASURES[0:1], *MEASURES[2:])
             head = "".join(f"<th>{escape(tr(f'step5.cols.{k}'))}</th>" for k in cols)

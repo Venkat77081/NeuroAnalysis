@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/biomarker-result.schema.json",
+  "title": "BiomarkerResult",
+  "description": "M15 (decision 057): the biomarkers of one take, computed at the hospital from the 60 fps video. Decision support, not a diagnosis. Holds no patient identity. Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "analysisVersion",
+    "registryVersion",
+    "testCode",
+    "keypoints",
+    "frames",
+    "biomarkers"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "analysisVersion": {
+      "type": "string",
+      "pattern": "^ANA@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "registryVersion": {
+      "type": "string",
+      "pattern": "^REG@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "testCode": {
+      "enum": ["FT", "FTF", "FR", "SAW", "FA"]
+    },
+    "keypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["library", "version", "models"],
+      "properties": {
+        "library": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "frames": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "fps", "durationS"],
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fps": {
+          "type": "number",
+          "minimum": 0
+        },
+        "durationS": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "biomarkers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "value"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(FT|FTF|FR|SAW|FA)[0-9]+$"
+          },
+          "status": {
+            "enum": ["COMPUTED", "NOT_COMPUTABLE", "NOT_IMPLEMENTED"]
+          },
+          "value": {
+            "type": ["number", "null"]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "cycles": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

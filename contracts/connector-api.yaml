@@ -280,6 +280,110 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/biomarkers:
+    get:
+      summary: Biomarker Caps
+      description: Whether this connector can analyse takes, and for which tests.
+      operationId: biomarker_caps_v1_biomarkers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiomarkerCapsOut'
+      security:
+      - HTTPBearer: []
+  /v1/patients/{ncid}/biomarkers:
+    get:
+      summary: Patient Biomarkers
+      operationId: patient_biomarkers_v1_patients__ncid__biomarkers_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: ncid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ncid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BiomarkerRunOut'
+                title: Response Patient Biomarkers V1 Patients  Ncid  Biomarkers Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/takes/{take_id}/biomarkers:
+    post:
+      summary: Analyse Take
+      description: Starts the take's analysis (or returns the run already there, unless
+        `again`).
+      operationId: analyse_take_v1_takes__take_id__biomarkers_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: take_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Take Id
+      - name: again
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Again
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BiomarkerRunOut'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/takes/{take_id}/biomarkers/report:
+    get:
+      summary: Biomarker Report
+      description: The report with the working (self-contained HTML, no scripts).
+      operationId: biomarker_report_v1_takes__take_id__biomarkers_report_get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: take_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Take Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/takes/{take_id}/review:
     post:
       summary: Review Take
@@ -1255,6 +1359,60 @@ components:
       title: AppointmentInfoOut
       description: 'Who an appointment belongs to (decision 040: only its doctor writes
         its visit remarks).'
+    BiomarkerCapsOut:
+      properties:
+        installed:
+          type: boolean
+          title: Installed
+        tests:
+          items:
+            type: string
+          type: array
+          title: Tests
+      type: object
+      required:
+      - installed
+      - tests
+      title: BiomarkerCapsOut
+    BiomarkerRunOut:
+      properties:
+        take_id:
+          type: string
+          title: Take Id
+        test_code:
+          type: string
+          title: Test Code
+        status:
+          type: string
+          enum:
+          - running
+          - done
+          - failed
+          title: Status
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        requested_at:
+          type: string
+          format: date-time
+          title: Requested At
+        finished_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Finished At
+      type: object
+      required:
+      - take_id
+      - test_code
+      - status
+      - reason
+      - requested_at
+      - finished_at
+      title: BiomarkerRunOut
     CheckIn:
       properties:
         sample_mrn:

@@ -16,10 +16,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from ncconnector import __version__, activity, platform
+from ncconnector import __version__, activity, biomarkers, platform
 from ncconnector.auth import Staff, perm, platform_signed, role
 from ncconnector.config import get_settings
-from ncconnector.db import ActivityLog, NcidMap, Review, VisitRemark, get_db, init_db
+from ncconnector.db import ActivityLog, BiomarkerRun, NcidMap, Review, VisitRemark, get_db, init_db
 from ncconnector.delivery import DeliveryError, check_config
 from ncconnector.keys import has_take_key, take_private_key
 from ncconnector.providers import send_invite
@@ -62,6 +62,10 @@ async def _heartbeat_loop(every_s: int) -> None:
 async def lifespan(_: FastAPI):
     check_config(get_settings())
     init_db()
+    from ncconnector.db import factory
+
+    with factory()() as db:
+        biomarkers.fail_interrupted(db)
     s = get_settings()
     loops = ((_reminder_loop, s.reminder_interval_s), (_heartbeat_loop, s.heartbeat_interval_s))
     tasks = [asyncio.create_task(loop(every)) for loop, every in loops if every]
@@ -467,14 +471,8 @@ def recordings(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(
         raise _platform_error(exc) from exc
 
 
-@app.get("/v1/takes/{take_id}/files/{kind}")
-def take_file(
-    take_id: str,
-    kind: Literal["video", "frames", "landmarks", "sensors", "quality", "meta"],
-    s: Staff = Depends(clinical),
-    db: DbSession = Depends(get_db),
-) -> Response:
-    """Decrypts one file of a take for the doctor's browser (only this connector holds the key)."""
+def _decrypted(take_id: str, kind: str, s: Staff, db: DbSession) -> tuple[dict, bytes]:
+    """One file of a take, decrypted here (only this connector holds the key), after the access check."""
     try:
         info = platform.call("GET", f"/connector/v1/takes/{take_id}")
     except platform.PlatformError as exc:
@@ -508,6 +506,18 @@ def take_file(
         )
     except Exception as exc:  # noqa: BLE001 - wrong key or corrupt file
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "cannot_decrypt"}) from exc
+    return info, plain
+
+
+@app.get("/v1/takes/{take_id}/files/{kind}")
+def take_file(
+    take_id: str,
+    kind: Literal["video", "frames", "landmarks", "sensors", "quality", "meta"],
+    s: Staff = Depends(clinical),
+    db: DbSession = Depends(get_db),
+) -> Response:
+    """Decrypts one file of a take for the doctor's browser (only this connector holds the key)."""
+    info, plain = _decrypted(take_id, kind, s, db)
     activity.write(db, s.role, s.user_id, "recording_viewed", info["ncid"], take_id=take_id, file=kind)
     media = {"video": "video/mp4", "quality": "application/json", "meta": "application/json"}
     return Response(
@@ -516,6 +526,82 @@ def take_file(
         headers={
             "Cache-Control": "no-store",
             "Content-Disposition": f'inline; filename="{FILE_NAMES[kind]}"',
+        },
+    )
+
+
+# --- Biomarkers (M15, decision 059): computed and kept at the hospital ---
+
+
+class BiomarkerRunOut(BaseModel):
+    take_id: str
+    test_code: str
+    status: Literal["running", "done", "failed"]
+    reason: str | None
+    requested_at: datetime
+    finished_at: datetime | None
+
+
+class BiomarkerCapsOut(BaseModel):
+    installed: bool
+    tests: list[str]
+
+
+@app.get("/v1/biomarkers", response_model=BiomarkerCapsOut)
+def biomarker_caps(s: Staff = Depends(clinical)) -> BiomarkerCapsOut:
+    """Whether this connector can analyse takes, and for which tests."""
+    return BiomarkerCapsOut(
+        installed=biomarkers.analyser() is not None, tests=sorted(biomarkers.supported_tests())
+    )
+
+
+@app.get("/v1/patients/{ncid}/biomarkers", response_model=list[BiomarkerRunOut])
+def patient_biomarkers(
+    ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(get_db)
+) -> list[BiomarkerRunOut]:
+    _mrn_for(db, ncid)
+    require_access(s, ncid)
+    return [BiomarkerRunOut(**biomarkers.run_out(r)) for r in biomarkers.runs_for(db, ncid)]
+
+
+@app.post("/v1/takes/{take_id}/biomarkers", response_model=BiomarkerRunOut, status_code=202)
+def analyse_take(
+    take_id: str, again: bool = False, s: Staff = Depends(doctor), db: DbSession = Depends(get_db)
+) -> BiomarkerRunOut:
+    """Starts the take's analysis (or returns the run already there, unless `again`)."""
+    if biomarkers.analyser() is None:
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, {"code": "analysis_not_installed"})
+    old = db.get(BiomarkerRun, take_id)
+    if old is not None and (old.status == "running" or (old.status == "done" and not again)):
+        if old.ncid not in allowed(s, [old.ncid]):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
+        return BiomarkerRunOut(**biomarkers.run_out(old))
+    info, video = _decrypted(take_id, "video", s, db)
+    if info["test_code"] not in biomarkers.supported_tests():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "test_not_supported", "test": info["test_code"]}
+        )
+    run = biomarkers.start(db, take_id, info["ncid"], info["test_code"], s.user_id, video)
+    activity.write(db, s.role, s.user_id, "biomarkers_requested", info["ncid"], take_id=take_id)
+    return BiomarkerRunOut(**biomarkers.run_out(run))
+
+
+@app.get("/v1/takes/{take_id}/biomarkers/report")
+def biomarker_report(take_id: str, s: Staff = Depends(clinical), db: DbSession = Depends(get_db)) -> Response:
+    """The report with the working (self-contained HTML, no scripts)."""
+    run = db.get(BiomarkerRun, take_id)
+    if run is None or run.ncid not in allowed(s, [run.ncid]):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no report for this take")
+    if run.status != "done" or not run.report:
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "report_not_ready", "status": run.status})
+    activity.write(db, s.role, s.user_id, "biomarker_report_viewed", run.ncid, take_id=take_id)
+    return Response(
+        run.report,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Cache-Control": "no-store",
+            # The report has no scripts; nothing in it may load from elsewhere.
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
         },
     )
 

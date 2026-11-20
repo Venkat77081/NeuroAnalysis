@@ -419,7 +419,7 @@
     "planSaved": "Plan saved.",
     "biomarkerTitle": "Biomarker report",
     "planned": "Planned",
-    "biomarkerHint": "Computed at your hospital from the 60 fps videos; results written to your database under the NCID. Decision support only, not a diagnosis.",
+    "biomarkerHint": "Computed at your hospital from the 60 fps videos and kept in your hospital's database under the NCID. Decision support only, not a diagnosis.",
     "noPatients": "No patients are assigned to you yet. The reception desk assigns patients to doctors.",
     "periodic": "Also record at home every N days until the next appointment (only if you want it)",
     "periodicUntil": "Repeats stop at the next appointment, {{date}}.",
@@ -1840,5 +1840,16 @@
     "hoursLineNoApp": "{{hours}} · not bookable in the app",
     "addOperatorSub": "They sign in on the hospital's clinic phones with this ID. You get a temporary password to give them; they change it at their first sign-in.",
     "inviteTitle": "Invite a team member"
+  },
+  "biomarkers": {
+    "analyse": "Biomarkers",
+    "analyseHint": "Work out this recording's biomarkers at your hospital (about a minute)",
+    "running": "Analysing…",
+    "open": "Biomarker report",
+    "retry": "Biomarkers: try again",
+    "failedHint": "The last analysis did not finish. Try again.",
+    "reportSub": "Computed at your hospital from the 60 fps video. Decision support, not a diagnosis.",
+    "cardHint": "Finger Tapping recordings have a Biomarkers button. The report shows each value and how it was worked out.",
+    "notInstalled": "Biomarker analysis is not installed on your hospital's connector yet."
   }
 }

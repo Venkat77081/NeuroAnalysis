@@ -1,0 +1,110 @@
+{
+  "_comment": "Text of the biomarker report made at the hospital (biomarkers/ncbio/report.py, M15). {placeholders} are filled by the report. Never put patient names here.",
+  "docTitle": "Finger Tapping report",
+  "kicker": "NeuroCapture biomarker report",
+  "title": "Finger Tapping",
+  "decisionSupport": "Decision support for the clinician. Not a diagnosis.",
+  "demoBanner": "Synthetic demo: made-up tapping, not a patient. It shows how a report looks and how each number is worked out.",
+  "take": {
+    "ncid": "Patient code (NCID)",
+    "recorded": "Recorded",
+    "analysed": "Analysed",
+    "video": "Video",
+    "videoValue": "{count} frames · {fps} fps · {duration} s"
+  },
+  "hands": {
+    "right": "Right hand",
+    "left": "Left hand"
+  },
+  "summary": {
+    "title": "Results",
+    "measure": "Measure",
+    "right": "Right",
+    "left": "Left",
+    "asym": "Asymmetry",
+    "asymHint": "Asymmetry = |R − L| ÷ (R + L). 0 means both hands are the same; 1 means one hand did not move."
+  },
+  "measures": {
+    "amplitude": "Tapping amplitude",
+    "period": "Tapping period",
+    "speed": "Max tapping speed",
+    "acceleration": "Max tapping acceleration"
+  },
+  "units": {
+    "forearm": "forearm",
+    "s": "s",
+    "forearm/s": "forearm/s",
+    "forearm/s²": "forearm/s²",
+    "ratio": ""
+  },
+  "step1": {
+    "title": "Points found in the video",
+    "body": "MediaPipe finds the thumb tip (point 4) and the index tip (point 8) of each hand, and the elbows and wrists of the body, in every frame.",
+    "found": "{hand}: found in {pct} % of frames",
+    "forearm": "Forearm length, {hand}: the middle value (median) of the elbow-to-wrist distance over {n} frames = {px} px"
+  },
+  "step2": {
+    "title": "The tapping signal",
+    "formula": "d(t) = distance from thumb tip to index tip ÷ forearm length",
+    "pre": "Gaps up to {gap} s are filled in. Then a median filter over {median} frames and a Savitzky–Golay filter over {sg} frames ({sgs} s, order {order}) smooth out the jitter of the points.",
+    "raw": "before smoothing",
+    "smooth": "after smoothing",
+    "closing": "fingers closed",
+    "yAxis": "d (forearm lengths)",
+    "xAxis": "seconds"
+  },
+  "oneTap": {
+    "title": "How one tap is measured",
+    "body": "Tap {n} of the {hand}, from {t0} s to {t1} s.",
+    "amplitude": "amplitude {value}",
+    "period": "period {value} s",
+    "speed": "fastest point: {value} forearm/s"
+  },
+  "step3": {
+    "title": "Taps",
+    "body": "A tap runs from one closing of the fingers to the next. A closing counts when the dip is at least {prom} % of the signal's range and at least {gap} s after the one before.",
+    "count": "{hand}: {n} taps",
+    "chart": "Amplitude of each tap",
+    "xAxis": "tap number"
+  },
+  "step4": {
+    "title": "Calculations",
+    "perTap": {
+      "amplitude": "each tap: highest d − lowest d",
+      "period": "each tap: time of the next closing − time of this closing",
+      "speed": "each tap: largest |d′| (change of d per second)",
+      "acceleration": "each tap: largest |d″| (change of d′ per second)"
+    },
+    "mean": "mean of {n} taps = ({terms}) ÷ {n} = {sum} ÷ {n} = {value}",
+    "asym": "|{r} − {l}| ÷ ({r} + {l}) = {diff} ÷ {total} = {value}",
+    "notComputed": "Not computed: {reason}"
+  },
+  "step5": {
+    "title": "Every tap",
+    "show": "Show the {n} taps of the {hand}",
+    "cols": {
+      "tap": "Tap",
+      "start": "Start (s)",
+      "period": "Period (s)",
+      "amplitude": "Amplitude",
+      "speed": "Max speed",
+      "acceleration": "Max accel."
+    }
+  },
+  "status": {
+    "NOT_COMPUTABLE": "Not computed",
+    "NOT_IMPLEMENTED": "Not built yet"
+  },
+  "footer": {
+    "versions": "Analysis {analysis} · registry {registry} · {library} {version} · models: {models}",
+    "sources": "Formulas: DNE toolbox (IEEE JBHI 2024, Table A-II) and Hoang et al. 2022 (arXiv 2205.07209). Distances are in forearm lengths, so the distance to the camera does not change them.",
+    "privacy": "Computed at the hospital. This file holds no name or record number."
+  },
+  "overlay": {
+    "_comment": "Drawn on video frames by OpenCV: plain ASCII only.",
+    "right": "R (patient's right)",
+    "left": "L (patient's left)",
+    "legend": "R = patient's right hand, L = patient's left hand",
+    "notFound": "{side}: not found"
+  }
+}

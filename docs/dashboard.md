@@ -220,3 +220,13 @@ The doctor's **My patients** page works like Choose tests:
 - a card opens a side panel with the journey, the latest recordings (they play full screen), the
   last remark and the next visit, and buttons for **Watch**, **Add remark** (opens the patient page
   at the timeline), **Choose tests** and **Open full page**.
+
+## Biomarker report (M15, decision 059)
+
+- **Doctor's patient page:** each Finger Tapping recording has **Biomarkers**. It is analysed at
+  the hospital's connector in about a minute; the button then opens the **Biomarker report** (each
+  value and how it was worked out) in a dialog.
+- **Where it is kept:** the report stays in the hospital's database; the platform never receives
+  it.
+- **Not installed:** without the analysis at the connector, the patient page says so and shows no
+  button.

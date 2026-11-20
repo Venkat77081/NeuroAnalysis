@@ -21,6 +21,7 @@ import {
 } from './ui.tsx';
 import { StageBadge, type Appointment } from './appointments.tsx';
 import { myPatientsRing, takeSeconds } from './config.ts';
+import { BiomarkerAction, BiomarkerReport, useBiomarkers } from './biomarkers.tsx';
 
 interface PlatformPatient {
   ncid: string;
@@ -1015,6 +1016,9 @@ export function PatientView({
   const [notice, setNotice] = useState<string | null>(null);
   // v30: the take open in theatre mode.
   const [watching, setWatching] = useState<string | null>(null);
+  // M15 (decision 059): biomarkers computed at the hospital; the report opens in a dialog.
+  const bio = useBiomarkers(ncid);
+  const [report, setReport] = useState<string | null>(null);
 
   useEffect(() => {
     hospital<View>('GET', `/v1/patients/${ncid}`).then(setView, setError);
@@ -1065,6 +1069,9 @@ export function PatientView({
   const watchable = [...recs]
     .filter((r) => r.status === 'complete')
     .sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at))[0];
+  const latestReport = [...recs]
+    .filter((r) => bio.runs[r.take_id]?.status === 'done')
+    .sort((a, b) => Date.parse(b.started_at) - Date.parse(a.started_at))[0];
   // v28: a profile header (avatar, name, MRN line, "live from your records").
   const header = (
     <div className="nc-fu flex flex-col gap-3" data-testid="patient-header">
@@ -1104,6 +1111,15 @@ export function PatientView({
           >
             {t('patient.addRemark')}
           </Button>
+          {latestReport && (
+            <Button
+              variant="secondary"
+              onClick={() => setReport(latestReport.take_id)}
+              data-testid="header-report"
+            >
+              {t('biomarkers.open')}
+            </Button>
+          )}
           {watchable && (
             <Button onClick={() => setWatching(watchable.take_id)} data-testid="header-watch">
               ▶{' '}
@@ -1194,6 +1210,13 @@ export function PatientView({
                       </Badge>
                     )}
                     <span className="flex-1" />
+                    <BiomarkerAction
+                      take={r.take_id}
+                      test={r.test_code}
+                      complete={r.status === 'complete'}
+                      bio={bio}
+                      onOpen={setReport}
+                    />
                     {r.status === 'complete' && (
                       <Button
                         variant="secondary"
@@ -1224,12 +1247,22 @@ export function PatientView({
             <Timeline ncid={ncid} />
           </div>
           <PlanEditor ncid={ncid} />
-          <Card title={t('doctor.biomarkerTitle')} className="border-dashed">
-            <Badge>{t('doctor.planned')}</Badge>
+          <Card title={t('doctor.biomarkerTitle')} testId="biomarkers">
+            <ErrorNote error={bio.error} />
+            <p className="text-[13px] text-muted">
+              {bio.caps?.installed ? t('biomarkers.cardHint') : t('biomarkers.notInstalled')}
+            </p>
             <p className="text-[13px] text-muted">{t('doctor.biomarkerHint')}</p>
           </Card>
         </div>
       </div>
+      {report && (
+        <BiomarkerReport
+          take={report}
+          title={`${t('doctor.biomarkerTitle')} · ${view?.name ?? ncid}`}
+          onClose={() => setReport(null)}
+        />
+      )}
     </Page>
   );
 }

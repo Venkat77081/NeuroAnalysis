@@ -406,6 +406,10 @@ export class WebcamCaptureKit extends MockCaptureKit {
     return { data: null }; // webcam takes keep no landmarks.bin
   }
 
+  override async exportTakeVideo(): Promise<{ fileName: string; folder: string }> {
+    throw new Error('export_not_allowed'); // phone test mode only (decision 058)
+  }
+
   override async closePlayback(): Promise<void> {
     /* object URLs live until deleteTake */
   }

@@ -38,6 +38,16 @@ export function setTestMode(on: boolean): void {
   }
 }
 
+/**
+ * Decision 058: "Save video to phone" on the review screen, for testing the biomarker analysis on a
+ * computer. Only in the debug APK's test mode (and the browser mock, for tests); the native side
+ * also refuses in release builds and on a phone that uploads to a real server.
+ */
+export function videoExportShown(kit: CaptureKitPlugin): boolean {
+  if (!TEST_MODE_AVAILABLE) return false;
+  return kit instanceof MockCaptureKit || testModeOn();
+}
+
 let server: FakeServer | null = null;
 
 /** The pretend hospital (one per app start; it forgets on restart, so it is lenient). */

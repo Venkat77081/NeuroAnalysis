@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurocapture.local/contracts/analysis-config.schema.json",
+  "title": "AnalysisConfig",
+  "description": "M15 (decision 057): biomarker analysis at the hospital. Keypoint models (open source, Apache 2.0), detection thresholds, pre-processing (gap fill, median and Savitzky-Golay filters) and cycle detection. Schema version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "analysisVersion",
+    "models",
+    "detection",
+    "preprocess",
+    "cycles",
+    "minValidFrac"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "analysisVersion": {
+      "type": "string",
+      "pattern": "^ANA@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hand", "pose", "face"],
+      "properties": {
+        "hand": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "url"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+\\.task$"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            }
+          }
+        },
+        "pose": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "url"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+\\.task$"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            }
+          }
+        },
+        "face": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "url"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+\\.task$"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^https://"
+            }
+          }
+        }
+      }
+    },
+    "detection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxHands",
+        "minDetectionConfidence",
+        "minPresenceConfidence",
+        "minTrackingConfidence"
+      ],
+      "properties": {
+        "maxHands": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2
+        },
+        "minDetectionConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "minPresenceConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "minTrackingConfidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "preprocess": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxGapS", "medianKernel", "savgolWindowS", "savgolOrder"],
+      "description": "Gaps up to maxGapS are filled by linear interpolation; longer gaps stay missing. Then a median filter (odd kernel, frames) and a Savitzky-Golay filter (window in seconds, polynomial order).",
+      "properties": {
+        "maxGapS": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "medianKernel": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15,
+          "not": {
+            "multipleOf": 2
+          }
+        },
+        "savgolWindowS": {
+          "type": "number",
+          "minimum": 0.03,
+          "maximum": 1
+        },
+        "savgolOrder": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      }
+    },
+    "cycles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minProminenceFrac", "minPeriodS", "minCycles"],
+      "description": "A cycle runs from one minimum to the next. Minima need a prominence of at least minProminenceFrac of the signal's 5-95 % range and at least minPeriodS apart; fewer than minCycles cycles makes the biomarker NOT_COMPUTABLE.",
+      "properties": {
+        "minProminenceFrac": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "minPeriodS": {
+          "type": "number",
+          "minimum": 0.02,
+          "maximum": 5
+        },
+        "minCycles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      }
+    },
+    "minValidFrac": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Share of frames in which the needed keypoints must be found (after gap filling)."
+    }
+  }
+}

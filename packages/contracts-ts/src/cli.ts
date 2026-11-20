@@ -95,6 +95,9 @@ function runAll(): void {
       pIssues.push({ path: '/patientPin/minDigits', message: 'must not exceed maxDigits' });
   }
   report(platformFile, pIssues);
+  // 2f. Biomarker analysis at the hospital (M15, decision 057)
+  const analysisFile = join(repoRoot, 'config/analysis.json');
+  report(analysisFile, validateFile('analysis-config', analysisFile));
 
   // 3. Compatibility samples: valid must pass
   const samples = join(repoRoot, 'contracts/tests');

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0.0",
+  "analysisVersion": "ANA@0.1.0",
+  "registryVersion": "REG@0.3.0",
+  "testCode": "FT",
+  "keypoints": {
+    "library": "mediapipe",
+    "version": "1.2.3",
+    "models": ["hand_landmarker.task", "pose_landmarker_heavy.task"]
+  },
+  "frames": {
+    "count": 900,
+    "fps": 60.0,
+    "durationS": 15.0
+  },
+  "biomarkers": [
+    {
+      "id": "FT1",
+      "status": "COMPUTED",
+      "value": 0.42,
+      "unit": "forearm",
+      "cycles": 38
+    },
+    {
+      "id": "FT2",
+      "status": "NOT_COMPUTABLE",
+      "value": null,
+      "reason": "left hand found in 31 % of frames"
+    }
+  ]
+}

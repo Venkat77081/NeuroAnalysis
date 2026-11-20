@@ -80,6 +80,23 @@ class Review(Base):
     at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
+class BiomarkerRun(Base):
+    """M15 (decision 059): the biomarkers of one take, computed at the hospital. The result (values)
+    and the report (HTML with the working) are hospital-owned; the platform never receives them."""
+
+    __tablename__ = "nc_biomarker_runs"
+    take_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    ncid: Mapped[str] = mapped_column(String(40), index=True)
+    test_code: Mapped[str] = mapped_column(String(8))
+    status: Mapped[str] = mapped_column(String(16))  # running | done | failed
+    reason: Mapped[str | None] = mapped_column(String(200))
+    result: Mapped[dict | None] = mapped_column(JSON)
+    report: Mapped[str | None] = mapped_column(Text)
+    requested_by: Mapped[str] = mapped_column(String(64))
+    requested_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+
 class VisitRemark(Base):
     """Decision 040: one free-text note per appointment, by that appointment's doctor ("visit
     remarks"). Hospital-owned, like reviews; the platform never receives the text."""

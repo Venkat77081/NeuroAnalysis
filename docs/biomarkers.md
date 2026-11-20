@@ -68,13 +68,13 @@ Release builds and phones set up to upload to a real server refuse to save video
 | M15.1 | Package, config, result contract, MediaPipe keypoints, pre-processing, **FT1–FT12**               | done                         |
 | M15.2 | **FR1–FR12** (wrist height above its lowest point, pose 15/16, in forearm lengths)                | done                         |
 | M15.3 | **FTF1–FTF18** (index middle joint, hand 6: period, speed, smoothness, direction match, symmetry) | done                         |
-| M15.4 | **FA1–FA18** (face mesh distances of Table A-III, normalised by the inner eye corners)            |                              |
+| M15.4 | **FA1–FA18** (face mesh distances of Table A-III, normalised by the inner eye corners)            | done                         |
 | M15.5 | **SAW1–SAW15** (3-D ankles, knee angles, pelvis; walking and turning segments)                    |                              |
 | M15.6 | Run at the connector after each upload; report kept encrypted in the hospital's storage           | done (decisions 059, 060)    |
 | M15.7 | Report on the doctor's patient page (decision support); trends between visits                     | FT report done; trends to do |
 | M15.8 | Check on real recordings: keypoints by eye on sample takes, repeat-take agreement                 |                              |
 
-## The report (FT, FR, FTF)
+## The report (FT, FR, FTF, FA)
 
 `--report report.html` writes one self-contained HTML file (inline charts, no scripts), in the
 dashboards' colours and in light and dark. Text is in `config/messages/report.en.json`.
@@ -92,7 +92,7 @@ dashboards' colours and in light and dark. Text is in `config/messages/report.en
    asymmetry as "|R − L| ÷ (R + L)" with the values.
 6. **Every tap:** a table per hand (start, period, amplitude, max speed, max acceleration).
 
-`python -m ncbio demo-report demo.html [--test FR|FTF]` makes the same report from a synthetic take (no patient).
+`python -m ncbio demo-report demo.html [--test FR|FTF|FA]` makes the same report from a synthetic take (no patient).
 It shows a "Synthetic demo" note.
 
 ## Accuracy on synthetic tapping (tests/test_ft.py)
@@ -151,3 +151,26 @@ container, measured on frames with no person in them, so real takes will be slow
   - period, speed and smoothness come out exact, and direction match and symmetry are 1.00;
   - with 2 px of jitter, direction match is 0.99;
   - with a slower left hand, symmetry falls to about −0.1.
+
+## Facial Activation (FA1–FA18)
+
+- **Points:** the MediaPipe face mesh (478 points). Each distance is Eq. A-I of the paper: the root of
+  the summed squared distances between the paired points of two groups (Table A-III): eye opening
+  (R, L), eyebrow height (R, L), mouth opening (left and right halves; their mean is "mouth"),
+  mouth width (corners 78/308) and jaw opening.
+- **Scale:** every frame is divided by that frame's distance between the inner eye corners (points
+  133/362, "IED"), so head size and distance to the camera drop out. Then the shared smoothing.
+- **Measures:**
+  - FA1–FA5: STD of eye opening (R, L), mouth opening, mouth width, jaw opening (IED);
+  - FA6–FA10: STD of the speed (change per second, IED/s) of eye opening (R, L), eyebrow height
+    (R, L) and mouth opening;
+  - FA11–FA14: NIQR = (P90 − P10) ÷ P90 of eye opening (R, L), mouth opening, mouth width;
+  - FA15–FA18: Pearson CC of left and right eye opening, mouth halves, and their speeds.
+- **Not computable** when the face is found in fewer frames than `minValidFrac`, or when a signal does
+  not move at all.
+- **Report:** results grouped by kind; how often the face was found and the IED; charts of each
+  distance over the take; every calculation with its numbers.
+- **On synthetic movement** (60 fps, 15 s): every value equals the formula on the known signals;
+  left in step gives symmetry 1.00, a quarter cycle late 0.00, half a cycle −1.00; a bigger head
+  changes nothing once divided by the IED. With 0.25 px jitter, the speed-based values are the most
+  affected (FA6 about +11 %, FA17 about 0.85), since differencing amplifies noise.

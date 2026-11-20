@@ -350,6 +350,114 @@ def render(
         _TEST.reset(token)
 
 
+def lines_chart(t: np.ndarray, series: list[tuple[str, np.ndarray, str]], label: str) -> str:
+    """Facial Activation: one or two signals over time, drawn to one scale (classes right / left)."""
+    tops = [float(np.nanmax(v)) for _, v, _ in series if np.isfinite(v).any()]
+    f = Frame(
+        720,
+        170,
+        0.0,
+        float(np.ceil(t[-1])) if t.size else 1.0,
+        _nice_max(max(tops) * 1.05) if tops else 1.0,
+        top=18,
+    )
+    parts = [
+        f.axes(list(range(0, int(f.x1) + 1, 3)), lambda x: f"{x:g}", tr("step2.yAxis"), tr("step2.xAxis"))
+    ]
+    for _name, v, cls in series:
+        parts.append(f'<path class="line {cls}" d="{_path(t, v, f.sx, f.sy)}"/>')
+    return f'<svg viewBox="0 0 {f.w} {f.h}" role="img" aria-label="{escape(label)}">{"".join(parts)}</svg>'
+
+
+def _fa_results(vals: dict) -> str:
+    from .fa import LAYOUT as FA_LAYOUT
+
+    groups: dict[str, list[str]] = {}
+    for bid, kind, _names, _u in FA_LAYOUT:
+        groups.setdefault(kind.replace("cc_speed", "cc"), []).append(bid)
+    blocks = []
+    for kind, ids in groups.items():
+        rows = "".join(
+            f"<tr><td>{escape(tr(f'measures.{bid}'))}</td>{_value_cell(vals.get(bid))}</tr>" for bid in ids
+        )
+        blocks.append(
+            f"<h3>{escape(tr(f'groups.{kind}'))}</h3>"
+            f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'
+            f"<th>{escape(tr('summary.value'))}</th></tr></thead><tbody>{rows}</tbody></table></div>"
+        )
+    return (
+        f'<section aria-labelledby="results"><h2 id="results">{escape(tr("summary.title"))}</h2>'
+        + "".join(blocks)
+        + f'<p class="hint">{escape(tr("summary.hint"))}</p></section>'
+    )
+
+
+def _fa_sections(vals: dict, details: dict, cfg: dict, fps: float) -> list[str]:
+    """Facial Activation: points found, the distances over time, and the calculations."""
+    from .fa import LAYOUT as FA_LAYOUT
+
+    t: np.ndarray = details["t"]
+    sig: dict[str, np.ndarray] = details["face_signals"]
+    out = [
+        f'<section><h2><span class="n">1</span>{escape(tr("step1.title"))}</h2>'
+        f'<p>{escape(tr("step1.body"))}</p><ul class="steps">'
+        f"<li>{escape(tr('step1.faceFound', pct=round(details['found_frac'] * 100)))}</li>"
+        f"<li>{escape(tr('step1.ied', n=details['ied_frames'], px=num(details['ied_px'])))}</li></ul></section>"
+    ]
+    p = cfg["preprocess"]
+    sg = max(int(round(p["savgolWindowS"] * fps)) | 1, (p["savgolOrder"] + 2) | 1)
+    charts = []
+    for key, pair in (
+        ("eyes", (("eye_r", "right"), ("eye_l", "left"))),
+        ("brows", (("brow_r", "right"), ("brow_l", "left"))),
+        ("mouth", (("mouth_r", "right"), ("mouth_l", "left"))),
+        ("width", (("width", "right"),)),
+        ("jaw", (("jaw", "right"),)),
+    ):
+        series = [(n, sig[n], c) for n, c in pair if np.isfinite(sig[n]).any()]
+        if series and t.size:
+            charts.append(
+                f"<figure><figcaption>{escape(tr(f'signals.{key}'))}</figcaption>"
+                f"{lines_chart(t, series, tr(f'signals.{key}'))}</figure>"
+            )
+    legend = (
+        f'<div class="legend"><span class="key"><i class="right"></i>{escape(tr("signals.right"))}</span>'
+        f'<span class="key"><i class="left"></i>{escape(tr("signals.left"))}</span></div>'
+    )
+    out.append(
+        f'<section><h2><span class="n">2</span>{escape(tr("step2.title"))}</h2>'
+        f"<p><code>{escape(tr('step2.formula'))}</code></p>"
+        f"<p>{escape(tr('step2.pre', gap=p['maxGapS'], median=p['medianKernel'], sg=sg, sgs=p['savgolWindowS'], order=p['savgolOrder']))}</p>"
+        f'{legend}<div class="charts">{"".join(charts)}</div></section>'
+    )
+    calc = []
+    for bid, kind, _names, _u in FA_LAYOUT:
+        v, c = vals[bid], details["calc"].get(bid, {})
+        head = f'<span class="what"><span class="id">{bid}</span>{escape(tr(f"measures.{bid}"))}</span>'
+        if v["status"] != "COMPUTED":
+            body = f"<code>{escape(tr('step4.notComputed', reason=v.get('reason', '')))}</code>"
+        elif kind == "niqr":
+            body = (
+                f'<span class="rule">{escape(tr("step4.rule.niqr"))}</span>'
+                f"<code>{escape(tr('step4.niqr', p90=num(c['p90']), p10=num(c['p10']), value=num(v['value'])))}</code>"
+            )
+        elif kind in ("cc", "cc_speed"):
+            body = (
+                f'<span class="rule">{escape(tr(f"step4.rule.{kind}"))}</span>'
+                f"<code>{escape(tr('step4.cc', n=c.get('n', 0), value=num(v['value'])))}</code>"
+            )
+        else:
+            body = (
+                f'<span class="rule">{escape(tr(f"step4.rule.{kind}"))}</span>'
+                f"<code>{escape(tr('step4.std', n=c.get('n', 0), mean=num(c.get('mean')), value=num(v['value'])))}</code>"
+            )
+        calc.append(f'<div class="row">{head}{body}</div>')
+    out.append(
+        f'<section><h2><span class="n">3</span>{escape(tr("step4.title"))}</h2><div class="calc">{"".join(calc)}</div></section>'
+    )
+    return out
+
+
 def _ftf_results(vals: dict) -> str:
     """Finger-to-Finger results: each measure for the left and the right hand, then both hands."""
     from .ftf import LAYOUT as FTF_LAYOUT
@@ -466,16 +574,24 @@ def _render(
         out.append(f'<div class="demo" role="note">{escape(tr("demoBanner"))}</div>')
 
     is_ftf = result["testCode"] == "FTF"
+    if result["testCode"] == "FA":
+        out.append(_fa_results(vals))
+        if details.get("face_signals"):
+            out.extend(_fa_sections(vals, details, cfg, fr["fps"] or 60))
+        hands = {}
+        rows_layout = []
     # Results.
     rows = []
     if is_ftf:
         out.append(_ftf_results(vals))
+    elif result["testCode"] == "FA":
+        pass
     for rid, lid, aid, key, _unit in [] if is_ftf else rows_layout:
         rows.append(
             f"<tr><td>{escape(tr(f'measures.{key}'))}</td>"
             f"{_value_cell(vals.get(rid))}{_value_cell(vals.get(lid))}{_value_cell(vals.get(aid))}</tr>"
         )
-    if not is_ftf:
+    if not is_ftf and result["testCode"] != "FA":
         out.append(
             f'<section aria-labelledby="results"><h2 id="results">{escape(tr("summary.title"))}</h2>'
             f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'

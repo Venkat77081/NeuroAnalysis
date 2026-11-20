@@ -88,6 +88,7 @@ def connector(platform_api, monkeypatch):
     monkeypatch.setattr(cs, "hospital_name", "Sunrise Neuro Clinic")
     monkeypatch.setattr(cs, "activity_sink", "db")
     monkeypatch.setattr(cs, "reminder_interval_s", 0)
+    monkeypatch.setattr(cs, "analysis_interval_s", 0)  # tests call poll_new_takes themselves
     for f in (ncdb.get_engine, ncdb.factory, signing_key):
         f.cache_clear()
     ncdb.init_db()

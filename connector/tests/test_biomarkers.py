@@ -98,3 +98,20 @@ def test_runs_left_running_by_a_restart_are_marked_failed(connector):
         assert biomarkers.fail_interrupted(db) == 1
         r = db.get(BiomarkerRun, "t" * 32)
         assert (r.status, r.reason) == ("failed", "interrupted")
+
+
+def test_new_take_in_development_storage_is_analysed_automatically(connector, monkeypatch):
+    """Decision 060 without a hospital bucket: the report stays in the connector's database."""
+    env, c = connector, connector["client"]
+    monkeypatch.setattr(
+        biomarkers, "ANALYSER", lambda video, test, ncid: ({"testCode": test}, "<p>dev report</p>")
+    )
+    with factory()() as db:
+        assert biomarkers.poll_new_takes(db) == 0
+    _, doc, ncid, take_id = _setup(env, "tk-bio-auto")
+    with factory()() as db:
+        assert biomarkers.poll_new_takes(db) == 1
+    biomarkers.wait_idle()
+    runs = c.get(f"/v1/patients/{ncid}/biomarkers", headers=doc).json()
+    assert [(r["take_id"], r["status"]) for r in runs] == [(take_id, "done")]
+    assert "dev report" in c.get(f"/v1/takes/{take_id}/biomarkers/report", headers=doc).text

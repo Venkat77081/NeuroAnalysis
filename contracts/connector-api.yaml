@@ -896,6 +896,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
     servers: *id001
+  /connector/v1/takes:
+    get:
+      tags:
+      - connector
+      summary: Connector Completed Takes
+      description: 'M15 (decision 060): takes whose upload completed after `since`,
+        oldest first, so the
+
+        hospital''s connector can analyse each new take. NCIDs and test codes only.'
+      operationId: connector_completed_takes_connector_v1_takes_get
+      parameters:
+      - name: since
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+          title: Since
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CompletedTakeOut'
+                title: Response Connector Completed Takes Connector V1 Takes Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    servers: *id001
   /connector/v1/messaging/status:
     post:
       tags:
@@ -1396,6 +1438,28 @@ components:
       - activity_log
       - decrypt_key
       title: CheckOut
+    CompletedTakeOut:
+      properties:
+        take_id:
+          type: string
+          title: Take Id
+        ncid:
+          type: string
+          title: Ncid
+        test_code:
+          type: string
+          title: Test Code
+        uploaded_at:
+          type: string
+          format: date-time
+          title: Uploaded At
+      type: object
+      required:
+      - take_id
+      - ncid
+      - test_code
+      - uploaded_at
+      title: CompletedTakeOut
     ConnectorIn:
       properties:
         url:

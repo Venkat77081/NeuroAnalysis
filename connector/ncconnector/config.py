@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     signature_window_s: int = 300
     #: v3: how often due recording reminders are sent (0 = off; then use the CLI).
     reminder_interval_s: int = 900
+    #: M15 (decision 060): how often to look for newly uploaded takes to analyse (0 = off).
+    analysis_interval_s: int = 60
     message_lang: str = "en"
 
 

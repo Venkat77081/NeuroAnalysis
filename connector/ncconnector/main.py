@@ -2,7 +2,6 @@
 
 import asyncio
 import base64
-import hashlib
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -16,16 +15,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from ncconnector import __version__, activity, biomarkers, platform
+from ncconnector import __version__, activity, biomarkers, platform, takes
 from ncconnector.auth import Staff, perm, platform_signed, role
 from ncconnector.config import get_settings
 from ncconnector.db import ActivityLog, BiomarkerRun, NcidMap, Review, VisitRemark, get_db, init_db
 from ncconnector.delivery import DeliveryError, check_config
-from ncconnector.keys import has_take_key, take_private_key
+from ncconnector.keys import has_take_key
 from ncconnector.providers import send_invite
 from ncconnector.records import RecordsUnavailableError, records
-from ncconnector.storage import read_object
-from ncconnector.takecrypto import FILE_NAMES, decrypt_file, unwrap_data_key
+from ncconnector.takecrypto import FILE_NAMES
 
 log = logging.getLogger("ncconnector")
 
@@ -47,6 +45,22 @@ async def _reminder_loop(every_s: int) -> None:
         await asyncio.sleep(every_s)
 
 
+async def _analysis_loop(every_s: int) -> None:
+    """Decision 060: analyse each take soon after its upload completes."""
+    from ncconnector.db import factory
+
+    def run() -> None:
+        with factory()() as db:
+            biomarkers.poll_new_takes(db)
+
+    while True:
+        try:
+            await asyncio.to_thread(run)
+        except Exception as exc:  # noqa: BLE001 - next round
+            log.warning("analysis poll failed: %s", type(exc).__name__)
+        await asyncio.sleep(every_s)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     check_config(get_settings())
@@ -55,10 +69,11 @@ async def lifespan(_: FastAPI):
 
     with factory()() as db:
         biomarkers.fail_interrupted(db)
-    every = get_settings().reminder_interval_s
-    task = asyncio.create_task(_reminder_loop(every)) if every else None
+    s = get_settings()
+    loops = ((_reminder_loop, s.reminder_interval_s), (_analysis_loop, s.analysis_interval_s))
+    tasks = [asyncio.create_task(loop(every)) for loop, every in loops if every]
     yield
-    if task:
+    for task in tasks:
         task.cancel()
 
 
@@ -461,40 +476,10 @@ def recordings(ncid: str, s: Staff = Depends(clinical), db: DbSession = Depends(
 
 def _decrypted(take_id: str, kind: str, s: Staff, db: DbSession) -> tuple[dict, bytes]:
     """One file of a take, decrypted here (only this connector holds the key), after the access check."""
-    try:
-        info = platform.call("GET", f"/connector/v1/takes/{take_id}")
-    except platform.PlatformError as exc:
-        raise _platform_error(exc) from exc
+    info = takes.info(take_id)
     if db.get(NcidMap, info["ncid"]) is None or info["ncid"] not in allowed(s, [info["ncid"]]):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "take not found")
-    key = take_private_key(info["key_id"])
-    if key is None:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, {"code": "no_take_key", "key_id": info["key_id"]}
-        )
-    f = next((x for x in info["files"] if x["kind"] == kind), None)
-    if not f:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "file not in this take")
-    try:
-        ciphertext = read_object(f["location"]) if f.get("location") else platform.download(f["url"])
-    except platform.PlatformError as exc:
-        raise _platform_error(exc) from exc
-    ok = hashlib.sha256(ciphertext).hexdigest() == f["sha256"]
-    if f.get("checksum_verified") is None:
-        # Hospital bucket: the platform could not read the file; report the check (M12).
-        try:
-            platform.call("POST", f"/connector/v1/takes/{take_id}/files/{kind}/verified", {"ok": ok})
-        except platform.PlatformError:
-            log.warning("could not report checksum result")
-    if not ok:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, {"code": "checksum_mismatch"})
-    try:
-        plain = decrypt_file(
-            unwrap_data_key(info["wrapped_data_key"], key), info["client_take_id"], kind, ciphertext
-        )
-    except Exception as exc:  # noqa: BLE001 - wrong key or corrupt file
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "cannot_decrypt"}) from exc
-    return info, plain
+    return info, takes.decrypted(info, kind)
 
 
 @app.get("/v1/takes/{take_id}/files/{kind}")
@@ -569,7 +554,7 @@ def analyse_take(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "test_not_supported", "test": info["test_code"]}
         )
-    run = biomarkers.start(db, take_id, info["ncid"], info["test_code"], s.user_id, video)
+    run = biomarkers.start(db, info, s.user_id, video)
     activity.write(db, s.role, s.user_id, "biomarkers_requested", info["ncid"], take_id=take_id)
     return BiomarkerRunOut(**biomarkers.run_out(run))
 
@@ -580,11 +565,19 @@ def biomarker_report(take_id: str, s: Staff = Depends(clinical), db: DbSession =
     run = db.get(BiomarkerRun, take_id)
     if run is None or run.ncid not in allowed(s, [run.ncid]):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no report for this take")
-    if run.status != "done" or not run.report:
+    if run.status != "done":
+        raise HTTPException(status.HTTP_409_CONFLICT, {"code": "report_not_ready", "status": run.status})
+    try:
+        report = biomarkers.load_report(db, run)
+    except platform.PlatformError as exc:
+        raise takes.platform_error(exc) from exc
+    except Exception as exc:  # noqa: BLE001 - key missing or the stored copy damaged
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, {"code": "cannot_decrypt"}) from exc
+    if not report:
         raise HTTPException(status.HTTP_409_CONFLICT, {"code": "report_not_ready", "status": run.status})
     activity.write(db, s.role, s.user_id, "biomarker_report_viewed", run.ncid, take_id=take_id)
     return Response(
-        run.report,
+        report,
         media_type="text/html; charset=utf-8",
         headers={
             "Cache-Control": "no-store",

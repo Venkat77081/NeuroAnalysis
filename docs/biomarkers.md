@@ -66,15 +66,15 @@ Release builds and phones set up to upload to a real server refuse to save video
 | Step  | What                                                                                             | State                        |
 | ----- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
 | M15.1 | Package, config, result contract, MediaPipe keypoints, pre-processing, **FT1–FT12**              | done                         |
-| M15.2 | **FR1–FR12** (wrist vertical position, pose 15/16)                                               | next                         |
+| M15.2 | **FR1–FR12** (wrist height above its lowest point, pose 15/16, in forearm lengths)               | done                         |
 | M15.3 | **FTF1–FTF18** (index middle joint, hand 6: period, speed, smoothness, velocity angle, symmetry) |                              |
 | M15.4 | **FA1–FA18** (face mesh distances of Table A-III, normalised by the inner eye corners)           |                              |
 | M15.5 | **SAW1–SAW15** (3-D ankles, knee angles, pelvis; walking and turning segments)                   |                              |
-| M15.6 | Run at the connector: analyse a take when the doctor asks, keep the result at the hospital       | done (decision 059)          |
+| M15.6 | Run at the connector after each upload; report kept encrypted in the hospital's storage          | done (decisions 059, 060)    |
 | M15.7 | Report on the doctor's patient page (decision support); trends between visits                    | FT report done; trends to do |
 | M15.8 | Check on real recordings: keypoints by eye on sample takes, repeat-take agreement                |                              |
 
-## The report (FT)
+## The report (FT, FR)
 
 `--report report.html` writes one self-contained HTML file (inline charts, no scripts), in the
 dashboards' colours and in light and dark. Text is in `config/messages/report.en.json`.
@@ -92,7 +92,7 @@ dashboards' colours and in light and dark. Text is in `config/messages/report.en
    asymmetry as "|R − L| ÷ (R + L)" with the values.
 6. **Every tap:** a table per hand (start, period, amplitude, max speed, max acceleration).
 
-`python -m ncbio demo-report demo.html` makes the same report from a synthetic take (no patient).
+`python -m ncbio demo-report demo.html [--test FR]` makes the same report from a synthetic take (no patient).
 It shows a "Synthetic demo" note.
 
 ## Accuracy on synthetic tapping (tests/test_ft.py)
@@ -114,3 +114,22 @@ dataset. Faster tapping is smoothed more; the filter sizes are in `config/analys
 Pose (heavy) and hands together take about 25 ms per 1080p frame on 4 CPU cores in the test
 container, measured on frames with no person in them, so real takes will be slower. A 15 s take
 (900 frames) therefore takes 20–60 s on a small CPU server. A GPU is not needed.
+
+## Forearm Roll (FR1–FR12)
+
+- **Signal:** h(t) = how high each wrist (pose 16 right, 15 left) is above its lowest point (the
+  95th percentile of image y), divided by that side's forearm length. Only the body model is
+  needed.
+- **Measures:** the same four as tapping (`ncbio/cyclic.py`): each roll runs from one lowest point
+  to the next, with amplitude, period, max speed and max acceleration as means over rolls, and
+  Asym(R, L).
+- **On synthetic rolling** (2 Hz, 0.4 forearm, 60 fps, 15 s), against the true values:
+
+  | Measure      | Without jitter | With 2 px jitter |
+  | ------------ | -------------- | ---------------- |
+  | Amplitude    | −1 %           | −2 %             |
+  | Period       | exact          | exact            |
+  | Speed        | −2 %           | +5 %             |
+  | Acceleration | −4 %           | +17 %            |
+
+  Acceleration is the value most affected by jitter in the points.

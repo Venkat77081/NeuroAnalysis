@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { VerdictReason } from '@neurocapture/quality-core';
 import { capture } from '../../lib/capture.ts';
+import { videoExportShown } from '../../lib/testmode.ts';
 import { landmarkOverlayEnabled, setLandmarkOverlay } from '../../lib/debug-flags.ts';
 import { ReplayOverlay } from '../../overlays/ReplayOverlay.tsx';
 import { LandmarksToggle } from '../../overlays/LandmarksToggle.tsx';
@@ -35,6 +36,34 @@ export function Review() {
   const [skipping, setSkipping] = useState(false);
   const [showLm, setShowLm] = useState(landmarkOverlayEnabled);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [saved, setSaved] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  /** Decision 058 (test mode only): the decrypted video into Movies/NeuroCapture. */
+  async function saveVideo() {
+    setSaving(true);
+    setSaved(null);
+    try {
+      const label = [step.code, step.side, `take${take.takeNo}`].filter(Boolean).join('_');
+      const r = await capture.kit.exportTakeVideo({ takeId: take.takeId, label });
+      setSaved({
+        ok: true,
+        text: t('session.review.videoSaved', { folder: r.folder, name: r.fileName }),
+      });
+    } catch (e) {
+      const code = e instanceof Error ? e.message : '';
+      setSaved({
+        ok: false,
+        text: code.includes('android_10')
+          ? t('session.review.videoNeedsAndroid10')
+          : code.includes('not_allowed')
+            ? t('session.review.videoNotAllowed')
+            : t('session.review.videoFailed'),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function play() {
     try {
@@ -157,6 +186,26 @@ export function Review() {
             </dd>
           </Card>
         </dl>
+
+        {videoExportShown(capture.kit) && (
+          <div className="flex flex-col gap-1.5" data-testid="video-export">
+            <Button
+              variant="secondary"
+              disabled={saving}
+              onClick={() => void saveVideo()}
+              data-testid="save-video"
+            >
+              {t('session.review.saveVideo')}
+            </Button>
+            <span
+              className={`text-center text-xs ${saved ? (saved.ok ? 'text-ok' : 'text-bad') : 'text-muted'}`}
+              role="status"
+              data-testid="save-video-note"
+            >
+              {saved ? saved.text : t('session.review.saveVideoHint')}
+            </span>
+          </div>
+        )}
       </main>
 
       <footer className="flex flex-col gap-2 px-5 pt-3 pb-6">

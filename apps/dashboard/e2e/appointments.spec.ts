@@ -83,8 +83,8 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   await expect(page.getByTestId('choose-not-joined')).toContainText(
     'failed the camera check (41 fps)',
   );
-  await expect(page.getByTestId('choose-home')).toBeDisabled();
-  await expect(page.getByTestId('choose-clinic')).toBeChecked();
+  await expect(page.getByTestId('choose-where-home')).toBeDisabled(); // v32: Home / Clinic / Both
+  await expect(page.getByTestId('choose-where-clinic')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('choose-send')).toHaveText('Add to the clinic queue');
   await page.getByTestId('choose-send').click();
   await expect(page.getByTestId('notice')).toContainText('Sent.');
@@ -96,8 +96,8 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
   await expect(page.getByTestId('choose-test-SAW')).not.toBeChecked();
   await page.getByTestId('choose-test-FA').check();
   await page.getByTestId('choose-med').selectOption('OFF');
-  await expect(page.getByTestId('choose-home')).toBeChecked();
-  await page.getByTestId('choose-clinic').check();
+  await expect(page.getByTestId('choose-where-home')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('choose-where-both').click();
   await page.getByTestId('choose-repeat').check();
   await page.getByTestId('choose-days').fill('7');
   await expect(page.getByTestId('choose-send')).toHaveText(

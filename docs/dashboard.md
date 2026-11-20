@@ -196,3 +196,14 @@ pnpm e2e:dashboard                                # real platform + connector + 
 ## Overview (v10, decision 042)
 
 Every role starts on **Overview**: five cards, one chart (hover for values, **Table** for the numbers) and a short list. The platform admin's page holds counts and hospital names only. The hospital admin's **Data connections** page has **Messages to patients: e-mail and SMS**, saved at the hospital connector (encrypted), with "Send a test".
+
+## Choose tests as cards (v32, canvas page v32)
+
+The doctor's **Choose tests** page works like the platform's Hospitals page:
+
+- filter chips (All, This week, Moved to you, Not in the app) and a visit-date order;
+- one card per appointment waiting for tests, with a ring counting the days to the visit and
+  chips for the patient's state;
+- a card opens a side panel with the tests as tick rows (each with its length, never shorter than
+  the default), where to record (Home / Clinic / Both), medicine state, record-by date,
+  **Repeat at home** every N days, the medical history and **Send**.

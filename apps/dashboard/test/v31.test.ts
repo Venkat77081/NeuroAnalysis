@@ -161,3 +161,29 @@ describe('v31: test lengths (decision 054)', () => {
     expect(takeOptions.SAW).toEqual([45, 60, 90]);
   });
 });
+
+import { chooseMatch, daysUntil } from '../src/choose.tsx';
+
+describe('v32: Choose tests cards', () => {
+  const now = new Date(2026, 10, 20, 10, 0).getTime();
+  const at = (d: number, h = 9) => new Date(2026, 10, 20 + d, h).toISOString();
+  it('counts whole days to the visit (0 = today)', () => {
+    expect(daysUntil(at(0, 18), now)).toBe(0);
+    expect(daysUntil(at(1, 8), now)).toBe(1);
+    expect(daysUntil(at(7), now)).toBe(7);
+    expect(daysUntil(at(-1), now)).toBe(0);
+  });
+  it('filters by week, moved and not in the app', () => {
+    const a = { at: at(3), suggested_tests: null };
+    const moved = {
+      at: at(10),
+      suggested_tests: { tests: [], med_state: 'OFF', places: ['home'] },
+    };
+    expect(chooseMatch(a, 'all', now, true)).toBe(true);
+    expect(chooseMatch(a, 'week', now, true)).toBe(true);
+    expect(chooseMatch(moved as never, 'week', now, true)).toBe(false);
+    expect(chooseMatch(moved as never, 'moved', now, true)).toBe(true);
+    expect(chooseMatch(a, 'noApp', now, false)).toBe(true);
+    expect(chooseMatch(a, 'noApp', now, undefined)).toBe(false);
+  });
+});

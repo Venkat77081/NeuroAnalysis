@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     #: v29 (decision 052): how often the connector checks in with the platform (0 = off). Keep
     #: it at or below the platform's connectorHealth.heartbeatSeconds (config/platform.json).
     heartbeat_interval_s: int = 300
+    #: M15 (decision 060): how often to look for newly uploaded takes to analyse (0 = off).
+    analysis_interval_s: int = 60
+    #: When the automatic analysis first runs, takes uploaded in these last days are analysed too.
+    analysis_backfill_days: int = 7
     message_lang: str = "en"
 
 

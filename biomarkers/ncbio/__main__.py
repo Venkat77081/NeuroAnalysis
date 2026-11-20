@@ -3,7 +3,7 @@
     python -m ncbio models                         # download the keypoint models (once)
     python -m ncbio analyse VIDEO --test FT [--out result.json] [--keypoints kp.npz]
     python -m ncbio analyse KP.npz --test FT --report report.html [--ncid NC-…]
-    python -m ncbio demo-report report.html       # the report on a synthetic take (no patient)
+    python -m ncbio demo-report report.html [--test FR]   # the report on a synthetic take (no patient)
     python -m ncbio analyse VIDEO --test FT --overlay check.mp4   # points drawn on the video, R / L
 
 The result holds biomarker values only: no names, no frames, no landmark streams.
@@ -19,11 +19,11 @@ import urllib.request
 from pathlib import Path
 
 from .config import analysis_config
-from .demo import demo_take
+from .demo import demo_roll_take, demo_take
 from .keypoints import TEST_KINDS, Keypoints, keypoints_from_video, model_path
 from .overlay import write_overlay
 from .report import render
-from .run import analyse_keypoints
+from .run import REPORT_TESTS, analyse_keypoints
 
 
 def download_models() -> None:
@@ -55,13 +55,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     d = sub.add_parser("demo-report", help="the report on a synthetic take, to see how it looks")
     d.add_argument("out", type=Path)
+    d.add_argument("--test", default="FT", choices=sorted(REPORT_TESTS))
     args = ap.parse_args(argv)
     if args.cmd == "models":
         download_models()
         return 0
     details: dict = {}
     if args.cmd == "demo-report":
-        result = analyse_keypoints(demo_take(), "FT", details=details)
+        take = demo_take() if args.test == "FT" else demo_roll_take()
+        result = analyse_keypoints(take, args.test, details=details)
         args.out.write_text(render(result, details, ncid="NC-DEMO-0000", demo=True), encoding="utf-8")
         print(args.out)
         return 0
@@ -88,8 +90,8 @@ def main(argv: list[str] | None = None) -> int:
             n = write_overlay(args.input, kp, args.overlay)
             print(f"{args.overlay} ({n} frames)")
     if args.report:
-        if args.test != "FT":
-            raise SystemExit("the report is built for FT so far")
+        if args.test not in REPORT_TESTS:
+            raise SystemExit(f"the report is built for {', '.join(sorted(REPORT_TESTS))} so far")
         args.report.write_text(
             render(result, details, ncid=args.ncid, recorded=args.recorded), encoding="utf-8"
         )

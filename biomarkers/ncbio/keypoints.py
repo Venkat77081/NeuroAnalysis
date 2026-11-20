@@ -256,7 +256,7 @@ def extract(
 TEST_KINDS: dict[str, set[str]] = {
     "FT": {"pose", "hand"},
     "FTF": {"pose", "hand"},
-    "FR": {"pose", "hand"},
+    "FR": {"pose"},  # the wrists of the body model only
     "SAW": {"pose"},
     "FA": {"face"},
 }

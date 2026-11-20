@@ -424,6 +424,38 @@ def connector_takes(
     ]
 
 
+class CompletedTakeOut(BaseModel):
+    take_id: str
+    ncid: str
+    test_code: str
+    uploaded_at: datetime
+
+
+@router.get("/connector/v1/takes", response_model=list[CompletedTakeOut])
+def connector_completed_takes(
+    since: datetime,
+    limit: int = 100,
+    site: Site = Depends(signed_connector),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> list[CompletedTakeOut]:
+    """M15 (decision 060): takes whose upload completed after `since`, oldest first, so the
+    hospital's connector can analyse each new take. NCIDs and test codes only."""
+    if since.tzinfo is None:
+        since = since.replace(tzinfo=UTC)
+    q = (
+        select(Take, Patient.ncid)
+        .join(Session, Session.id == Take.session_id)
+        .join(Patient, Patient.id == Session.patient_id)
+        .where(Patient.site_id == site.id, Take.status == "complete", Take.uploaded_at > since)
+        .order_by(Take.uploaded_at)
+        .limit(max(1, min(limit, 500)))
+    )
+    return [
+        CompletedTakeOut(take_id=t.id, ncid=ncid, test_code=t.test_code, uploaded_at=t.uploaded_at)
+        for t, ncid in db.execute(q)
+    ]
+
+
 class ObjectLocation(BaseModel):
     """A file in the hospital's own storage: the connector reads it with the hospital's credentials.
     s3: bucket (+ region); azure: account and container (decision 037)."""

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { hospital, hospitalText } from './api.ts';
+import { testOrder } from './config.ts';
 import { Button, Dialog, ErrorNote } from './ui.tsx';
 
 export interface BiomarkerRun {
@@ -114,22 +115,87 @@ export function BiomarkerAction({
   );
 }
 
-/** The report in a dialog: the connector's HTML in a sandboxed frame (no scripts, nothing loaded). */
+/** v34: the other finished reports from the same visit (session) as `take`, in protocol order. */
+export function sessionReports(
+  recs: { take_id: string; session_id: string; test_code: string }[],
+  runs: Record<string, Pick<BiomarkerRun, 'status'>>,
+  take: string,
+): { take: string; test: string }[] {
+  const sid = recs.find((r) => r.take_id === take)?.session_id;
+  if (!sid) return [{ take, test: '' }];
+  return recs
+    .filter((r) => r.session_id === sid && runs[r.take_id]?.status === 'done')
+    .sort((a, b) => testOrder.indexOf(a.test_code) - testOrder.indexOf(b.test_code))
+    .map((r) => ({ take: r.take_id, test: r.test_code }));
+}
+
+/** v34: a chip on a recording tile: "Report" (opens it) or "Analysing". */
+export function ReportChip({
+  take,
+  test,
+  bio,
+  onOpen,
+}: {
+  take: string;
+  test: string;
+  bio: Biomarkers;
+  onOpen: (take: string) => void;
+}) {
+  const { t } = useTranslation();
+  const run = bio.runs[take];
+  if (run?.status === 'done')
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(take)}
+        className="absolute top-1.5 left-1.5 rounded-lg bg-white/90 px-2 py-0.5 text-[11px] font-extrabold text-brand-ink shadow-sm hover:bg-white"
+        data-testid={`rec-report-${test}`}
+      >
+        ◆ {t('biomarkers.reportChip')}
+      </button>
+    );
+  if (run?.status === 'running')
+    return (
+      <span
+        className="pointer-events-none absolute top-1.5 left-1.5 rounded-lg bg-white/90 px-2 py-0.5 text-[11px] font-extrabold text-warn"
+        data-testid={`rec-report-${test}`}
+        data-state="running"
+      >
+        ◷ {t('biomarkers.runningChip')}
+      </span>
+    );
+  return null;
+}
+
+/** The report in a dialog: the connector's HTML in a sandboxed frame (no scripts, nothing loaded).
+ * v34: with `others` (reports from the same visit), a switch moves between them. */
 export function BiomarkerReport({
   take,
   title,
+  others = [],
   onClose,
 }: {
   take: string;
   title: string;
+  others?: { take: string; test: string }[];
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [html, setHtml] = useState<string | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const [current, setCurrent] = useState(take);
+  // Loaded reports by take: switching shows "Loading" until that take's report arrives.
+  const [loaded, setLoaded] = useState<Record<string, { html?: string; error?: unknown }>>({});
   useEffect(() => {
-    hospitalText(`/v1/takes/${take}/biomarkers/report`).then(setHtml, setError);
-  }, [take]);
+    let live = true;
+    hospitalText(`/v1/takes/${current}/biomarkers/report`).then(
+      (h) => live && setLoaded((m) => ({ ...m, [current]: { html: h } })),
+      (e: unknown) => live && setLoaded((m) => ({ ...m, [current]: { error: e } })),
+    );
+    return () => {
+      live = false;
+    };
+  }, [current]);
+  const html = loaded[current]?.html ?? null;
+  const error = loaded[current]?.error ?? null;
   return (
     <Dialog
       title={title}
@@ -138,6 +204,26 @@ export function BiomarkerReport({
       onClose={onClose}
       testId="bio-report"
     >
+      {others.length > 1 && (
+        <div
+          className="inline-flex self-start rounded-full bg-soft p-1"
+          role="group"
+          aria-label={t('biomarkers.switchLabel')}
+        >
+          {others.map((o) => (
+            <button
+              key={o.take}
+              type="button"
+              aria-pressed={o.take === current}
+              onClick={() => setCurrent(o.take)}
+              className={`rounded-full px-3.5 py-1.5 text-[13px] font-semibold ${o.take === current ? 'bg-card text-ink shadow-sm' : 'text-sub'}`}
+              data-testid={`bio-switch-${o.test}`}
+            >
+              {t(`tests.${o.test}`)}
+            </button>
+          ))}
+        </div>
+      )}
       <ErrorNote error={error} />
       {html === null && !error && (
         <span className="text-[14px] text-muted">{t('app.loading')}</span>

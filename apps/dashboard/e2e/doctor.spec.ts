@@ -68,6 +68,29 @@ test('M14: doctor sees live history and a decrypted recording; the platform hold
   await page.screenshot({ path: 'test-results/doctor-biomarker-report.png' });
   await page.getByTestId('bio-report').getByTestId('dialog-close').click();
 
+  // v34: the same report from the tile's chip, and from the My patients side panel.
+  await page.getByTestId('rec-report-FT').click();
+  await expect(
+    page
+      .frameLocator('[data-testid="bio-report-frame"]')
+      .getByRole('heading', { name: 'Finger Tapping' }),
+  ).toBeVisible();
+  await page.getByTestId('bio-report').getByTestId('dialog-close').click();
+  await page.getByTestId('nav-myPatients').click();
+  await page.getByTestId(`patient-card-${s.patient_mrn}`).click();
+  await expect(page.getByTestId('panel-report-FT')).toHaveAttribute('data-state', 'done');
+  await page.getByTestId('panel-report').click();
+  await expect(
+    page
+      .frameLocator('[data-testid="bio-report-frame"]')
+      .getByRole('heading', { name: 'Finger Tapping' }),
+  ).toBeVisible();
+  await page.screenshot({ path: 'test-results/doctor-panel-report.png' });
+  await page.getByTestId('bio-report').getByTestId('dialog-close').click();
+  await page.getByTestId('patient-panel').getByTestId('dialog-close').click();
+  await page.getByTestId(`patient-card-${s.patient_mrn}`).click();
+  await page.getByTestId(`open-${s.patient_mrn}`).click();
+
   // Review (note kept at the hospital), plan, re-record request.
   const review = page.getByTestId(`review-${s.take_id}`);
   await review.getByTestId('review-not-usable').click();

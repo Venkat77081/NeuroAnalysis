@@ -21,7 +21,14 @@ import {
 } from './ui.tsx';
 import { StageBadge, type Appointment } from './appointments.tsx';
 import { myPatientsRing, takeSeconds } from './config.ts';
-import { BiomarkerAction, BiomarkerReport, useBiomarkers } from './biomarkers.tsx';
+import {
+  BiomarkerAction,
+  BiomarkerReport,
+  ReportChip,
+  sessionReports,
+  useBiomarkers,
+  type Biomarkers,
+} from './biomarkers.tsx';
 
 interface PlatformPatient {
   ncid: string;
@@ -340,6 +347,11 @@ function PatientPanel({
   const { points, latest, session, last, next, nextTests } = useSummary(ncid, recs);
   const name = ident?.name ?? ncid;
   const watchable = session.find((r) => r.status === 'complete');
+  // v34: the visit's biomarker reports (analysed at the hospital after upload).
+  const bio = useBiomarkers(ncid);
+  const [report, setReport] = useState<string | null>(null);
+  const reportable = session.filter((r) => bio.caps?.tests.includes(r.test_code));
+  const ready = reportable.find((r) => bio.runs[r.take_id]?.status === 'done');
   return (
     <Dialog
       title={name}
@@ -428,10 +440,63 @@ function PatientPanel({
         className="rounded-2xl bg-soft px-3 py-2.5 text-[13px] leading-[19px]"
         data-testid="panel-remark"
       >
-        <b>{t('patient.lastRemark')}</b>
-        {last && <span className="text-muted"> · {fmtDate(last.updated_at)}</span>}
+        <span className="flex items-baseline justify-between gap-2">
+          <span>
+            <b>{t('patient.lastRemark')}</b>
+            {last && <span className="text-muted"> · {fmtDate(last.updated_at)}</span>}
+          </span>
+          <button
+            type="button"
+            className="text-[12px] font-bold text-brand"
+            onClick={() => onOpen('remark')}
+            data-testid="panel-remark-add"
+          >
+            {t('patient.addRemark')}
+          </button>
+        </span>
         <span className="block text-sub">{last ? `“${last.text}”` : t('patient.noRemark')}</span>
       </section>
+      {reportable.length > 0 && (
+        <section className="flex flex-col" data-testid="panel-reports">
+          <b className="text-[14px]">{t('biomarkers.panelTitle')}</b>
+          {reportable.map((r) => {
+            const st = bio.runs[r.take_id]?.status ?? 'none';
+            const tone =
+              st === 'done'
+                ? 'ok'
+                : st === 'running'
+                  ? 'warn'
+                  : st === 'failed'
+                    ? 'bad'
+                    : 'neutral';
+            return (
+              <div
+                key={r.take_id}
+                className="flex items-center justify-between gap-2 border-t border-line py-2"
+                data-testid={`panel-report-${r.test_code}`}
+                data-state={st}
+              >
+                <span className="flex flex-col">
+                  <b className="text-[13px]">{t(`tests.${r.test_code}`)}</b>
+                  <span className="text-[11px] text-muted">{dayMonth(r.started_at)}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <Badge tone={tone}>{t(`biomarkers.state.${st}`)}</Badge>
+                  {st === 'done' && (
+                    <Button
+                      variant="secondary"
+                      className="min-h-8 px-3 text-[12px]"
+                      onClick={() => setReport(r.take_id)}
+                    >
+                      {t('biomarkers.openShort')}
+                    </Button>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </section>
+      )}
       <section className="flex items-center justify-between gap-2" data-testid="panel-next">
         <span className="flex flex-col">
           <b className="text-[14px]">{t('patient.nextVisit')}</b>
@@ -462,13 +527,15 @@ function PatientPanel({
           ) : (
             <Button disabled>{t('patients.nothingToWatch')}</Button>
           )}
-          <Button
-            variant="secondary"
-            onClick={() => onOpen('remark')}
-            data-testid="panel-remark-add"
-          >
-            {t('patient.addRemark')}
-          </Button>
+          {ready && (
+            <Button
+              variant="secondary"
+              onClick={() => setReport(ready.take_id)}
+              data-testid="panel-report"
+            >
+              ◆ {t('biomarkers.open')}
+            </Button>
+          )}
           {onChooseTests && (
             <Button variant="secondary" onClick={onChooseTests} data-testid="panel-choose">
               {t('patient.chooseTests')}
@@ -494,6 +561,14 @@ function PatientPanel({
           reviews={reviews}
           onReviewed={(take, rv) => setReviews((m) => ({ ...m, [take]: rv }))}
           onClose={() => setWatching(null)}
+        />
+      )}
+      {report && (
+        <BiomarkerReport
+          take={report}
+          title={`${t('doctor.biomarkerTitle')} · ${name}`}
+          others={sessionReports(recs, bio.runs, report)}
+          onClose={() => setReport(null)}
         />
       )}
     </Dialog>
@@ -849,6 +924,8 @@ function PatientSummary({
   playing,
   onPlay,
   onWatch,
+  bio,
+  onReport,
 }: {
   ncid: string;
   name: string | null;
@@ -857,6 +934,9 @@ function PatientSummary({
   onPlay: (take: string) => void;
   /** v30: open the take in theatre mode. */
   onWatch?: (take: string) => void;
+  /** v34: a Report chip on tiles whose biomarker report is ready. */
+  bio?: Biomarkers;
+  onReport?: (take: string) => void;
 }) {
   const { t } = useTranslation();
   const { points, latest, session, last, next, nextTests } = useSummary(ncid, recs);
@@ -923,33 +1003,37 @@ function PatientSummary({
           {session.length > 0 && (
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
               {session.map((r) => (
-                <button
-                  key={r.take_id}
-                  type="button"
-                  disabled={r.status !== 'complete'}
-                  onClick={() => (onWatch ?? onPlay)(r.take_id)}
-                  className="overflow-hidden rounded-2xl bg-soft text-left disabled:opacity-60"
-                  data-testid={`rec-tile-${r.test_code}`}
-                >
-                  <span className="relative flex h-[78px] items-center justify-center bg-[linear-gradient(135deg,#1d1b2e,#3b3760)] text-[18px] text-white">
-                    ▶
-                    {takeSeconds[r.test_code] && (
-                      <span className="absolute right-1.5 bottom-1.5 rounded-md bg-black/50 px-1.5 text-[10px]">
-                        0:{String(takeSeconds[r.test_code]).padStart(2, '0')}
-                      </span>
-                    )}
-                  </span>
-                  <span className="flex flex-col gap-1 px-2.5 py-2">
-                    <b className="truncate text-[12px]">{t(`tests.${r.test_code}`)}</b>
-                    <span>
-                      <Badge tone={r.capture_verdict === 'PASS' ? 'ok' : 'warn'}>
-                        {r.capture_verdict === 'PASS'
-                          ? t('patient.passed')
-                          : t(`verdict.${r.capture_verdict}`)}
-                      </Badge>
+                <div key={r.take_id} className="relative">
+                  <button
+                    type="button"
+                    disabled={r.status !== 'complete'}
+                    onClick={() => (onWatch ?? onPlay)(r.take_id)}
+                    className="w-full overflow-hidden rounded-2xl bg-soft text-left disabled:opacity-60"
+                    data-testid={`rec-tile-${r.test_code}`}
+                  >
+                    <span className="relative flex h-[78px] items-center justify-center bg-[linear-gradient(135deg,#1d1b2e,#3b3760)] text-[18px] text-white">
+                      ▶
+                      {takeSeconds[r.test_code] && (
+                        <span className="absolute right-1.5 bottom-1.5 rounded-md bg-black/50 px-1.5 text-[10px]">
+                          0:{String(takeSeconds[r.test_code]).padStart(2, '0')}
+                        </span>
+                      )}
                     </span>
-                  </span>
-                </button>
+                    <span className="flex flex-col gap-1 px-2.5 py-2">
+                      <b className="truncate text-[12px]">{t(`tests.${r.test_code}`)}</b>
+                      <span>
+                        <Badge tone={r.capture_verdict === 'PASS' ? 'ok' : 'warn'}>
+                          {r.capture_verdict === 'PASS'
+                            ? t('patient.passed')
+                            : t(`verdict.${r.capture_verdict}`)}
+                        </Badge>
+                      </span>
+                    </span>
+                  </button>
+                  {bio && onReport && (
+                    <ReportChip take={r.take_id} test={r.test_code} bio={bio} onOpen={onReport} />
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -1148,6 +1232,8 @@ export function PatientView({
         playing={playing}
         onPlay={(take) => void play(take)}
         onWatch={setWatching}
+        bio={bio}
+        onReport={setReport}
       />
       {watching && (
         <Theatre
@@ -1260,6 +1346,7 @@ export function PatientView({
         <BiomarkerReport
           take={report}
           title={`${t('doctor.biomarkerTitle')} · ${view?.name ?? ncid}`}
+          others={sessionReports(recs, bio.runs, report)}
           onClose={() => setReport(null)}
         />
       )}

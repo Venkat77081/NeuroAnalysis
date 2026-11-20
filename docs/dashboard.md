@@ -238,3 +238,13 @@ The doctor's **My patients** page works like Choose tests:
   report**.
 - **Where the report is kept:** encrypted in the hospital's own cloud storage, next to the video.
 - **Older recordings:** they keep the **Biomarkers** button.
+
+## Reports on the new pages (v34, canvas page v34)
+
+- **Patient page:** the latest recordings' tiles have a **Report** chip, or **Analysing**, and the
+  chip opens the report.
+- **Report dialog:** a switch moves between the finished reports of the same visit, for example
+  Finger Tapping and Forearm Roll.
+- **My patients side panel:** **Biomarker reports** lists the latest visit's reportable recordings
+  (Ready, Analysing, Did not finish, Not analysed yet) with **Open**, and the footer has
+  **Biomarker report**. **Add remark** moved to the remark itself.

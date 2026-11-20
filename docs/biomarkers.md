@@ -40,6 +40,17 @@ sudo apt-get install -y libegl1 libgles2      # MediaPipe needs EGL even on the 
 docker build -f biomarkers/Dockerfile -t neurocapture-biomarkers .   # from the repo root
 ```
 
+## Testing with a phone recording (decision 058)
+
+1. **Phone:** install the debug APK and turn on test mode.
+2. **Record:** record Finger Tapping as usual (both hands, elbows in view).
+3. **Save:** on the take's review screen, tap **Save video to phone**. The video goes to
+   `Movies/NeuroCapture`.
+4. **Copy:** copy it to the computer, then run:
+   `python -m ncbio analyse NeuroCapture_FT_take1_….mp4 --test FT --report report.html`.
+
+Release builds and phones set up to upload to a real server refuse to save videos.
+
 ## Plan
 
 | Step  | What                                                                                             | State |

@@ -784,6 +784,17 @@
         "lightFromHour": { "type": "integer", "minimum": 0, "maximum": 23 }
       }
     },
+    "myPatients": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v33: the ring on each My patients card. It is full right after a recording and empty at ringDays since the last one; green up to okWithinDays, amber up to warnWithinDays, then red.",
+      "required": ["ringDays", "okWithinDays", "warnWithinDays"],
+      "properties": {
+        "ringDays": { "type": "integer", "minimum": 7, "maximum": 365 },
+        "okWithinDays": { "type": "integer", "minimum": 1, "maximum": 365 },
+        "warnWithinDays": { "type": "integer", "minimum": 1, "maximum": 365 }
+      }
+    },
     "clinicConsent": {
       "type": "object",
       "additionalProperties": false,

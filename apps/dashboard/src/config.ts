@@ -66,3 +66,7 @@ export const platformPolicy = {
   warnBelowFps: platformJson.deviceCheck.warnBelowFps as number,
   deviceCodeHours: platformJson.invites.deviceCodeTtlHours as number,
 };
+
+/** v33: the ring on each My patients card (days since the last recording). */
+export const myPatientsRing: { ringDays: number; okWithinDays: number; warnWithinDays: number } =
+  platformJson.myPatients;

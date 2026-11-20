@@ -211,6 +211,11 @@
     "darkFromHour": 18,
     "lightFromHour": 6
   },
+  "myPatients": {
+    "ringDays": 42,
+    "okWithinDays": 7,
+    "warnWithinDays": 28
+  },
   "clinicConsent": {
     "qrPrefix": "ncc1:",
     "codeLength": 12,

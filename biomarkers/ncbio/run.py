@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from .config import analysis_config, registry, registry_ids
+from .fr import forearm_roll
 from .ft import finger_tapping
 from .keypoints import Keypoints, keypoints_from_video
 from .result import Value, not_computable, not_implemented
 
-EXTRACTORS = {"FT": finger_tapping}
+EXTRACTORS = {"FT": finger_tapping, "FR": forearm_roll}
 
 
 def _take_checks(kp: Keypoints, test_code: str) -> dict[str, str]:
@@ -69,7 +70,7 @@ def analyse_video(
 
 
 #: Tests the report is built for (the connector offers analysis for these).
-REPORT_TESTS = frozenset({"FT"})
+REPORT_TESTS = frozenset({"FT", "FR"})
 
 
 def analyse_take(video: Path, test_code: str, ncid: str | None = None) -> tuple[dict, str]:

@@ -72,7 +72,7 @@ def test_low_frame_rate_and_short_videos_are_refused():
 
 
 def test_other_tests_are_listed_as_not_built_yet():
-    r = analyse_keypoints(tapping(), "FR")
+    r = analyse_keypoints(tapping(), "FTF")
     jsonschema.validate(r, SCHEMA)
-    assert len(r["biomarkers"]) == 12
+    assert len(r["biomarkers"]) == 18
     assert {b["status"] for b in r["biomarkers"]} == {"NOT_IMPLEMENTED"}

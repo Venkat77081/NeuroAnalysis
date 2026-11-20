@@ -31,3 +31,12 @@ def test_mediapipe_runs_on_a_real_video_file(tmp_path):
     assert kp.t.size == 30 and round(kp.fps) == 60
     assert np.isnan(kp.pose).all() and np.isnan(kp.hands["right"]).all()
     assert kp.library == "mediapipe" and kp.models == ["hand_landmarker.task", "pose_landmarker_heavy.task"]
+
+
+def test_cli_says_what_is_missing(tmp_path, monkeypatch):
+    with pytest.raises(SystemExit, match="No file at"):
+        main(["analyse", str(tmp_path / "nothing.mp4"), "--test", "FT"])
+    (tmp_path / "take.mp4").write_bytes(b"x")
+    monkeypatch.setenv("NCBIO_MODELS_DIR", str(tmp_path / "no-models"))
+    with pytest.raises(SystemExit, match="python -m ncbio models"):
+        main(["analyse", str(tmp_path / "take.mp4"), "--test", "FT"])

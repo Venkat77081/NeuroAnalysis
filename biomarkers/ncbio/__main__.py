@@ -60,6 +60,16 @@ def main(argv: list[str] | None = None) -> int:
         args.out.write_text(render(result, details, ncid="NC-DEMO-0000", demo=True))
         print(args.out)
         return 0
+    if not args.input.is_file():
+        raise SystemExit(f"No file at {args.input.resolve()}. Check the name, or give the full path.")
+    if args.input.suffix != ".npz":
+        missing = [str(model_path(k)) for k in sorted(TEST_KINDS[args.test]) if not model_path(k).is_file()]
+        if missing:
+            raise SystemExit(
+                "The keypoint models are not downloaded yet. Run: python -m ncbio models\n"
+                + "Missing: "
+                + ", ".join(missing)
+            )
     if args.input.suffix == ".npz":
         result = analyse_keypoints(Keypoints.load(args.input), args.test, details=details)
     else:

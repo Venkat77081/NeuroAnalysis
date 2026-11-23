@@ -3,7 +3,8 @@
 Each hand is drawn in its report colour and labelled R or L (the patient's own side): the thumb
 tip, the index tip and the line between them (the tapping distance), and the forearm (elbow to
 wrist) used to scale it. If R sits on the patient's left hand, the sides are swapped (for example
-a mirrored video).
+a mirrored video). For Stand and Walk, each leg (hip, knee, ankle) is drawn the same way, since
+side views are where the body model most often swaps the legs.
 
 The output shows the patient like the video itself: it stays at the hospital, with the video.
 """
@@ -18,6 +19,8 @@ from .ft import FOREARM, INDEX_TIP, THUMB_TIP
 from .keypoints import Keypoints
 from .report import tr
 
+LEGS = {"right": (24, 26, 28), "left": (23, 25, 27)}  # hip, knee, ankle
+
 #: BGR, the report's colours: right indigo #4f46e5, left orange #d9480f.
 COLOUR = {"right": (229, 70, 79), "left": (15, 72, 217)}
 
@@ -26,15 +29,29 @@ def _pt(p: np.ndarray) -> tuple[int, int] | None:
     return (int(round(p[0])), int(round(p[1]))) if np.all(np.isfinite(p[:2])) else None
 
 
-def draw_frame(bgr: np.ndarray, kp: Keypoints, i: int) -> np.ndarray:
-    """Draws frame i's points on bgr (in place) and returns it."""
+def draw_frame(bgr: np.ndarray, kp: Keypoints, i: int, legs: bool = False) -> np.ndarray:
+    """Draws frame i's points on bgr (in place) and returns it; `legs` for Stand and Walk."""
     import cv2
 
     h = bgr.shape[0]
     scale = max(0.6, h / 900)
     thick = max(2, int(round(2 * scale)))
     font = cv2.FONT_HERSHEY_SIMPLEX
-    for side in ("right", "left"):
+    for side in ("right", "left") if legs else ():
+        c = COLOUR[side]
+        pts = [_pt(kp.pose[i, j]) for j in LEGS[side]]
+        for a, b in zip(pts[:-1], pts[1:], strict=True):
+            if a and b:
+                cv2.line(bgr, a, b, c, thick, cv2.LINE_AA)
+        for p in pts:
+            if p:
+                cv2.circle(bgr, p, 3 * thick, c, -1, cv2.LINE_AA)
+        if pts[2]:
+            label = tr(f"overlay.{side}")
+            org = (pts[2][0] + int(12 * scale), pts[2][1] + int(30 * scale))
+            cv2.putText(bgr, label, org, font, 0.9 * scale, (255, 255, 255), thick + 3, cv2.LINE_AA)
+            cv2.putText(bgr, label, org, font, 0.9 * scale, c, thick, cv2.LINE_AA)
+    for side in ("right", "left") if not legs else ():
         c = COLOUR[side]
         e, w = (_pt(kp.pose[i, j]) for j in FOREARM[side])
         if e and w:
@@ -58,14 +75,14 @@ def draw_frame(bgr: np.ndarray, kp: Keypoints, i: int) -> np.ndarray:
             org = (anchor[0], max(int(60 * scale), anchor[1]))
             cv2.putText(bgr, label, org, font, 0.9 * scale, (255, 255, 255), thick + 3, cv2.LINE_AA)
             cv2.putText(bgr, label, org, font, 0.9 * scale, c, thick, cv2.LINE_AA)
-    legend = tr("overlay.legend")
+    legend = tr("overlay.legendLegs" if legs else "overlay.legend")
     org = (int(16 * scale), int(36 * scale))
     cv2.putText(bgr, legend, org, font, 0.75 * scale, (0, 0, 0), thick + 3, cv2.LINE_AA)
     cv2.putText(bgr, legend, org, font, 0.75 * scale, (255, 255, 255), thick, cv2.LINE_AA)
     return bgr
 
 
-def write_overlay(video: Path, kp: Keypoints, out: Path) -> int:
+def write_overlay(video: Path, kp: Keypoints, out: Path, legs: bool = False) -> int:
     """Writes the overlay video (MP4) and returns the number of frames written."""
     import cv2
 
@@ -83,7 +100,7 @@ def write_overlay(video: Path, kp: Keypoints, out: Path) -> int:
             if writer is None:
                 hh, ww = bgr.shape[:2]
                 writer = cv2.VideoWriter(str(out), cv2.VideoWriter_fourcc(*"mp4v"), fps, (ww, hh))
-            writer.write(draw_frame(bgr, kp, n))
+            writer.write(draw_frame(bgr, kp, n, legs))
             n += 1
     finally:
         cap.release()

@@ -40,6 +40,8 @@ test('v8: doctors see patients through their own appointments; one appointment, 
   await page.getByTestId('manual-at').fill(at(20, '09:30'));
   await page.getByTestId('manual-doctor').selectOption({ label: 'Dr. Iyer' });
   await page.getByTestId('manual-add').click();
+  // The form clears once saved; the notice may still be up from the last add.
+  await expect(page.getByTestId('manual-at')).toHaveValue('');
   await expect(page.getByTestId('notice')).toContainText('Appointment added');
   const rows = page.getByTestId(`appt-${s.patient_mrn}`);
   await expect(rows).toHaveCount(1); // 7 days: only the one with Dr. Rao

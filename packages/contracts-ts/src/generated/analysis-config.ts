@@ -48,4 +48,33 @@ export interface AnalysisConfig {
    * Share of frames in which the needed keypoints must be found (after gap filling).
    */
   minValidFrac: number;
+  /**
+   * Stand and Walk: walking and turning segments from the pelvis's forward speed; steps from the ankle distance.
+   */
+  saw: {
+    /**
+     * Walking where the pelvis's forward speed is at least this share of its 90th percentile.
+     */
+    walkSpeedFrac: number;
+    /**
+     * …and at least this many trunk lengths per second.
+     */
+    minWalkSpeed: number;
+    /**
+     * Shortest walking segment, s.
+     */
+    minWalkS: number;
+    /**
+     * Shortest time between two steps, s.
+     */
+    minStepS: number;
+    /**
+     * A step's ankle-distance peak stands out by at least this share of the segment's range.
+     */
+    stepProminenceFrac: number;
+    /**
+     * Fewest steps in the walking segments for the step measures.
+     */
+    minSteps: number;
+  };
 }

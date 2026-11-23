@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "analysisVersion": "ANA@0.1.0",
+  "analysisVersion": "ANA@0.2.0",
   "models": {
     "hand": {
       "name": "hand_landmarker.task",
@@ -32,5 +32,13 @@
     "minPeriodS": 0.1,
     "minCycles": 3
   },
-  "minValidFrac": 0.6
+  "minValidFrac": 0.6,
+  "saw": {
+    "walkSpeedFrac": 0.35,
+    "minWalkSpeed": 0.3,
+    "minWalkS": 1.0,
+    "minStepS": 0.25,
+    "stepProminenceFrac": 0.3,
+    "minSteps": 3
+  }
 }

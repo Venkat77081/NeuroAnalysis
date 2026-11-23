@@ -1251,7 +1251,7 @@
     "retry": "Biomarkers: try again",
     "failedHint": "The last analysis did not finish. Try again.",
     "reportSub": "Computed at your hospital from the 60 fps video. Decision support, not a diagnosis.",
-    "cardHint": "Finger Tapping, Finger-to-Finger and Forearm Roll recordings are analysed at your hospital soon after they upload. Open a recording's report to see each value and how it was worked out.",
+    "cardHint": "All five tests (Finger Tapping, Finger-to-Finger, Forearm Roll, Stand and Walk, Facial Activation) are analysed at your hospital soon after they upload. Open a recording's report to see each value and how it was worked out.",
     "notInstalled": "Biomarker analysis is not installed on your hospital's connector yet."
   },
   "moved": {

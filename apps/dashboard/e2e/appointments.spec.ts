@@ -43,6 +43,8 @@ test('v3: reception assigns the doctor; the doctor chooses the tests and sends t
     await page.getByTestId('manual-at').fill(when);
     if (doctor) await page.getByTestId('manual-doctor').selectOption({ label: doctor });
     await page.getByTestId('manual-add').click();
+    // The form clears once saved; the notice may still be up from the last add.
+    await expect(page.getByTestId('manual-at')).toHaveValue('');
     await expect(page.getByTestId('notice')).toContainText('Appointment added');
   };
   // v30: booking is its own page; the list is on Appointments.

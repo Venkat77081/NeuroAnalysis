@@ -3,7 +3,7 @@
     python -m ncbio models                         # download the keypoint models (once)
     python -m ncbio analyse VIDEO --test FT [--out result.json] [--keypoints kp.npz]
     python -m ncbio analyse KP.npz --test FT --report report.html [--ncid NC-…]
-    python -m ncbio demo-report report.html [--test FR|FTF|FA]   # the report on a synthetic take (no patient)
+    python -m ncbio demo-report report.html [--test FR|FTF|FA|SAW]   # a synthetic take (no patient)
     python -m ncbio analyse VIDEO --test FT --overlay check.mp4   # points drawn on the video, R / L
 
 The result holds biomarker values only: no names, no frames, no landmark streams.
@@ -19,7 +19,7 @@ import urllib.request
 from pathlib import Path
 
 from .config import analysis_config
-from .demo import demo_face_take, demo_ftf_take, demo_roll_take, demo_take
+from .demo import demo_face_take, demo_ftf_take, demo_roll_take, demo_take, demo_walk_take
 from .keypoints import TEST_KINDS, Keypoints, keypoints_from_video, model_path
 from .overlay import write_overlay
 from .report import render
@@ -62,9 +62,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     details: dict = {}
     if args.cmd == "demo-report":
-        take = {"FT": demo_take, "FR": demo_roll_take, "FTF": demo_ftf_take, "FA": demo_face_take}[
-            args.test
-        ]()
+        take = {
+            "FT": demo_take,
+            "FR": demo_roll_take,
+            "FTF": demo_ftf_take,
+            "FA": demo_face_take,
+            "SAW": demo_walk_take,
+        }[args.test]()
         result = analyse_keypoints(take, args.test, details=details)
         args.out.write_text(render(result, details, ncid="NC-DEMO-0000", demo=True), encoding="utf-8")
         print(args.out)
@@ -89,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
             kp.save(args.keypoints)
         result = analyse_keypoints(kp, args.test, details=details)
         if args.overlay:
-            n = write_overlay(args.input, kp, args.overlay)
+            n = write_overlay(args.input, kp, args.overlay, legs=args.test == "SAW")
             print(f"{args.overlay} ({n} frames)")
     if args.report:
         if args.test not in REPORT_TESTS:

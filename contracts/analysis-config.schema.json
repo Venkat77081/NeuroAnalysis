@@ -12,7 +12,8 @@
     "detection",
     "preprocess",
     "cycles",
-    "minValidFrac"
+    "minValidFrac",
+    "saw"
   ],
   "properties": {
     "schemaVersion": {
@@ -165,6 +166,53 @@
       "minimum": 0,
       "maximum": 1,
       "description": "Share of frames in which the needed keypoints must be found (after gap filling)."
+    },
+    "saw": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Stand and Walk: walking and turning segments from the pelvis's forward speed; steps from the ankle distance.",
+      "required": [
+        "walkSpeedFrac",
+        "minWalkSpeed",
+        "minWalkS",
+        "minStepS",
+        "stepProminenceFrac",
+        "minSteps"
+      ],
+      "properties": {
+        "walkSpeedFrac": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "description": "Walking where the pelvis's forward speed is at least this share of its 90th percentile."
+        },
+        "minWalkSpeed": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "\u2026and at least this many trunk lengths per second."
+        },
+        "minWalkS": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Shortest walking segment, s."
+        },
+        "minStepS": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Shortest time between two steps, s."
+        },
+        "stepProminenceFrac": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "description": "A step's ankle-distance peak stands out by at least this share of the segment's range."
+        },
+        "minSteps": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Fewest steps in the walking segments for the step measures."
+        }
+      }
     }
   }
 }

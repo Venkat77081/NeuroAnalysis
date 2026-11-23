@@ -149,3 +149,15 @@ def demo_face_take(seed: int = 3) -> Keypoints:
         noise_px=0.25,
         seed=seed,
     )
+
+
+def demo_walk_take(seed: int = 4) -> Keypoints:
+    """A synthetic Stand and Walk: up from the chair, then back and forth along 4.6 m, filmed from the
+    side; the left knee bends a little differently (no patient)."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from tests.synth import walking
+
+    return walking(speed=1.0, cadence=100.0, turn_s=1.8, left_knee_bend=15.0, noise_m=0.004, seed=seed)

@@ -297,7 +297,8 @@ svg .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap:
 svg .line.right { stroke: var(--right); } svg .line.left { stroke: var(--left); }
 svg .dot { stroke: var(--card); stroke-width: 2; } svg .dot.right { fill: var(--right); } svg .dot.left { fill: var(--left); }
 svg .direct { font: 600 12px var(--body); fill: var(--ink); }
-svg .band { fill: var(--soft); }
+svg .band { fill: var(--soft); } svg .band.walk { fill: var(--right); opacity: .08; } svg .band.turn { fill: var(--left); opacity: .12; }
+svg .line.muted { stroke: var(--muted); } .key i.walk { background: var(--right); opacity: .25; } .key i.turn { background: var(--left); opacity: .35; }
 svg .note { stroke: var(--ink); stroke-width: 1.4; }
 svg .notetext { fill: var(--ink); font: 600 12px var(--body); }
 svg .ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
@@ -536,6 +537,185 @@ def _ftf_cycles_table(t: np.ndarray, h: HandDetail, side: str) -> str:
     )
 
 
+def _saw_chart(
+    t: np.ndarray,
+    series: list[tuple[np.ndarray, str]],
+    ylabel: str,
+    label: str,
+    bands: list[tuple[float, float, str]] = (),
+    dots: list[tuple[np.ndarray, np.ndarray, str, str]] = (),
+    signed: bool = False,
+) -> str:
+    """Stand and Walk: signals over the take, with walking and turning stretches shaded and steps marked.
+    `signed` draws from the lowest to the highest value instead of from 0."""
+    vals = np.concatenate([v[np.isfinite(v)] for v, _ in series]) if series else np.zeros(0)
+    lo = float(vals.min()) if signed and vals.size else 0.0
+    top = _nice_max((float(vals.max()) - lo) * 1.05) if vals.size else 1.0
+    f = Frame(720, 180, 0.0, float(np.ceil(t[-1])) if t.size else 1.0, top, top=18)
+    parts = []
+    for a, b, cls in bands:
+        parts.append(
+            f'<rect class="band {cls}" x="{f.sx(a):.1f}" y="{f.t}" width="{max(f.sx(b) - f.sx(a), 1):.1f}" '
+            f'height="{f.h - f.t - f.b}"/>'
+        )
+    step = 5 if f.x1 > 20 else 3
+    parts.append(f.axes(list(range(0, int(f.x1) + 1, step)), lambda x: f"{x:g}", ylabel, tr("step2.xAxis")))
+    for v, cls in series:
+        parts.append(f'<path class="line {cls}" d="{_path(t, v - lo, f.sx, f.sy)}"/>')
+    for xs, ys, cls, title in dots:
+        for x, y in zip(xs, ys, strict=True):
+            if np.isfinite(y):
+                parts.append(
+                    f'<circle class="dot {cls}" cx="{f.sx(x):.1f}" cy="{f.sy(y - lo):.1f}" r="3">'
+                    f"<title>{escape(title)} · {x:.2f} s</title></circle>"
+                )
+    return f'<svg viewBox="0 0 {f.w} {f.h}" role="img" aria-label="{escape(label)}">{"".join(parts)}</svg>'
+
+
+def _saw_results(vals: dict) -> str:
+    from .saw import LAYOUT as SAW_LAYOUT
+
+    groups: dict[str, list[str]] = {}
+    for bid, key, _stat, _u in SAW_LAYOUT:
+        groups.setdefault(tr(f"groupOf.{key}"), []).append(bid)
+    blocks = []
+    for g, ids in groups.items():
+        rows = "".join(
+            f"<tr><td>{escape(tr(f'measures.{bid}'))}</td>{_value_cell(vals.get(bid))}</tr>" for bid in ids
+        )
+        blocks.append(
+            f"<h3>{escape(tr(f'groups.{g}'))}</h3>"
+            f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'
+            f"<th>{escape(tr('summary.value'))}</th></tr></thead><tbody>{rows}</tbody></table></div>"
+        )
+    return (
+        f'<section aria-labelledby="results"><h2 id="results">{escape(tr("summary.title"))}</h2>'
+        + "".join(blocks)
+        + f'<p class="hint">{escape(tr("summary.hint"))}</p></section>'
+    )
+
+
+def _saw_sections(vals: dict, details: dict, cfg: dict) -> list[str]:
+    """Stand and Walk: points found, walking and turning, steps, knees, and the calculations."""
+    from .saw import LAYOUT as SAW_LAYOUT
+
+    t: np.ndarray = details["t"]
+    segs = details["segments"]
+    turns = details["turns"]
+    per: dict[str, list[float]] = details["per"]
+    c = cfg["saw"]
+    out = [
+        f'<section><h2><span class="n">1</span>{escape(tr("step1.title"))}</h2>'
+        f'<p>{escape(tr("step1.body"))}</p><ul class="steps">'
+        f"<li>{escape(tr('step1.bodyFound', pct=round(details['found_frac'] * 100)))}</li>"
+        f"<li>{escape(tr('step1.trunk', n=details['trunk_frames'], m=num(details['trunk_m']), px=num(details['trunk_px'])))}</li>"
+        "</ul></section>"
+    ]
+    bands = [(t[g.i0], t[g.i1], "walk") for g in segs] + [(t[a], t[b], "turn") for a, b in turns]
+    legend = (
+        f'<div class="legend"><span class="key"><i class="walk"></i>{escape(tr("phases.walk"))}</span>'
+        f'<span class="key"><i class="turn"></i>{escape(tr("phases.turn"))}</span></div>'
+    )
+    rows = "".join(
+        f"<tr><td>{i + 1}</td><td class='v'>{t[g.i0]:.2f}–{t[g.i1]:.2f}</td>"
+        f"<td>{escape(tr('phases.towardsRight' if g.direction > 0 else 'phases.towardsLeft'))}</td>"
+        f"<td class='v'>{len(g.steps)}</td><td class='v'>{num(g.cadence)}</td><td class='v'>{num(g.speed)}</td>"
+        f"<td class='v'>{num(g.knee_cc)}</td></tr>"
+        for i, g in enumerate(segs)
+    )
+    head = "".join(
+        f"<th>{escape(tr(f'phases.cols.{k}'))}</th>"
+        for k in ("n", "time", "dir", "steps", "cadence", "speed", "knee")
+    )
+    turn_rows = "".join(
+        f"<li>{escape(tr('phases.turnItem', n=i + 1, a=f'{t[a]:.2f}', b=f'{t[b]:.2f}', d=num(float(t[b] - t[a]))))}</li>"
+        for i, (a, b) in enumerate(turns)
+    )
+    out.append(
+        f'<section><h2><span class="n">2</span>{escape(tr("phases.title"))}</h2>'
+        f"<p>{escape(tr('phases.body', frac=round(c['walkSpeedFrac'] * 100), min=num(c['minWalkSpeed']), s=num(c['minWalkS'])))}</p>"
+        f"{legend}<figure><figcaption>{escape(tr('phases.chart'))}</figcaption>"
+        + _saw_chart(
+            t, [(details["pelvis"], "right")], tr("phases.yAxis"), tr("phases.chart"), bands, signed=True
+        )
+        + f'</figure><div class="scroll"><table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table></div>'
+        f'<ul class="steps">{turn_rows or "<li>" + escape(tr("phases.noTurn")) + "</li>"}</ul></section>'
+    )
+    d = details["d_saw"]
+    steps = [i for g in segs for i in g.steps]
+    passes = [i for g in segs for i in g.passes]
+    p = cfg["preprocess"]
+    out.append(
+        f'<section><h2><span class="n">3</span>{escape(tr("steps.title"))}</h2>'
+        f"<p><code>{escape(tr('steps.formula'))}</code></p>"
+        f"<p>{escape(tr('steps.body', gap=p['maxGapS'], median=p['medianKernel'], sgs=p['savgolWindowS'], order=p['savgolOrder'], prom=round(c['stepProminenceFrac'] * 100), mins=num(c['minStepS'])))}</p>"
+        f'<div class="legend"><span class="key"><i class="right"></i>{escape(tr("steps.step"))}</span>'
+        f'<span class="key"><i class="left"></i>{escape(tr("steps.pass"))}</span></div>'
+        f"<figure><figcaption>{escape(tr('steps.chart'))}</figcaption>"
+        + _saw_chart(
+            t,
+            [(d, "muted")],
+            tr("steps.yAxis"),
+            tr("steps.chart"),
+            [(t[g.i0], t[g.i1], "walk") for g in segs],
+            [
+                (t[steps], d[steps], "right", tr("steps.step")),
+                (t[passes], d[passes], "left", tr("steps.pass")),
+            ],
+        )
+        + "</figure></section>"
+    )
+    k = details["knees"]
+    out.append(
+        f'<section><h2><span class="n">4</span>{escape(tr("knees.title"))}</h2>'
+        f"<p>{escape(tr('knees.body'))}</p>"
+        f'<div class="legend"><span class="key"><i class="right"></i>{escape(tr("summary.right"))}</span>'
+        f'<span class="key"><i class="left"></i>{escape(tr("summary.left"))}</span></div>'
+        f"<figure><figcaption>{escape(tr('knees.chart'))}</figcaption>"
+        + _saw_chart(
+            t,
+            [(k["right"], "right"), (k["left"], "left")],
+            tr("knees.yAxis"),
+            tr("knees.chart"),
+            [(t[g.i0], t[g.i1], "walk") for g in segs],
+        )
+        + "</figure></section>"
+    )
+    calc = []
+    for bid, key, stat, _u in SAW_LAYOUT:
+        v = vals[bid]
+        pc = per.get(key) or []
+        head = f'<span class="what"><span class="id">{bid}</span>{escape(tr(f"measures.{bid}"))}</span>'
+        if v["status"] != "COMPUTED":
+            body = f"<code>{escape(tr('step4.notComputed', reason=v.get('reason', '')))}</code>"
+        else:
+            rule = f'<span class="rule">{escape(tr(f"step4.each.{key}"))}</span>'
+            if stat == "mean":
+                expr = tr(
+                    "step4.mean",
+                    n=len(pc),
+                    terms=_terms(pc),
+                    sum=num(float(np.sum(pc))),
+                    value=num(v["value"]),
+                )
+            elif stat == "median":
+                expr = tr(
+                    "step4.median",
+                    n=len(pc),
+                    lo=num(float(np.min(pc))),
+                    hi=num(float(np.max(pc))),
+                    value=num(v["value"]),
+                )
+            else:
+                expr = tr("step4.std", n=len(pc), mean=num(float(np.mean(pc))), value=num(v["value"]))
+            body = f"{rule}<code>{escape(expr)}</code>"
+        calc.append(f'<div class="row">{head}{body}</div>')
+    out.append(
+        f'<section><h2><span class="n">5</span>{escape(tr("step4.title"))}</h2><div class="calc">{"".join(calc)}</div></section>'
+    )
+    return out
+
+
 def _render(
     result: dict, details: dict, *, ncid: str | None, recorded: str | None, demo: bool, standalone: bool
 ) -> str:
@@ -574,6 +754,12 @@ def _render(
         out.append(f'<div class="demo" role="note">{escape(tr("demoBanner"))}</div>')
 
     is_ftf = result["testCode"] == "FTF"
+    if result["testCode"] == "SAW":
+        out.append(_saw_results(vals))
+        if details.get("segments") is not None and "per" in details:
+            out.extend(_saw_sections(vals, details, cfg))
+        hands = {}
+        rows_layout = []
     if result["testCode"] == "FA":
         out.append(_fa_results(vals))
         if details.get("face_signals"):
@@ -584,14 +770,14 @@ def _render(
     rows = []
     if is_ftf:
         out.append(_ftf_results(vals))
-    elif result["testCode"] == "FA":
+    elif result["testCode"] in ("FA", "SAW"):
         pass
     for rid, lid, aid, key, _unit in [] if is_ftf else rows_layout:
         rows.append(
             f"<tr><td>{escape(tr(f'measures.{key}'))}</td>"
             f"{_value_cell(vals.get(rid))}{_value_cell(vals.get(lid))}{_value_cell(vals.get(aid))}</tr>"
         )
-    if not is_ftf and result["testCode"] != "FA":
+    if not is_ftf and result["testCode"] not in ("FA", "SAW"):
         out.append(
             f'<section aria-labelledby="results"><h2 id="results">{escape(tr("summary.title"))}</h2>'
             f'<div class="scroll"><table><thead><tr><th>{escape(tr("summary.measure"))}</th>'

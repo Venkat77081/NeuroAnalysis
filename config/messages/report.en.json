@@ -31,7 +31,10 @@
     "forearm/s²": "forearm/s²",
     "ratio": "",
     "ied": "IED",
-    "ied/s": "IED/s"
+    "ied/s": "IED/s",
+    "trunk": "trunk",
+    "trunk/s": "trunk/s",
+    "steps/min": "steps/min"
   },
   "step1": {
     "title": "Points found in the video",
@@ -80,7 +83,8 @@
     "right": "R (patient's right)",
     "left": "L (patient's left)",
     "legend": "R = patient's right hand, L = patient's left hand",
-    "notFound": "{side}: not found"
+    "notFound": "{side}: not found",
+    "legendLegs": "R = patient's right leg, L = patient's left leg"
   },
   "tests": {
     "FT": {
@@ -305,6 +309,105 @@
       },
       "footer": {
         "sources": "Formulas: DNE toolbox (IEEE JBHI 2024), Appendix B and Table A-III. Distances are in inner-eye-corner distances (IED), so head size and the distance to the camera do not change them."
+      }
+    },
+    "SAW": {
+      "docTitle": "Stand and Walk report",
+      "title": "Stand and Walk",
+      "measures": {
+        "SAW1": "Step time variation (STD)",
+        "SAW2": "Step length (mean)",
+        "SAW3": "Step length (median)",
+        "SAW4": "Step width (mean)",
+        "SAW5": "Step width variation (STD)",
+        "SAW6": "Knee movement symmetry (median)",
+        "SAW7": "Knee movement symmetry (mean)",
+        "SAW8": "Knee movement symmetry variation (STD)",
+        "SAW9": "Foot movement symmetry (mean)",
+        "SAW10": "Cadence (mean)",
+        "SAW11": "Cadence variation (STD)",
+        "SAW12": "Walking speed (mean)",
+        "SAW13": "Turning time (mean)",
+        "SAW14": "Turning time variation (STD)",
+        "SAW15": "Step time (mean)"
+      },
+      "groupOf": {
+        "step_time": "steps",
+        "step_length": "steps",
+        "step_width": "steps",
+        "knee_cc": "symmetry",
+        "foot_cc": "symmetry",
+        "cadence": "pace",
+        "speed": "pace",
+        "turn_time": "turns"
+      },
+      "groups": {
+        "steps": "Steps",
+        "symmetry": "Left–right symmetry",
+        "pace": "Cadence and speed",
+        "turns": "Turns"
+      },
+      "summary": {
+        "hint": "Trunk = the distance from the middle of the hips to the middle of the shoulders; lengths are divided by it, so body size does not change them. Symmetry is a correlation: 1 = left and right move the same way, 0 = no relation."
+      },
+      "step1": {
+        "title": "Points found in the video",
+        "body": "MediaPipe finds 33 points on the body in every frame, in the picture and as a 3-D estimate in metres around the hips, both from the same video.",
+        "bodyFound": "Hips, shoulders, knees and ankles found in {pct} % of frames",
+        "trunk": "Trunk (middle of the hips to middle of the shoulders): the middle value (median) over {n} frames = {m} m in 3-D, {px} px in the picture"
+      },
+      "phases": {
+        "title": "Walking and turning",
+        "body": "The middle of the hips moving across the picture: walking where it moves at least {frac} % of its usual walking speed (and at least {min} trunk/s) for {s} s or more. A turn is the time between two walks in opposite directions. Standing up and sitting down are left out.",
+        "chart": "Position of the middle of the hips across the picture",
+        "yAxis": "position (trunk)",
+        "walk": "walking",
+        "turn": "turning",
+        "towardsRight": "→ right of the picture",
+        "towardsLeft": "← left of the picture",
+        "cols": {
+          "n": "Walk",
+          "time": "Time (s)",
+          "dir": "Direction",
+          "steps": "Steps",
+          "cadence": "Cadence (steps/min)",
+          "speed": "Speed (trunk/s)",
+          "knee": "Knee symmetry"
+        },
+        "turnItem": "Turn {n}: {a}–{b} s = {d} s",
+        "noTurn": "No turn found."
+      },
+      "steps": {
+        "title": "Steps",
+        "formula": "d = distance between the right and left ankles (3-D, points 28 and 27) ÷ trunk",
+        "body": "Gaps up to {gap} s are filled, then a median filter ({median} frames) and a Savitzky–Golay filter ({sgs} s, order {order}) smooth the signal. In each walk, a step is a top of d (feet furthest apart) that stands out by at least {prom} % of that walk's range, at least {mins} s after the last; the lowest d between two steps is where the feet pass (step width).",
+        "chart": "Distance between the ankles, with each step and each pass",
+        "yAxis": "d (trunk)",
+        "step": "step",
+        "pass": "feet pass"
+      },
+      "knees": {
+        "title": "Knee angles",
+        "body": "Knee bend = 180° − the 3-D angle hip–knee–ankle (0° = straight leg). For each walk, the left curve is shifted in time (up to one stride) to line up best with the right, then the two are correlated.",
+        "chart": "Knee bend over the take",
+        "yAxis": "bend (°)"
+      },
+      "step4": {
+        "each": {
+          "step_time": "each step: time from one step to the next, in the same walk",
+          "step_length": "each step: d at the step",
+          "step_width": "each pair of steps: the lowest d between them",
+          "knee_cc": "each walk: correlation of the left and right knee bend, lined up",
+          "foot_cc": "each stride (two steps): correlation of the left and right ankles' forward positions, lined up",
+          "cadence": "each walk: steps ÷ its time × 60",
+          "speed": "each walk: distance moved by the middle of the hips ÷ its time",
+          "turn_time": "each turn: time from the end of one walk to the start of the next"
+        },
+        "mean": "mean of {n} values = ({terms}) ÷ {n} = {sum} ÷ {n} = {value}",
+        "median": "middle value (median) of {n} values from {lo} to {hi} = {value}"
+      },
+      "footer": {
+        "sources": "Formulas: DNE toolbox (IEEE JBHI 2024), Table A-II; definitions: Hoang et al. 2022 (arXiv 2205.07209), Table III. The 3-D points are MediaPipe's estimate from the single video, not a depth camera."
       }
     }
   }

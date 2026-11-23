@@ -214,3 +214,111 @@ def face_activation(
         version="0",
         models=[],
     )
+
+
+PX_PER_M = 200.0
+TRUNK_M = 0.5
+
+
+def walk_schedule(
+    seconds: float, sit_s: float, stand_s: float, walk_s: float, turn_s: float
+) -> list[tuple[str, float, float]]:
+    """(phase, start, end): sit, stand, then walk / turn back and forth, and a last turn and sit."""
+    out = [("sit", 0.0, sit_s), ("stand", sit_s, sit_s + stand_s)]
+    t = sit_s + stand_s
+    while t + walk_s + turn_s <= seconds - 1.0:
+        out.append(("walk", t, t + walk_s))
+        t += walk_s
+        if t + walk_s + turn_s <= seconds - 1.0:
+            out.append(("turn", t, t + turn_s))
+            t += turn_s
+    out.append(("end", t, seconds))
+    return out
+
+
+def walking(
+    seconds: float = 45.0,
+    fps: float = 60.0,
+    speed: float = 1.15,
+    cadence: float = 105.0,
+    walkway: float = 4.6,
+    turn_s: float = 1.5,
+    thigh_deg: float = 20.0,
+    knee_deg: tuple[float, float] = (5.0, 55.0),
+    left_knee_bend: float = 0.0,
+    step_w: float = 0.12,
+    noise_m: float = 0.0,
+    seed: int = 0,
+) -> Keypoints:
+    """A side-view walk: sit 2 s, stand 1.5 s, then walk `walkway` m out and back at `speed` m/s and
+    `cadence` steps/min, turning in `turn_s` s. Legs: thigh swing ± `thigh_deg`, knee flexion
+    `knee_deg` (straight, extra at the top); the left leg half a stride later. `left_knee_bend` adds a
+    second harmonic to the left knee only, so the two knees no longer match in shape."""
+    rng = np.random.default_rng(seed)
+    n = int(round(seconds * fps))
+    t = np.arange(n) / fps
+    walk_s = walkway / speed
+    sched = walk_schedule(seconds, 2.0, 1.5, walk_s, turn_s)
+    pos = np.zeros(n)  # pelvis along the walkway, m
+    phase = np.zeros(n)  # gait phase, strides
+    direction = np.ones(n)
+    p, ph, dr = 0.0, 0.0, 1.0
+    fs = cadence / 120.0
+    for kind, a, b in sched:
+        m = (t >= a) & (t < b)
+        if kind == "walk":
+            pos[m] = p + dr * speed * (t[m] - a)
+            phase[m] = ph + fs * (t[m] - a)
+            direction[m] = dr
+            p, ph = p + dr * speed * (b - a), ph + fs * (b - a)
+            dr = -dr
+        else:
+            pos[m], phase[m], direction[m] = p, ph, -dr if kind == "turn" else dr
+
+    world = np.full((n, 33, 3), np.nan)
+    pose = np.full((n, 33, 4), np.nan)
+    thigh = shin = 0.45
+    for side, lat, off in (("right", 0.1, 0.0), ("left", -0.1, 0.5)):
+        h, k, an = {"right": (24, 26, 28), "left": (23, 25, 27)}[side]
+        ph2 = 2 * np.pi * (phase + off)
+        th = np.radians(thigh_deg) * np.sin(ph2)
+        kk = knee_deg[0] + knee_deg[1] * (1 - np.cos(ph2 - 0.6)) / 2
+        if side == "left" and left_knee_bend:
+            kk = kk + left_knee_bend * (1 - np.cos(2 * ph2)) / 2
+        kr = np.radians(kk)
+        world[:, h] = np.column_stack([np.zeros(n), np.zeros(n), np.full(n, lat)])
+        knee = world[:, h] + np.column_stack(
+            [thigh * np.sin(th) * direction, -thigh * np.cos(th), np.full(n, 0.0)]
+        )
+        world[:, k] = knee
+        world[:, an] = knee + np.column_stack(
+            [
+                shin * np.sin(th - kr) * direction,
+                -shin * np.cos(th - kr),
+                np.full(n, step_w / 2 * np.sign(lat) - lat),
+            ]
+        )
+    world[:, 11] = (0, TRUNK_M, -0.15)
+    world[:, 12] = (0, TRUNK_M, 0.15)
+    if noise_m:
+        world += rng.normal(0, noise_m, world.shape)
+    x0 = 200.0
+    for i, (dx, dy) in {23: (0, 0), 24: (0, 0), 11: (0, -TRUNK_M), 12: (0, -TRUNK_M)}.items():
+        pose[:, i, 0] = x0 + (pos + dx) * PX_PER_M
+        pose[:, i, 1] = 600 + dy * PX_PER_M
+    for i in (25, 26, 27, 28):
+        pose[:, i, 0] = x0 + (pos + world[:, i, 0]) * PX_PER_M
+        pose[:, i, 1] = 600 - world[:, i, 1] * PX_PER_M
+    pose[..., 2] = 0
+    pose[..., 3] = 0.99
+    return Keypoints(
+        t=t,
+        width=1920,
+        height=1080,
+        pose=pose,
+        pose_world=world,
+        hands={},
+        library="synthetic",
+        version="0",
+        models=[],
+    )

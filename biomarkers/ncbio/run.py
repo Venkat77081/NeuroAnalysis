@@ -11,12 +11,14 @@ from .ft import finger_tapping
 from .ftf import finger_to_finger
 from .keypoints import Keypoints, keypoints_from_video
 from .result import Value, not_computable, not_implemented
+from .saw import stand_and_walk
 
 EXTRACTORS = {
     "FT": finger_tapping,
     "FR": forearm_roll,
     "FTF": finger_to_finger,
     "FA": facial_activation,
+    "SAW": stand_and_walk,
 }
 
 
@@ -77,7 +79,7 @@ def analyse_video(
 
 
 #: Tests the report is built for (the connector offers analysis for these).
-REPORT_TESTS = frozenset({"FT", "FR", "FTF", "FA"})
+REPORT_TESTS = frozenset({"FT", "FR", "FTF", "FA", "SAW"})
 
 
 def analyse_take(video: Path, test_code: str, ncid: str | None = None) -> tuple[dict, str]:

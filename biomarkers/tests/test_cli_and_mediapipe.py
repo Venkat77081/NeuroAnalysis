@@ -68,3 +68,16 @@ def test_overlay_draws_each_side_in_its_colour(tmp_path):
     w.release()
     assert write_overlay(path, kp, tmp_path / "out.mp4") == kp.t.size
     assert cv2.VideoCapture(str(tmp_path / "out.mp4")).get(cv2.CAP_PROP_FRAME_COUNT) == kp.t.size
+
+
+def test_overlay_draws_the_legs_for_stand_and_walk():
+    from ncbio.overlay import COLOUR, draw_frame
+    from tests.synth import walking
+
+    kp = walking()
+    d = np.linalg.norm(kp.pose[:, 28, :2] - kp.pose[:, 27, :2], axis=1)
+    i = int(np.nanargmax(d))  # feet furthest apart
+    img = draw_frame(np.zeros((1080, 1920, 3), np.uint8), kp, i, legs=True)
+    for side, ankle in (("right", 28), ("left", 27)):
+        x, y = (int(round(v)) for v in kp.pose[i, ankle, :2])
+        assert tuple(img[y, x]) == COLOUR[side]

@@ -71,8 +71,9 @@ def test_low_frame_rate_and_short_videos_are_refused():
     assert v["FT1"]["reason"] == "video is 10.0 s, needs 14.9"
 
 
-def test_other_tests_are_listed_as_not_built_yet():
-    r = analyse_keypoints(tapping(seconds=46), "SAW")
-    jsonschema.validate(r, SCHEMA)
-    assert len(r["biomarkers"]) == 15
-    assert {b["status"] for b in r["biomarkers"]} == {"NOT_IMPLEMENTED"}
+def test_every_test_is_built():
+    from ncbio.config import registry
+    from ncbio.run import EXTRACTORS, REPORT_TESTS
+
+    codes = {b["testCode"] for b in registry()["biomarkers"]}
+    assert codes == set(EXTRACTORS) == set(REPORT_TESTS)

@@ -1,7 +1,7 @@
 """Decision 062: the phone check's details per phone (brand, video size, memory, storage).
 
 Revision ID: 0026
-Revises: 0025
+Revises: 0023 (on main; 0025 on the new UI branch, which has 0024–0025)
 """
 
 import sqlalchemy as sa
@@ -10,7 +10,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision = "0026"
-down_revision = "0025"
+down_revision = "0023"
 branch_labels = None
 depends_on = None
 

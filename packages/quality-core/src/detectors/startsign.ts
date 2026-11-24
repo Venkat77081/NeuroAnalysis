@@ -1,7 +1,9 @@
 /**
  * v36 (decision 063): the patient starts a recording with a sign instead of tapping Record.
  *
- * - `palm`: an open hand facing the camera, fingers up (FT, FTF, FR, FA).
+ * - `palm`: an open hand, fingers up, raised above the head (FT, FTF, FR, FA). Above the head,
+ *   because the hand tests' own starting positions (hands up, open, facing the camera) would
+ *   otherwise look like the sign.
  * - `arm`: one wrist above the head (Stand and Walk: at 3–4 m hands are too small to read).
  *
  * The sign must be held still for `holdS`; short tracking gaps (`maxGapS`) are bridged; moving
@@ -73,6 +75,13 @@ export function raisedWrist(pose: readonly Landmark[], marginFrac: number): Land
   return null;
 }
 
+/** Height of the head in the frame (nose, or the forehead of the face mesh), or null. */
+export function headY(frame: LandmarkFrame): number | null {
+  const nose = frame.pose?.[0];
+  if (nose && (nose.v === undefined || nose.v >= 0.5)) return nose.y;
+  return frame.face?.pts[10]?.y ?? null;
+}
+
 /** The sign in this frame, or null. */
 export function findSign(
   frame: LandmarkFrame,
@@ -80,8 +89,10 @@ export function findSign(
   cfg: StartSignConfig,
 ): SignPoint | null {
   if (kind === 'palm') {
+    // Without a head in view, only the top quarter of the picture counts as "raised".
+    const top = headY(frame) ?? 0.25;
     for (const h of frame.hands) {
-      if (isOpenPalm(h.pts, cfg.palmMinFingers)) {
+      if (isOpenPalm(h.pts, cfg.palmMinFingers) && h.pts[0]!.y < top) {
         const w = h.pts[0]!;
         return { x: w.x, y: w.y, size: dist(w, h.pts[9]!) };
       }

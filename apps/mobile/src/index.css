@@ -45,3 +45,8 @@ html.camera-active body,
 html.camera-active #root {
   background: transparent;
 }
+
+/* v36: the hand-sign try-out is drawn outside #root; hide the page so the camera shows through. */
+html.sign-tryout #root {
+  visibility: hidden;
+}

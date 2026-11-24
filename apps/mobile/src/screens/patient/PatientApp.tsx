@@ -29,6 +29,7 @@ import { saveBackup } from '../../lib/appaccount.ts';
 import { AppointmentsSection, useAppointments } from './Appointments.tsx';
 import { ClinicConsentCard } from './ClinicConsentCard.tsx';
 import { VisitCheck } from '../modes/VisitCheck.tsx';
+import { setSignWanted, signCheck, signWanted } from '../../lib/startsign.ts';
 
 type View =
   | { kind: 'list' }
@@ -1134,6 +1135,7 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
           ))}
         </div>
       </Card>
+      <SignSetting />
       <Card className="flex flex-col gap-2" data-testid="account-card">
         <h2 className="text-[15px] font-bold">{t('modes.account.settingsTitle')}</h2>
         {settings.account ? (
@@ -1151,5 +1153,39 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
       </Card>
       <p className="text-[13px] leading-[19px] text-muted">{t('modes.hospitals.withdrawWhere')}</p>
     </div>
+  );
+}
+
+/** v36 (decision 063): the patient's switch for starting with a hand sign. */
+function SignSetting() {
+  const { t } = useTranslation();
+  const [on, setOn] = useState(signWanted);
+  const check = signCheck();
+  return (
+    <Card className="flex flex-col gap-2" data-testid="sign-setting">
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-[15px] font-bold">{t('modes.settings.signTitle')}</span>
+        <input
+          type="checkbox"
+          className="size-6 accent-brand"
+          checked={on && check === 'works'}
+          disabled={check !== 'works'}
+          onChange={(e) => {
+            setOn(e.target.checked);
+            setSignWanted(e.target.checked);
+          }}
+          data-testid="sign-toggle"
+        />
+      </label>
+      <p className="text-[13px] leading-[19px] text-muted">
+        {t(
+          check === 'works'
+            ? 'modes.settings.signOn'
+            : check === 'too_slow'
+              ? 'modes.settings.signSlow'
+              : 'modes.settings.signNotChecked',
+        )}
+      </p>
+    </Card>
   );
 }

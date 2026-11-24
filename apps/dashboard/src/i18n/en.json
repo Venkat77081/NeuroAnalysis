@@ -118,7 +118,8 @@
     "settings": "Settings",
     "today": "Today",
     "book": "Book appointment",
-    "requests": "Requests"
+    "requests": "Requests",
+    "platformPhones": "Phones"
   },
   "platform": {
     "hospitalsTitle": "Hospitals",
@@ -1870,5 +1871,67 @@
     "anotherDoctor": "another doctor",
     "notice": "View only: this patient's appointment moved to {{doctor}}. You can still see the record, recordings, reports, remarks and reviews, but you can no longer add remarks or reviews, change the plan or send record links.",
     "panel": "Moved to {{doctor}}: you can view this patient, but no longer add remarks or reviews."
+  },
+  "phones": {
+    "title": "Phones",
+    "platformSub": "Every phone that uses the app: patients by their NeuroCapture code (NCID), clinic phones by name. No names or record numbers here.",
+    "platformNote": "Numbers come from each phone's check (when it joined or was added, or from its menu) and from the quick check before each visit.",
+    "hospitalNote": "MRNs are read live from your hospital's records through your connector. NeuroCapture keeps only the patient code (NCID) with the phone's numbers.",
+    "allHospitals": "All hospitals",
+    "filter": "Show",
+    "filters": {
+      "all": "All {{n}}",
+      "patient": "Patients {{n}}",
+      "clinic": "Clinic phones {{n}}",
+      "attention": "Needs attention {{n}}"
+    },
+    "cols": {
+      "who": "Who",
+      "patient": "Patient",
+      "hospital": "Hospital",
+      "phone": "Phone",
+      "camera": "Camera",
+      "memory": "Memory (RAM)",
+      "storage": "Storage",
+      "checked": "Last check",
+      "status": "Status"
+    },
+    "kind": {
+      "patient": "Patient's phone",
+      "clinic": "Clinic phone"
+    },
+    "mrn": "MRN {{mrn}}",
+    "free": "{{v}} free",
+    "of": "of {{v}}",
+    "noVideo": "size not measured",
+    "memoryLowNow": "low at the last visit",
+    "none": "No phones here.",
+    "tiles": {
+      "ready": "Ready",
+      "readySub": "camera, memory and storage pass",
+      "cannotRecord": "Can't record",
+      "cannotRecordSub": "under {{storageStartGb}} GB free",
+      "storageLow": "Low storage",
+      "storageLowSub": "under {{storageWarnGb}} GB free",
+      "memoryLow": "Low memory",
+      "memoryLowSub": "small memory, or low at the last visit",
+      "camera": "Camera below 59 fps",
+      "cameraSub": "some takes may need repeating"
+    },
+    "status": {
+      "ready": "Ready",
+      "camera_slow": "Camera 55–59 fps",
+      "camera_too_slow": "Camera too slow",
+      "memory_low": "Low memory",
+      "memory_too_small": "Not enough memory",
+      "storage_low": "Free up space",
+      "cannot_record": "Can't record: storage",
+      "unchecked": "Not checked"
+    },
+    "tabs": {
+      "label": "Phones",
+      "patients": "All phones · checks",
+      "clinic": "Clinic phones · add"
+    }
   }
 }

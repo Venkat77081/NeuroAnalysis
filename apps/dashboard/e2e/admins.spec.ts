@@ -38,6 +38,8 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
   await expect(page.getByTestId('reset-panel')).toHaveCount(0);
 
   await page.getByTestId('nav-phones').click();
+  // Decision 062: the phones' checks first; adding a clinic phone is on the second tab.
+  await page.getByTestId('phones-tab-clinic').click();
   await page.getByTestId('d-new').click();
   await expect(page.getByTestId('d-code-text')).toHaveText(/^[A-Z2-9]{10}$/);
   // Camera check (decision 035): a failed check does not use the code; 57.2 fps is borderline.
@@ -48,13 +50,36 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
         enrollment_code: code,
         model: 'Redmi Note 12',
         os_version: '14',
-        camera_check: { effective_fps: fps },
+        camera_check: {
+          effective_fps: fps,
+          brand: 'xiaomi',
+          video_width: 1920,
+          video_height: 1080,
+          ram_total_bytes: Math.round(3.7 * 2 ** 30), // a "4 GB" phone
+          ram_free_bytes: 1_400_000_000,
+          storage_free_bytes: 2_500_000_000,
+          storage_total_bytes: 64_000_000_000,
+        },
       },
     });
   expect((await register(48)).status()).toBe(422);
   expect((await register(57.2)).status()).toBe(201);
   await page.getByTestId('nav-team').click();
   await page.getByTestId('nav-phones').click();
+  // Decision 062: every phone's numbers; the patient by MRN (read through the connector).
+  const table = page.getByTestId('phones-table');
+  const redmi = table.locator('tr', { hasText: 'Redmi Note 12' });
+  await expect(redmi).toContainText('57.2 fps');
+  await expect(redmi).toContainText('1920 × 1080');
+  await expect(redmi).toContainText('4 GB');
+  await expect(redmi).toContainText('2.5 GB free');
+  await expect(redmi.getByTestId('phone-status')).toHaveAttribute('data-status', 'storage_low');
+  const asha = table.locator('tr', { hasText: `MRN ${s.patient_mrn}` });
+  await expect(asha).toContainText('6 GB');
+  await expect(asha.getByTestId('phone-status')).toHaveAttribute('data-status', 'ready');
+  await page.getByTestId('phones-filter-attention').click();
+  await expect(table.locator('tr', { hasText: `MRN ${s.patient_mrn}` })).toHaveCount(0);
+  await page.getByTestId('phones-tab-clinic').click();
   await expect(page.getByTestId('devices')).toContainText('Borderline · 57.2 fps');
   await expect(page.getByTestId('devices')).toContainText('In use (last 30 days)');
   await expect(page.getByTestId('device-usage').first()).toHaveText('No takes yet');
@@ -72,6 +97,15 @@ test('M14: platform admin — hospitals, set-up status, onboarding, platform log
 }) => {
   const s = stack();
   await signIn(page, s.root_email, s.root_totp);
+  // Decision 062: every phone, patients by NCID only (never a name or MRN).
+  await page.getByTestId('nav-platformPhones').click();
+  const phones = page.getByTestId('phones-table');
+  const patient = phones.locator('tr', { hasText: s.patient_ncid });
+  await expect(patient).toContainText('Sunrise Neuro Clinic');
+  await expect(patient).toContainText('6 GB');
+  await expect(phones).toContainText('Redmi Note 12');
+  await expect(phones).not.toContainText(s.patient_mrn);
+  await expect(phones).not.toContainText('Asha');
   await page.getByTestId('nav-hospitals').click(); // v10: every role starts on its Overview
   await expect(page.getByTestId('hospitals')).toContainText('Sunrise Neuro Clinic');
   await page.getByTestId('setup-Sunrise Neuro Clinic').click();

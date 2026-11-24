@@ -5,6 +5,7 @@ import { call, resume, signOut, type Tokens } from './api.ts';
 import { InviteAccept, SignIn } from './auth.tsx';
 import { Hospitals, PlatformLog, PlatformSettingsPage } from './platform.tsx';
 import { Activity, Connections, DeletionRequests, Phones, Team } from './hospital.tsx';
+import { PlatformPhones } from './phones.tsx';
 import { OverviewPage } from './overview.tsx';
 import { InvitePatients } from './invites.tsx';
 import { MyPatients, PatientView } from './doctor.tsx';
@@ -106,6 +107,7 @@ export function App() {
   else if (page === 'hospitals')
     body = <Hospitals onPermissions={setPermsFor} onActivity={() => setPage('platformLog')} />;
   else if (page === 'platformLog') body = <PlatformLog />;
+  else if (page === 'platformPhones') body = <PlatformPhones />;
   else if (page === 'platformSettings') body = <PlatformSettingsPage />;
   else if (page === 'overview' && me.role === 'receptionist')
     body = <DeskToday name={me.display_name} onOpen={(p) => nav.includes(p) && setPage(p)} />;

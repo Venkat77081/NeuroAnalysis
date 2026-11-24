@@ -27,7 +27,9 @@ import {
   fmtDate,
   Avatar,
   Dialog,
+  Segmented,
 } from './ui.tsx';
+import { HospitalPhoneTable } from './phones.tsx';
 
 function useLoad<T>(fn: () => Promise<T>): [T | null, unknown, () => void] {
   const [data, setData] = useState<T | null>(null);
@@ -951,6 +953,30 @@ function CheckBadge({ fps }: { fps: number | null }) {
 
 export function Phones() {
   const { t } = useTranslation();
+  // Decision 062: every phone's last check first; adding and removing clinic phones on the second tab.
+  const [tab, setTab] = useState<'checks' | 'clinic'>('checks');
+  return (
+    <Page
+      title={t('phones.title')}
+      sub={t('hospital.checkNote', { min: deviceCheck.minFps, take: deviceCheck.warnBelowFps })}
+    >
+      <Segmented
+        label={t('phones.tabs.label')}
+        value={tab}
+        onChange={setTab}
+        testId={(v) => `phones-tab-${v}`}
+        options={[
+          { value: 'checks', label: t('phones.tabs.patients') },
+          { value: 'clinic', label: t('phones.tabs.clinic') },
+        ]}
+      />
+      {tab === 'checks' ? <HospitalPhoneTable /> : <ClinicPhones />}
+    </Page>
+  );
+}
+
+function ClinicPhones() {
+  const { t } = useTranslation();
   const [devices, , reload] = useLoad(() => call<DeviceRow[]>('GET', '/hospital/devices'));
   const [label, setLabel] = useState('');
   const [code, setCode] = useState<{ code: string; expires_at: string; qr: string } | null>(null);
@@ -967,10 +993,7 @@ export function Phones() {
       setLabel('');
     });
   return (
-    <Page
-      title={t('hospital.phonesTitle')}
-      sub={t('hospital.checkNote', { min: deviceCheck.minFps, take: deviceCheck.warnBelowFps })}
-    >
+    <>
       <ErrorNote error={error} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <ul
@@ -1104,7 +1127,7 @@ export function Phones() {
           )}
         </Card>
       </div>
-    </Page>
+    </>
   );
 }
 

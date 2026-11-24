@@ -305,7 +305,18 @@ def main() -> None:
             "consent_version": "home-consent@1",
             "model": "e2e",
             "os_version": "15",
-            "camera_check": {"effective_fps": 60},
+            # Decision 062: the phone check's numbers (a "6 GB" phone with 18 GB free).
+            "camera_check": {
+                "effective_fps": 60,
+                "brand": "samsung",
+                "video_width": 1920,
+                "video_height": 1080,
+                "video_bytes_per_s": 3600000,
+                "ram_total_bytes": int(5.6 * (1 << 30)),
+                "ram_free_bytes": 2900000000,
+                "storage_free_bytes": 18400000000,
+                "storage_total_bytes": 128000000000,
+            },
         },
     ).json()
     # Ravi's phone fails the camera check (decision 035); he tells the hospital, so reception and

@@ -119,7 +119,17 @@
     "facing": "back",
     "resolution": "1080p",
     "usageDays": 30,
-    "minFpsOptions": [55, 56, 57, 58, 59]
+    "minFpsOptions": [55, 56, 57, 58, 59],
+    "memory": {
+      "minTotalGb": 3,
+      "warnTotalBelowGb": 4,
+      "warnFreeBelowGb": 0.5
+    },
+    "storage": {
+      "warnFreeBelowGb": 3,
+      "visitMarginGb": 0.25,
+      "fallbackMbPerS": 4.5
+    }
   },
   "overview": {
     "periodsDays": {

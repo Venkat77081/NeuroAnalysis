@@ -23,6 +23,7 @@ export interface BenchmarkReport {
     osName: 'android' | 'ios' | 'web';
     osVersion: string;
     sdkInt: number | null;
+    brand?: string;
   };
   settings: {
     facing: 'back' | 'front';
@@ -63,6 +64,7 @@ export interface BenchmarkReport {
   };
   storage: {
     freeBytesBefore: number | null;
+    totalBytes?: number | null;
   };
   errors: string[];
   assessment?: {
@@ -71,6 +73,7 @@ export interface BenchmarkReport {
     reasons: string[];
     tiersConfigVersion: string;
   };
+  memory?: MemoryStatus;
 }
 export interface RecordingStats {
   durationS: number;
@@ -79,4 +82,19 @@ export interface RecordingStats {
   droppedFrames: number;
   droppedFrac: number;
   windowFpsMin: number | null;
+  /**
+   * Size of the recording phase's MP4, measured before it is deleted (decision 062).
+   */
+  videoBytes?: number | null;
+  videoWidth?: number | null;
+  videoHeight?: number | null;
+}
+/**
+ * Memory (RAM) as the phone reports it (Android ActivityManager.MemoryInfo).
+ */
+export interface MemoryStatus {
+  totalBytes: number | null;
+  availBytes: number | null;
+  lowMemory: boolean | null;
+  thresholdBytes?: number | null;
 }

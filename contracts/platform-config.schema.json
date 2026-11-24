@@ -295,7 +295,9 @@
         "facing",
         "resolution",
         "usageDays",
-        "minFpsOptions"
+        "minFpsOptions",
+        "memory",
+        "storage"
       ],
       "description": "Camera check before a phone is added (user, 16 Nov 2026): clinic phones before their registration code is used, patients before their invite is accepted.",
       "properties": {
@@ -336,6 +338,52 @@
             "maximum": 60
           },
           "description": "Pass levels a hospital admin may choose for its phones (v13); the lowest is minFps. A hospital can be stricter, never looser."
+        },
+        "memory": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Phone check, memory (RAM) (decision 062). Below minTotalGb the phone is not suitable; below warnTotalBelowGb, or with less than warnFreeBelowGb free (or Android's low-memory flag) before a visit, the app asks to close other apps.",
+          "required": ["minTotalGb", "warnTotalBelowGb", "warnFreeBelowGb"],
+          "properties": {
+            "minTotalGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Not suitable below this total memory."
+            },
+            "warnTotalBelowGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Warn below this total memory."
+            },
+            "warnFreeBelowGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Before a visit: warn below this free memory."
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Phone check, storage (decision 062). A visit cannot start below session.json storage.minFreeGbToStart or below what the visit needs (its seconds × this phone's measured MB/s, plus the largest take again for its encrypted copy, plus visitMarginGb); warn below warnFreeBelowGb.",
+          "required": ["warnFreeBelowGb", "visitMarginGb", "fallbackMbPerS"],
+          "properties": {
+            "warnFreeBelowGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Warn below this free storage."
+            },
+            "visitMarginGb": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Extra room on top of the visit's own size."
+            },
+            "fallbackMbPerS": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Video MB per second when the phone has not been measured yet."
+            }
+          }
         }
       }
     },
@@ -572,7 +620,10 @@
             "type": "array",
             "minItems": 2,
             "maxItems": 2,
-            "items": { "type": "string", "pattern": "^\\d\\d:\\d\\d$" }
+            "items": {
+              "type": "string",
+              "pattern": "^\\d\\d:\\d\\d$"
+            }
           }
         },
         "afternoonFrom": {
@@ -768,10 +819,26 @@
       "description": "v29 (decision 052): the hospital connector checks in with the platform every heartbeatSeconds; it counts as offline after offlineAfterMinutes without one. Dashboards show the last historyHours, one bar per hour; hourly counts are kept for keepDays.",
       "required": ["heartbeatSeconds", "offlineAfterMinutes", "historyHours", "keepDays"],
       "properties": {
-        "heartbeatSeconds": { "type": "integer", "minimum": 30, "maximum": 3600 },
-        "offlineAfterMinutes": { "type": "integer", "minimum": 2, "maximum": 1440 },
-        "historyHours": { "type": "integer", "minimum": 6, "maximum": 168 },
-        "keepDays": { "type": "integer", "minimum": 1, "maximum": 365 }
+        "heartbeatSeconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3600
+        },
+        "offlineAfterMinutes": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 1440
+        },
+        "historyHours": {
+          "type": "integer",
+          "minimum": 6,
+          "maximum": 168
+        },
+        "keepDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        }
       }
     },
     "appearance": {
@@ -780,8 +847,16 @@
       "description": "v31: with the Automatic appearance, dashboards (and later the app) use their dark colours from darkFromHour until lightFromHour, local time.",
       "required": ["darkFromHour", "lightFromHour"],
       "properties": {
-        "darkFromHour": { "type": "integer", "minimum": 0, "maximum": 23 },
-        "lightFromHour": { "type": "integer", "minimum": 0, "maximum": 23 }
+        "darkFromHour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23
+        },
+        "lightFromHour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23
+        }
       }
     },
     "myPatients": {
@@ -790,9 +865,21 @@
       "description": "v33: the ring on each My patients card. It is full right after a recording and empty at ringDays since the last one; green up to okWithinDays, amber up to warnWithinDays, then red.",
       "required": ["ringDays", "okWithinDays", "warnWithinDays"],
       "properties": {
-        "ringDays": { "type": "integer", "minimum": 7, "maximum": 365 },
-        "okWithinDays": { "type": "integer", "minimum": 1, "maximum": 365 },
-        "warnWithinDays": { "type": "integer", "minimum": 1, "maximum": 365 }
+        "ringDays": {
+          "type": "integer",
+          "minimum": 7,
+          "maximum": 365
+        },
+        "okWithinDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "warnWithinDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        }
       }
     },
     "clinicConsent": {

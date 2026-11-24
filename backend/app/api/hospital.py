@@ -31,6 +31,7 @@ from app.models import (
     Take,
 )
 from app.permissions import require
+from app.phones import PhoneOut, phone_out
 from app.policy import policy
 from app.security import Principal, hash_password, new_secret, require_role, sha256_hex, temporary_password
 
@@ -382,6 +383,18 @@ class DeviceOut(BaseModel):
     takes_recent: int = 0
     #: Of those, how many measured below `deviceCheck.warnBelowFps` (the take minimum, 59).
     takes_below_min: int = 0
+    #: Decision 062: patient phones carry the NCID (the dashboard asks the connector for the MRN).
+    ncid: str | None = None
+    phone: PhoneOut | None = None
+
+
+def ncid_by_device(db: DbSession, site_id: str | None = None) -> dict[str, str]:
+    """Patient phone → the patient's NCID (the only patient key the platform holds)."""
+    q = select(PatientAccount.device_id, Patient.ncid).join(Patient, Patient.id == PatientAccount.patient_id)
+    q = q.where(PatientAccount.device_id.is_not(None))
+    if site_id is not None:
+        q = q.where(PatientAccount.site_id == site_id)
+    return {dev: ncid for dev, ncid in db.execute(q)}
 
 
 def device_usage(db: DbSession, site_id: str, now: datetime) -> dict[str, tuple[int, int]]:
@@ -424,6 +437,7 @@ def list_devices(
         .order_by(Device.registered_at.desc())
     )
     usage = device_usage(db, p.site_id, datetime.now(UTC))
+    ncids = ncid_by_device(db, p.site_id) if kind == "patient" else {}
     return [
         DeviceOut(
             id=d.id,
@@ -438,6 +452,8 @@ def list_devices(
             checked_at=d.checked_at,
             takes_recent=usage.get(d.id, (0, 0))[0],
             takes_below_min=usage.get(d.id, (0, 0))[1],
+            ncid=ncids.get(d.id),
+            phone=phone_out(d),
         )
         for d in db.scalars(q)
     ]

@@ -15,6 +15,7 @@ import { ActivityLog, type LogRow, type Who } from './activity.tsx';
 import { HospitalPermissions } from './permissions.tsx';
 import { MessagingCard } from './messaging.tsx';
 import { Badge, Button, Card, ErrorNote, Field, Notice, Page, Table, fmt, fmtDate } from './ui.tsx';
+import { HospitalPhoneTable } from './phones.tsx';
 
 function useLoad<T>(fn: () => Promise<T>): [T | null, unknown, () => void] {
   const [data, setData] = useState<T | null>(null);
@@ -653,6 +654,10 @@ export function Phones() {
     });
   return (
     <Page title={t('hospital.phonesTitle')}>
+      {/* Decision 062: every phone's last check (patients by MRN, read through the connector). */}
+      <h2 className="text-[17px] font-bold">{t('phones.checksTitle')}</h2>
+      <HospitalPhoneTable />
+      <h2 className="text-[17px] font-bold">{t('phones.clinicTitle')}</h2>
       <ErrorNote error={error} />
       <Card>
         <div className="flex items-end gap-2">

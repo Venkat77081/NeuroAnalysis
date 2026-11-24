@@ -729,6 +729,12 @@ class CaptureKitPlugin : Plugin() {
         call.resolve(JSObject().apply { put("freeBytes", dir.usableSpace); put("totalBytes", dir.totalSpace) })
     }
 
+    /** Memory (RAM) now, for the phone check and the quick check before a visit (decision 062). */
+    @PluginMethod
+    fun getMemoryStatus(call: PluginCall) {
+        call.resolve(DeviceInfo.memory(context))
+    }
+
     /** §15 AppBackgrounded (also an incoming call taking the screen): stop now, take = Interrupted. */
     override fun handleOnPause() {
         if (::session.isInitialized && session.isRecording) session.interrupt("app_backgrounded")

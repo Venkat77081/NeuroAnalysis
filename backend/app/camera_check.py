@@ -6,14 +6,15 @@ not used up by a failed check, so it still works on another phone."""
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.hospital_settings import site_settings
 from app.models import Site
+from app.phones import PhoneIn, memory_too_small, nominal_gb
 from app.policy import policy
 
 
-class CameraCheckIn(BaseModel):
+class CameraCheckIn(PhoneIn):
     #: Frames per second measured by the phone over the check (back camera, 1080p, 60 requested).
     effective_fps: float = Field(ge=0, le=240)
     ran_at: datetime | None = None
@@ -36,5 +37,16 @@ def require_passing(check: CameraCheckIn | None, site: Site | None = None) -> fl
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             {"code": "camera_check_failed", "min_fps": need, "fps": check.effective_fps},
+        )
+    # Decision 062: a phone with too little memory (RAM) cannot record reliably either.
+    if memory_too_small(check.ram_total_bytes):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            {
+                "code": "camera_check_failed",
+                "reason": "memory",
+                "min_memory_gb": policy()["deviceCheck"]["memory"]["minTotalGb"],
+                "memory_gb": nominal_gb(check.ram_total_bytes),
+            },
         )
     return check.effective_fps

@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.keys import server_public_key
 from app.models import Device, Patient, PatientAccount, PatientRefreshToken, Site
+from app.phones import apply_phone
 from app.policy import policy
 from app.security import (
     Principal,
@@ -173,6 +174,7 @@ def invite_accept(body: AcceptIn, db: DbSession = Depends(get_db)) -> AcceptOut:
         check_fps=fps,
         checked_at=datetime.now(UTC),
     )
+    apply_phone(dev, body.camera_check, fps=fps)
     db.add(dev)
     db.flush()
     acc.status = "active"
@@ -350,6 +352,7 @@ def rotate_device(body: RotateIn, db: DbSession = Depends(get_db)) -> AcceptOut:
         check_fps=fps,
         checked_at=datetime.now(UTC),
     )
+    apply_phone(dev, body.camera_check, fps=fps)
     db.add(dev)
     db.flush()
     acc.device_id = dev.id

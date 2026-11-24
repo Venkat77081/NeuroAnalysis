@@ -14,9 +14,23 @@ import org.json.JSONObject
 object DeviceInfo {
     fun device(): JSObject = JSObject().apply {
         put("manufacturer", Build.MANUFACTURER)
+        put("brand", Build.BRAND)
         put("model", Build.MODEL)
         put("osName", "android")
         put("osVersion", Build.VERSION.RELEASE)
+    }
+
+    /** Memory (RAM) as Android reports it: total, available now, and the system's own low flag. */
+    fun memory(context: Context): JSObject {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val mi = android.app.ActivityManager.MemoryInfo()
+        am.getMemoryInfo(mi)
+        return JSObject().apply {
+            put("totalBytes", mi.totalMem)
+            put("availBytes", mi.availMem)
+            put("lowMemory", mi.lowMemory)
+            put("thresholdBytes", mi.threshold)
+        }
     }
 
     fun hardwareLevel(ch: CameraCharacteristics): String = when (ch.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)) {

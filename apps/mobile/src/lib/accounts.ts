@@ -364,3 +364,21 @@ export interface HomeSession {
   recorded_by: string;
   takes_uploaded: number;
 }
+
+/**
+ * Decision 062: this phone's numbers after a phone check from the menu (`kind: 'check'`, with fps)
+ * or before a visit (`kind: 'visit'`, storage and memory only). Best effort: never blocks anything.
+ */
+export async function reportPhone(
+  kit: CaptureKitPlugin,
+  body: Partial<CameraCheck> & { kind: 'check' | 'visit' },
+  profile?: string,
+): Promise<void> {
+  const { ran_at: _ran, ...rest } = body;
+  await kit.apiRequest({
+    method: 'POST',
+    path: '/devices/me/phone',
+    body: JSON.stringify(rest),
+    ...(profile ? { profile } : {}),
+  });
+}

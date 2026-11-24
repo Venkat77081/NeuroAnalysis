@@ -14,6 +14,7 @@
   --color-warn: #8a4b00;
   --color-warn-soft: #fdf0dd;
   --color-bad: #b42318;
+  --color-bad-soft: #fdeceb;
 }
 
 /* Edge-to-edge Android: Capacitor's SystemBars sets --safe-area-inset-*; browsers use env(). */

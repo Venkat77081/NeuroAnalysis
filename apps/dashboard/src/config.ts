@@ -1,9 +1,21 @@
 /** Values the dashboards share with the app and server (config/platform.json). */
 import platformJson from '../../../config/platform.json' with { type: 'json' };
+import sessionJson from '../../../config/session.json' with { type: 'json' };
 
 /** Camera check (decision 035): phones pass at minFps; below warnBelowFps they are borderline. */
 export const deviceCheck: { minFps: number; warnBelowFps: number; usageDays: number } =
   platformJson.deviceCheck;
+
+/** Decision 062: memory (RAM) and storage limits of the phone check. */
+export const phoneLimits = {
+  memory: platformJson.deviceCheck.memory as {
+    minTotalGb: number;
+    warnTotalBelowGb: number;
+    warnFreeBelowGb: number;
+  },
+  storageWarnGb: platformJson.deviceCheck.storage.warnFreeBelowGb as number,
+  storageStartGb: sessionJson.storage.minFreeGbToStart as number,
+};
 
 /** Staff sign-in reset (decision 039): link lifetime and the reasons an admin picks. */
 export const staffReset: { resetTtlHours: number; resetReasons: string[] } = platformJson.staff;

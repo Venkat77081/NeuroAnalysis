@@ -49,3 +49,8 @@ Further pages on the same platform canvas:
 
   Agreed with a 55 fps cut-off for clinic and patient phones (decision 035). The mockups show
   59, the take minimum, which is unchanged.
+
+- **v35 · Phone check: camera, memory and storage** (canvas page v35): the check in the app (ready,
+  storage low, not enough memory, the quick check before a visit), the platform's Phones page (every
+  phone by NCID), the hospital's Phones page (patients by MRN), and the limits. Approved
+  24 Nov 2026 and built (decision 062); on `main` the dashboards show it in the older look.

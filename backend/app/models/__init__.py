@@ -137,6 +137,10 @@ class Device(Base):
     #: Camera check before the phone was added (user, 16 Nov 2026): measured frames per second.
     check_fps: Mapped[float | None] = mapped_column(Float)
     checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    #: Decision 062: brand, video size, memory and storage from the phone check and before each
+    #: visit (app/phones.py). Device data only, never anything about the patient.
+    device_report: Mapped[dict | None] = mapped_column(Json)
+    device_report_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     registered_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 

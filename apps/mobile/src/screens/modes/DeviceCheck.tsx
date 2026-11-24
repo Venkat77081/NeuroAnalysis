@@ -326,7 +326,10 @@ function SignCard({
   const { t } = useTranslation();
   if (!sign)
     return (
-      <div className="flex flex-col gap-2 rounded-xl bg-brand-soft px-3 py-3" data-testid="sign-offer">
+      <div
+        className="flex flex-col gap-2 rounded-xl bg-brand-soft px-3 py-3"
+        data-testid="sign-offer"
+      >
         <b className="text-[14px]">{t('modes.deviceCheck.sign.offerTitle')}</b>
         <span className="text-[13px] leading-[19px] text-muted">
           {t('modes.deviceCheck.sign.offer')}

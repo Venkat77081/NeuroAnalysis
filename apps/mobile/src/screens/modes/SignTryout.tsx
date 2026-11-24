@@ -64,9 +64,9 @@ export function SignTryout({ onDone }: { onDone: (status: SignCheck, hz: number)
       data-testid="sign-tryout"
     >
       {capture.implementation !== 'native' && (
-        <div className="absolute inset-0 -z-10 bg-cam-panel" aria-hidden="true" />
+        <div className="absolute inset-0 -z-10 bg-[#101418]" aria-hidden="true" />
       )}
-      <span className="rounded-full bg-cam px-4 py-2 text-[13px] font-semibold">
+      <span className="rounded-full bg-black/60 px-4 py-2 text-[13px] font-semibold">
         {t('modes.deviceCheck.sign.step')}
       </span>
       <div className="flex flex-col items-center gap-3 text-center">
@@ -77,7 +77,7 @@ export function SignTryout({ onDone }: { onDone: (status: SignCheck, hz: number)
           }}
           aria-hidden="true"
         >
-          <span className="flex size-[100px] items-center justify-center rounded-full bg-cam">
+          <span className="flex size-[100px] items-center justify-center rounded-full bg-black/60">
             <svg
               width="48"
               height="48"

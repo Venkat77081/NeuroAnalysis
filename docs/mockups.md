@@ -53,3 +53,8 @@ Further pages on the same platform canvas:
 - **v31 · Phone app in the Horizon+ look** (canvas page v31): patient app, test page and camera,
   clinic phone, and the evening (dark) look. Approved 19 Nov 2026 and built (decision 055). The
   welcome screen keeps its earlier layout with the new colours.
+
+- **v35 · Phone check: camera, memory and storage** (canvas page v35): the check in the app (ready,
+  storage low, not enough memory, the quick check before a visit), the platform's Phones page (every
+  phone by NCID), the hospital's Phones page (patients by MRN), and the limits. Approved
+  24 Nov 2026 and built (decision 062).

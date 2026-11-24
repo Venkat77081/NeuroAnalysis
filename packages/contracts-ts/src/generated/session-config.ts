@@ -119,4 +119,37 @@ export interface SessionConfig {
       blockNewTakes: boolean;
     };
   };
+  /**
+   * v36 (decision 063): patients start a recording with a sign (open palm; raised arm for Stand and Walk), held still for holdS, then the usual countdown. Only on phones whose phone check passed the sign.
+   */
+  startSign?: {
+    enabled: boolean;
+    /**
+     * Seconds the sign is held still.
+     */
+    holdS: number;
+    /**
+     * Tracking gaps up to this long are bridged.
+     */
+    maxGapS: number;
+    /**
+     * Moving more than this share of the hand's (or shoulders') size restarts the hold.
+     */
+    maxDriftFrac: number;
+    palmMinFingers: number;
+    armMarginFrac: number;
+    kinds: {
+      [k: string]: 'palm' | 'arm';
+    };
+    check: {
+      /**
+       * The phone check needs this many tracking updates a second.
+       */
+      minTrackingHz: number;
+      /**
+       * Seconds to show the sign at the phone check.
+       */
+      tryoutS: number;
+    };
+  };
 }

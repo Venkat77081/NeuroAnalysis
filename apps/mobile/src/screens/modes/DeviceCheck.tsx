@@ -11,6 +11,8 @@ import { capture } from '../../lib/capture.ts';
 import { reportPhone } from '../../lib/accounts.ts';
 import { gb, runDeviceCheck, type DeviceCheckResult, type Tone } from '../../lib/devicecheck.ts';
 import { logger } from '../../lib/logger.ts';
+import { saveSignCheck, type SignCheck } from '../../lib/startsign.ts';
+import { SignTryout } from './SignTryout.tsx';
 import { Button, Card } from '../../ui/kit.tsx';
 
 const TONE: Record<Tone, string> = { ok: 'text-ok', warn: 'text-warn', bad: 'text-bad' };
@@ -69,6 +71,12 @@ export function DeviceCheck({
     fps: null,
   });
   const [failed, setFailed] = useState(false);
+  // v36 (decision 063): the optional hand-sign try-out, on patients' phones only.
+  const [sign, setSign] = useState<{ status: SignCheck; hz: number } | null>(null);
+  const [trying, setTrying] = useState(false);
+  const signEligible =
+    !!config.session.startSign?.enabled &&
+    (who === 'patient' || (who === 'check' && settings.hospitals.length > 0));
   const running = useRef(false);
   const report = useRef(onResult);
   useEffect(() => {
@@ -113,9 +121,28 @@ export function DeviceCheck({
     if (running.current) return;
     setResult(null);
     setFailed(false);
+    setSign(null);
     setProgress({ done: 0, fps: null });
     report.current(null);
     check();
+  };
+
+  const signDone = (status: SignCheck, hz: number) => {
+    if (!result) return;
+    setSign({ status, hz });
+    saveSignCheck(status);
+    const check = {
+      ...result.check,
+      start_sign: status,
+      ...(hz > 0 ? { tracking_hz: Math.round(hz * 10) / 10 } : {}),
+    };
+    // The parent sends the updated check when the patient joins.
+    report.current({ ...result, check });
+    if (who === 'check')
+      for (const h of settings.hospitals.filter((x) => !x.withdrawnAt))
+        void reportPhone(capture.kit, { ...check, kind: 'check' }, h.profile).catch(
+          () => undefined,
+        );
   };
 
   const device = caps ? `${caps.device.model} · Android ${caps.device.osVersion}` : null;
@@ -260,6 +287,17 @@ export function DeviceCheck({
           {t('modes.deviceCheck.borderline', { take: cfg.warnBelowFps })}
         </p>
       )}
+      {passed && signEligible && (
+        <SignCard sign={sign} onTry={() => setTrying(true)} onSkip={() => signDone('skipped', 0)} />
+      )}
+      {trying && (
+        <SignTryout
+          onDone={(status, hz) => {
+            setTrying(false);
+            signDone(status, hz);
+          }}
+        />
+      )}
       {!passed && (
         <>
           {who === 'clinic' && (
@@ -272,5 +310,64 @@ export function DeviceCheck({
         </>
       )}
     </Card>
+  );
+}
+
+/** v36: the hand-sign row of the check: offer the try-out, then show how it went. */
+function SignCard({
+  sign,
+  onTry,
+  onSkip,
+}: {
+  sign: { status: SignCheck; hz: number } | null;
+  onTry: () => void;
+  onSkip: () => void;
+}) {
+  const { t } = useTranslation();
+  if (!sign)
+    return (
+      <div
+        className="flex flex-col gap-2 rounded-xl bg-brand-soft px-3 py-3"
+        data-testid="sign-offer"
+      >
+        <b className="text-[14px]">{t('modes.deviceCheck.sign.offerTitle')}</b>
+        <span className="text-[13px] leading-[19px] text-muted">
+          {t('modes.deviceCheck.sign.offer')}
+        </span>
+        <div className="flex gap-2">
+          <Button className="flex-1" onClick={onTry} data-testid="sign-try">
+            {t('modes.deviceCheck.sign.try')}
+          </Button>
+          <Button className="flex-1" variant="secondary" onClick={onSkip} data-testid="sign-skip">
+            {t('modes.deviceCheck.sign.notNow')}
+          </Button>
+        </div>
+      </div>
+    );
+  const tone: Tone = sign.status === 'works' ? 'ok' : sign.status === 'skipped' ? 'warn' : 'warn';
+  return (
+    <div className="flex flex-col gap-1" data-testid="sign-result" data-status={sign.status}>
+      <CheckRow
+        id="sign"
+        label={t('modes.deviceCheck.sign.row')}
+        value={t(`modes.deviceCheck.sign.status.${sign.status}`)}
+        detail={
+          sign.hz > 0
+            ? t('modes.deviceCheck.sign.hz', { hz: sign.hz.toFixed(0) })
+            : t('modes.deviceCheck.sign.buttonOnly')
+        }
+        tone={tone}
+      />
+      {sign.status !== 'works' && (
+        <button
+          type="button"
+          className="self-start text-[13px] font-semibold text-brand"
+          onClick={onTry}
+          data-testid="sign-again"
+        >
+          {t('modes.deviceCheck.sign.again')}
+        </button>
+      )}
+    </div>
   );
 }

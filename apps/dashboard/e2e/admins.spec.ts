@@ -74,6 +74,10 @@ test('M14: hospital admin — connector health, team, phones, activity (set-up o
   const asha = table.locator('tr', { hasText: `MRN ${s.patient_mrn}` });
   await expect(asha).toContainText('6 GB');
   await expect(asha.getByTestId('phone-status')).toHaveAttribute('data-status', 'ready');
+  // v36: the hand-sign try-out; clinic phones use the button.
+  await expect(asha.getByTestId('phone-sign')).toContainText('Works');
+  await expect(asha.getByTestId('phone-sign')).toContainText('24 / s');
+  await expect(redmi.getByTestId('phone-sign')).toHaveText('—');
   await expect(page.getByTestId('devices')).toContainText('Borderline · 57.2 fps');
   await expect(page.getByTestId('devices')).toContainText('In use (last 30 days)');
   await expect(page.getByTestId('device-usage').first()).toHaveText('No takes yet');

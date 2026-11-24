@@ -316,6 +316,8 @@ def main() -> None:
                 "ram_free_bytes": 2900000000,
                 "storage_free_bytes": 18400000000,
                 "storage_total_bytes": 128000000000,
+                "start_sign": "works",
+                "tracking_hz": 24.0,
             },
         },
     ).json()

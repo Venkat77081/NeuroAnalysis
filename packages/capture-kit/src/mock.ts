@@ -18,6 +18,7 @@ import type {
   StoredTake,
   UploadConfig,
   UploadStatus,
+  MemoryStatus,
 } from './definitions.ts';
 import { DEFAULT_UPLOAD_PROFILE } from './definitions.ts';
 import type { CaptureFixture } from './fixture.ts';
@@ -158,7 +159,13 @@ export class MockCaptureKit implements CaptureKitPlugin {
     return {
       implementation: 'mock',
       pluginVersion: PLUGIN_VERSION,
-      device: { manufacturer: 'mock', model: 'MockCaptureKit', osName: 'web', osVersion: 'n/a' },
+      device: {
+        manufacturer: 'mock',
+        brand: 'mock',
+        model: 'MockCaptureKit',
+        osName: 'web',
+        osVersion: 'n/a',
+      },
       cameras: [
         {
           facing: 'back',
@@ -258,6 +265,9 @@ export class MockCaptureKit implements CaptureKitPlugin {
         droppedFrames: dropped,
         droppedFrac: frames ? dropped / frames : 0,
         windowFpsMin: recordS ? Math.floor(fps) - 1 : null,
+        videoBytes: Math.round(recordS * this.videoBytesPerS),
+        videoWidth: 1920,
+        videoHeight: 1080,
       },
       analysis: {
         fps: this.fixture.fps,
@@ -271,7 +281,8 @@ export class MockCaptureKit implements CaptureKitPlugin {
         windowFpsMin: opts.thermalMinutes ? Math.floor(fps) - 1 : null,
         windowFpsMedian: opts.thermalMinutes ? Math.round(fps) : null,
       },
-      storage: { freeBytesBefore: null },
+      storage: { freeBytesBefore: this.freeBytes, totalBytes: this.totalBytes },
+      memory: await this.getMemoryStatus(),
       errors: [],
     };
   }
@@ -532,8 +543,24 @@ export class MockCaptureKit implements CaptureKitPlugin {
   /** Test helper: free storage reported to the app (§15 StorageLow). */
   freeBytes = 64e9;
 
+  totalBytes = 128e9;
+  /** Test helpers: memory (RAM) and the video size per second the phone check measures (decision 062). */
+  memTotalBytes = 6e9;
+  memAvailBytes = 2.9e9;
+  memLow = false;
+  videoBytesPerS = 3.6e6;
+
   async getStorageStatus(): Promise<{ freeBytes: number; totalBytes: number }> {
-    return { freeBytes: this.freeBytes, totalBytes: 128e9 };
+    return { freeBytes: this.freeBytes, totalBytes: this.totalBytes };
+  }
+
+  async getMemoryStatus(): Promise<MemoryStatus> {
+    return {
+      totalBytes: this.memTotalBytes,
+      availBytes: this.memAvailBytes,
+      lowMemory: this.memLow,
+      thresholdBytes: null,
+    };
   }
 
   /** Test helper: the app goes to the background (or a call comes in) mid-recording. */

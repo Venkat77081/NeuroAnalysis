@@ -43,6 +43,11 @@ class Benchmark(
     @Volatile private var cancelled = false
 
     private var freeBytes: Long? = null
+    private var totalBytes: Long? = null
+    /** Size and pixel size of the recording phase's video, measured before it is deleted (decision 062). */
+    private var recordBytes: Long? = null
+    private var recordWidth: Int? = null
+    private var recordHeight: Int? = null
     private var recordStats: FrameStats.Recording? = null
     private var analysisFrames = 0
     private var analysisP95: Double? = null
@@ -73,8 +78,13 @@ class Benchmark(
         startedMs = System.currentTimeMillis()
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         dir.mkdirs()
-        freeBytes = try { StatFs(activity.filesDir.absolutePath).availableBytes } catch (_: Exception) { null }
-        val needed = if (opts.resolution == "1080p" && opts.targetFps == 60) 3L shl 30 else 2L shl 30
+        val fs = try { StatFs(activity.filesDir.absolutePath) } catch (_: Exception) { null }
+        freeBytes = fs?.availableBytes
+        totalBytes = fs?.totalBytes
+        // Room for the longest segment at a generous 6 MB/s, plus 256 MB: about 0.4 GB for the 20 s
+        // phone check, about 3 GB for a 10-minute qualification. Segments are deleted as they end.
+        val longestS = maxOf(opts.recordMinutes * 60, minOf(opts.thermalMinutes * 60, SEGMENT_S))
+        val needed = (longestS * 6_000_000).toLong() + (256L shl 20)
         if (freeBytes != null && freeBytes!! < needed && totalS > 0) {
             return fail("not enough free storage: ${freeBytes!! shr 20} MB free, ${needed shr 20} MB needed")
         }
@@ -134,10 +144,28 @@ class Benchmark(
         val file = File(dir, "$name-${System.currentTimeMillis()}.mp4")
         session.startRecording("benchmark", file, seconds, onDone = { outcome ->
             val analysis = TakeFinalizer.analyze(outcome) // measure before deleting the file
+            if (name == "record") measureVideo(file)
             file.delete()
             outcome.error?.let { errors.add("$name: $it") }
             main.post { if (!cancelled) then(outcome, analysis) }
         }, started = { err -> if (err != null) main.post { fail("$name: $err") } })
+    }
+
+    private fun measureVideo(file: File) {
+        recordBytes = file.length().takeIf { it > 0 }
+        val r = android.media.MediaMetadataRetriever()
+        try {
+            r.setDataSource(file.absolutePath)
+            val w = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull()
+            val h = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
+            if (w != null && h != null) {
+                recordWidth = maxOf(w, h) // landscape order, whatever the rotation tag says
+                recordHeight = minOf(w, h)
+            }
+        } catch (_: Exception) {
+        } finally {
+            try { r.release() } catch (_: Exception) {}
+        }
     }
 
     fun cancel() {
@@ -191,6 +219,9 @@ class Benchmark(
                 put("droppedFrames", rec?.droppedFrames ?: 0)
                 put("droppedFrac", (rec?.droppedFrac ?: 0.0).coerceIn(0.0, 1.0))
                 put("windowFpsMin", rec?.windowFpsMin ?: JSONObject.NULL)
+                put("videoBytes", recordBytes ?: JSONObject.NULL)
+                put("videoWidth", recordWidth ?: JSONObject.NULL)
+                put("videoHeight", recordHeight ?: JSONObject.NULL)
             })
             val recS = rec?.durationS ?: 0.0
             put("analysis", JSObject().apply {
@@ -205,7 +236,11 @@ class Benchmark(
                 put("windowFpsMin", windows.firstOrNull() ?: JSONObject.NULL)
                 put("windowFpsMedian", if (windows.isEmpty()) JSONObject.NULL else windows[windows.size / 2])
             })
-            put("storage", JSObject().apply { put("freeBytesBefore", freeBytes ?: JSONObject.NULL) })
+            put("storage", JSObject().apply {
+                put("freeBytesBefore", freeBytes ?: JSONObject.NULL)
+                put("totalBytes", totalBytes ?: JSONObject.NULL)
+            })
+            put("memory", DeviceInfo.memory(activity))
             put("errors", JSArray().apply { errors.forEach { put(it) } })
         }
         if (camera == null) return fail("camera closed before the benchmark finished")

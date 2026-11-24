@@ -288,3 +288,8 @@ html.camera-active #root {
     stroke-dashoffset: 0 !important;
   }
 }
+
+/* v36: the hand-sign try-out is drawn outside #root; hide the page so the camera shows through. */
+html.sign-tryout #root {
+  visibility: hidden;
+}

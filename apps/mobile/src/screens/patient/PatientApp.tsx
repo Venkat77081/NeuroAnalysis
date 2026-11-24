@@ -24,6 +24,7 @@ import { stepTitle } from '../session/TestIntro.tsx';
 import { BackButton, Button, Card, Radio } from '../../ui/kit.tsx';
 import { APPEARANCES } from '../../lib/appearance.ts';
 import { VisitCheck } from '../modes/VisitCheck.tsx';
+import { setSignWanted, signCheck, signWanted } from '../../lib/startsign.ts';
 import { ErrorText } from '../modes/Common.tsx';
 import { InviteFlow } from './InviteFlow.tsx';
 import { canRecord } from '../../lib/clinic.ts';
@@ -1310,6 +1311,7 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
           ))}
         </div>
       </Card>
+      <SignSetting />
       {/* v31 (decision 055): Automatic is dark in the evening, like the hospital dashboards. */}
       <Card className="flex flex-col gap-2" data-testid="appearance-card">
         <h2 className="text-[15px] font-bold">{t('modes.settings.appearance')}</h2>
@@ -1360,5 +1362,39 @@ function SettingsView({ onBack, onAddAccount }: { onBack: () => void; onAddAccou
       </Card>
       <p className="text-[13px] leading-[19px] text-muted">{t('modes.hospitals.withdrawWhere')}</p>
     </div>
+  );
+}
+
+/** v36 (decision 063): the patient's switch for starting with a hand sign. */
+function SignSetting() {
+  const { t } = useTranslation();
+  const [on, setOn] = useState(signWanted);
+  const check = signCheck();
+  return (
+    <Card className="flex flex-col gap-2" data-testid="sign-setting">
+      <label className="flex items-center justify-between gap-3">
+        <span className="text-[15px] font-bold">{t('modes.settings.signTitle')}</span>
+        <input
+          type="checkbox"
+          className="size-6 accent-brand"
+          checked={on && check === 'works'}
+          disabled={check !== 'works'}
+          onChange={(e) => {
+            setOn(e.target.checked);
+            setSignWanted(e.target.checked);
+          }}
+          data-testid="sign-toggle"
+        />
+      </label>
+      <p className="text-[13px] leading-[19px] text-muted">
+        {t(
+          check === 'works'
+            ? 'modes.settings.signOn'
+            : check === 'too_slow'
+              ? 'modes.settings.signSlow'
+              : 'modes.settings.signNotChecked',
+        )}
+      </p>
+    </Card>
   );
 }

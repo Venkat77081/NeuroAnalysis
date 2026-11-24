@@ -37,6 +37,7 @@ import { preferredOrientation, rememberOrientation } from '../../lib/orientation
 import type { PreviewTransform } from '@neurocapture/capture-kit';
 import { BackButton } from '../../ui/kit.tsx';
 import { stepTitle } from './TestIntro.tsx';
+import { signCheck, signWanted, useStartSign } from '../../lib/startsign.ts';
 
 /** Takes already started (guards against double effects, e.g. React StrictMode in dev). */
 const started = new Set<string>();
@@ -114,6 +115,23 @@ export function CameraStage() {
   });
   const gateOpen = !!guidance?.gateOpen;
 
+  // v36 (decision 063): patients may start with a sign (open palm; raised arm for Stand and Walk).
+  const signCfg = config.session.startSign;
+  const signKind = signCfg?.kinds[step.code] ?? null;
+  const [signOn] = useState(
+    () =>
+      !!signCfg?.enabled &&
+      !!signKind &&
+      ctx.operatorId === 'patient' &&
+      !ctx.training &&
+      signWanted() &&
+      signCheck() === 'works',
+  );
+  const trackers =
+    signOn && signKind === 'palm' && !cfg.trackers.includes('hand')
+      ? [...cfg.trackers, 'hand' as const]
+      : cfg.trackers;
+
   // Latest values for native event callbacks (updated after each render).
   const live = useRef({ ctx, cfg, app, send, orientation });
   useEffect(() => {
@@ -131,7 +149,7 @@ export function CameraStage() {
         targetFps: cfg.camera.targetFps,
         fallbackFps: cfg.camera.fallbackFps,
         orientation,
-        trackers: cfg.trackers,
+        trackers,
         analysisFps: cfg.analysis.fps,
         trackerDelegate: trackerDelegate(),
       })
@@ -148,6 +166,7 @@ export function CameraStage() {
       setCameraOpen(false);
       void camera.close().catch(() => undefined);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- trackers follow cfg and signOn (fixed)
   }, [cfg, orientation, step.side]);
 
   useEffect(() => {
@@ -313,6 +332,19 @@ export function CameraStage() {
   }, [phase]);
   const needGb = config.session.storage?.minFreeGbToStart ?? 0;
   const storageLow = freeGb !== null && freeGb < needGb;
+  const canRecord =
+    phase === 'framing' &&
+    !cameraError &&
+    !storageLow &&
+    !thermal?.blockNewTakes &&
+    (gateOpen || advisory);
+  // The sign counts only when the framing is green (not on an advisory gate).
+  const signReady = signOn && phase === 'framing' && gateOpen && canRecord;
+  const [bySign, setBySign] = useState(false);
+  const signProgress = useStartSign(signReady, signKind ?? 'palm', signCfg!, () => {
+    setBySign(true);
+    send({ type: 'RECORD', takeId: newId('tk') });
+  });
 
   const overlay = cfg.framing.overlay as OverlayKind;
   const landscape = orientation === 'landscape';
@@ -454,6 +486,11 @@ export function CameraStage() {
       {phase === 'countdown' && ctx.currentTakeId && (
         <Countdown
           key={ctx.currentTakeId}
+          lowerHand={
+            bySign
+              ? t(signKind === 'arm' ? 'session.sign.lowerArm' : 'session.sign.lowerHand')
+              : null
+          }
           seconds={config.session.countdownS}
           lock={locked ? null : cfg.camera.lock}
           onDone={() => send({ type: 'COUNTDOWN_DONE' })}
@@ -482,6 +519,15 @@ export function CameraStage() {
         />
       ) : (
         <section className={L.panel} data-testid="controls">
+          {signOn && phase === 'framing' && (
+            <SignPrompt
+              kind={signKind ?? 'palm'}
+              ready={signReady}
+              progress={signProgress}
+              label={t(signKind === 'arm' ? 'session.sign.arm' : 'session.sign.palm')}
+              waiting={t('session.sign.waiting')}
+            />
+          )}
           <span className="text-center text-xs text-muted" data-testid="gate-status">
             {advisory && !gateOpen
               ? t('session.guidance.advisory')
@@ -500,7 +546,10 @@ export function CameraStage() {
                 !!thermal?.blockNewTakes ||
                 !(gateOpen || advisory)
               }
-              onClick={() => send({ type: 'RECORD', takeId: newId('tk') })}
+              onClick={() => {
+                setBySign(false);
+                send({ type: 'RECORD', takeId: newId('tk') });
+              }}
               className="relative flex size-[76px] items-center justify-center rounded-full border-4 border-white disabled:opacity-40"
               data-testid="record"
               data-gate={gateOpen ? 'open' : 'closed'}
@@ -520,12 +569,16 @@ function Countdown({
   seconds,
   lock,
   onDone,
+  lowerHand,
 }: {
+  /** Started by the patient's sign: say and show "Lower your hand" (v36). */
+  lowerHand: string | null;
   seconds: number;
   /** null = already locked when the gate opened. */
   lock: { ae: boolean; af: boolean; awb: boolean } | null;
   onDone: () => void;
 }) {
+  const { i18n } = useTranslation();
   const [count, setCount] = useState(seconds);
   const done = useRef(onDone);
   useEffect(() => {
@@ -533,6 +586,7 @@ function Countdown({
   });
   useEffect(() => {
     if (lock) void capture.kit.lockCameraSettings(lock).catch(() => undefined);
+    if (lowerHand) void speak(lowerHand, i18n.language);
     let n = seconds;
     beep();
     const h = setInterval(() => {
@@ -546,9 +600,13 @@ function Countdown({
       }
     }, 1000 / clockSpeed);
     return () => clearInterval(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- spoken once, at the start
   }, [seconds, lock]);
   return (
-    <div className="absolute inset-0 flex items-center justify-center" aria-live="assertive">
+    <div
+      className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+      aria-live="assertive"
+    >
       <span
         key={count}
         className="nc-pop text-[120px] font-bold drop-shadow-lg"
@@ -556,6 +614,11 @@ function Countdown({
       >
         {count > 0 ? count : ''}
       </span>
+      {lowerHand && (
+        <b className="text-[20px] drop-shadow-lg" data-testid="countdown-lower">
+          {lowerHand}
+        </b>
+      )}
     </div>
   );
 }
@@ -784,5 +847,38 @@ function GateRing({ progress }: { progress: number }) {
         transform="rotate(-90 40 40)"
       />
     </svg>
+  );
+}
+
+/** v36: "Show your open palm to start" with the hold filling up (patients only). */
+function SignPrompt({
+  kind,
+  ready,
+  progress,
+  label,
+  waiting,
+}: {
+  kind: 'palm' | 'arm';
+  ready: boolean;
+  progress: number;
+  label: string;
+  waiting: string;
+}) {
+  return (
+    <div
+      className="mx-auto flex max-w-[320px] flex-col gap-1.5 rounded-2xl bg-cam px-4 py-2.5 text-center text-[14px] font-semibold"
+      data-testid="sign-prompt"
+      data-kind={kind}
+      data-ready={ready ? 'true' : 'false'}
+    >
+      <span>{ready ? label : waiting}</span>
+      <span className="h-1.5 overflow-hidden rounded-full bg-white/20" aria-hidden="true">
+        <span
+          className="block h-full rounded-full bg-[#f97360] transition-[width] duration-100"
+          style={{ width: `${Math.round(progress * 100)}%` }}
+          data-testid="sign-progress"
+        />
+      </span>
+    </div>
   );
 }

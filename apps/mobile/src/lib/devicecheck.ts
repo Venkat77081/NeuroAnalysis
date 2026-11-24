@@ -37,6 +37,9 @@ export interface CameraCheck {
   ram_low?: boolean;
   storage_free_bytes?: number;
   storage_total_bytes?: number;
+  /** v36: the hand-sign try-out (works / too_slow / not_seen / skipped) and the tracking rate. */
+  start_sign?: 'works' | 'too_slow' | 'not_seen' | 'skipped';
+  tracking_hz?: number;
 }
 
 export type CheckOutcome = 'pass' | 'borderline' | 'fail';

@@ -461,6 +461,13 @@
       "badge": "Practice",
       "start": "Start practice",
       "summary": "Practice session: these takes are deleted when you end the session and are never uploaded."
+    },
+    "sign": {
+      "palm": "Raise an open palm above your head to start · or tap Record",
+      "arm": "Raise one arm above your head to start · or tap Record",
+      "waiting": "When the outline turns green, show the sign to start",
+      "lowerHand": "Lower your hand",
+      "lowerArm": "Lower your arm"
     }
   },
   "trackingTest": {
@@ -659,7 +666,11 @@
         "system": "Same as this phone",
         "light": "Light",
         "dark": "Dark"
-      }
+      },
+      "signTitle": "Start with a hand sign",
+      "signOn": "Raise an open palm above your head (or one arm for the walking test) to start a recording, instead of tapping Record.",
+      "signNotChecked": "Run the phone check from the menu to try the sign on this phone.",
+      "signSlow": "This phone tracks hands too slowly for the sign. Use the Record button."
     },
     "errors": {
       "network": "Cannot reach the server. Check the network.",
@@ -862,6 +873,26 @@
         "memoryLowHint": "The phone is low on memory. Close other apps, then check again, so the camera keeps 60 frames a second.",
         "again": "Check again",
         "memoryFree": "{{free}} GB free now"
+      },
+      "sign": {
+        "step": "Phone check · hand sign",
+        "title": "Raise an open palm above your head",
+        "hint": "Hold it still for 1 second. This is how you can start a recording at home without touching the phone.",
+        "skip": "Skip: I'll use the button",
+        "offerTitle": "Start recordings with a hand sign?",
+        "offer": "At home you can raise an open palm above your head to start a recording instead of tapping Record. Try it now (about 6 seconds).",
+        "try": "Try it",
+        "notNow": "Not now",
+        "row": "Start with a hand sign",
+        "status": {
+          "works": "Works",
+          "too_slow": "Too slow",
+          "not_seen": "Not seen",
+          "skipped": "Not tried"
+        },
+        "hz": "Hand tracking {{hz}} times a second",
+        "buttonOnly": "Use the Record button",
+        "again": "Try the sign again"
       }
     },
     "account": {

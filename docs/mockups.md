@@ -58,3 +58,8 @@ Further pages on the same platform canvas:
   storage low, not enough memory, the quick check before a visit), the platform's Phones page (every
   phone by NCID), the hospital's Phones page (patients by MRN), and the limits. Approved
   24 Nov 2026 and built (decision 062).
+
+- **v36 · Start a recording with a hand sign (patients only)** (canvas page v36): the try-out in
+  the phone check, the camera prompt and countdown, Stand and Walk's raised arm, the Phones column
+  and the rules. Approved 24 Nov 2026 and built (decision 063); in testing the palm moved above the
+  head, because the hand tests start with open hands at shoulder height.

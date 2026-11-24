@@ -84,7 +84,8 @@ def summary(o: dict) -> str:
     lines += [f"  {r:<22} {e:<30} key {k}" for r, e, k in rows]
     lines += [
         "",
-        f"  Patient in the records: Asha Testpatient, MRN {o['patient_mrn']} (one home recording uploaded)",
+        f"  Patient in the records: Asha Testpatient, MRN {o['patient_mrn']} "
+        f"({len(o['takes'])} home recording{'s' if len(o['takes']) > 1 else ''} uploaded)",
         "  Other record: Ravi Samplename, MRN 00012401 (no e-mail on file)",
         "",
     ]
@@ -95,7 +96,22 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", required=True)
     ap.add_argument("--lan", help="this computer's address on the Wi-Fi (for a phone)")
+    ap.add_argument(
+        "--video",
+        action="append",
+        default=[],
+        metavar="[TEST=]PATH",
+        help="a real recording to upload as Asha's take instead of the sample, e.g. take.mp4 or "
+        "SAW=walk.mp4 (test FT, FTF, FR, SAW or FA; default --test). Repeat for more takes. "
+        "The connector analyses each one; the video stays on this computer.",
+    )
+    ap.add_argument(
+        "--test",
+        default="FT",
+        help="test of a --video given without TEST= (default FT)",
+    )
     args = ap.parse_args()
+    videos = videos_to_upload(args.video, args.test)
     work = Path(args.dir).resolve()
     host = args.lan or "127.0.0.1"
     bind = "0.0.0.0" if args.lan else "127.0.0.1"  # noqa: S104 - opt-in, for a phone on the LAN
@@ -326,41 +342,20 @@ def main() -> None:
     key = sess["encryption_key"]
     assert key["owner"] == "hospital", key
 
-    from analysis.takecrypto import encrypt_file, new_data_keyset, wrap_data_key
-
-    keyset = new_data_keyset()
-    video = (ROOT / "apps" / "dashboard" / "e2e" / "stack" / "sample.mp4").read_bytes()
-    files = {"video": encrypt_file(keyset, "e2e-take-ft", "video", video)}
     pub = serialization.load_pem_public_key(key["public_key_pem"].encode())
     assert isinstance(pub, rsa.RSAPublicKey)
-    plan = api.post(
-        "/takes",
-        headers=ph,
-        json={
-            "session_id": sess["id"],
-            "client_take_id": "e2e-take-ft",
-            "test_code": "FT",
-            "side": None,
-            "take_no": 1,
-            "capture_verdict": "PASS",
-            "quality": {"captureVerdict": "PASS"},
-            "meta": {},
-            "wrapped_data_key": wrap_data_key(keyset, pub),
-            "key_id": key["key_id"],
-            "files": [
-                {"kind": k, "size_bytes": len(v), "sha256": hashlib.sha256(v).hexdigest()}
-                for k, v in files.items()
-            ],
-        },
-    ).json()
-    for f in plan["files"]:
-        data, size, etags = files[f["kind"]], f["part_size"], []
-        for p in f["parts"]:
-            chunk = data[(p["number"] - 1) * size : p["number"] * size]
-            r = httpx.put(p["url"], content=chunk, timeout=30)
-            etags.append({"number": p["number"], "etag": r.headers["ETag"]})
-        api.post(f"/takes/{plan['take_id']}/files/{f['kind']}/complete", headers=ph, json={"parts": etags})
-    api.post(f"/takes/{plan['take_id']}/complete", headers=ph)
+    uploaded = []
+    for n, (test_code, path) in enumerate(videos):
+        video = path.read_bytes()
+        cid = "e2e-take-ft" if not args.video else f"local-take-{n + 1}"
+        take_id = upload_take(api, ph, sess, key, pub, cid, test_code, n + 1, video)
+        uploaded.append((test_code, path.name, take_id, video))
+        if args.video:
+            print(
+                f"  uploaded {path.name} as {test_code} ({len(video) / 1e6:.1f} MB)",
+                flush=True,
+            )  # noqa: T201
+    _, _, first_take, video = uploaded[0]
 
     out = {
         **accounts,
@@ -373,18 +368,120 @@ def main() -> None:
         "patient_device_id": acc["device_id"],
         "patient_device_secret": acc["device_secret"],
         "patient_pin": "2580",
-        "take_id": plan["take_id"],
+        "take_id": first_take,
         "video_sha256": hashlib.sha256(video).hexdigest(),
+        "takes": [{"test_code": t, "file": f, "take_id": i} for t, f, i, _ in uploaded],
         "platform_db": str(work / "platform.db"),
         "platform_log": str(work / "platform.log"),
         "store": str(work / "store"),
     }
     (work / "stack.json").write_text(json.dumps(out, indent=2))
     print(summary(out), flush=True)  # noqa: T201
+    if args.video:
+        print(  # noqa: T201
+            "  Your videos are analysed by the connector in the background (about a minute each for "
+            "a 15 s take, longer for Stand and Walk); then sign in as Dr. Rao and open Asha's "
+            "Biomarker report.\n",
+            flush=True,
+        )
     print("ready", flush=True)  # noqa: T201
     while all(p.poll() is None for p in procs):
         time.sleep(0.5)
     stop()
+
+
+def upload_take(
+    api,
+    ph: dict,
+    sess: dict,
+    key: dict,
+    pub,
+    cid: str,
+    test_code: str,
+    take_no: int,
+    video: bytes,
+) -> str:
+    """Uploads one take as the patient's phone does: encrypted with a fresh data key for the hospital."""
+    from analysis.takecrypto import encrypt_file, new_data_keyset, wrap_data_key
+
+    keyset = new_data_keyset()
+    files = {"video": encrypt_file(keyset, cid, "video", video)}
+    plan = api.post(
+        "/takes",
+        headers=ph,
+        json={
+            "session_id": sess["id"],
+            "client_take_id": cid,
+            "test_code": test_code,
+            "side": None,
+            "take_no": take_no,
+            "capture_verdict": "PASS",
+            "quality": {"captureVerdict": "PASS"},
+            "meta": {},
+            "wrapped_data_key": wrap_data_key(keyset, pub),
+            "key_id": key["key_id"],
+            "files": [
+                {
+                    "kind": k,
+                    "size_bytes": len(v),
+                    "sha256": hashlib.sha256(v).hexdigest(),
+                }
+                for k, v in files.items()
+            ],
+        },
+    ).json()
+    for f in plan["files"]:
+        data, size, etags = files[f["kind"]], f["part_size"], []
+        for p in f["parts"]:
+            chunk = data[(p["number"] - 1) * size : p["number"] * size]
+            r = httpx.put(p["url"], content=chunk, timeout=30)
+            etags.append({"number": p["number"], "etag": r.headers["ETag"]})
+        api.post(
+            f"/takes/{plan['take_id']}/files/{f['kind']}/complete",
+            headers=ph,
+            json={"parts": etags},
+        )
+    api.post(f"/takes/{plan['take_id']}/complete", headers=ph)
+    return plan["take_id"]
+
+
+def videos_to_upload(given: list[str], default_test: str) -> list[tuple[str, Path]]:
+    """(test, path) per --video, checked before anything starts; the sample take without any."""
+    if not given:
+        return [("FT", ROOT / "apps" / "dashboard" / "e2e" / "stack" / "sample.mp4")]
+    tests = {"FT", "FTF", "FR", "SAW", "FA"}
+    out = []
+    for g in given:
+        code, sep, rest = g.partition("=")
+        test, path = (
+            (code.strip().upper(), Path(rest))
+            if sep and code.strip().isalpha() and len(code.strip()) <= 4  # "SAW=walk.mp4", not a path
+            else (default_test.upper(), Path(g))
+        )
+        if test not in tests:
+            raise SystemExit(f"Unknown test {test!r}: use one of {', '.join(sorted(tests))}.")
+        if not path.is_file():
+            raise SystemExit(f"Video not found: {path}")
+        out.append((test, path.resolve()))
+    try:
+        from ncbio.keypoints import TEST_KINDS, model_path
+        from ncbio.run import REPORT_TESTS
+    except ImportError:
+        raise SystemExit(
+            "The biomarker analysis (ncbio) is not installed for this Python, so the connector would not "
+            f"analyse the video. Install it: {sys.executable} -m pip install -e biomarkers"
+        ) from None
+    kinds = sorted({k for test, _ in out for k in TEST_KINDS[test]})
+    missing = [k for k in kinds if not model_path(k).is_file()]
+    if missing:
+        raise SystemExit(
+            f"Models missing ({', '.join(missing)}). Download them once: "
+            f"cd biomarkers && {sys.executable} -m ncbio models"
+        )
+    for test, _ in out:
+        if test not in REPORT_TESTS:
+            raise SystemExit(f"{test} is not analysed yet.")
+    return out
 
 
 if __name__ == "__main__":

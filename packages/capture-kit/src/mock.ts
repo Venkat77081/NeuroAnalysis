@@ -33,6 +33,7 @@ import {
   type TakeVariant,
 } from '@neurocapture/quality-core';
 import {
+  decodeAnalysisFrame,
   encodeAnalysisFrame,
   encodeLandmarks,
   recordFromEvent,
@@ -361,8 +362,53 @@ export class MockCaptureKit implements CaptureKitPlugin {
     };
   }
 
+  /**
+   * Test helper (v36): the person in view shows the start sign, an open palm or one arm raised
+   * above the head. Added to every analysis frame until set back to null (never while recording).
+   */
+  startSign: 'palm' | 'arm' | null = null;
+
+  private withSign(e: AnalysisFrameEvent): AnalysisFrameEvent {
+    if (!this.startSign || this.recording) return e;
+    const f = decodeAnalysisFrame(e);
+    if (this.startSign === 'palm') {
+      // One of the person's hands opens into the palm, where that hand already is.
+      const i = Math.max(
+        0,
+        f.hands.findIndex((h) => h.side === 'R'),
+      );
+      // Raised above the head (the nose, or the forehead of the face mesh), else near the top.
+      const head = f.pose?.[0]?.y ?? f.face?.pts[10]?.y ?? null;
+      const x0 = f.hands[i]?.pts[0]?.x ?? 0.5;
+      const w = { x: x0, y: head !== null ? Math.max(0.02, head - 0.08) : 0.2, z: 0 };
+      const pts = Array.from({ length: 21 }, () => ({ x: w.x, y: w.y, z: 0 }));
+      [-0.05, -0.017, 0.017, 0.05].forEach((dx, k) => {
+        const b = 5 + k * 4;
+        pts[b] = { x: w.x + dx, y: w.y - 0.06, z: 0 };
+        pts[b + 1] = { x: w.x + dx, y: w.y - 0.09, z: 0 };
+        pts[b + 2] = { x: w.x + dx, y: w.y - 0.11, z: 0 };
+        pts[b + 3] = { x: w.x + dx, y: w.y - 0.13, z: 0 };
+      });
+      const hands = [...f.hands];
+      hands[i] = { side: hands[i]?.side ?? 'R', score: 0.95, pts };
+      f.hands = hands;
+    } else {
+      const pose = f.pose?.length
+        ? f.pose.map((p) => ({ ...p }))
+        : Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.6, z: 0, v: 0.9 }));
+      pose[0] = pose[0] ?? { x: 0.5, y: 0.3, z: 0, v: 0.9 };
+      const nose = pose[0];
+      pose[11] = pose[11] ?? { x: 0.42, y: nose.y + 0.1, z: 0, v: 0.9 };
+      pose[12] = pose[12] ?? { x: 0.58, y: nose.y + 0.1, z: 0, v: 0.9 };
+      pose[16] = { x: 0.6, y: Math.max(0.01, nose.y - 0.15), z: 0, v: 0.95 };
+      f.pose = pose;
+    }
+    return { ...encodeAnalysisFrame(f), emitNs: e.emitNs, procMs: e.procMs };
+  }
+
   /** Emit an analysis event and, while recording, keep it as a landmarks.bin record. */
-  private emitAnalysis(e: AnalysisFrameEvent): void {
+  private emitAnalysis(raw: AnalysisFrameEvent): void {
+    const e = this.withSign(raw);
     this.emit('analysisFrame', e);
     if (e.imageW && e.imageH) this.lastImage = { w: e.imageW, h: e.imageH };
     if (this.recording && (this.camera?.trackers.length ?? 0) > 0)

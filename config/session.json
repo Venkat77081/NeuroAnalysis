@@ -58,5 +58,24 @@
       "warn": true,
       "blockNewTakes": true
     }
+  },
+  "startSign": {
+    "enabled": true,
+    "holdS": 1.0,
+    "maxGapS": 0.3,
+    "maxDriftFrac": 0.6,
+    "palmMinFingers": 4,
+    "armMarginFrac": 0.2,
+    "kinds": {
+      "FT": "palm",
+      "FTF": "palm",
+      "FR": "palm",
+      "FA": "palm",
+      "SAW": "arm"
+    },
+    "check": {
+      "minTrackingHz": 10,
+      "tryoutS": 6
+    }
   }
 }

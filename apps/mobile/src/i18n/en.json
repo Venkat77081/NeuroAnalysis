@@ -789,7 +789,7 @@
       "every": "Asked every session. Ticking it is saved with this session only."
     },
     "deviceCheck": {
-      "step": "Step 1 of 2 · Camera check",
+      "step": "Step 1 of 2 · Phone check",
       "step2": "Step 2 · Register with your hospital",
       "checking": "Checking this phone",
       "patientTitle": "First, a quick camera check",
@@ -817,7 +817,38 @@
       "tellHint": "Optional: the hospital sees \"Phone not suitable\" on your record, so your doctor can choose clinic recording. Only the phone model and the result are sent.",
       "told": "{{hospital}} has been told. Your invite still works on another phone.",
       "again": "Run the check again",
-      "error": "The camera check could not run. Close other apps that use the camera and try again."
+      "error": "The camera check could not run. Close other apps that use the camera and try again.",
+      "rows": {
+        "camera": "Camera",
+        "fps": "{{fps}} fps",
+        "video": "{{w}} × {{h}}, back camera",
+        "memory": "Memory",
+        "gb": "{{gb}} GB",
+        "memoryFree": "{{free}} GB free at the check",
+        "memoryTooSmall": "At least {{min}} GB is needed to record at 60 fps",
+        "storage": "Storage",
+        "free": "{{free}} GB free",
+        "visitNeeds": "A visit needs about {{need}} GB on this phone",
+        "measured": "Test video measured: {{mb}} MB a second (then deleted)."
+      },
+      "storageBad": "Free up at least {{free}} GB before recording: delete videos you no longer need, or apps you don't use. A visit starts only with {{start}} GB free. You can still join now.",
+      "storageWarn": "Space is getting low. Free up some space soon so recordings are not stopped.",
+      "memoryWarn": "This phone has {{gb}} GB of memory. Recording works; close other apps before each recording.",
+      "failMemoryTitle": "This phone does not have enough memory",
+      "visit": {
+        "title": "Before you start",
+        "checking": "Checking space and memory…",
+        "storage": "Storage",
+        "storageOk": "{{free}} GB free",
+        "need": "This visit needs {{need}} GB on this phone",
+        "blocked": "Not enough space for this visit. Free up at least {{free}} GB (delete videos or apps you don't need), then check again.",
+        "memory": "Memory",
+        "memoryOk": "Enough free",
+        "memoryLow": "Low",
+        "memoryLowHint": "The phone is low on memory. Close other apps, then check again, so the camera keeps 60 frames a second.",
+        "again": "Check again",
+        "memoryFree": "{{free}} GB free now"
+      }
     },
     "account": {
       "startTitle": "Your NeuroCapture account",

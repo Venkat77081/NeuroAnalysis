@@ -10,6 +10,7 @@ import { useSession } from '../../session/useSession.ts';
 import type { MedState, Patient } from '../../session/machine.ts';
 import { Button, Card, Sheet } from '../../ui/kit.tsx';
 import { UploadSetup } from '../UploadSetup.tsx';
+import { VisitCheck } from '../modes/VisitCheck.tsx';
 
 const LONG_PRESS_MS = 1200;
 
@@ -78,7 +79,11 @@ export function SessionHome({
   const training = ctx.training;
   /** Queue-only phone with no queue patient started: only the queue (and practice) show. */
   const waitingForQueue = queueOnly && !training && !ctx.patient;
-  const ready = !!ctx.consent && (training || (!!ctx.patient && !!ctx.medState));
+  // Decision 062: a visit does not start without the space it needs (practice keeps nothing).
+  const [noSpace, setNoSpace] = useState(false);
+  const ready =
+    !!ctx.consent && (training || (!!ctx.patient && !!ctx.medState)) && (training || !noSpace);
+  const seconds = ctx.plan.map((p) => config.tests.get(p.code)?.task.durationS ?? 0);
   const yob = Number(draft.yob);
   const draftOk = draft.ref.trim().length >= 3 && (!draft.yob || (yob >= 1900 && yob <= 2030));
 
@@ -324,6 +329,11 @@ export function SessionHome({
         )}
       </main>
 
+      {!waitingForQueue && !training && ctx.plan.length > 0 && (
+        <div className="px-5 pt-3">
+          <VisitCheck seconds={seconds} onBlocked={setNoSpace} />
+        </div>
+      )}
       {!waitingForQueue && (
         <footer className="px-5 pt-3 pb-6">
           <Button

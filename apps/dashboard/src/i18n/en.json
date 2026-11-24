@@ -1894,7 +1894,8 @@
       "memory": "Memory (RAM)",
       "storage": "Storage",
       "checked": "Last check",
-      "status": "Status"
+      "status": "Status",
+      "sign": "Hand-sign start"
     },
     "kind": {
       "patient": "Patient's phone",
@@ -1932,6 +1933,14 @@
       "label": "Phones",
       "patients": "All phones · checks",
       "clinic": "Clinic phones · add"
+    },
+    "sign": {
+      "works": "Works",
+      "too_slow": "Too slow",
+      "not_seen": "Sign not seen",
+      "skipped": "Skipped",
+      "untried": "Not tried",
+      "hz": "{{hz}} / s"
     }
   }
 }

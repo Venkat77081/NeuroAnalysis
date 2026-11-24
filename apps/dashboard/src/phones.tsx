@@ -30,6 +30,9 @@ export interface PhoneInfo {
   ram_low: boolean | null;
   storage_free_bytes: number | null;
   storage_total_bytes: number | null;
+  /** v36: the hand-sign try-out on a patient's phone. */
+  start_sign?: 'works' | 'too_slow' | 'not_seen' | 'skipped' | null;
+  tracking_hz?: number | null;
   reported_at: string | null;
   status: PhoneStatus;
 }
@@ -125,7 +128,29 @@ function cells(r: PhoneRow, t: TFunction) {
   const p = r.phone;
   const px =
     p?.video_width && p.video_height ? `${p.video_width} × ${p.video_height}` : t('phones.noVideo');
+  const sign = p?.start_sign ?? null;
+  const signTone: Record<string, 'ok' | 'warn' | 'bad' | 'neutral'> = {
+    works: 'ok',
+    too_slow: 'warn',
+    not_seen: 'bad',
+    skipped: 'neutral',
+  };
   return {
+    sign:
+      r.kind === 'clinic' ? (
+        <span className="text-muted">—</span>
+      ) : sign ? (
+        <span className="flex flex-col items-start gap-1">
+          <Badge tone={signTone[sign] ?? 'neutral'}>{t(`phones.sign.${sign}`)}</Badge>
+          {p?.tracking_hz ? (
+            <span className="text-[12px] text-muted">
+              {t('phones.sign.hz', { hz: Math.round(p.tracking_hz) })}
+            </span>
+          ) : null}
+        </span>
+      ) : (
+        <span className="text-[12px] text-muted">{t('phones.sign.untried')}</span>
+      ),
     camera: (
       <Two
         top={r.check_fps === null ? '—' : `${r.check_fps.toFixed(1)} fps`}
@@ -242,6 +267,7 @@ export function PhoneTable({
     t('phones.cols.camera'),
     t('phones.cols.memory'),
     t('phones.cols.storage'),
+    t('phones.cols.sign'),
     t('phones.cols.checked'),
     t('phones.cols.status'),
   ];
@@ -309,6 +335,9 @@ export function PhoneTable({
                   <td className="border-b border-line px-3 py-2">{c.camera}</td>
                   <td className="border-b border-line px-3 py-2">{c.memory}</td>
                   <td className="border-b border-line px-3 py-2">{c.storage}</td>
+                  <td className="border-b border-line px-3 py-2" data-testid="phone-sign">
+                    {c.sign}
+                  </td>
                   <td className="border-b border-line px-3 py-2 whitespace-nowrap">
                     {fmtDate(r.phone?.reported_at ?? r.checked_at) || '—'}
                   </td>

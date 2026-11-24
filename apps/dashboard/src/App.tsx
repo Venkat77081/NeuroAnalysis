@@ -13,6 +13,7 @@ import { HospitalSettingsPage } from './changes.tsx';
 import { ChooseTests, waitingForTests } from './choose.tsx';
 import { PermsContext, menuFor } from './perms.ts';
 import { PermissionsPage } from './permissions.tsx';
+import { PlatformPhones } from './phones.tsx';
 
 interface Me {
   id: string;
@@ -88,6 +89,7 @@ export function App() {
   if (permsFor) body = <PermissionsPage siteId={permsFor} onBack={() => setPermsFor(null)} />;
   else if (page === 'hospitals') body = <Hospitals onPermissions={setPermsFor} />;
   else if (page === 'platformLog') body = <PlatformLog />;
+  else if (page === 'platformPhones') body = <PlatformPhones />;
   else if (page === 'platformSettings') body = <PlatformSettingsPage />;
   else if (page === 'overview')
     body = (

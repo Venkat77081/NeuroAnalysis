@@ -52,9 +52,7 @@ test('patient: try the sign at the phone check, then start a recording with it',
     f.sendRequest(f.joinedNcids()[0]!, { tests: ['FT'] });
   });
   await page.getByTestId('hospital-card').click(); // fetches the request
-  await expect(page.getByTestId('menu-recordings-count')).toHaveText('1');
-  await page.getByRole('button', { name: 'Back' }).click();
-  await page.getByTestId('todo-record').first().click();
+  await page.getByTestId('needs-record').getByRole('button').click();
   await page.getByTestId('consent-check').check();
   await expect(page.getByTestId('consent-start')).toBeEnabled();
   await page.getByTestId('consent-start').click();

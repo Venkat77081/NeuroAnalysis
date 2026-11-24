@@ -56,3 +56,9 @@ if (capture.implementation === 'mock')
 /** `?benchFps=48` makes the mock's camera check measure 48 fps (device-check e2e). */
 const benchFps = Number(params.get('benchFps'));
 if (capture.kit instanceof MockCaptureKit && benchFps > 0) capture.kit.benchmarkFps = benchFps;
+/** Decision 062 (e2e): `?memGb=2.8&memLow=1` set the mock's memory (with `?freeGb` above). */
+if (capture.kit instanceof MockCaptureKit) {
+  const memGb = Number(params.get('memGb'));
+  if (memGb > 0) capture.kit.memTotalBytes = memGb * 2 ** 30;
+  if (params.get('memLow') === '1') capture.kit.memLow = true;
+}

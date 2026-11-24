@@ -11,6 +11,7 @@ import { useSession } from '../../session/useSession.ts';
 import { stepLength, type MedState, type Patient } from '../../session/machine.ts';
 import { Button, Card, Sheet } from '../../ui/kit.tsx';
 import { UploadSetup } from '../UploadSetup.tsx';
+import { VisitCheck } from '../modes/VisitCheck.tsx';
 
 export { Logo } from '../../ui/Logo.tsx';
 import { Logo } from '../../ui/Logo.tsx';
@@ -49,7 +50,14 @@ export function SessionHome({
   const training = ctx.training;
   /** Queue-only phone with no queue patient started: only the queue (and practice) show. */
   const waitingForQueue = queueOnly && !training && !ctx.patient;
-  const ready = !!ctx.consent && (training || (!!ctx.patient && !!ctx.medState));
+  // Decision 062: a visit does not start without the space it needs (practice records nothing kept).
+  const [noSpace, setNoSpace] = useState(false);
+  const ready =
+    !!ctx.consent && (training || (!!ctx.patient && !!ctx.medState)) && (training || !noSpace);
+  const seconds = ctx.plan.map((p) => {
+    const c = config.tests.get(p.code);
+    return c ? stepLength(p, c) : 0;
+  });
   const yob = Number(draft.yob);
   const draftOk = draft.ref.trim().length >= 3 && (!draft.yob || (yob >= 1900 && yob <= 2030));
 
@@ -370,6 +378,11 @@ export function SessionHome({
         </button>
       )}
       {greetingShown && <div aria-hidden className="h-20" />}
+      {!waitingForQueue && !training && ctx.plan.length > 0 && (
+        <div className="px-5 pt-3">
+          <VisitCheck seconds={seconds} onBlocked={setNoSpace} />
+        </div>
+      )}
       {!waitingForQueue && (
         <footer className="px-5 pt-3 pb-6">
           <Button

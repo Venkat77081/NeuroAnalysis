@@ -23,6 +23,7 @@ import { logger } from '../../lib/logger.ts';
 import { stepTitle } from '../session/TestIntro.tsx';
 import { BackButton, Button, Card, Radio } from '../../ui/kit.tsx';
 import { APPEARANCES } from '../../lib/appearance.ts';
+import { VisitCheck } from '../modes/VisitCheck.tsx';
 import { ErrorText } from '../modes/Common.tsx';
 import { InviteFlow } from './InviteFlow.tsx';
 import { canRecord } from '../../lib/clinic.ts';
@@ -1189,6 +1190,8 @@ function ConsentView({
   const [plan, setPlan] = useState<HomePlan | null>(null);
   const [consent, setConsent] = useState(false);
   const [askMed, setAskMed] = useState(false);
+  // Decision 062: not enough storage for this visit stops it from starting.
+  const [noSpace, setNoSpace] = useState(true);
   useEffect(() => {
     if (!request) void repo.store.get<HomePlan>(cacheKey(h, 'plan')).then(setPlan);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1197,8 +1200,11 @@ function ConsentView({
   const med = request?.med_state ?? plan?.med_state ?? 'ANY';
   const { steps, minutes } = testsMinutes(config, tests, request?.durations);
   const doctor = request?.doctor_name ?? t('modes.hospitals.yourDoctor');
+  const seconds = steps.map(
+    ([code]) => request?.durations?.[code] ?? config.tests.get(code)?.task.durationS ?? 0,
+  );
   const start = (m: 'ON' | 'OFF') => {
-    if (!consent || steps.length === 0) return;
+    if (!consent || steps.length === 0 || noSpace) return;
     void startHomeSession(tests, m, {
       profile: h.profile,
       requestId: request?.id ?? null,
@@ -1240,6 +1246,9 @@ function ConsentView({
         <span className="font-semibold">{t('modes.consent.agree', { hospital: h.hospital })}</span>
       </label>
       <p className="text-[13px] leading-[19px] text-muted">{t('modes.consent.without')}</p>
+      {steps.length > 0 && (
+        <VisitCheck seconds={seconds} onBlocked={setNoSpace} profile={h.profile} />
+      )}
       {askMed ? (
         <Card className="flex flex-col gap-3" data-testid="home-med-ask">
           <p className="text-[15px] font-semibold">{t('modes.home.medAsk')}</p>
@@ -1259,7 +1268,7 @@ function ConsentView({
         </Card>
       ) : (
         <Button
-          disabled={!consent || steps.length === 0}
+          disabled={!consent || steps.length === 0 || noSpace}
           onClick={() => (med === 'ANY' ? setAskMed(true) : start(med))}
           data-testid="consent-start"
         >

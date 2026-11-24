@@ -58,7 +58,11 @@ export function UploadSetup({ onClose }: { onClose: () => void }) {
   const doEnroll = () =>
     run(async () => {
       // Decision 035: the same camera check as clinic set-up, run before the code is sent.
-      const check = await runDeviceCheck(capture.kit, config.platform.deviceCheck);
+      const check = await runDeviceCheck(
+        capture.kit,
+        config.platform.deviceCheck,
+        config.session.storage?.minFreeGbToStart ?? 0,
+      );
       if (check.outcome === 'fail') throw new ServerError('camera_check_failed');
       const link: ServerLink = await enroll(
         capture.kit,

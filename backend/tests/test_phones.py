@@ -110,3 +110,18 @@ def test_the_phone_reports_before_each_visit(api, two_hospitals):
     assert row["check_fps"] == 57.0
     # Staff cannot report for a phone.
     assert api.post("/devices/me/phone", headers=hdr(t["a_tok"]), json={}).status_code == 403
+
+
+def test_the_hand_sign_try_out_is_kept(api, two_hospitals):
+    """v36 (decision 063): the try-out's result and the tracking rate, per phone."""
+    t = two_hospitals
+    ncid, r = _join(api, t, {"effective_fps": 59.8, **PHONE, "start_sign": "works", "tracking_hz": 24.3})
+    assert r.status_code == 201, r.text
+    rows = api.get("/hospital/devices?kind=patient", headers=hdr(t["a_tok"])).json()
+    (row,) = [x for x in rows if x["ncid"] == ncid]
+    assert (row["phone"]["start_sign"], row["phone"]["tracking_hz"]) == ("works", 24.3)
+    ptok = hdr(r.json()["tokens"]["access_token"])
+    out = api.post("/devices/me/phone", headers=ptok, json={"kind": "check", "start_sign": "too_slow"}).json()
+    assert out["start_sign"] == "too_slow" and out["tracking_hz"] == 24.3
+    bad = api.post("/devices/me/phone", headers=ptok, json={"kind": "check", "start_sign": "maybe"})
+    assert bad.status_code == 422

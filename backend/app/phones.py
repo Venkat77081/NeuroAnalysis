@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -34,6 +35,9 @@ class PhoneIn(BaseModel):
     ram_low: bool | None = None
     storage_free_bytes: int | None = Field(default=None, ge=0)
     storage_total_bytes: int | None = Field(default=None, ge=0)
+    #: v36 (decision 063): the hand-sign try-out on a patient's phone, and the tracking rate.
+    start_sign: Literal["works", "too_slow", "not_seen", "skipped"] | None = None
+    tracking_hz: float | None = Field(default=None, ge=0, le=240)
 
 
 class PhoneStatusIn(PhoneIn):
@@ -118,6 +122,8 @@ class PhoneOut(BaseModel):
     ram_low: bool | None = None
     storage_free_bytes: int | None = None
     storage_total_bytes: int | None = None
+    start_sign: str | None = None
+    tracking_hz: float | None = None
     reported_at: datetime | None = None
     status: str = "unchecked"
 
@@ -134,6 +140,8 @@ def phone_out(dev: Device) -> PhoneOut:
         ram_low=info.get("ram_low"),
         storage_free_bytes=info.get("storage_free_bytes"),
         storage_total_bytes=info.get("storage_total_bytes"),
+        start_sign=info.get("start_sign"),
+        tracking_hz=info.get("tracking_hz"),
         reported_at=dev.device_report_at,
         status=status_of(dev),
     )

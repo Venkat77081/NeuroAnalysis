@@ -283,7 +283,9 @@
         "facing",
         "resolution",
         "usageDays",
-        "minFpsOptions"
+        "minFpsOptions",
+        "memory",
+        "storage"
       ],
       "description": "Camera check before a phone is added (user, 16 Nov 2026): clinic phones before their registration code is used, patients before their invite is accepted.",
       "properties": {
@@ -324,6 +326,52 @@
             "maximum": 60
           },
           "description": "Pass levels a hospital admin may choose for its phones (v13); the lowest is minFps. A hospital can be stricter, never looser."
+        },
+        "memory": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Phone check, memory (RAM) (decision 062). Below minTotalGb the phone is not suitable; below warnTotalBelowGb, or with less than warnFreeBelowGb free (or Android's low-memory flag) before a visit, the app asks to close other apps.",
+          "required": ["minTotalGb", "warnTotalBelowGb", "warnFreeBelowGb"],
+          "properties": {
+            "minTotalGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Not suitable below this total memory."
+            },
+            "warnTotalBelowGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Warn below this total memory."
+            },
+            "warnFreeBelowGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Before a visit: warn below this free memory."
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Phone check, storage (decision 062). A visit cannot start below session.json storage.minFreeGbToStart or below what the visit needs (its seconds × this phone's measured MB/s, plus the largest take again for its encrypted copy, plus visitMarginGb); warn below warnFreeBelowGb.",
+          "required": ["warnFreeBelowGb", "visitMarginGb", "fallbackMbPerS"],
+          "properties": {
+            "warnFreeBelowGb": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Warn below this free storage."
+            },
+            "visitMarginGb": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Extra room on top of the visit's own size."
+            },
+            "fallbackMbPerS": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Video MB per second when the phone has not been measured yet."
+            }
+          }
         }
       }
     },

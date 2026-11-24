@@ -123,6 +123,40 @@ export interface PlatformConfig {
      * @minItems 1
      */
     minFpsOptions: [number, ...number[]];
+    /**
+     * Phone check, memory (RAM) (decision 062). Below minTotalGb the phone is not suitable; below warnTotalBelowGb, or with less than warnFreeBelowGb free (or Android's low-memory flag) before a visit, the app asks to close other apps.
+     */
+    memory: {
+      /**
+       * Not suitable below this total memory.
+       */
+      minTotalGb: number;
+      /**
+       * Warn below this total memory.
+       */
+      warnTotalBelowGb: number;
+      /**
+       * Before a visit: warn below this free memory.
+       */
+      warnFreeBelowGb: number;
+    };
+    /**
+     * Phone check, storage (decision 062). A visit cannot start below session.json storage.minFreeGbToStart or below what the visit needs (its seconds × this phone's measured MB/s, plus the largest take again for its encrypted copy, plus visitMarginGb); warn below warnFreeBelowGb.
+     */
+    storage: {
+      /**
+       * Warn below this free storage.
+       */
+      warnFreeBelowGb: number;
+      /**
+       * Extra room on top of the visit's own size.
+       */
+      visitMarginGb: number;
+      /**
+       * Video MB per second when the phone has not been measured yet.
+       */
+      fallbackMbPerS: number;
+    };
   };
   /**
    * v10 Overview pages (decision 042): time windows for the cards and the chart.

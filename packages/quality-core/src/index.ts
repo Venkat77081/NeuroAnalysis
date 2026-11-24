@@ -96,6 +96,7 @@ export { evaluationFields, type EvaluationFields } from './verdict/report.ts';
 export {
   extendedFingers,
   findSign,
+  headY,
   isOpenPalm,
   raisedWrist,
   StartSignTracker,

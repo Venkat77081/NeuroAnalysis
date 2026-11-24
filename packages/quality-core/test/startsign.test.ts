@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   extendedFingers,
   findSign,
+  headY,
   isOpenPalm,
   raisedWrist,
   StartSignTracker,
@@ -74,16 +75,50 @@ describe('start sign: what counts as the sign', () => {
     expect(raisedWrist([], 0.2)).toBeNull();
   });
 
+  it('the palm counts only above the head (the hand tests start with open hands up)', () => {
+    const atShoulder = {
+      pose: pose(0.6),
+      hands: [{ side: 'R' as const, score: 0.9, pts: hand(true, 0.5, 0.45) }],
+    };
+    expect(findSign(frame(atShoulder), 'palm', cfg)).toBeNull();
+    const raised = {
+      pose: pose(0.6),
+      hands: [{ side: 'R' as const, score: 0.9, pts: hand(true, 0.5, 0.25) }],
+    };
+    expect(findSign(frame(raised), 'palm', cfg)).toMatchObject({ x: 0.5, y: 0.25 });
+    // Facial Activation (face only): the forehead of the face mesh is the line.
+    const face = {
+      pts: Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.4, z: 0 })),
+      yaw: 0,
+      pitch: 0,
+      roll: 0,
+    };
+    expect(headY(frame({ face }))).toBe(0.4);
+    expect(headY(frame({ pose: pose(0.6) }))).toBe(0.3);
+    expect(headY(frame({}))).toBeNull();
+    expect(
+      findSign(
+        frame({ face, hands: [{ side: 'L', score: 0.9, pts: hand(true, 0.5, 0.35) }] }),
+        'palm',
+        cfg,
+      ),
+    ).not.toBeNull();
+  });
+
   it('finds the sign in a frame, with its size', () => {
+    // No head in view: only the top quarter of the picture counts.
+    expect(
+      findSign(frame({ hands: [{ side: 'R', score: 0.9, pts: hand(true) }] }), 'palm', cfg),
+    ).toBeNull();
     const palm = findSign(
-      frame({ hands: [{ side: 'right', score: 0.9, pts: hand(true) }] }),
+      frame({ hands: [{ side: 'R', score: 0.9, pts: hand(true, 0.5, 0.2) }] }),
       'palm',
       cfg,
     );
-    expect(palm).toMatchObject({ x: 0.5, y: 0.8 });
+    expect(palm).toMatchObject({ x: 0.5, y: 0.2 });
     expect(palm!.size).toBeCloseTo(Math.hypot(0.02, 0.15), 6); // wrist to the middle knuckle
     expect(
-      findSign(frame({ hands: [{ side: 'left', score: 0.9, pts: hand(false) }] }), 'palm', cfg),
+      findSign(frame({ hands: [{ side: 'L', score: 0.9, pts: hand(false) }] }), 'palm', cfg),
     ).toBeNull();
     const arm = findSign(frame({ pose: pose(0.2) }), 'arm', cfg);
     expect(arm).toMatchObject({ x: 0.65, y: 0.2 });

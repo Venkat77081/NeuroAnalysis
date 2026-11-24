@@ -554,8 +554,24 @@ export class FakeServer {
       return res(422, {
         detail: { code: 'camera_check_failed', min_fps: this.minCheckFps, fps: c.effective_fps },
       });
+    // Decision 062: too little memory (RAM), in the phone's nominal GB.
+    const ram = (c as { ram_total_bytes?: unknown }).ram_total_bytes;
+    const gb = typeof ram === 'number' && ram > 0 ? Math.ceil(ram / 2 ** 30) : null;
+    if (gb !== null && gb < this.minMemoryGb)
+      return res(422, {
+        detail: {
+          code: 'camera_check_failed',
+          reason: 'memory',
+          min_memory_gb: this.minMemoryGb,
+          memory_gb: gb,
+        },
+      });
     return null;
   }
+  /** config/platform.json deviceCheck.memory.minTotalGb. */
+  minMemoryGb = 3;
+  /** Decision 062: the last phone report (POST /devices/me/phone), for tests. */
+  lastPhoneReport: Record<string, unknown> | null = null;
 
   /** Patient endpoints that need no access token (invite, PIN sign-in). */
   private patientPublic(
@@ -867,6 +883,10 @@ export class FakeServer {
   ): HttpResponse | null {
     const patient = me.kind === 'patient' ? this.patients.get(me.id) : undefined;
     if (path.startsWith('/patient/') && !patient) return res(403);
+    if (path === '/devices/me/phone' && init.method === 'POST') {
+      this.lastPhoneReport = body;
+      return res(200, { status: 'ready' });
+    }
     if (path === '/sessions/can-record' && init.method === 'GET')
       return res(200, {
         can_record: this.canRecord,

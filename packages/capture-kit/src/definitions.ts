@@ -20,6 +20,8 @@ export interface DeviceCapabilities {
   pluginVersion: string;
   device: {
     manufacturer: string;
+    /** Consumer brand (Build.BRAND), e.g. "samsung"; absent on older plugin builds. */
+    brand?: string;
     model: string;
     osName: 'android' | 'ios' | 'web';
     osVersion: string;
@@ -41,6 +43,15 @@ export interface BenchmarkOpts {
   recordMinutes: number;
   /** Thermal phase: keep recording in segments while watching fps and thermal status (30 min). */
   thermalMinutes: number;
+}
+
+/** Memory (RAM) as the phone reports it (decision 062). Nulls where the platform cannot tell. */
+export interface MemoryStatus {
+  totalBytes: number | null;
+  availBytes: number | null;
+  /** The system's own "memory is low" flag (Android ActivityManager). */
+  lowMemory: boolean | null;
+  thresholdBytes?: number | null;
 }
 
 export interface BenchmarkProgressEvent {
@@ -283,6 +294,8 @@ export interface CaptureKitPlugin {
   getThermalStatus(): Promise<ThermalEvent>;
   /** Free space where takes are stored (§15 StorageLow). */
   getStorageStatus(): Promise<{ freeBytes: number; totalBytes: number }>;
+  /** Memory (RAM) now: the phone check and the quick check before a visit (decision 062). */
+  getMemoryStatus(): Promise<MemoryStatus>;
   /** Early stop by the operator. */
   stopRecording(): Promise<RecordingResult>;
   closeCamera(): Promise<void>;

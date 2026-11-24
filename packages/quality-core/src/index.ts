@@ -93,3 +93,14 @@ export {
   type RecordedTakeInput,
 } from './verdict/recorded.ts';
 export { evaluationFields, type EvaluationFields } from './verdict/report.ts';
+export {
+  extendedFingers,
+  findSign,
+  isOpenPalm,
+  raisedWrist,
+  StartSignTracker,
+  type SignPoint,
+  type SignState,
+  type StartSignConfig,
+  type StartSignKind,
+} from './detectors/startsign.ts';

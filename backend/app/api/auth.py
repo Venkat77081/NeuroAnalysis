@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.keys import server_public_key
 from app.models import Device, DeviceEnrollment, Operator, RefreshToken, Site
+from app.phones import apply_phone
 from app.security import (
     Principal,
     create_access_token,
@@ -78,6 +79,7 @@ def device_register(body: RegisterIn, db: DbSession = Depends(get_db)) -> Regist
         check_fps=fps,
         checked_at=now_,
     )
+    apply_phone(dev, body.camera_check, fps=fps)
     db.add(dev)
     db.flush()
     if enr:

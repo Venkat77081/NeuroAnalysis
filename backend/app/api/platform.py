@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.connector_health import ConnectorHistoryOut, history, is_online, last_seen
 from app.db import get_db
 from app.models import AuditEvent, Device, Operator, PatientAccount, Site, StaffUser
+from app.phones import PhoneOut, phone_out
 from app.policy import policy
 from app.security import Principal, require_role, sha256_hex
 from app.storage.sites import can_record
@@ -580,3 +581,48 @@ def platform_settings(_: Principal = Depends(admin_only)) -> PlatformSettingsOut
         azure_app_client_id=s.azure_client_id,
         dev_storage=s.dev_storage,
     )
+
+
+class PlatformPhoneOut(BaseModel):
+    """Decision 062: one phone that uses the app. Patients by NCID only; clinic phones by name."""
+
+    id: str
+    kind: str
+    site_id: str
+    hospital: str
+    #: Patient phones: the patient's NCID (never a name or MRN). Clinic phones: their label.
+    ncid: str | None
+    label: str | None
+    model: str
+    os_version: str
+    check_fps: float | None
+    checked_at: datetime | None
+    phone: PhoneOut
+
+
+@router.get("/phones", response_model=list[PlatformPhoneOut])
+def list_phones(
+    _: Principal = Depends(admin_only),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> list[PlatformPhoneOut]:
+    from app.api.hospital import ncid_by_device
+
+    sites = {s.id: s.name for s in db.scalars(select(Site))}
+    ncids = ncid_by_device(db)
+    q = select(Device).where(Device.revoked_at.is_(None)).order_by(Device.registered_at.desc())
+    return [
+        PlatformPhoneOut(
+            id=d.id,
+            kind=d.kind,
+            site_id=d.site_id,
+            hospital=sites.get(d.site_id, ""),
+            ncid=ncids.get(d.id) if d.kind == "patient" else None,
+            label=d.label if d.kind == "clinic" else None,
+            model=d.model,
+            os_version=d.os_version,
+            check_fps=d.check_fps,
+            checked_at=d.checked_at,
+            phone=phone_out(d),
+        )
+        for d in db.scalars(q)
+    ]

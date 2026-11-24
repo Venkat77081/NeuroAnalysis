@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.audit import audit
 from app.db import get_db
 from app.models import Device
+from app.phones import PhoneOut, PhoneStatusIn, apply_phone, phone_out
 from app.security import Principal, require_device
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -25,6 +26,20 @@ def _own(p: Principal, device_id: str, db: DbSession) -> Device:
     if not dev or dev.site_id != p.site_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "device not found")
     return dev
+
+
+@router.post("/me/phone", response_model=PhoneOut)
+def report_phone(
+    body: PhoneStatusIn,
+    p: Principal = Depends(require_device),  # noqa: B008
+    db: DbSession = Depends(get_db),  # noqa: B008
+) -> PhoneOut:
+    """Decision 062: the phone's own numbers, from the menu's phone check or before a visit."""
+    dev = p.device
+    assert dev is not None
+    apply_phone(dev, body, fps=body.effective_fps, kind=body.kind)
+    db.commit()
+    return phone_out(dev)
 
 
 @router.get("/{device_id}/tier", response_model=TierOut)

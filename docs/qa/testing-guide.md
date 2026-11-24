@@ -210,9 +210,38 @@ pnpm dev:dashboard                                                          # ht
   ```
 
 - **Patients in the stand-in records:**
-  - Asha Testpatient, MRN 00012388 (has one uploaded home recording);
+  - Asha Testpatient, MRN 00012388 (has one uploaded home recording, or yours with `--video`);
   - Ravi Samplename, MRN 00012401 (no e-mail on file).
 - **Start again:** stop the stack (Ctrl+C) and run it again; it starts empty each time.
+
+### Your own recording in the stack
+
+Add `--video` to upload a real recording (for example one saved with the app's test mode
+"Save video to phone") as Asha's home recording, instead of the small sample:
+
+```bash
+.venv/bin/python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack --video take.mp4                       # Finger Tapping
+.venv/bin/python apps/dashboard/e2e/stack/run_stack.py --dir /tmp/nc-stack --video FT=tap.mp4 --video SAW=walk.mp4  # one take per test
+```
+
+- **Tests:** `FT`, `FTF`, `FR`, `SAW`, `FA`. A video without `TEST=` uses `--test` (default `FT`).
+  Windows: `python apps\dashboard\e2e\stack\run_stack.py --dir C:\nc-stack --video SAW=C:\videos\walk.mp4`.
+- **What happens:** the stack encrypts each video for the hospital and uploads it like the phone
+  does. The connector then analyses it in the background: about a minute for a 15 s take, a few
+  minutes for Stand and Walk. Then sign in as Dr. Rao, open Asha and open the Biomarker report.
+- **Needs:** the analysis package and its models for the same Python (the stack checks first and
+  tells you what is missing):
+
+  ```bash
+  .venv/bin/python -m pip install -e biomarkers
+  cd biomarkers && ../.venv/bin/python -m ncbio models
+  ```
+
+- **Full report:** the analysis needs 60 fps (at least 58) and the full length (15 s, 45 s for
+  Stand and Walk). A shorter or slower video shows only the results table, with the reason in each
+  row.
+- **Privacy:** the video stays on your computer, in the stack's folder (`--dir`), encrypted. Do not
+  commit recordings of real people.
 
 ## Level 3 — a real phone
 

@@ -13,6 +13,8 @@ Each hospital runs its own side in **its own** subscription. That guide is
 Background: [`../PRODUCTION.md`](../PRODUCTION.md). The older combined guide, [`azure.md`](azure.md),
 has the same platform steps.
 
+Prefer the Azure portal (clicks instead of commands)? See [`azure-platform-portal.md`](azure-platform-portal.md).
+
 ---
 
 ## 1. What the platform holds, and what it never holds

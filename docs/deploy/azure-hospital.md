@@ -8,6 +8,8 @@ The NeuroCapture platform (API and dashboards) is run by NeuroCapture: see
 [`azure-platform.md`](azure-platform.md). Background: [`../connector.md`](../connector.md) and
 [`../biomarkers.md`](../biomarkers.md).
 
+Prefer the Azure portal (clicks instead of commands)? See [`azure-hospital-portal.md`](azure-hospital-portal.md).
+
 ---
 
 ## 1. What runs at the hospital, and why

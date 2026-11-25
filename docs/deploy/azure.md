@@ -3,6 +3,8 @@
 A step-by-step guide for running the **NeuroCapture platform** (API + dashboards) on Azure. It also
 covers a hospital that runs its **connector** in its own Azure subscription.
 
+- **Separate guides:** [`azure-platform.md`](azure-platform.md) (the platform, for NeuroCapture) and
+  [`azure-hospital.md`](azure-hospital.md) (connector, recordings and biomarkers, for each hospital).
 - **AWS instead?** See [`aws.md`](aws.md).
 - **Background and cloud-neutral reference:** [`../PRODUCTION.md`](../PRODUCTION.md).
 

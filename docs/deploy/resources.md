@@ -1,7 +1,8 @@
 # Resources to create: a checklist
 
 Everything to create before go-live, in order, on **AWS** or **Azure**. The step-by-step commands
-are in [`aws.md`](aws.md) and [`azure.md`](azure.md); the cloud-neutral reference is
+are in [`aws.md`](aws.md) and [`azure.md`](azure.md) (on Azure, also split into
+[`azure-platform.md`](azure-platform.md) and [`azure-hospital.md`](azure-hospital.md)); the cloud-neutral reference is
 [`../PRODUCTION.md`](../PRODUCTION.md).
 
 There are two kinds of deployment:
